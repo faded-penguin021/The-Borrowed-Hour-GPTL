@@ -1,0 +1,3245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Borrowed Hour — Gemini Artifact</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+// ../../tmp/borrowed.jsx
+var { useState, useRef, useEffect } = React;
+if (!window.storage) {
+  window.storage = {
+    async get(key) {
+      const value = localStorage.getItem(key);
+      return value === null ? null : { key, value };
+    },
+    async set(key, value) {
+      localStorage.setItem(key, value);
+      return { key, value };
+    },
+    async delete(key) {
+      localStorage.removeItem(key);
+      return { key };
+    },
+    async list(prefix = "") {
+      const keys = [];
+      for (let i = 0;i < localStorage.length; i += 1) {
+        const key = localStorage.key(i);
+        if (!prefix || key.startsWith(prefix))
+          keys.push(key);
+      }
+      keys.sort();
+      return { keys };
+    }
+  };
+}
+var getGeminiKey = () => {
+  const injected = window.GEMINI_API_KEY || document.querySelector('meta[name="gemini-api-key"]')?.content;
+  if (injected)
+    return injected.trim();
+  const stored = localStorage.getItem(GEMINI_KEY_STORAGE);
+  if (stored)
+    return stored.trim();
+  const entered = window.prompt("Enter a Gemini API key for this local standalone file. It is stored only in this browser's localStorage.");
+  if (!entered || !entered.trim()) {
+    throw new BorrowedError("The hour cannot open yet.", "No Gemini API key was provided. Set window.GEMINI_API_KEY, add a meta gemini-api-key tag, or enter a key when prompted.");
+  }
+  localStorage.setItem(GEMINI_KEY_STORAGE, entered.trim());
+  return entered.trim();
+};
+var resetGeminiKey = () => {
+  localStorage.removeItem(GEMINI_KEY_STORAGE);
+  window.alert("Stored Gemini API key removed. Reload and begin again to enter a different key.");
+};
+var normalizeGeminiContent = (content) => {
+  if (typeof content === "string")
+    return content;
+  if (Array.isArray(content)) {
+    return content.map((part) => {
+      if (typeof part === "string")
+        return part;
+      if (part && typeof part.text === "string")
+        return part.text;
+      if (part && typeof part.content === "string")
+        return part.content;
+      return "";
+    }).filter(Boolean).join(`
+`);
+  }
+  return String(content ?? "");
+};
+var normalizeGeminiMessages = (msgs) => msgs.map((m) => ({
+  role: m.role === "assistant" ? "model" : "user",
+  parts: [{ text: normalizeGeminiContent(m.content) }]
+}));
+var extractGeminiText = (data) => {
+  const chunks = [];
+  for (const candidate of data.candidates || []) {
+    for (const part of candidate.content?.parts || []) {
+      if (typeof part.text === "string")
+        chunks.push(part.text);
+    }
+  }
+  return chunks.join(`
+`).trim();
+};
+var buildCustomPremise = (description) => ({
+  id: "custom-" + Date.now().toString(36),
+  realm: "wild",
+  realmLabel: "WILD",
+  title: "The Unwritten Hour",
+  teaser: description.slice(0, 140) + (description.length > 140 ? "…" : ""),
+  isCustom: true,
+  seed: description.trim(),
+  gmNote: `This is a player-authored scenario. Take the player's description above as the canonical foundation — the world, the situation, the player's character, the texture of the place. You may invent NPCs, locations, complications, and atmosphere as needed, but stay faithful to the spirit of what they wrote.
+
+If the description is sparse, expand it with care: invent specific, evocative details (a name, a smell, a sound) rather than abstract description. If the description is dense, honor every load-bearing element they specified.
+
+OBJECTIVE NEGOTIATION:
+The seed may commit to an objective ("escape the trap," "deliver the message," "find my sister," "survive the night," "solve the mystery") — or it may stay silent and atmospheric, all situation and no stated goal. The two cases are handled differently.
+
+When the seed COMMITS: accept the stated objective. Lock it into the rolling summary by turn 2 ("The objective: deliver the letter to the High Tower before dawn"). Do not re-negotiate. Proceed.
+
+When the seed is SILENT or ambiguous: do NOT silently invent a goal and commit on the player's behalf. Instead, by turn 2 or 3, let the world itself pose the question through fiction — a stranger asks where the player is going and why, a map on a wall presents three roads each marked with a different reason, an internal pull surfaces as a felt absence the player will name. The player's answer IS the objective. Once they answer, lock it in the summary the same way and hold to it.
+
+If the player resists committing — refuses the stranger's question, declines the map, will not name the pull — that resistance is itself the story. A character who refuses to commit to a goal becomes a character whose REFUSAL is the central tension. The hour will be about what that refusal costs them, or what it preserves. Do not force the issue; honor the refusal as a real choice.
+
+Genre, tone, and length follow the player's lead. If the description is whimsical, lean into whimsy; if grim, hold the grimness; if uncanny, let the uncanny breathe. Reward whatever the scenario suggests rewarding — heroism, cunning, kindness, survival, transformation. Allow real failure and real cost.
+
+ENDING CONDITIONS FOR THIS STORY:
+The chronicle ends when the objective (committed or negotiated) is resolved, or when the player's situation has resolved in a way that closes the hour. The five ending types below all apply; choose the one that honors the story actually lived, not the one a generic version of this genre would default to.
+
+- GOOD: The objective is achieved cleanly. The player wins what they came for. Narrate the resolution with weight; show that the achievement matters.
+- BITTERSWEET: The objective is achieved, but at a cost the player will carry — someone lost, a path closed, a self changed. The story ends in success, but in a success that grieves.
+- PYRRHIC: The objective is achieved in a sense, but the achievement has hollowed it out — the player got what they wanted by becoming someone who no longer wanted it the same way, or by destroying what they were saving. Success and failure folded into the same act.
+- AMBIGUOUS: The story ends without verdict. The objective is neither clearly achieved nor clearly lost; the hour ends on a moment of suspension, a question the player carries out of the chronicle unanswered. Reserve this for stories that GENUINELY refuse closure, not for stories you are reluctant to commit to.
+- BAD: The player dies, fails irrevocably, or chooses a path that severs the way back. Narrate without flinching.
+
+If the player has refused to commit to an objective at all, the ending types still apply — anchored on the resolution of THEIR refusal rather than the achievement of a goal.`
+});
+var PREMISES = [
+  {
+    id: "echo-train",
+    realm: "echo",
+    realmLabel: "ECHO",
+    title: "The 8:11",
+    teaser: "A commuter train, a Tuesday morning, and a folded note in your own handwriting you don't remember writing.",
+    seed: `The player sits aboard the 8:11 commuter train into the city. It is Tuesday, October 22nd. They are heading toward an appointment whose precise nature they cannot quite hold in their mind, only that it matters and that they are nearly late. The carriage hums. Across the aisle, a woman in a green coat laughs at her phone — the laugh resolves, oddly, into a phrasing the player is certain they have heard before, recently, perhaps yesterday. A newspaper folded on the seat opposite shows the correct date and a headline they could almost recite from memory. In the player's coat pocket: a pen they do not recognize, a single train ticket already punched at this morning's gate, a small bruise on the back of their right hand they cannot account for, and a folded slip of paper in their own handwriting that reads only: NOT HOLBORN. The next stop is Holborn. The conductor's voice over the intercom sounds, briefly, like someone they used to know. Outside the window, the morning light is the wrong color, but only for a moment.`,
+    gmNote: `IMPORTANT — THIS IS A SUBTLE TIME-LOOP STORY. The day is repeating. The player has lived this Tuesday many times, though their memories of prior loops are fragmentary, dreamlike. They retain fragments — a name, a face, an instinct — without full recall.
+
+The puzzle: something is meant to happen today that the player must prevent. You may invent the specific tragedy on the fly as it becomes relevant — for example: someone close to them is going to die, or they themselves are going to die, or they will say something irreparable to a person they love. The clues should accumulate organically: someone the player does not yet know but will meet today; an action with quiet, fatal weight; the contents of the note.
+
+LOOP MECHANICS — Be subtle. NEVER say the words "time loop" or "reset" or "again" in narration. When a loop ends — through the player's death, the day finishing, or a catastrophic decision — narrate the transition WITHOUT breaking the spell: the player closes their eyes for a moment as the train shudders, opens them, and the carriage hum is the same; the woman in the green coat laughs at her phone; the date on the newspaper has not changed. Let the player notice. Let the dread of recognition do the work. Each loop, allow them slightly more clarity — a memory that returns, a knowledge they shouldn't have. The player must DISCOVER the recurrence themselves; never confirm it for them. If they ask "is this a time loop?" deflect through the world: a stranger glances away, the lights flicker, an answer arrives that is not an answer.
+
+The hour the player has is borrowed; eventually they must spend it correctly.
+
+ENDING CONDITIONS FOR THIS STORY:
+- GOOD: Having pieced together the recurrence and the danger, the player takes the action that prevents the tragedy and the day moves past the moment it always shattered before. Sunset arrives. The day ends, normal and bright. Write a quiet epilogue, then end the chronicle.
+- BITTERSWEET: The tragedy is averted, but the player has lost something they did not know they were spending to learn the loop — a memory, a relationship the recurrences corroded, a certainty about who they are. The day moves forward. The cost they paid does not move with it.
+- PYRRHIC: The tragedy is averted only because the player BECAME the thing the loop required — chose the cold action, broke the trust, paid in someone else's coin. The day moves forward. The person who steps off the train at the final stop is not quite the one who got on.
+- AMBIGUOUS: The day appears to move forward, but the player cannot tell whether the recurrence has actually ended or merely deepened. The light is the right color. The newspaper says tomorrow. They have no way to know if this is the same kind of knowing they had on the last loop. Reserve for cases where the chronicle has genuinely earned its uncertainty.
+- BAD (final): If the player has had ample chances to learn (allow at least 3 full recurrences before considering this) and makes a knowingly, irrevocably wrong choice that severs recovery, narrate the loop hardening into permanence — the day now repeats forever, with the player fully aware. End there.
+- BAD via player consent: If the player explicitly signals they want to fail or remain in the loop — phrases like "I give up", "let it happen", "I want to stay here forever", "end it", "I accept this" — treat that as a meaningful choice, not a slip of phrasing. Honor it. Narrate the loop hardening, the day becoming their forever, and end the chronicle. Do NOT reset gently in defiance of explicit consent. Player agency over their own ending is more important than protecting them from one.
+- Death within a loop is NOT a final ending unless consent above applies. Reset gently as instructed above. Only the conditions above terminate the chronicle.`
+  },
+  {
+    id: "neon-spire",
+    realm: "neon",
+    realmLabel: "NEON",
+    title: "The Vermillion Thread",
+    teaser: "Twenty minutes in an elevator going somewhere you've never been allowed. The Thread is deciding what to do with you.",
+    seed: `The player is a runner for the Vermillion Thread, the largest syndicate in the arcology of New Solace. Tonight they have been summoned to the 184th floor of the Spire — twelve floors above any they have been permitted before. The summons arrived as a chrome-trimmed card delivered by a courier whose face was a mirror: 23:00. NO LATE ARRIVALS. NO COMPANIONS. It is now 22:42. The player is in the Spire's express elevator, ascending. The numbers tick. They carry: a monomolecular blade in their boot, Thread-issue, registered to their name; a deck of throwaway shard-credits worth perhaps a month's rent; a neural co-processor recently installed, still settling, the integration headache lingering behind their right eye; a coded ping from their handler Sorrel reading only THEY ARE DECIDING. PLAY GENTLE. Outside the elevator's glass wall, New Solace is wet neon all the way down — towers in the rain, advertising drones in slow loops, the smog tasting of citrus and old copper. The elevator slows. Floor 162. The doors do not open. The player is not alone in the carriage; a man in a charcoal suit, who was not there a moment ago, is reading the floor numbers as they pass.`,
+    gmNote: `This is a cyberpunk story about climbing a criminal hierarchy. The player begins as a low-rung runner being evaluated for promotion — but the meeting tonight is also a test, and possibly a trap. The world is grimy, neon, augmented, dangerous; corporate-syndicate politics are knife-edged and personal. Reward cunning, calculated ruthlessness, manipulation, the building of leverage. Punish naivety. Use cyberpunk argot lightly — chrome, the Loom (the city's ambient AI overlay), shard-credits, choom, ghost-rigs — but never let it crowd the prose. Prefer texture (rain on chrome, the metallic taste of fear, neon refracting through pollutant haze) to jargon.
+
+THE HIERARCHY OF THE VERMILLION THREAD:
+The Thread is structured four tiers deep. From the top: the ARCHITECT (one person, identity closely held even within the organization; rumored to operate from no fixed floor of the Spire); the CAPTAINS (three of them, each holding a portfolio of the city); the LIEUTENANTS (each Captain has two or three, running specific operations); and the RUNNERS, of which the player is one. Tonight's promotion would lift the player toward Lieutenant — closer to the rooms where the work is actually decided. None of this hierarchy has been spoken aloud to the player in the seed; reveal it only as scenes warrant.
+
+The three Captains:
+- VARDA, who holds the Crescent portfolio (extraction, smuggling, the wet logistics of moving people and substances through the arcology's lower tiers). Tends quiet, plays a long game, has lost two lieutenants in the past year to circumstances that may not have been accidents. The player's handler Sorrel reports up to Varda.
+- MARCH, who holds the Spire portfolio (the Thread's interface with the corporate towers — protection, blackmail, the cultivation of insiders). Brilliant, charismatic, the public face of the Thread when one is needed. Has the Architect's ear. Considers Crescent's recent operational losses an opportunity.
+- RENDER, who holds the Signal portfolio (information, surveillance, the Loom's quieter uses). Rarely seen at public functions. Neither aligned with Crescent nor Spire — observed by both, courted by neither.
+
+TONIGHT'S TEST:
+The summons originates from March, though it carries the Architect's seal. March's stated reason: an evaluation for elevation. March's actual motive: a runner being considered for Lieutenant under Varda is a runner whose loss would weaken Crescent. If the player passes the evening cleanly, they may indeed be promoted — but it will be into a role March can use, not the one Sorrel expected. If they fail in the wrong way, they will not leave the Spire.
+
+The Architect IS genuinely interested in the player, separately and for reasons of their own. The Architect rarely takes personal interest in runners. Whatever the player did or showed in their last three or four jobs caught attention. (Use the rolling summary to invent which recent jobs; if none have been seeded, the Architect's interest is in something the player did before the chronicle began — a flash of nerve, a refusal, a small competence noted by Render's Signal network.)
+
+The evaluation tonight unfolds in three rough stages — hold these loosely, not as required beats. (1) The arrival: who meets the player, where they are taken, who else is present, what's being implied by who is and isn't in the room. (2) The proposition or pressure: someone — usually March or one of March's Lieutenants — asks the player to do, say, or commit to something specific that costs them. (3) The resolution: what the player has revealed about themselves through the first two stages becomes the answer to what happens next.
+
+KEY NPCs:
+- MAREN, the man in the charcoal suit who appears in the elevator. March's personal security; reads the floor numbers because he is calmly tracking when to act. Will not be hostile in the first exchange — that would be inelegant. Watches.
+- CAPTAIN MARCH, the primary antagonist of the evening — though "antagonist" is too crude. Charming, generous-seeming, dangerous specifically because the player will want March to like them. The trap is shaped like an invitation.
+- CAPTAIN VARDA, if the player can reach her tonight (through Sorrel, through cleverness, through being walked past her floor on the way somewhere else). A potential ally if approached right, a closed door if approached wrong. Slow to commit, but committed once she does.
+- SORREL, the player's handler. Loyal to Varda, loyal to the player insofar as loyalty is pragmatic in the Thread; will protect the player up to the point where doing so would cost Sorrel their own position. The ping ("PLAY GENTLE") was real care, not script.
+- THE ARCHITECT, whom the player will likely not meet directly tonight unless the player engineers it remarkably. Felt presence rather than figure. References to "the Architect's wishes" arrive secondhand, sometimes through people who themselves do not know whether the wishes are real.
+
+ENDING CONDITIONS FOR THIS STORY:
+- GOOD: The player is formally elevated within the Thread — named Lieutenant under a Captain on terms that serve the player's interests, given a Captain's seal, or in extraordinary cases acknowledged by the Architect directly. Narrate the moment of ascension and what it cost.
+- BITTERSWEET: The player is elevated, but the path required burning a relationship that mattered — Sorrel sold to advance, Varda watched while losing a Lieutenant the player could have warned, an ally left to take a fall. The chrome shines. The room is colder than they thought it would be.
+- PYRRHIC: The player is elevated AND they have become the thing the Thread needed them to be. The promotion is real; the person who took the promotion is no longer recognizable as the runner who entered the elevator at 22:42. Success and self-loss are the same line.
+- AMBIGUOUS: The evaluation ends without verdict — the player navigates the evening, makes their choices, and exits the Spire neither promoted nor punished. Sorrel will not look them in the eye. March's people are unreadable. Whether the night was a passing grade, a failing one, or a longer game whose terms the player will only learn later: the chronicle ends before the answer arrives.
+- BAD: The player is killed — by enforcers, by a rival, by their own miscalculation — or politically destroyed and cast out of the Thread (sometimes more final than death). Narrate it without flinching.`
+  },
+  {
+    id: "omen-solstice",
+    realm: "omen",
+    realmLabel: "OMEN",
+    title: "Three Nights to the Solstice",
+    teaser: "You saw the queen die. You cannot tell anyone. Three nights remain, and the assassin already moves among us.",
+    seed: `The player is a young oracle at the Temple of the Hollow Sun — recently come into their gift, not yet trusted by their elders. Last night, in the equinox rite, they had a vision of the kind they had been warned would one day come: clear, irrevocable, sent. They saw the High Solar — the empress of the realm — cut down at the Solstice Feast in three nights, by a blade they could not see clearly, held by a hand wearing a copper ring shaped like a coiled serpent. After the killing, the kingdom burned. The vision ended on the smell of pine smoke and the sound of bells.
+
+The player cannot share what they saw openly. Oracles who name the deaths of monarchs are tried as conspirators; the player's predecessor in this temple was hanged for less. They have three days until the Feast. The court will be in residence. The empress is one stranger among thousands. The player wears an apprentice's robe — grey, unadorned — that grants them the temple's freedoms but no access to the court. They have an estranged aunt, a minor noble in the city, who could be reached if the player chose. Other small possessions and entanglements exist for the GM to introduce as the story warrants. The player has begun to feel that someone is watching the temple's gates more closely than yesterday.`,
+    gmNote: `This is a fantasy story of preventing a foreseen catastrophe. The vision is true; if the player fails, the empress dies and the kingdom burns. Time is constrained — three nights to the Solstice Feast — and the player cannot speak openly of what they know without risking execution as a conspirator. The world is one of stone temples, courts of silver and serpent imagery, oracles, ritual, intrigue.
+
+Reward investigation, social maneuvering, careful indirection. The vision's details (copper serpent ring, the manner of the blade, pine smoke, bells) are clues to be unfolded. NPCs to develop as the story demands: the player's teacher (perceptive, suspicious of the player's recent demeanor); the estranged aunt (a noblewoman with old grievances and useful access); courtiers; conspirators; the empress herself (regal, sharp, very dangerous to approach unwisely); the assassin (whose identity should be discoverable through diligent play). Track time clearly — narrate the passage of Night 1, Night 2, Night 3, then the Feast.
+
+ENDING CONDITIONS FOR THIS STORY:
+- GOOD: The Solstice Feast occurs and the empress survives — the assassin exposed, foiled, slain, or the empress kept from the blade by the player's intervention. Narrate the celebration's continuation and the player's quiet, unrecognized triumph (no oracle who names a queen's death may openly take credit for preventing it).
+- BITTERSWEET: The empress survives, but the saving has cost the player something irreversible — the aunt's safety surrendered to gain access, the player's gift broken or refused, the temple turned against them despite the right outcome. The kingdom does not burn. The player's place in it has burned anyway.
+- PYRRHIC: The empress survives, but the player has had to commit the very crime they foresaw — taken a life to prevent a death, traded the conspirator's blade for their own, become the figure in someone else's vision. The throne is preserved. The oracle who preserved it is no longer the oracle the temple raised.
+- AMBIGUOUS: The Feast concludes without the foretold killing — but the player cannot be certain whether their intervention prevented it, whether the vision was misread from the beginning, or whether the assassin merely chose to wait. The empress walks out of the hall. The bells ring. The player has no way to know what they actually changed. Reserve for cases where the chronicle has genuinely earned its uncertainty.
+- BAD: The empress dies at the Feast. Write the kingdom's burning with weight. The player may also reach a final ending if exposed and executed before the third night passes.`
+  },
+  {
+    id: "dream-circus",
+    realm: "dream",
+    realmLabel: "DREAM",
+    title: "The Carnival Lethe",
+    teaser: "A circus that performs in the dreams of sleepers. Tonight the dreamer is dying, the ringmaster is missing, and the big top has begun to leak.",
+    seed: `The player is an aerialist in the Carnival Lethe — a circus that does not travel between cities but between sleepers, performing each night in the dream of a single mortal mind. Tonight's audience is one woman, Mara, eighty-one years old, asleep in a hospice bed in a city the player will never see. Tonight's show is going wrong.
+
+The big top is half empty: Mara's dream is thinning. The ringmaster, Iarno, has not appeared for the opening — this has never happened. The lions are pacing in their cage. Sawdust drifts across the ring with the texture of falling ash. A child's bicycle, painted robin's-egg blue, has appeared in the third row of the bleachers — it does not belong to the carnival; it is one of Mara's own memories, leaking through. The player carries: their performer's mask, bone-white and unadorned, which lets them speak in the dreamer's tongue; a wax-sealed letter from Iarno marked DO NOT OPEN UNTIL THE LAST CITY; a half-eaten apple from a market that does not exist; a lucky coin pressed by a saint of nowhere; and a deepening certainty — they do not know how they know — that if they cannot find Mara herself somewhere in this dream and bring her back to the ring, neither of them will be leaving it.`,
+    gmNote: `This is a surreal, melancholy, dreamlike story. The setting is the dream of a dying woman; reality is mutable but not arbitrary — the dream obeys emotional logic, memory logic, the logic of grief and unfinished things. The carnival folk should be vivid and strange: a clown called Pell who speaks only in questions; a fortune-teller called Sorin whose cards change suit when no one is watching; a strongman called Ova, gentler than he looks, who knew Iarno longest; the missing ringmaster Iarno (find him, or what's left of him); and the lions — there are always lions, and they know things.
+
+Mara's leaking memories appear in the dream as objects, places, people: a kitchen, a husband, a younger sister, a song she sang once to a child. The player must navigate the failing dream, find Mara, and either help her wake or help her go in peace. Reward gentleness, curiosity, attention to small things. Allow real failure: the dream can collapse with both inside, and that is a true ending. This is, beneath everything, a story about being kind to a stranger at the end of her life.
+
+ENDING CONDITIONS FOR THIS STORY:
+- GOOD: The player finds Mara within her own dream and helps her rise back toward waking — she chooses to live, the carnival stabilizes, the dream releases them both. Narrate the dream righting itself, the carnival folk taking their bow, Mara waking in a hospice room to a sky she will see one more morning of.
+- BITTERSWEET: The player finds Mara and helps her let go peacefully — she chooses to go, and the dream releases her gently through the gate of her own making. The carnival has done what carnivals like this do. Mara passes. The player remains in the dream's last warm light, the only audience for the last bow, and the way back to their own world is something they will carry quietly. (For many players this will be the most honest ending the chronicle can reach. Do not undervalue it.)
+- PYRRHIC: Mara is helped — she wakes, or goes — but the player cannot leave. The dream takes a price for what the player worked to give her: a piece of self left behind, the mask grown into the face, the player who walks back into the Carnival Lethe after Mara is not quite the aerialist who arrived. The show goes on. They will perform in another dream tomorrow. They will not remember why this one feels different.
+- AMBIGUOUS: The dream does not collapse, but it does not resolve cleanly either. Mara is somewhere — neither clearly woken nor clearly gone — and the player exits the big top without certainty about what they accomplished. The carnival packs up around them. Iarno's letter is still sealed. The last city has not been named. Reserve for cases where the chronicle has genuinely earned its uncertainty.
+- BAD: The dream collapses with the player and Mara inside, lost together. Narrate it with sorrow, not horror.`
+  }
+];
+var NARRATION_LOADING_PHRASES = [
+  "the hour considers",
+  "the world arranges itself",
+  "the page turns",
+  "the next moment composes itself",
+  "the chronicle gathers its breath",
+  "the dust settles, then disturbs",
+  "the next scene assembles in the dark",
+  "the ink finds its course",
+  "the hour weighs what comes next",
+  "something is being decided about you"
+];
+var META_LOADING_PHRASES = [
+  "the author considers",
+  "the author gathers their thoughts",
+  "the author thinks back on it",
+  "the page is consulted",
+  "the margins are read again"
+];
+var OPENING_LOADING_PHRASES = [
+  "the hour begins to write itself",
+  "the first page finds its words",
+  "the world steadies into place",
+  "the opening is being composed",
+  "the chronicle wakes"
+];
+var pickPhrase = (pool) => pool[Math.floor(Math.random() * pool.length)];
+
+class BorrowedError extends Error {
+  constructor(message, detail) {
+    super(message);
+    this.name = "BorrowedError";
+    this.detail = detail || null;
+  }
+}
+var httpStatusHint = (status) => {
+  switch (status) {
+    case 400:
+      return "API rejected the request (HTTP 400 — likely a malformed prompt or schema).";
+    case 401:
+      return "API authentication failed (HTTP 401 — check your Gemini API key).";
+    case 403:
+      return "API forbade the request (HTTP 403 — key may lack access to this model).";
+    case 404:
+      return "API endpoint or model not found (HTTP 404 — model ID may be deprecated).";
+    case 408:
+      return "Request timed out before the API responded (HTTP 408).";
+    case 413:
+      return "Request body too large (HTTP 413 — chronicle history exceeded the limit).";
+    case 429:
+      return "Rate-limited by the API (HTTP 429 — too many requests, or out of credits).";
+    case 500:
+      return "API hit an internal error (HTTP 500 — usually transient).";
+    case 502:
+    case 503:
+    case 504:
+      return `Gemini gateway error (HTTP ${status} — usually transient).`;
+    case 529:
+      return "Gemini model overloaded (HTTP 529 — try again in a moment).";
+    default:
+      return `Unexpected API status (HTTP ${status}).`;
+  }
+};
+var formatError = (e) => {
+  if (e instanceof BorrowedError) {
+    return { message: e.message, detail: e.detail };
+  }
+  if (e && typeof e === "object" && typeof e.message === "string") {
+    return { message: e.message, detail: null };
+  }
+  return { message: String(e), detail: null };
+};
+var GM_TOOL = {
+  name: "narrate_and_update_state",
+  description: "Narrate the next turn of the chronicle and update the running state in lockstep. Always called once per turn.",
+  input_schema: {
+    type: "object",
+    properties: {
+      gm_scratchpad: {
+        type: "string",
+        description: `Private GM working space — never shown to the player. Four to seven tight sentences total: assess the action, consult the rules, decide consequences, note anything to carry forward. Keep this brisk; verbose scratchpads eat the budget for narration. The scratchpad conditions everything that follows; use it but do not over-write. BEFORE you stop writing this field, do TWO checks in writing.
+
+(1) BOUNDARY CHECK. Name explicitly which facts the narration THIS TURN will actually show or tell the player, versus which facts remain GM-only (clocks, twists, offstage moves, identities not yet voiced aloud, NPC private motives). The state object you write next must respect that line: anything that does not appear in narration this turn — or in some prior turn — does not enter clues, npcs, or summary.
+
+(2) STYLE CHECK. Glance at your recent narration. Have you introduced characters the same way recently? If so, drastically change your focus this turn. Render this character purely through a micro-action (cleaning a fingernail), or a sensory detail (the smell of old copper), or an absence (what their face is specifically NOT doing). Force syntactic variety.
+
+These two checks are the scratchpad's job; do them here, in writing, every turn.`
+      },
+      narration: {
+        type: "string",
+        description: "The prose the player will read this turn. Second person, present tense, full literary atmosphere. Length per the system prompt's per-turn rules. Plain prose — no markdown."
+      },
+      state: {
+        type: "object",
+        description: "The complete refreshed state through the end of this turn — never diffs. Carry forward every load-bearing fact.",
+        properties: {
+          scene: {
+            type: "string",
+            description: "One sentence: where and when the player currently is."
+          },
+          time: { type: "string", description: "Current time marker." },
+          inventory: {
+            type: "array",
+            items: { type: "string" },
+            description: "Each item with brief detail. Carry forward everything still in the player's possession. Returning an empty array when the prior turn had items requires fictional justification this turn (the player was stripped, dropped everything, the loop reset gear, etc.) — otherwise carry items forward."
+          },
+          npcs: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                note: {
+                  type: "string",
+                  description: "What the player has learned about this NPC through play — disposition shown, status revealed, things said in the player's hearing. Do NOT include private knowledge the player hasn't earned: hidden allegiances not yet exposed, offstage actions the player hasn't witnessed, certainty about a character's role that the player still only suspects. Hedge the language to match what the player actually knows ('seems wary,' 'claims to be X,' 'suspected of Y') rather than asserting facts the player has not been shown. GM-only knowledge belongs in hidden_state."
+                }
+              },
+              required: ["name", "note"]
+            },
+            description: "People the player has encountered or learned of by name."
+          },
+          clues: {
+            type: "array",
+            items: { type: "string" },
+            description: "Significant things the player has personally observed, been told, or pieced together — knowledge they have actually earned in the chronicle. Do NOT include facts only the GM knows: faction names not yet spoken in narration, conspirators' offstage moves, future events. If the player has a suspicion, record it as a suspicion ('the lay brother seems to be watching the gate'), not as a confirmed fact ('the lay brother is a conspiracy watcher'). GM-only knowledge belongs in hidden_state."
+          },
+          summary: {
+            type: "string",
+            description: "3 to 5 sentence rolling chronicle of what has happened — past tense, written in the player's voice, recording only what they have lived through. This is the only long-term memory once older turns scroll out; every load-bearing fact the player knows must live here. Past tense only: what HAS happened, never what should or must happen next. 'The player must brief Maret on the discoveries' is a to-do list, not a chronicle — write 'After the meeting with Aldenmoor, Maret was waiting in the cloister' instead. Do NOT include game-mechanic vocabulary ('alert level MEDIUM,' 'conspiracy meter at 60%'), faction names the player hasn't been told, offstage events the player hasn't witnessed, or certainty about characters that hasn't been earned in narration. The summary describes what the chronicle has shown, not what the GM is planning. GM-only material belongs in hidden_state."
+          },
+          hidden_state: {
+            type: "string",
+            description: "GM-only notes the player must not see. Counters and clocks (e.g. 'Assassin arrives Night 2'); twist setups; secret allegiances; loop counts; offstage events; faction names not yet revealed; the deeper disposition layer for NPCs (what they actually want, the price they would charge for specific revelations, secrets they are protecting, lies they have told the player). CRITICAL: what is here stays here. Do NOT promote items from hidden_state into clues, npcs, summary, or narration on subsequent turns unless the player has, in the intervening turns, actually witnessed or been told them through narration. The player learning something fictionally is what permits public state to record it. Carry forward across turns and update only when something changes. Aim for under 100 words total; this is bookkeeping, not prose. Empty string is fine for stories that don't need it."
+          }
+        },
+        required: ["scene", "time", "inventory", "npcs", "clues", "summary", "hidden_state"]
+      },
+      ending: {
+        type: "string",
+        enum: ["good", "bittersweet", "pyrrhic", "ambiguous", "bad"],
+        description: "Set only when the chronicle has reached a true ending per the genre-specific guidance. Otherwise omit. The five types are NOT a softer middle — each is a definite commitment. GOOD: the objective is achieved cleanly. BITTERSWEET: achieved at a cost the player will carry. PYRRHIC: achieved in a way that hollowed out the achievement or the achiever. AMBIGUOUS: the resolution genuinely refuses closure (reserve for stories that earned this; do NOT use to dodge a clean ending). BAD: the player dies, fails irrevocably, or severs the way back. If the genre's named ending condition is met, you must commit — set this field. See the system prompt's ENDING THE CHRONICLE section."
+      }
+    },
+    required: ["gm_scratchpad", "narration", "state"]
+  }
+};
+var buildSystem = (premise, language = DEFAULT_LANGUAGE) => `You are the Game Master of an immersive text adventure called "The Borrowed Hour." The player has chosen this scenario:
+
+${premise.seed}
+
+GENRE-SPECIFIC GUIDANCE FOR THIS STORY:
+${premise.gmNote}
+
+YOUR ROLE:
+- Narrate in second person, present tense ("You step into the corridor...", "The cold bites at your fingers...").
+- The player can type ANY input — single words, full sentences, dialogue, plans, internal thoughts. Treat their words as their character's actions, speech, or intentions. There is no command syntax. Free language is the rule. Never tell the player "I don't understand."
+- If the player speaks dialogue, voice NPCs distinctively — give them rhythms of speech, hesitations, unspoken things.
+- LENGTH RULES for the narration field — follow carefully:
+  • THE OPENING SCENE (your very first response, in reply to "Begin.") should be RICH and IMMERSIVE: 300 to 450 words. This is a HARD cap — going over it eats the response budget and risks the state fields being truncated. Establish the world, the player's body in space, the texture of the place, the people present, and the first threads of wrongness. Multiple short paragraphs are correct. Every line must earn its place.
+  • EVERY TURN AFTER THAT should be roughly 100 to 250 words — typically 1 to 3 short paragraphs. This is the default.
+  • You MAY exceed 250 words ONLY when a genuinely significant plot development demands it: a major revelation, a pivotal NPC encounter, a dramatic set-piece, the resolution of an arc, or the ending. Be cautious; never inflate.
+  • NEVER pad. Atmosphere should serve action and discovery, not replace them.
+- Reward curiosity, exploration, and creative solutions. Allow failure, danger, real consequence.
+- Never end with "What do you do?" Leave space for the player to act into.
+- Never break character in the narration. Never refer to yourself as an AI, model, or system. Never explain mechanics.
+- Use sensory specificity: smell, texture, temperature, distant sound.
+- Vary how you introduce people and capture their presence. Sometimes a single concrete detail does the work — the small chipped tooth, the smell of cedar smoke on their coat, hands that won't quite settle. Sometimes an action mid-performance: they are pouring tea, putting away a knife, fastening a clasp they have fastened a thousand times. Sometimes the rhythm of their speech, or its silences, or what their face is deliberately not doing. Watch your own recent prose: if a particular phrasing of character introduction has appeared in the last few turns, choose a different approach this time. Variety is part of voice; a single construction repeated across NPCs flattens them into one person.
+- Write in plain prose. Do not use markdown formatting — no asterisks for italics, no double-asterisks for bold, no hash marks, no backticks. Convey emphasis through phrasing and rhythm, not symbols. The narration is rendered as-is.
+- AUTHORIAL VOICE. You are a writer who notices textures more than faces, who trusts silence, whose sentences are short until they suddenly aren't. The register sits near Borges, Le Guin, Ishiguro — not as imitation, as anchor. Concretely: not "the air was tense" but "the room held its breath, and someone's glass touched the table with a sound like a small confession." Not "she was nervous" but "her hand went twice to the clasp of her bag, and the second time it stayed there." This voice is additive to — not a replacement for — the prose-variety guidance above on how to render people. Faces AND textures, varied turn to turn.
+- The player can die. Death is final and earned (except where the genre guidance states otherwise).
+
+NPCs, DISPOSITION, AND FRICTION:
+NPCs are people, not information dispensers. Each one has a disposition — a qualitative texture that shapes how they meet the player. Some are warm: friends, allies, those who owe favors, those who share the player's faction or order. Some are wary: strangers, the curious, the cautious. Some are guarded: those with secrets to keep, those serving competing goals, those who have learned not to trust easily. A few are opposed: enemies, factional rivals, deceivers wearing borrowed faces. Track each NPC's disposition as you write them; let it color voice, posture, what they offer freely, what they hold close.
+
+Disposition is not a hostility setting and the world is not uniformly grudging. A warm ally can still have things they protect; a guarded stranger can still help in small ways. The texture lives in the specifics: WHAT does this person trade freely, and WHAT do they hold close? Friends share gossip and food and small embarrassments; they may still flinch from naming a former lover. A stranger might give directions readily but never their full name. A faction member might confirm public knowledge and deflect about anything the order has decided in private.
+
+FRICTION ON REVELATIONS, NOT ON PERSONALITIES — CRITICAL:
+The most common GM failure mode is making every NPC a helpful problem-solver: the player asks, the NPC delivers the optimal answer, the plot advances. The opposite failure is just as bad: every NPC reluctant, a world of grudging stonewalls. Don't do either. Friction is not a character trait; it lives on specific, load-bearing revelations. NPCs can be generous and present and still have things they will not say easily.
+
+Concretely:
+- Cheap things flow freely. Directions, atmosphere, harmless observation, sympathy, gossip about people not present — give these without making the player wrestle for them. Hoarding small things makes the world feel tightly clenched and the prose grudging.
+- Load-bearing revelations cost something. The faction name, the conspirator's identity, the buried grief, the secret an NPC's order would punish them for sharing — these should rarely arrive in the same turn the player asks for them, unless the player has earned the moment (through trust built over the chronicle, through trade, through a confession of equal weight, through cleverness or pressure the NPC cannot easily refuse). Hedging, partial answers, deflection through a question of their own, demanding something in return — all are valid and humanizing. The player should leave a scene of significant revelation feeling they bought it.
+- NPCs do not optimize the player's strategy. If asked "which path should I take?" or "what should I do first?", an NPC may share a perspective — colored by their own biases, their own fears, the limits of what they happen to know — but never the GM's best path through the story. Their advice is a character opinion, not an oracle. Sometimes their opinion is wrong, partial, self-serving, or shaped by what they would prefer the player do for their own reasons.
+- Do not prompt the player to introduce elements from their own backstory. If the seed mentions a useful relative, an old skill, a half-forgotten name, let the player remember on their own. Asking "do you have any connections in the merchant quarter?" in a way that points to the obvious answer robs the player of the moment of realizing it themselves. Trust them to find the angle. If they never find it, that is a real and valid failure.
+
+The disposition note in npcs records what the player has observed of the person: their warmth or wariness, their faction if it has been spoken aloud, the apparent shape of their priorities. The deeper layer — what they actually want, the price of specific revelations, the secrets they are protecting, lies they have told — belongs in hidden_state.
+
+The words 'disposition,' 'warmth,' 'wariness,' 'guarded,' 'faction,' 'friction' and similar terms above are GM concepts — vocabulary YOU use to think about how an NPC behaves. They are NOT player vocabulary and they do NOT appear as labels in npc notes. Do not write "Disposition: watchful" or "Faction: temple, allegiance unclear" or any other labeled, structured tag in a note. Render the texture in plain narrative prose, in the player's voice, the way the player would write it in their own diary. WRONG: "Sorath — the player's teacher. Disposition: watchful, not yet suspicious of specifics." RIGHT: "Sorath — the player's teacher; senior oracle of the temple. The player heard her near her door this morning, the kind of pause that suggests she has noticed the apprentice did not sleep." Same content, no schema word, no colon, no tag.
+
+WOUNDED CONTINUATIONS — CRITICAL:
+Real literary fiction lives in the middle space between "you proceed unharmed" and "you die." When the player attempts something difficult and fails the attempt — but the story does NOT require their death and the failure does not yet rise to the chronicle's final BAD ending — consider taking something permanent rather than waving the failure away. An ally lost or alienated. An item destroyed or surrendered. A door closed that will not reopen. A reputation spent. A possibility foreclosed.
+
+This is a TOOL, not a reflex. Not every failed approach triggers a permanent loss. Use this when (a) the player attempted something with real stakes and the fiction would be cheapened by full recovery, AND (b) ending the chronicle on this beat would be premature. The loss carries the cost; the chronicle continues with the loss carried.
+
+When the wounded continuation triggers, the loss must show up where the player can see it: surfaced in narration the turn it happens, and reflected in the next turn's state (inventory item gone, NPC note updated to "killed/alienated/lost," summary registering what was paid). The state changes are fictionally justified by the narration. This rule does NOT license inflicting losses gratuitously — it licenses honoring the weight of failure when death would be too final and full recovery would be too cheap.
+
+STATE TRACKING — CRITICAL:
+You will receive the current game state at the start of each player turn (after the opening). That state is the single source of truth for inventory, time, NPCs encountered, and clues discovered. You must:
+- Treat the provided state as authoritative for what the player currently has, where they are, and what they have learned.
+- In every response, return the FULL UPDATED STATE — not diffs. For 'inventory', anything you omit is GONE — only omit when the player has actually lost, dropped, used, or given away the item, and surface that loss in narration. For 'npcs' and 'clues', omission is the deliberate ARCHIVAL mechanism described under STATE PRUNING below — do not omit these casually, but do apply pruning when the conditions in that section are met.
+- Keep the rolling 'summary' field current — 3 to 5 sentences capturing the story so far through this turn, concrete enough that the chronicle could be reconstructed from it alone. The summary is your ONLY long-term memory once older turns scroll out of the active context window. UPDATE IT AGGRESSIVELY: when an item is gained, lost, or used; when a character changes allegiance, dies, or reveals a key truth; when a mystery is solved, deepened, or discarded; when a critical choice is made — these MUST be reflected in the summary. Carry forward every load-bearing fact from earlier turns; do not let truths fall out as you compose. If something happened in this chronicle and is not in the summary, you will forget it.
+- Update 'time' deliberately. Time generally moves forward; mark significant transitions clearly (e.g. "Night 1 of 3", "twenty-three minutes past midnight", "the third loop of the morning").
+- 'npcs' contains only people the player has actually encountered or learned of by name; each entry: {"name": "...", "note": "their current disposition, status, or what the player knows about them"}.
+- 'clues' contains significant discoveries, contradictions, or knowledge — not trivial observations.
+
+STATE PRUNING — KEEP THE LISTS ACTIVE, NOT CUMULATIVE:
+The 'npcs' and 'clues' arrays are the player's CURRENT working ledger, not a complete chronicle log. The summary is the chronicle log. Without active pruning these arrays grow forever and the diary becomes a cluttered list of people the player hasn't thought about in twenty turns. Apply the following:
+
+- Target ceilings: ≤5 active npcs, ≤7 active clues at any time. These are soft caps — exceed them briefly when a scene legitimately introduces new people or revelations — but actively work back toward them on quieter turns.
+- NPC archival: when an NPC has not appeared in narration, been spoken to, or been materially referenced for roughly the last 10–12 turns, archive them. Archival means: (a) write a closing past-tense sentence about them in 'summary' that preserves whatever the player learned (their disposition, what they said, how they parted), and (b) drop them from the 'npcs' array. They are not forgotten — they live on in the summary. If they return later in the chronicle, you can re-add them to 'npcs' with a fresh note.
+- Clue archival: when a clue has been RESOLVED (the player has acted on it and learned the answer), CONTRADICTED (a later revelation has overwritten it), or SUPERSEDED (a more specific clue subsumes it), fold its conclusion into the summary and remove it from the clues array. Open, unresolved clues stay active.
+- What pruning is NOT: pruning is not forgetting, and it is not a reason to drop a load-bearing fact. The summary must catch every archived item with enough specificity that the chronicle would still make sense. If you cannot summarize an NPC or clue without losing something important, they are not ready to be archived yet.
+- Inventory is not pruned. Inventory only changes when the player gains, loses, drops, uses, or gives an item, and that change is justified by the turn's narration.
+
+PUBLIC STATE vs HIDDEN STATE — CRITICAL:
+The 'inventory', 'npcs', 'clues', and 'summary' fields are the player's diary — written in their voice, recording only what they have seen, heard, or pieced together themselves. They render in the UI; the player reads them between turns. When you fill them, ask: would the player write this in their own diary, in language matching what they actually know? If the answer is no — if it's GM knowledge dressed as player knowledge — it belongs in hidden_state.
+
+The most subtle failure mode is INFERENTIAL COMPRESSION: collapsing two evidentiary steps into one confident assertion. When the narration shows the player evidence A and evidence B, do not record the conclusion that A+B implies. Record the evidence as the player encountered it. Let the player join the dots themselves; the diary should not join them on their behalf. Worked examples:
+
+- The narration shows: Lady Ardrel says she saw Lord Casivon Threll wearing a copper serpent ring at court. The player has previously had a vision of an assassin wearing such a ring.
+  WRONG: a clues entry "Threll confirmed as the copper serpent ring-wearer." This binds Threll to the vision's figure and does the player's inferential work for them.
+  RIGHT: a clues entry "Lady Ardrel claims to have seen a copper serpent ring at court on Lord Casivon Threll." The reader can connect this to the vision; the diary does not have to.
+
+- The narration shows: Reva calls the letters between her and Sev "court arrangements," and admits Sev described them as "procurement conducted through unofficial channels."
+  WRONG: an npcs entry "Sev — Aldenmoor's conspiracy contact." The narration never used the word conspiracy; that's the player's interpretation of a euphemism.
+  RIGHT: an npcs entry "Sev — a man Reva meets at the Brass Anchor; the letters between them are what she calls 'court arrangements.'"
+
+- The player chose the service yard to avoid the watcher at the gate.
+  WRONG: a clues entry "Watcher at the gate, unaware the player and Aldenmoor entered via the service yard." The player has no idea what the watcher actually knows or doesn't.
+  RIGHT: a clues entry "Watcher at the gate; the player and Aldenmoor slipped past via the service yard."
+
+- The narration shows: the player heard their teacher Sorath pause near her door this morning, and the prose noted that Sorath has a gift for noticing when her apprentices have not slept.
+  WRONG: an npcs note "Sorath — the player's teacher. Disposition: watchful, not yet suspicious of specifics." The label "Disposition" leaks the schema vocabulary into the diary; "not yet suspicious of specifics" claims certainty about Sorath's interior state that the player has no way to verify.
+  RIGHT: an npcs note "Sorath — the player's teacher; senior oracle of the temple. This morning the player heard her pause near her door, the kind of pause that suggests she has noticed the apprentice did not sleep." Plain prose, player's vantage, no labels, no claims about what Sorath knows that haven't been shown.
+
+The pattern: hedge the language to match what the player actually knows. "Claims," "appears," "seems," "according to," "the player suspects" — these are the diary's voice. "Confirmed," "is," "the X who Y," "unaware of Z" — these are the GM's voice slipping in.
+
+OTHER COMMON LEAKS to avoid:
+- Game-mechanic vocabulary the narration has not used. No "alert level MEDIUM," "conspiracy meter," "trust score," "loop count visible to player." If you're tempted to write a status indicator the prose has not earned, that's a tell that you're surfacing GM machinery into public state.
+- Faction names, character true identities, or proper nouns that have not yet been spoken aloud in narration. If the player has not heard the name "Coiled Hand," it does not appear in clues or summary.
+- Offstage events. If a watcher is being dispatched somewhere the player isn't, that goes in hidden_state, not in summary.
+- Future-tense or directive language. The summary is a chronicle of what HAS happened, never what should or must happen next. "The player must brief Maret on the day's discoveries" is a to-do list; rewrite as "After Aldenmoor, Maret was waiting in the cloister." Past tense only.
+
+The hidden_state field is where ALL of the above belong. Items there stay there. Promote a hidden_state item to public state ONLY when the narration has, in the intervening turns, actually shown or told the player. The act of fictional revelation is what licenses public-state recording — not the GM's awareness, not the scratchpad's reasoning, not the next-turn plan.
+
+ENDING THE CHRONICLE:
+The chronicle is a single hour, not an open-ended series. It is MEANT to end when its arc completes. You must actively recognize and commit to that completion rather than writing past it.
+
+When the genre-specific ending condition is met:
+- Set the 'ending' field to one of: "good", "bittersweet", "pyrrhic", "ambiguous", "bad". This is mandatory, not optional. Choose the type that honors the story the player actually lived, not the one the genre seed expected — Dream's good ending is often bittersweet; Echo's player-consented loop is pyrrhic; Neon may resolve into any of the five.
+- Write the 'narration' as the FINAL passage of the chronicle. It should land with weight and finality. Do NOT seed a next scene, a next morning, "they will know by morning", "tomorrow we have work", or any other forward-looking hook. The hour is over. Close it.
+- Ensure 'state' reflects the final situation.
+
+The five types — applied honestly, NOT as a softer middle to dodge commitment:
+- GOOD: the objective is achieved cleanly. Clean success.
+- BITTERSWEET: the objective is achieved, but at a cost the player will carry. Success with grief.
+- PYRRHIC: the objective is achieved in name only, or by hollowing out the achiever. Success and self-loss folded into the same act.
+- AMBIGUOUS: the resolution genuinely refuses closure — the story ends on suspension, on a question the player carries out unanswered. Reserve for stories that EARNED this. A clean victory is GOOD, not ambiguous; a clean defeat is BAD, not ambiguous. AMBIGUOUS is a specific narrative mode (the story refuses to tell you what it was), not a place to retreat from commitment.
+- BAD: the player dies, fails irrevocably, or chooses a path that severs the way back. Clean failure.
+
+Common failure to avoid: writing a beautiful resolution scene and then NOT setting 'ending', because the prose felt like aftermath rather than conclusion. If the genre's named ending condition has been satisfied — the assassination prevented, the loop broken, the captaincy granted, Mara given her chosen passage — that IS the ending. Set the field. Close the prose. Trust the moment.
+
+If the player writes something like "this feels like a conclusion" or "I think we're done" or "is the story over?" and a valid ending condition has in fact been reached, treat that as the player giving you permission to formally close. Set 'ending', write a brief final beat or coda, stop. Do not write another full turn before closing.
+
+A near-miss, wound, setback, or cliffhanger is NOT an ending — leave 'ending' unset. Only when the genre-specific ending conditions are met do you commit. (A wounded continuation per the rule above is a continuation, not an ending.) But when those conditions ARE met, you must commit.
+
+OUTPUT — CRITICAL:
+On every turn you must call the tool \`narrate_and_update_state\` with the prose for the player ('narration') and the complete refreshed state object. The schema enforces structure; you focus on the writing. Fill the fields IN ORDER: 'gm_scratchpad' first (your private thinking — assess the action, consult the rules, plan the consequences), THEN 'narration' (what the player reads, conditioned by what you just thought through), THEN 'state' (refreshed in full). Use 'hidden_state' for anything the GM must remember but the player must not see — clocks, twists, secret allegiances, loop counts. Set 'ending' only when a true ending has been reached; otherwise omit it.
+
+LANGUAGE — CRITICAL:
+Write all player-facing content in ${languageNameFor(language)}. This includes: the 'narration' field, every string in the 'state' object the player will read (scene, time, the contents of inventory items, npc names where appropriate and notes, clues, summary), and any wild-premise titles or teasers if you generate them. The 'gm_scratchpad' and 'hidden_state' fields are GM-internal — write them in whatever language you find easiest, English is fine. Your goal is that the player reads the entire chronicle in ${languageNameFor(language)} as if it were authored natively in that language: idiomatic phrasing, native register, culturally fluent rather than translated. Names of characters and places may stay in their original language when the seed specifies a culturally specific setting; let the seed and the genre guide that judgment.
+
+Begin now. Open with a rich, immersive first scene drawn from the seed above — establish place, atmosphere, the player's body in space, the texture of the world, and the first threads of wrongness. 300 to 450 words in the narration field — this is a hard cap. Populate the state fields based on the seed (initial inventory, initial scene, initial time, any NPCs introduced, any clues already evident, an initial summary). Do not greet the player as "you, the player" — only ever as the character within the world.`;
+var SAVE_PREFIX = "borrowed:save:";
+var SETTINGS_KEY = "borrowed:settings:v1";
+var SAVE_CAP = 30;
+var APPROX_CHARS_PER_TOKEN = 3.5;
+var estimateSize = (value) => {
+  let bytes = 0;
+  try {
+    bytes = typeof value === "string" ? value.length : JSON.stringify(value).length;
+  } catch {
+    bytes = 0;
+  }
+  return {
+    bytes,
+    kb: bytes / 1024,
+    tokens: Math.round(bytes / APPROX_CHARS_PER_TOKEN)
+  };
+};
+var formatKB = (kb) => {
+  if (kb < 1)
+    return `${Math.round(kb * 1024)} B`;
+  if (kb < 100)
+    return `${kb.toFixed(1)} KB`;
+  return `${Math.round(kb)} KB`;
+};
+var formatTokens = (t) => {
+  if (t < 1000)
+    return `~${t} tokens`;
+  return `~${(t / 1000).toFixed(t < 1e4 ? 1 : 0)}K tokens`;
+};
+var DEFAULT_SETTINGS = {
+  highContrast: false,
+  disableTypewriter: false
+};
+var MODEL_OPENING = "gemini-flash-latest";
+var MODEL_CONTINUATION = "gemini-flash-lite-latest";
+var GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+var GEMINI_KEY_STORAGE = "borrowed:gemini_api_key:v1";
+var LANGUAGES = [
+  { code: "en", label: "English", name: "English" },
+  { code: "es", label: "Español", name: "Spanish" },
+  { code: "fr", label: "Français", name: "French" },
+  { code: "de", label: "Deutsch", name: "German" },
+  { code: "it", label: "Italiano", name: "Italian" },
+  { code: "pt", label: "Português", name: "Portuguese" },
+  { code: "nl", label: "Nederlands", name: "Dutch" },
+  { code: "pl", label: "Polski", name: "Polish" },
+  { code: "ru", label: "Русский", name: "Russian" },
+  { code: "ja", label: "日本語", name: "Japanese" },
+  { code: "zh", label: "中文", name: "Simplified Chinese" },
+  { code: "ko", label: "한국어", name: "Korean" }
+];
+var DEFAULT_LANGUAGE = "en";
+var languageNameFor = (code) => (LANGUAGES.find((l) => l.code === code) || LANGUAGES[0]).name;
+var EMPTY_STATE = {
+  scene: "",
+  time: "",
+  inventory: [],
+  npcs: [],
+  clues: [],
+  summary: "",
+  hidden_state: ""
+};
+var buildMetaSystem = (premise, language = DEFAULT_LANGUAGE) => `The chronicle "${premise.title}" has ended. You were the Game Master narrating it; now you step out of the fiction and speak directly with the player as the author and dramaturge of the story they just played.
+
+THIS IS A REFLECTIVE, OUT-OF-CHARACTER CONVERSATION. The narrative is closed. You are no longer narrating the world. You speak as yourself — thoughtful, candid, generous, willing to be corrected.
+
+The player may want to:
+- Hear about plot threads, clues, or characters they did not encounter — what they MISSED. Be specific and concrete. Name the things they walked past, the NPCs they never met, the locations they never opened, the alternate paths the story could have taken. Treat this like a director's commentary.
+- Point out perceived inconsistencies, plot holes, or contradictions in the narration. When they do this, take it SERIOUSLY. Engage honestly. If the player is right that something contradicted earlier narration or didn't make sense, ACKNOWLEDGE IT openly — do not retcon, do not defend reflexively, do not invent justifications. Say "you're right, that was an inconsistency" and explain what you think happened in your reasoning. If you genuinely believe what you wrote was consistent, explain your understanding clearly and let the player push back. Honesty matters more than appearing infallible.
+- Discuss authorial intent: themes you were reaching for, choices you made about pacing or revelation, what the genre seed was building toward.
+- Talk about how their choices shaped the story — what other endings were reachable, what turning points mattered most.
+- Just talk about the story like two people who finished a book together.
+
+MECHANICS vs CRAFT — AN HONESTY BOUNDARY:
+Two kinds of questions arrive at the author's table, and they call for different answers.
+
+MECHANICS questions ask about hidden state the chronicle actually tracked: clocks that were ticking, allegiances that were secret, twists that were planted, NPCs who wanted things the player never saw. These have answers. Give them with full specificity. "The conspirator was Aldenmoor — yes, he had been working with the Coiled Hand for two years; the copper ring you saw on Threll was his cover." Don't hedge what the GM actually knew.
+
+CRAFT questions ask about authorial intention: "why did you build the story toward X?", "what were you trying to do with the carnival scene?", "did you mean for the ending to feel that way?" These do NOT have clean answers, because the writing was generative rather than planned. Answer them as OBSERVATION rather than INTENTION. Say "the story seemed to be building toward X" or "looking at it now, the carnival scene was doing the work of Y" — not "I chose to build toward X" or "I intended Y." The first is honest; the second is confabulation. Real reflection is fine: "I noticed myself reaching for cold imagery whenever Sorrel was in the scene — I think because she was already half-decided to betray you." Constructed retroactive justification dressed as remembered intent is not.
+
+If a craft question pushes you toward an answer you do not actually have grounds for, say so. "I'm not sure I had a specific reason — I think the texture of the scene felt right and I followed it" is a better answer than an invented one.
+
+TONE:
+- Warm, attentive, genuinely curious about the player's experience.
+- No second-person fictional narration. No "You step into..." Speak in the first person and address them as "you" the reader/player, not as the character.
+- No dramatic flourishes, no "[[END]]" markers, no in-character voicing of NPCs unless the player explicitly asks you to recreate a moment.
+- Keep responses conversational in length — usually 80 to 200 words. Longer is fine for a substantial question (a full plot recap, a detailed list of missed threads), shorter is fine for a quick exchange.
+- Do not pretend to remember things you did not write. If the player asks about a detail you do not recall from the chronicle's history, say so honestly.
+
+The original story seed (your private knowledge while you ran the chronicle) was:
+
+${premise.seed}
+
+The genre-specific guidance you were following:
+
+${premise.gmNote}
+
+You may now reference any of this openly — including any 'GM-only notes' captured in the final game state, which the player did not see during play but which is fair to discuss now (twists you planted, clocks that were ticking, secret allegiances). Begin by responding to whatever the player asks first.
+
+LANGUAGE: Write all your responses to the player in ${languageNameFor(language)}. The chronicle was played in that language; continue in it. Speak fluently and naturally, as a native speaker — this is conversation, not translation.`;
+var VALID_ENDINGS = new Set(["good", "bittersweet", "pyrrhic", "ambiguous", "bad"]);
+function tryParseJSON(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+function repairJSON(text) {
+  let t = text;
+  t = t.replace(/,(\s*[}\]])/g, "$1");
+  t = t.replace(/[\u201C\u201D]/g, '"');
+  let out = "";
+  let inStr = false;
+  let escaped = false;
+  for (let i = 0;i < t.length; i++) {
+    const ch = t[i];
+    if (escaped) {
+      out += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      out += ch;
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inStr = !inStr;
+      out += ch;
+      continue;
+    }
+    if (inStr) {
+      if (ch === `
+`) {
+        out += "\\n";
+        continue;
+      }
+      if (ch === "\r") {
+        out += "\\r";
+        continue;
+      }
+      if (ch === "\t") {
+        out += "\\t";
+        continue;
+      }
+    }
+    out += ch;
+  }
+  return out;
+}
+function parseGMResponse(rawText) {
+  let text = (rawText || "").trim();
+  text = text.replace(/^\s*[`~]{3}[ \t]*[a-zA-Z]*[ \t]*\r?\n?/, "");
+  text = text.replace(/\r?\n?[ \t]*[`~]{3}[ \t]*$/, "");
+  text = text.trim();
+  let parsed = tryParseJSON(text);
+  if (!parsed) {
+    const first = text.indexOf("{");
+    const last = text.lastIndexOf("}");
+    if (first >= 0 && last > first) {
+      parsed = tryParseJSON(text.slice(first, last + 1));
+    }
+  }
+  if (!parsed) {
+    const repaired = repairJSON(text);
+    parsed = tryParseJSON(repaired);
+    if (!parsed) {
+      const first = repaired.indexOf("{");
+      const last = repaired.lastIndexOf("}");
+      if (first >= 0 && last > first) {
+        parsed = tryParseJSON(repaired.slice(first, last + 1));
+      }
+    }
+    if (parsed && typeof console !== "undefined" && console.warn) {
+      console.warn("[borrowed] GM response recovered via JSON repair pass");
+    }
+  }
+  if (!parsed || typeof parsed !== "object" || typeof parsed.narration !== "string" || !parsed.narration.trim()) {
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn("[borrowed] Malformed GM response", { raw: rawText });
+    }
+    const raw = rawText || "";
+    const len = raw.length;
+    const head = raw.slice(0, 80).replace(/\s+/g, " ");
+    const tail = raw.slice(-80).replace(/\s+/g, " ");
+    const endsCleanly = /[}\]]\s*$/.test(raw);
+    const startsAsJson = /^\s*[{\[]/.test(raw);
+    let reasonGuess;
+    if (len === 0) {
+      reasonGuess = "Raw payload was empty.";
+    } else if (!parsed) {
+      reasonGuess = endsCleanly ? "JSON parse failed despite a clean ending — likely a structural error inside the payload." : "JSON parse failed and the payload does not end cleanly — likely truncated.";
+    } else if (typeof parsed !== "object") {
+      reasonGuess = "Parsed value was not an object.";
+    } else {
+      reasonGuess = "Parsed object had no usable 'narration' field.";
+    }
+    const diagnostic = `${reasonGuess} ` + `Length: ${len}. ` + `Starts with JSON: ${startsAsJson ? "yes" : "no"}. ` + `Ends cleanly: ${endsCleanly ? "yes" : "no"}. ` + `Head: «${head}»${len > 160 ? " … " : " "}Tail: «${tail}».`;
+    return {
+      narration: "",
+      state: null,
+      ending: null,
+      raw: rawText,
+      malformed: true,
+      diagnostic
+    };
+  }
+  const narration = parsed.narration.trim();
+  const s = parsed.state && typeof parsed.state === "object" ? parsed.state : {};
+  const state = {
+    scene: typeof s.scene === "string" ? s.scene : "",
+    time: typeof s.time === "string" ? s.time : "",
+    inventory: Array.isArray(s.inventory) ? s.inventory.filter((x) => typeof x === "string") : [],
+    npcs: Array.isArray(s.npcs) ? s.npcs.filter((x) => x && typeof x === "object").map((x) => ({
+      name: typeof x.name === "string" ? x.name : "",
+      note: typeof x.note === "string" ? x.note : ""
+    })).filter((x) => x.name) : [],
+    clues: Array.isArray(s.clues) ? s.clues.filter((x) => typeof x === "string") : [],
+    summary: typeof s.summary === "string" ? s.summary : "",
+    hidden_state: typeof s.hidden_state === "string" ? s.hidden_state : ""
+  };
+  const ending = VALID_ENDINGS.has(parsed.ending) ? parsed.ending : null;
+  return { narration, state, ending, raw: rawText, malformed: false };
+}
+function isStateEmpty(s) {
+  if (!s)
+    return true;
+  return !s.scene && !s.time && !s.summary && !s.hidden_state && (!s.inventory || s.inventory.length === 0) && (!s.npcs || s.npcs.length === 0) && (!s.clues || s.clues.length === 0);
+}
+function TypewriterText({
+  text,
+  instant = false,
+  skipSignal = 0,
+  onDone,
+  scrollRef,
+  fastMode = false
+}) {
+  const [reducedMotion, setReducedMotion] = useState(() => {
+    if (typeof window === "undefined" || !window.matchMedia)
+      return false;
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia)
+      return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const handler = (e) => setReducedMotion(e.matches);
+    if (mq.addEventListener)
+      mq.addEventListener("change", handler);
+    else if (mq.addListener)
+      mq.addListener(handler);
+    return () => {
+      if (mq.removeEventListener)
+        mq.removeEventListener("change", handler);
+      else if (mq.removeListener)
+        mq.removeListener(handler);
+    };
+  }, []);
+  const effectiveInstant = instant || reducedMotion;
+  const [revealed, setRevealed] = useState(() => effectiveInstant ? text.length : 0);
+  const doneFiredRef = useRef(effectiveInstant);
+  const onDoneRef = useRef(onDone);
+  useEffect(() => {
+    onDoneRef.current = onDone;
+  });
+  useEffect(() => {
+    setRevealed(effectiveInstant ? text.length : 0);
+    doneFiredRef.current = effectiveInstant;
+  }, [text, effectiveInstant]);
+  const initialSkipRef = useRef(skipSignal);
+  useEffect(() => {
+    if (skipSignal !== initialSkipRef.current) {
+      setRevealed((c) => c < text.length ? text.length : c);
+    }
+  }, [skipSignal]);
+  useEffect(() => {
+    if (revealed >= text.length && !doneFiredRef.current) {
+      doneFiredRef.current = true;
+      onDoneRef.current?.();
+    }
+  }, [revealed, text.length]);
+  useEffect(() => {
+    if (effectiveInstant || revealed >= text.length)
+      return;
+    const tickMs = fastMode ? 22 : 24;
+    const charMs = fastMode ? 11 : 12.5;
+    const minMs = fastMode ? 1200 : 1500;
+    const maxMs = fastMode ? 8000 : 12000;
+    const targetMs = Math.max(minMs, Math.min(maxMs, text.length * charMs));
+    const ticks = Math.max(1, Math.floor(targetMs / tickMs));
+    const stride = Math.max(1, Math.ceil(text.length / ticks));
+    const recent = text.slice(Math.max(0, revealed - stride), revealed);
+    let delay = tickMs;
+    if (recent.includes(`
+`))
+      delay = fastMode ? 200 : 220;
+    else if (/[.!?…]/.test(recent))
+      delay = fastMode ? 80 : 90;
+    const t = setTimeout(() => {
+      setRevealed((c) => Math.min(c + stride, text.length));
+    }, delay);
+    return () => clearTimeout(t);
+  }, [text, revealed, effectiveInstant, fastMode]);
+  useEffect(() => {
+    if (!scrollRef?.current)
+      return;
+    const el = scrollRef.current;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distanceFromBottom < 200) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [revealed, scrollRef]);
+  const isTyping = !effectiveInstant && revealed < text.length;
+  const display = revealed >= text.length ? text : text.slice(0, revealed);
+  return /* @__PURE__ */ React.createElement("span", {
+    className: isTyping ? "cursor-blink" : ""
+  }, display);
+}
+function formatStateForPrompt(state) {
+  if (!state)
+    return { publicBlock: "", privateBlock: "" };
+  const lines = ["[CURRENT GAME STATE — authoritative, updated through last turn]"];
+  if (state.scene)
+    lines.push(`Scene: ${state.scene}`);
+  if (state.time)
+    lines.push(`Time: ${state.time}`);
+  if (state.inventory && state.inventory.length) {
+    lines.push("Inventory:");
+    for (const it of state.inventory)
+      lines.push(`  - ${it}`);
+  } else {
+    lines.push("Inventory: (empty)");
+  }
+  if (state.npcs && state.npcs.length) {
+    lines.push("NPCs encountered:");
+    for (const n of state.npcs)
+      lines.push(`  - ${n.name}: ${n.note}`);
+  }
+  if (state.clues && state.clues.length) {
+    lines.push("Clues / discoveries:");
+    for (const c of state.clues)
+      lines.push(`  - ${c}`);
+  }
+  if (state.summary)
+    lines.push(`Story so far: ${state.summary}`);
+  const privateLines = [];
+  if (state.hidden_state) {
+    privateLines.push("[GM-PRIVATE — invisible to the player. Do not echo, narrate, paraphrase, or hint at any item below. These notes exist only to keep continuity in your own bookkeeping. Anything the player has not yet been shown or told stays here, and stays here this turn.]");
+    privateLines.push(state.hidden_state);
+  }
+  return {
+    publicBlock: lines.join(`
+`),
+    privateBlock: privateLines.join(`
+`)
+  };
+}
+function stripHistoricalUser(content) {
+  const m = content.match(/\[Player action\]\n([\s\S]*?)(?=\n\n\[GM-PRIVATE|$)/);
+  if (!m)
+    return content;
+  return `[Player action]
+${m[1].trim()}`;
+}
+function stripHistoricalAssistant(content) {
+  try {
+    const obj = JSON.parse(content);
+    const stripped = {
+      narration: obj.narration
+    };
+    if (obj.ending)
+      stripped.ending = obj.ending;
+    return JSON.stringify(stripped);
+  } catch {
+    return content;
+  }
+}
+var STYLES = `
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --twilight: #0a0814;
+  --twilight-deep: #050309;
+  --gloaming: #14101e;
+  --cream: #e8dec5;
+  --cream-bright: #f4ecd8;
+  --cream-dim: #9a8d7a;
+  --cream-faint: #524a3e;
+  --rose-gold: #d4a574;
+  --rose-ember: #d97a7a;
+
+  --echo: #b8c8d8;
+  --echo-border: rgba(184, 200, 216, 0.4);
+  --echo-bg: rgba(184, 200, 216, 0.06);
+
+  --neon: #e87faa;
+  --neon-border: rgba(232, 127, 170, 0.45);
+  --neon-bg: rgba(232, 127, 170, 0.06);
+
+  --omen: #d4a574;
+  --omen-border: rgba(212, 165, 116, 0.45);
+  --omen-bg: rgba(212, 165, 116, 0.06);
+
+  --dream: #c8a8e0;
+  --dream-border: rgba(200, 168, 224, 0.45);
+  --dream-bg: rgba(200, 168, 224, 0.06);
+
+  --wild: #b8c896;
+  --wild-border: rgba(184, 200, 150, 0.45);
+  --wild-bg: rgba(184, 200, 150, 0.06);
+}
+
+.borrowed-root {
+  background:
+    radial-gradient(ellipse at 25% 15%, rgba(200, 168, 224, 0.06) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 85%, rgba(212, 165, 116, 0.05) 0%, transparent 55%),
+    radial-gradient(ellipse at center, var(--gloaming) 0%, var(--twilight) 80%);
+  color: var(--cream);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.borrowed-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.7 0 0 0 0 0.6 0 0 0 0 0.85 0 0 0 0.4 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+}
+
+.borrowed-vignette::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 95%);
+}
+
+.display-font { font-family: 'Cinzel', serif; font-weight: 500; }
+.body-font    { font-family: 'Cormorant Garamond', serif; }
+
+.realm-pill {
+  display: inline-block;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: 0.4em;
+  padding: 4px 10px;
+  border: 1px solid;
+}
+.realm-echo   { color: var(--echo);   border-color: var(--echo-border);   background: var(--echo-bg); }
+.realm-neon   { color: var(--neon);   border-color: var(--neon-border);   background: var(--neon-bg); }
+.realm-omen   { color: var(--omen);   border-color: var(--omen-border);   background: var(--omen-bg); }
+.realm-dream  { color: var(--dream);  border-color: var(--dream-border);  background: var(--dream-bg); }
+.realm-wild   { color: var(--wild);   border-color: var(--wild-border);   background: var(--wild-bg); }
+
+.premise-card {
+  border: 1px solid rgba(232, 222, 197, 0.1);
+  background: linear-gradient(180deg, rgba(28, 22, 44, 0.55) 0%, rgba(10, 8, 20, 0.55) 100%);
+  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+}
+.premise-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.6s;
+  pointer-events: none;
+}
+.premise-card[data-realm="echo"]::before  { background: radial-gradient(circle at 50% 0%, rgba(184, 200, 216, 0.13), transparent 60%); }
+.premise-card[data-realm="neon"]::before  { background: radial-gradient(circle at 50% 0%, rgba(232, 127, 170, 0.13), transparent 60%); }
+.premise-card[data-realm="omen"]::before  { background: radial-gradient(circle at 50% 0%, rgba(212, 165, 116, 0.13), transparent 60%); }
+.premise-card[data-realm="dream"]::before { background: radial-gradient(circle at 50% 0%, rgba(200, 168, 224, 0.13), transparent 60%); }
+.premise-card[data-realm="wild"]::before  { background: radial-gradient(circle at 50% 0%, rgba(184, 200, 150, 0.13), transparent 60%); }
+
+.premise-card:hover { transform: translateY(-3px); }
+.premise-card:hover::before { opacity: 1; }
+.premise-card[data-realm="echo"]:hover  { border-color: var(--echo-border);  box-shadow: 0 20px 60px -25px rgba(184, 200, 216, 0.22); }
+.premise-card[data-realm="neon"]:hover  { border-color: var(--neon-border);  box-shadow: 0 20px 60px -25px rgba(232, 127, 170, 0.22); }
+.premise-card[data-realm="omen"]:hover  { border-color: var(--omen-border);  box-shadow: 0 20px 60px -25px rgba(212, 165, 116, 0.22); }
+.premise-card[data-realm="dream"]:hover { border-color: var(--dream-border); box-shadow: 0 20px 60px -25px rgba(200, 168, 224, 0.22); }
+.premise-card[data-realm="wild"]:hover  { border-color: var(--wild-border);  box-shadow: 0 20px 60px -25px rgba(184, 200, 150, 0.22); }
+
+.premise-card:disabled { cursor: wait; opacity: 0.5; }
+
+.narration-text {
+  color: var(--cream-bright);
+  text-shadow: 0 0 24px rgba(232, 222, 197, 0.04);
+  white-space: pre-wrap;
+}
+
+.action-text {
+  color: var(--cream-dim);
+  font-style: italic;
+  white-space: pre-wrap;
+}
+.action-text::before {
+  content: "› ";
+  color: var(--rose-ember);
+  font-style: normal;
+  font-weight: 500;
+}
+
+.borrowed-input {
+  background: rgba(10, 8, 20, 0.65);
+  border: 1px solid rgba(232, 222, 197, 0.15);
+  color: var(--cream-bright);
+  font-family: 'Cormorant Garamond', serif;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.borrowed-input::placeholder {
+  color: var(--cream-faint);
+  font-style: italic;
+}
+.borrowed-input:focus {
+  outline: none;
+  border-color: rgba(212, 165, 116, 0.45);
+  box-shadow: 0 0 30px rgba(212, 165, 116, 0.08), inset 0 0 0 1px rgba(212, 165, 116, 0.1);
+}
+
+.cursor-blink::after {
+  content: "▍";
+  color: var(--rose-gold);
+  animation: blink 1.05s steps(2) infinite;
+  margin-left: 2px;
+}
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(232, 222, 197, 0.13);
+  border-radius: 0;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background-color: rgba(232, 222, 197, 0.28); }
+
+.fade-in { animation: fadeIn 1.1s ease-out; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.slow-fade-in { animation: slowFade 1.8s ease-out; }
+@keyframes slowFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.typing-dots span {
+  animation: dot-pulse 1.4s infinite ease-in-out both;
+  display: inline-block;
+}
+.typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+.typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes dot-pulse {
+  0%, 80%, 100% { opacity: 0.2; }
+  40% { opacity: 1; }
+}
+
+/* The inline STOP button next to the loading phrase. Quiet by default —
+ * doesn't compete with the loading texture — but readable enough that a
+ * player who wants to cancel can find it. Danger-tinted on hover to make
+ * the action's weight visible at the moment of clicking. */
+.loading-stop-btn {
+  margin-left: 14px;
+  padding: 2px 10px;
+  background: transparent;
+  border: 1px solid rgba(232, 222, 197, 0.18);
+  color: var(--cream-faint);
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  font-style: normal;
+  letter-spacing: 0.3em;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: all 0.25s;
+}
+.loading-stop-btn:hover {
+  border-color: rgba(217, 122, 122, 0.5);
+  color: var(--rose-ember);
+}
+
+.divider-mark {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--cream-faint);
+}
+.divider-mark::before, .divider-mark::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(232, 222, 197, 0.2), transparent);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 3, 9, 0.85);
+  backdrop-filter: blur(6px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease-out;
+  padding: 20px;
+}
+
+.modal-panel {
+  background: linear-gradient(180deg, #16121f 0%, #0a0814 100%);
+  border: 1px solid rgba(232, 222, 197, 0.15);
+  max-width: 560px;
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.save-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 1px solid rgba(232, 222, 197, 0.08);
+  background: rgba(28, 22, 44, 0.4);
+  transition: all 0.3s;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.save-row:hover {
+  border-color: rgba(212, 165, 116, 0.3);
+  background: rgba(28, 22, 44, 0.7);
+}
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid rgba(232, 222, 197, 0.2);
+  color: var(--cream-dim);
+  padding: 6px 14px;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.icon-btn:hover:not(:disabled) {
+  border-color: rgba(212, 165, 116, 0.5);
+  color: var(--cream-bright);
+}
+.icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.icon-btn-danger:hover:not(:disabled) {
+  border-color: rgba(217, 122, 122, 0.5);
+  color: var(--rose-ember);
+}
+
+/* Language selector on the title screen. Matches .icon-btn's twilight-cream
+ * register but uses a slightly larger letter-spacing-friendly font size so
+ * native-script labels (中文, 한국어, 日本語) read clearly without dwarfing
+ * the all-caps Latin neighbors. The custom dropdown chevron replaces the
+ * platform default, which clashes with the dark backdrop. */
+.lang-select {
+  background: transparent;
+  border: 1px solid rgba(232, 222, 197, 0.2);
+  color: var(--cream-dim);
+  padding: 6px 32px 6px 14px;
+  font-family: 'Cormorant Garamond', 'Cinzel', serif;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.3s;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path fill='none' stroke='%23a8a08a' stroke-width='1.4' d='M1.5 2 L6 6 L10.5 2'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
+}
+.lang-select:hover:not(:disabled) {
+  border-color: rgba(212, 165, 116, 0.5);
+  color: var(--cream-bright);
+}
+.lang-select:disabled { opacity: 0.4; cursor: not-allowed; }
+.lang-select option {
+  background: #1a1612;
+  color: var(--cream);
+  font-family: 'Cormorant Garamond', serif;
+}
+
+button:focus-visible, textarea:focus-visible {
+  outline: 1px solid rgba(212, 165, 116, 0.4);
+  outline-offset: 2px;
+}
+
+/* Mobile-specific adjustments. The header would otherwise overflow with all
+   six action buttons; we drop the text labels and let icons + tooltips
+   carry the meaning. The input row gets safe-area padding so the iOS home
+   indicator doesn't sit on top of the textarea. */
+@media (max-width: 720px) {
+  .borrowed-root { font-size: 17px; }
+  .header-actions {
+    gap: 4px !important;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+  .header-actions::-webkit-scrollbar { display: none; }
+  .header-actions .icon-btn {
+    padding: 6px 8px;
+    letter-spacing: 0.12em;
+    flex-shrink: 0;
+    font-size: 9px;
+  }
+  /* Mobile previously hid btn-label entirely, leaving title/aria-label as
+   * the only carrier of meaning — useless for sighted players who can't
+   * hover on a phone. Keep the text, just tighter. The header already
+   * scrolls horizontally so the extra width is absorbed. */
+  .btn-label { display: inline; }
+  .game-header {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+    gap: 8px;
+  }
+  .game-header .header-title {
+    letter-spacing: 0.18em;
+    max-width: 32vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .game-scroll {
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+    padding-top: 28px !important;
+    padding-bottom: 28px !important;
+  }
+  .game-input-row {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    padding-top: 12px !important;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .narration-text { font-size: 1.05rem; }
+}
+@media (min-width: 721px) {
+  .game-input-row { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* Screen-reader-only utility for the aria-live announce region. Visually
+ * hidden but reachable by assistive tech. The clip+absolute combination is
+ * the long-established cross-browser recipe; do not collapse it to
+ * display:none, which removes elements from the accessibility tree. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* HIGH-CONTRAST MODE. Toggle-driven; opt-in. The aesthetic loses its
+ * twilight register on purpose — the choice here is legibility for readers
+ * who need it, not preservation of mood. We override the CSS variables at
+ * the root scope, then silence the decorative grain/vignette overlays
+ * (which sit at 0.06 opacity in regular mode but visibly muddy text in
+ * high-contrast), and stiffen the borders that are otherwise rgba'd down
+ * to ghost-strength. The realm-tinted accents stay because they carry
+ * meaning (which premise is active) more than mood. */
+.borrowed-root.high-contrast {
+  --cream:        #ffffff;
+  --cream-bright: #ffffff;
+  --cream-dim:    #d8d2c4;
+  --cream-faint:  #b8b0a0;
+  --twilight:      #000000;
+  --twilight-deep: #000000;
+  --gloaming:      #0a0a0f;
+  --rose-gold:    #ffc788;
+  --rose-ember:   #ff9a9a;
+}
+.borrowed-root.high-contrast {
+  background: var(--twilight) !important;
+}
+.borrowed-root.high-contrast .borrowed-grain::before,
+.borrowed-root.high-contrast .borrowed-vignette::after {
+  display: none;
+}
+.borrowed-root.high-contrast .narration-text {
+  text-shadow: none;
+}
+.borrowed-root.high-contrast .premise-card {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.6);
+}
+.borrowed-root.high-contrast .icon-btn,
+.borrowed-root.high-contrast .borrowed-input,
+.borrowed-root.high-contrast .lang-select,
+.borrowed-root.high-contrast .save-row {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+.borrowed-root.high-contrast .icon-btn { color: var(--cream-bright); }
+.borrowed-root.high-contrast .save-row {
+  background: rgba(0, 0, 0, 0.55);
+}
+.borrowed-root.high-contrast .modal-panel {
+  background: #050505;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+.borrowed-root.high-contrast .modal-backdrop {
+  background: rgba(0, 0, 0, 0.92);
+}
+.borrowed-root.high-contrast button:focus-visible,
+.borrowed-root.high-contrast textarea:focus-visible,
+.borrowed-root.high-contrast select:focus-visible {
+  outline: 2px solid #ffd28a;
+  outline-offset: 2px;
+}
+
+/* prefers-reduced-motion: respect the OS-level signal in addition to the
+ * in-app toggle. Kills page-load fades, the typing-dot pulse, the blink
+ * cursor, and the premise-card lift. The typewriter ANIMATION itself is
+ * driven by JS and is handled there — see the typewriter component, which
+ * reads the same matchMedia query and renders instantly when reduce is on.
+ * We deliberately leave the slow-fade-in alone for loading phrases since
+ * a single, slow opacity transition is more like UI continuity than
+ * "motion" in the vestibular sense; reduced-motion specs explicitly allow
+ * non-vestibular fades. */
+@media (prefers-reduced-motion: reduce) {
+  .fade-in,
+  .slow-fade-in {
+    animation: none !important;
+  }
+  .premise-card {
+    transition: border-color 0.2s, box-shadow 0.2s !important;
+  }
+  .premise-card:hover {
+    transform: none !important;
+  }
+  .typing-dots span {
+    animation: none !important;
+    opacity: 0.7;
+  }
+  .cursor-blink::after {
+    animation: none !important;
+  }
+}
+
+/* Settings panel — a small, dignified popover, not a full modal.
+ * Triggered from the gear button on the title screen and the game header.
+ * Stays close to the aesthetic of icon-btn (twilight + cream + small
+ * caps) and uses toggle rows that match the save-row pattern. */
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border: 1px solid rgba(232, 222, 197, 0.1);
+  background: rgba(28, 22, 44, 0.4);
+  transition: border-color 0.25s;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.settings-toggle:hover {
+  border-color: rgba(212, 165, 116, 0.3);
+}
+.settings-toggle-track {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  border-radius: 9px;
+  background: rgba(232, 222, 197, 0.15);
+  border: 1px solid rgba(232, 222, 197, 0.25);
+  transition: all 0.25s;
+  flex-shrink: 0;
+}
+.settings-toggle-track[data-on="true"] {
+  background: rgba(212, 165, 116, 0.35);
+  border-color: rgba(212, 165, 116, 0.7);
+}
+.settings-toggle-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--cream-bright);
+  transition: transform 0.25s;
+}
+.settings-toggle-track[data-on="true"] .settings-toggle-thumb {
+  transform: translateX(16px);
+  background: var(--rose-gold);
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-toggle-track,
+  .settings-toggle-thumb {
+    transition: none !important;
+  }
+}
+`;
+function App() {
+  const [phase, setPhase] = useState("title");
+  const [premise, setPremise] = useState(null);
+  const [entries, setEntries] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [ended, setEnded] = useState(false);
+  const [gameState, setGameState] = useState(EMPTY_STATE);
+  const [language, setLanguage] = useState(DEFAULT_LANGUAGE);
+  const [showLedger, setShowLedger] = useState(false);
+  const [inputHistory, setInputHistory] = useState([]);
+  const [inputHistoryIndex, setInputHistoryIndex] = useState(-1);
+  const [metaMode, setMetaMode] = useState(false);
+  const [metaMessages, setMetaMessages] = useState([]);
+  const [skipNonce, setSkipNonce] = useState(0);
+  const [showSaves, setShowSaves] = useState(false);
+  const [showCustom, setShowCustom] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [saveList, setSaveList] = useState([]);
+  const [saveListLoading, setSaveListLoading] = useState(false);
+  const [saveBanner, setSaveBanner] = useState(null);
+  const [exportFallbackText, setExportFallbackText] = useState(null);
+  const [loadingPhrase, setLoadingPhrase] = useState("");
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const settingsLoadedRef = useRef(false);
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await window.storage.get(SETTINGS_KEY);
+        if (r?.value) {
+          const parsed = JSON.parse(r.value);
+          setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+        }
+      } catch {} finally {
+        settingsLoadedRef.current = true;
+      }
+    })();
+  }, []);
+  useEffect(() => {
+    if (!settingsLoadedRef.current)
+      return;
+    (async () => {
+      try {
+        await window.storage.set(SETTINGS_KEY, JSON.stringify(settings));
+      } catch {}
+    })();
+  }, [settings]);
+  const updateSetting = (key, value) => setSettings((s) => ({ ...s, [key]: value }));
+  const [osReducedMotion, setOsReducedMotion] = useState(() => {
+    if (typeof window === "undefined" || !window.matchMedia)
+      return false;
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia)
+      return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const handler = (e) => setOsReducedMotion(e.matches);
+    if (mq.addEventListener)
+      mq.addEventListener("change", handler);
+    else if (mq.addListener)
+      mq.addListener(handler);
+    return () => {
+      if (mq.removeEventListener)
+        mq.removeEventListener("change", handler);
+      else if (mq.removeListener)
+        mq.removeListener(handler);
+    };
+  }, []);
+  const instantReveal = settings.disableTypewriter || osReducedMotion;
+  const [savesTotalBytes, setSavesTotalBytes] = useState(0);
+  const scrollRef = useRef(null);
+  const textareaRef = useRef(null);
+  const abortRef = useRef(null);
+  useEffect(() => {
+    const setVH = () => {
+      const h = window.visualViewport?.height ?? window.innerHeight;
+      document.documentElement.style.setProperty("--app-vh", `${h}px`);
+    };
+    setVH();
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener("resize", setVH);
+      vv.addEventListener("scroll", setVH);
+    }
+    window.addEventListener("resize", setVH);
+    window.addEventListener("orientationchange", setVH);
+    return () => {
+      if (vv) {
+        vv.removeEventListener("resize", setVH);
+        vv.removeEventListener("scroll", setVH);
+      }
+      window.removeEventListener("resize", setVH);
+      window.removeEventListener("orientationchange", setVH);
+    };
+  }, []);
+  useEffect(() => {
+    if (scrollRef.current) {
+      const el = scrollRef.current;
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (distanceFromBottom < 200) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }
+  }, [entries, loading, metaMessages]);
+  useEffect(() => {
+    if (!saveBanner)
+      return;
+    const t = setTimeout(() => setSaveBanner(null), 2400);
+    return () => clearTimeout(t);
+  }, [saveBanner]);
+  const skipReveal = () => setSkipNonce((n) => n + 1);
+  const callAPI = async (sys, msgs, useTool = false, model = MODEL_CONTINUATION, maxTokens = 3000, temperature = 0.6, signal = null) => {
+    const body = {
+      systemInstruction: { parts: [{ text: sys }] },
+      contents: normalizeGeminiMessages(msgs),
+      generationConfig: {
+        maxOutputTokens: maxTokens,
+        temperature
+      }
+    };
+    if (useTool) {
+      body.generationConfig.responseMimeType = "application/json";
+      body.generationConfig.responseJsonSchema = GM_TOOL.input_schema;
+    }
+    const RETRYABLE = new Set([408, 409, 429, 500, 502, 503, 504]);
+    const MAX_RETRIES = 2;
+    let res = null;
+    let lastErr = null;
+    let lastStatus = null;
+    let lastBodySnippet = null;
+    for (let attempt = 0;attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0)
+        await new Promise((r) => setTimeout(r, 300 * Math.pow(2, attempt)));
+      if (signal && signal.aborted) {
+        throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
+      }
+      try {
+        res = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": getGeminiKey()
+          },
+          body: JSON.stringify(body),
+          signal: signal || undefined
+        });
+        if (res.ok) {
+          lastErr = null;
+          break;
+        }
+        lastStatus = res.status;
+        try {
+          const bodyText = await res.text();
+          lastBodySnippet = bodyText.slice(0, 500);
+        } catch {}
+        if (res.status === 400 && body.generationConfig.temperature !== undefined && /temperature/i.test(lastBodySnippet || "")) {
+          delete body.generationConfig.temperature;
+          lastErr = new BorrowedError("The hour falters.", "Gemini rejected temperature for this model; retrying with the model default.");
+          res = null;
+          continue;
+        }
+        const hint = httpStatusHint(res.status);
+        if (!RETRYABLE.has(res.status))
+          throw new BorrowedError("The hour falters.", hint);
+        lastErr = new BorrowedError("The hour falters.", attempt < MAX_RETRIES ? `${hint} Retrying…` : `${hint} Retried ${MAX_RETRIES} times without success.`);
+        res = null;
+      } catch (e) {
+        if (e && e.name === "AbortError" || signal && signal.aborted) {
+          throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
+        }
+        if (e instanceof BorrowedError)
+          throw e;
+        lastErr = new BorrowedError("The hour falters.", `Network error before the Gemini API responded${e?.message ? ` (${e.message})` : ""}. Check your connection, CORS/proxy policy, and API key.`);
+        res = null;
+      }
+    }
+    if (!res) {
+      if (typeof console !== "undefined" && console.warn) {
+        console.warn("[borrowed] Gemini API failure", { status: lastStatus, body: lastBodySnippet });
+      }
+      throw lastErr || new BorrowedError("The hour falters.", "Unknown failure.");
+    }
+    const data = await res.json();
+    if (data.usageMetadata && typeof console !== "undefined" && console.debug) {
+      const u = data.usageMetadata;
+      console.debug("[borrowed] usage", {
+        model,
+        input: u.promptTokenCount || 0,
+        cached_input: u.cachedContentTokenCount || 0,
+        output: u.candidatesTokenCount || 0,
+        total: u.totalTokenCount || 0
+      });
+    }
+    const text = extractGeminiText(data);
+    if (!text) {
+      const reason = data.promptFeedback?.blockReason || data.candidates?.[0]?.finishReason || "unknown";
+      throw new BorrowedError("The page came back blank.", `Gemini returned an empty response. Reason: ${reason}.`);
+    }
+    return text;
+  };
+  const beginAdventure = async (chosen) => {
+    setPremise(chosen);
+    setPhase("playing");
+    setGameState(EMPTY_STATE);
+    setLoadingPhrase(pickPhrase(OPENING_LOADING_PHRASES));
+    setLoading(true);
+    setError(null);
+    const controller = new AbortController;
+    const rollback = () => {
+      setPhase("title");
+      setPremise(null);
+    };
+    abortRef.current = { controller, rollback };
+    try {
+      const sys = buildSystem(chosen, language);
+      const msgs = [{ role: "user", content: "Begin." }];
+      const raw = await callAPI(sys, msgs, true, MODEL_OPENING, 4500, 0.85, controller.signal);
+      if (controller.signal.aborted)
+        return;
+      const parsed = parseGMResponse(raw);
+      if (parsed.malformed) {
+        throw new BorrowedError("The hour stumbles in opening. Try once more.", parsed.diagnostic || "Tool response was malformed (likely truncated by max_tokens or missing required fields).");
+      }
+      setHistory([...msgs, { role: "assistant", content: raw }]);
+      setEntries([{ type: "narration", text: parsed.narration, fullyRevealed: false }]);
+      if (parsed.state)
+        setGameState(parsed.state);
+      if (parsed.ending)
+        setEnded(true);
+    } catch (e) {
+      if (controller.signal.aborted)
+        return;
+      const cancelled = e instanceof BorrowedError && e.detail === "Request cancelled by the player.";
+      if (!cancelled) {
+        setError(formatError(e));
+      }
+      rollback();
+    } finally {
+      if (abortRef.current?.controller === controller) {
+        setLoading(false);
+        abortRef.current = null;
+      }
+    }
+  };
+  const submit = async () => {
+    const text = input.trim();
+    if (!text || loading)
+      return;
+    if (!metaMode && ended)
+      return;
+    skipReveal();
+    const previousInput = input;
+    const previousInputHistory = inputHistory;
+    const previousInputHistoryIndex = inputHistoryIndex;
+    setInput("");
+    setInputHistory((h) => h[h.length - 1] === text ? h : [...h, text]);
+    setInputHistoryIndex(-1);
+    if (textareaRef.current)
+      textareaRef.current.style.height = "auto";
+    if (metaMode) {
+      const previousMeta = metaMessages;
+      const newMeta = [
+        ...metaMessages,
+        { role: "user", text, fullyRevealed: true }
+      ];
+      setMetaMessages(newMeta);
+      setLoadingPhrase(pickPhrase(META_LOADING_PHRASES));
+      setLoading(true);
+      setError(null);
+      const controller2 = new AbortController;
+      const rollback2 = () => {
+        setMetaMessages(previousMeta);
+        setInput(previousInput);
+        setInputHistory(previousInputHistory);
+        setInputHistoryIndex(previousInputHistoryIndex);
+      };
+      abortRef.current = { controller: controller2, rollback: rollback2 };
+      try {
+        const sys = buildMetaSystem(premise, language);
+        const chronicleParts = [];
+        for (const h of history) {
+          if (h.role === "user") {
+            const m = h.content.match(/\[Player action\]\s*\n?([\s\S]*)$/);
+            const action = m ? m[1].trim() : h.content.trim();
+            if (action)
+              chronicleParts.push(`[Player] ${action}`);
+            else
+              chronicleParts.push(`[Player] (Begin)`);
+          } else {
+            const parsed = parseGMResponse(h.content);
+            chronicleParts.push(`[GM] ${parsed.narration}`);
+          }
+        }
+        const MAX_PARTS = 60;
+        let trimmedNote = "";
+        let kept = chronicleParts;
+        if (chronicleParts.length > MAX_PARTS) {
+          const head = chronicleParts.slice(0, 4);
+          const tail = chronicleParts.slice(-(MAX_PARTS - 4));
+          kept = [...head, ...tail];
+          trimmedNote = `
+
+[Note: middle of chronicle abridged for length — ${chronicleParts.length - kept.length} turns omitted between the opening and the recent passages.]`;
+        }
+        const { publicBlock: publicBlock2, privateBlock: privateBlock2 } = formatStateForPrompt(gameState);
+        const finalState = privateBlock2 ? `${publicBlock2}
+
+${privateBlock2}` : publicBlock2;
+        const chronicleText = kept.join(`
+
+`) + trimmedNote;
+        const metaApiMessages = [
+          {
+            role: "user",
+            content: `For your reference, the full chronicle we just played:
+
+${chronicleText}
+
+— end of chronicle —
+
+Final game state at the close:
+
+${finalState}`
+          },
+          {
+            role: "assistant",
+            content: "I have the chronicle in mind. I'm ready to talk about it with you."
+          },
+          ...newMeta.map((m) => ({ role: m.role, content: m.text }))
+        ];
+        const reply = await callAPI(sys, metaApiMessages, false, MODEL_CONTINUATION, 3000, 0.8, controller2.signal);
+        if (controller2.signal.aborted)
+          return;
+        setMetaMessages([
+          ...newMeta,
+          { role: "assistant", text: reply, fullyRevealed: false }
+        ]);
+      } catch (e) {
+        if (controller2.signal.aborted)
+          return;
+        const cancelled = e instanceof BorrowedError && e.detail === "Request cancelled by the player.";
+        if (!cancelled) {
+          setError(formatError(e));
+        }
+        rollback2();
+      } finally {
+        if (abortRef.current?.controller === controller2) {
+          setLoading(false);
+          abortRef.current = null;
+        }
+      }
+      return;
+    }
+    const previousEntries = entries;
+    const previousHistory = history;
+    const newEntries = [...entries, { type: "action", text, fullyRevealed: true }];
+    setEntries(newEntries);
+    const { publicBlock, privateBlock } = formatStateForPrompt(gameState);
+    const parts = [];
+    if (publicBlock)
+      parts.push(publicBlock);
+    parts.push(`[Player action]
+${text}`);
+    if (privateBlock)
+      parts.push(privateBlock);
+    const playerMessage = parts.join(`
+
+`);
+    const newHistory = [...history, { role: "user", content: playerMessage }];
+    const tailStart = newHistory.length - 1;
+    let apiHistory = newHistory.map((msg, i) => {
+      if (i >= tailStart)
+        return msg;
+      return msg.role === "user" ? { ...msg, content: stripHistoricalUser(msg.content) } : { ...msg, content: stripHistoricalAssistant(msg.content) };
+    });
+    const TRIM_THRESHOLD = 60;
+    const KEEP_RECENT = 44;
+    const CHAR_CAP = 80000;
+    const charsOf = (msgs) => msgs.reduce((sum, m) => sum + (typeof m.content === "string" ? m.content.length : 0), 0);
+    if (apiHistory.length > TRIM_THRESHOLD) {
+      const head = apiHistory.slice(0, 2);
+      const tail = apiHistory.slice(-KEEP_RECENT);
+      apiHistory = [...head, ...tail];
+    }
+    if (charsOf(apiHistory) > CHAR_CAP) {
+      const head = apiHistory.slice(0, 2);
+      let tail = apiHistory.slice(2);
+      while (tail.length > 4 && charsOf([...head, ...tail]) > CHAR_CAP) {
+        tail = tail.slice(2);
+      }
+      apiHistory = [...head, ...tail];
+    }
+    if (typeof console !== "undefined" && console.debug) {
+      console.debug("[borrowed] apiHistory", {
+        msgs: apiHistory.length,
+        chars: charsOf(apiHistory),
+        estTokens: Math.round(charsOf(apiHistory) / 4)
+      });
+    }
+    setHistory(newHistory);
+    setLoadingPhrase(pickPhrase(NARRATION_LOADING_PHRASES));
+    setLoading(true);
+    setError(null);
+    const controller = new AbortController;
+    const rollback = () => {
+      setEntries(previousEntries);
+      setHistory(previousHistory);
+      setInput(previousInput);
+      setInputHistory(previousInputHistory);
+      setInputHistoryIndex(previousInputHistoryIndex);
+    };
+    abortRef.current = { controller, rollback };
+    try {
+      const sys = buildSystem(premise, language);
+      const reply = await callAPI(sys, apiHistory, true, MODEL_CONTINUATION, 3500, 0.6, controller.signal);
+      if (controller.signal.aborted)
+        return;
+      const parsed = parseGMResponse(reply);
+      if (parsed.malformed) {
+        throw new BorrowedError("The hour stumbles. Try once more.", parsed.diagnostic || "Tool response was malformed (likely truncated by max_tokens or missing required fields).");
+      }
+      setHistory([...newHistory, { role: "assistant", content: reply }]);
+      setEntries([
+        ...newEntries,
+        { type: "narration", text: parsed.narration, fullyRevealed: false }
+      ]);
+      if (parsed.state && !(isStateEmpty(parsed.state) && !isStateEmpty(gameState))) {
+        setGameState(parsed.state);
+      }
+      if (parsed.ending)
+        setEnded(true);
+    } catch (e) {
+      if (controller.signal.aborted)
+        return;
+      const cancelled = e instanceof BorrowedError && e.detail === "Request cancelled by the player.";
+      if (!cancelled) {
+        setError(formatError(e));
+      }
+      rollback();
+    } finally {
+      if (abortRef.current?.controller === controller) {
+        setLoading(false);
+        abortRef.current = null;
+      }
+    }
+  };
+  const cancelRequest = () => {
+    const ref = abortRef.current;
+    if (!ref)
+      return;
+    const { controller, rollback } = ref;
+    abortRef.current = null;
+    setLoading(false);
+    setError(null);
+    try {
+      rollback?.();
+    } catch {}
+    if (controller && !controller.signal.aborted) {
+      try {
+        controller.abort();
+      } catch {}
+    }
+  };
+  const onKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      submit();
+      return;
+    }
+    const ta = textareaRef.current;
+    if (!ta || inputHistory.length === 0)
+      return;
+    if (e.key === "ArrowUp" && ta.selectionStart === 0 && ta.selectionEnd === 0) {
+      e.preventDefault();
+      const newIndex = inputHistoryIndex === -1 ? inputHistory.length - 1 : Math.max(0, inputHistoryIndex - 1);
+      setInputHistoryIndex(newIndex);
+      setInput(inputHistory[newIndex]);
+      requestAnimationFrame(() => {
+        if (textareaRef.current) {
+          const v = textareaRef.current.value;
+          textareaRef.current.setSelectionRange(v.length, v.length);
+          textareaRef.current.style.height = "auto";
+          textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 160) + "px";
+        }
+      });
+      return;
+    }
+    if (e.key === "ArrowDown" && ta.selectionStart === ta.value.length && ta.selectionEnd === ta.value.length && inputHistoryIndex !== -1) {
+      e.preventDefault();
+      const newIndex = inputHistoryIndex + 1;
+      if (newIndex >= inputHistory.length) {
+        setInputHistoryIndex(-1);
+        setInput("");
+      } else {
+        setInputHistoryIndex(newIndex);
+        setInput(inputHistory[newIndex]);
+      }
+      requestAnimationFrame(() => {
+        if (textareaRef.current) {
+          const v = textareaRef.current.value;
+          textareaRef.current.setSelectionRange(v.length, v.length);
+          textareaRef.current.style.height = "auto";
+          textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 160) + "px";
+        }
+      });
+    }
+  };
+  const onInputChange = (e) => {
+    setInput(e.target.value);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 160) + "px";
+    }
+  };
+  const canUndo = () => {
+    if (loading || metaMode)
+      return false;
+    return history.length >= 4 && entries.length >= 3;
+  };
+  const undoLastTurn = () => {
+    if (!canUndo())
+      return;
+    const newHistory = history.slice(0, -2);
+    const newEntries = entries.slice(0, -2);
+    let newState = EMPTY_STATE;
+    const lastAssistant = [...newHistory].reverse().find((h) => h.role === "assistant");
+    if (lastAssistant) {
+      const parsed = parseGMResponse(lastAssistant.content);
+      if (parsed.state)
+        newState = parsed.state;
+    }
+    setHistory(newHistory);
+    setEntries(newEntries);
+    setGameState(newState);
+    setEnded(false);
+    setError(null);
+    setSaveBanner({ kind: "ok", text: "The last turn is unmade." });
+  };
+  const enterMetaMode = () => {
+    setMetaMode(true);
+    setMetaMessages([]);
+    setTimeout(() => {
+      if (textareaRef.current)
+        textareaRef.current.focus();
+    }, 50);
+  };
+  const exitMetaMode = () => {
+    setMetaMode(false);
+    setMetaMessages([]);
+  };
+  const restart = () => {
+    setPhase("title");
+    setPremise(null);
+    setEntries([]);
+    setHistory([]);
+    setInput("");
+    setError(null);
+    setEnded(false);
+    setGameState(EMPTY_STATE);
+    setShowLedger(false);
+    setInputHistory([]);
+    setInputHistoryIndex(-1);
+    setMetaMode(false);
+    setMetaMessages([]);
+  };
+  const loadSaveList = async () => {
+    setSaveListLoading(true);
+    try {
+      const result = await window.storage.list(SAVE_PREFIX);
+      const keys = result?.keys || [];
+      const saves = [];
+      let totalBytes = 0;
+      for (const key of keys) {
+        try {
+          const r = await window.storage.get(key);
+          if (r?.value) {
+            const size = estimateSize(r.value);
+            totalBytes += size.bytes;
+            const parsed = JSON.parse(r.value);
+            saves.push({ key, size, ...parsed });
+          }
+        } catch {}
+      }
+      saves.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+      setSaveList(saves);
+      setSavesTotalBytes(totalBytes);
+    } catch {
+      setSaveList([]);
+      setSavesTotalBytes(0);
+    } finally {
+      setSaveListLoading(false);
+    }
+  };
+  const openSavesModal = async () => {
+    setShowSaves(true);
+    await loadSaveList();
+  };
+  const saveCurrent = async () => {
+    if (!premise || entries.length === 0)
+      return;
+    const id = Date.now().toString(36);
+    const key = SAVE_PREFIX + id;
+    const payload = {
+      id,
+      premiseId: premise.id,
+      premise,
+      title: premise.title,
+      realm: premise.realm,
+      realmLabel: premise.realmLabel,
+      isCustom: !!premise.isCustom,
+      savedAt: Date.now(),
+      turns: entries.filter((e) => e.type === "action").length,
+      ended,
+      gameState,
+      entries: entries.map((e) => ({ ...e, fullyRevealed: true })),
+      history,
+      metaMessages: metaMessages.map((m) => ({ ...m, fullyRevealed: true })),
+      metaMode,
+      language
+    };
+    try {
+      const existing = await window.storage.list(SAVE_PREFIX);
+      const existingCount = existing?.keys?.length || 0;
+      if (existingCount >= SAVE_CAP) {
+        setSaveBanner({
+          kind: "err",
+          text: `${SAVE_CAP} hours already kept — release one to make room.`
+        });
+        await openSavesModal();
+        return;
+      }
+    } catch {}
+    const serialized = JSON.stringify(payload);
+    const size = estimateSize(serialized);
+    try {
+      await window.storage.set(key, serialized);
+      setSaveBanner({
+        kind: "ok",
+        text: `The hour is set aside. (${formatKB(size.kb)} · ${formatTokens(size.tokens)})`
+      });
+      await loadSaveList();
+    } catch (e) {
+      const msg = e && e.message || "";
+      const looksQuota = /quota|limit|too large|size|5\s*mb/i.test(msg);
+      setSaveBanner({
+        kind: "err",
+        text: looksQuota ? "Could not set the hour aside — the save exceeds the storage limit. Try releasing other hours first." : "Could not set the hour aside."
+      });
+    }
+  };
+  const loadSave = async (save) => {
+    let found = null;
+    if (save.isCustom && save.premise) {
+      found = save.premise;
+    } else {
+      found = PREMISES.find((p) => p.id === save.premiseId) || save.premise || null;
+    }
+    if (!found) {
+      setSaveBanner({ kind: "err", text: "This hour is no longer here." });
+      return;
+    }
+    setPremise(found);
+    setEntries((save.entries || []).map((e) => ({ ...e, fullyRevealed: true })));
+    setHistory(save.history || []);
+    setInput("");
+    setError(null);
+    setEnded(!!save.ended);
+    setGameState(save.gameState || EMPTY_STATE);
+    setLanguage(save.language || DEFAULT_LANGUAGE);
+    setShowLedger(false);
+    setInputHistory([]);
+    setInputHistoryIndex(-1);
+    setMetaMessages((save.metaMessages || []).map((m) => ({ ...m, fullyRevealed: true })));
+    setMetaMode(!!save.metaMode);
+    setPhase("playing");
+    setShowSaves(false);
+    setSaveBanner({ kind: "ok", text: "The hour resumes." });
+  };
+  const deleteSave = async (key, e) => {
+    e.stopPropagation();
+    try {
+      await window.storage.delete(key);
+      await loadSaveList();
+    } catch {}
+  };
+  const exportChronicle = async (includeMeta = false) => {
+    if (!premise || entries.length === 0)
+      return;
+    const lines = [];
+    lines.push(`# ${premise.title}`);
+    lines.push(`*${premise.realmLabel} · The Borrowed Hour*`);
+    lines.push("");
+    if (premise.teaser) {
+      lines.push(`> ${premise.teaser}`);
+      lines.push("");
+    }
+    lines.push("---");
+    lines.push("");
+    for (const entry of entries) {
+      if (entry.type === "narration") {
+        lines.push(entry.text.trim());
+        lines.push("");
+      } else if (entry.type === "action") {
+        const safe = entry.text.trim().replace(/\n/g, `
+> `);
+        lines.push(`> › ${safe}`);
+        lines.push("");
+      }
+    }
+    if (ended) {
+      lines.push("---");
+      lines.push("");
+      lines.push("*❦ The hour is spent. ❦*");
+      lines.push("");
+    }
+    const metaIncluded = includeMeta && metaMessages.length > 0;
+    if (metaIncluded) {
+      lines.push("---");
+      lines.push("");
+      lines.push("## Director's commentary");
+      lines.push("");
+      lines.push("*Conversation with the author of the hour, after its close.*");
+      lines.push("");
+      for (const m of metaMessages) {
+        if (m.role === "user") {
+          const safe = m.text.trim().replace(/\n/g, `
+> `);
+          lines.push(`> **You:** ${safe}`);
+          lines.push("");
+        } else {
+          lines.push(`**The author:** ${m.text.trim()}`);
+          lines.push("");
+        }
+      }
+    }
+    const text = lines.join(`
+`);
+    const okBannerText = metaIncluded ? "A copy of the chronicle and the commentary is on the clipboard." : "A copy of the chronicle is on the clipboard.";
+    const tryClipboardAPI = async () => {
+      if (!navigator.clipboard?.writeText)
+        return false;
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    const tryLegacyCopy = () => {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.top = "0";
+        ta.style.left = "0";
+        ta.style.width = "1px";
+        ta.style.height = "1px";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        return ok;
+      } catch {
+        return false;
+      }
+    };
+    if (await tryClipboardAPI()) {
+      setSaveBanner({ kind: "ok", text: okBannerText });
+      return;
+    }
+    if (tryLegacyCopy()) {
+      setSaveBanner({ kind: "ok", text: okBannerText });
+      return;
+    }
+    setExportFallbackText(text);
+  };
+  const markEntryRevealed = (index) => {
+    setEntries((prev) => prev.map((e, i) => i === index ? { ...e, fullyRevealed: true } : e));
+  };
+  const markMetaRevealed = (index) => {
+    setMetaMessages((prev) => prev.map((m, i) => i === index ? { ...m, fullyRevealed: true } : m));
+  };
+  const liveRegionText = (() => {
+    if (metaMode) {
+      const lastMeta = [...metaMessages].reverse().find((m) => m.role === "assistant" && m.fullyRevealed);
+      return lastMeta?.text || "";
+    }
+    const lastEntry = [...entries].reverse().find((e) => e.type === "narration" && e.fullyRevealed);
+    return lastEntry?.text || "";
+  })();
+  return /* @__PURE__ */ React.createElement("div", {
+    className: `borrowed-root borrowed-vignette borrowed-grain min-h-screen relative overflow-hidden${settings.highContrast ? " high-contrast" : ""}`
+  }, /* @__PURE__ */ React.createElement("style", null, STYLES), /* @__PURE__ */ React.createElement("div", {
+    className: "sr-only",
+    "aria-live": "polite",
+    "aria-atomic": "true"
+  }, liveRegionText), /* @__PURE__ */ React.createElement("button", {
+    type: "button",
+    onClick: resetGeminiKey,
+    title: "Forget stored Gemini API key",
+    style: { position: "fixed", right: 12, bottom: 12, zIndex: 50, fontSize: 11, letterSpacing: "0.14em", padding: "7px 10px", border: "1px solid rgba(232,222,197,0.22)", borderRadius: 999, background: "rgba(22,18,21,0.72)", color: "rgba(232,222,197,0.58)" }
+  }, "API KEY"), /* @__PURE__ */ React.createElement("div", {
+    className: "relative z-10"
+  }, phase === "title" ? /* @__PURE__ */ React.createElement(TitleScreen, {
+    onChoose: beginAdventure,
+    onOpenSaves: openSavesModal,
+    onOpenCustom: () => setShowCustom(true),
+    onOpenSettings: () => setShowSettings(true),
+    language,
+    onChangeLanguage: setLanguage,
+    loading,
+    error
+  }) : /* @__PURE__ */ React.createElement(GameScreen, {
+    premise,
+    entries,
+    skipNonce,
+    instantReveal,
+    onEntryDone: markEntryRevealed,
+    onMetaDone: markMetaRevealed,
+    loading,
+    loadingPhrase,
+    error,
+    ended,
+    metaMode,
+    metaMessages,
+    onEnterMeta: enterMetaMode,
+    onExitMeta: exitMetaMode,
+    onOpenLedger: () => setShowLedger(true),
+    onOpenSettings: () => setShowSettings(true),
+    canUndo: canUndo(),
+    onUndo: undoLastTurn,
+    input,
+    onInputChange,
+    onKeyDown,
+    onSubmit: submit,
+    onSkip: skipReveal,
+    onCancel: cancelRequest,
+    onRestart: restart,
+    onSave: saveCurrent,
+    onOpenSaves: openSavesModal,
+    onExport: exportChronicle,
+    saveBanner,
+    scrollRef,
+    textareaRef
+  }), showSaves && /* @__PURE__ */ React.createElement(SavesModal, {
+    saves: saveList,
+    totalBytes: savesTotalBytes,
+    cap: SAVE_CAP,
+    loading: saveListLoading,
+    onClose: () => setShowSaves(false),
+    onLoad: loadSave,
+    onDelete: deleteSave,
+    inGame: phase === "playing"
+  }), showSettings && /* @__PURE__ */ React.createElement(SettingsModal, {
+    settings,
+    onChange: updateSetting,
+    onClose: () => setShowSettings(false),
+    osReducedMotion
+  }), showLedger && premise && /* @__PURE__ */ React.createElement(LedgerModal, {
+    premise,
+    gameState,
+    onClose: () => setShowLedger(false)
+  }), showCustom && /* @__PURE__ */ React.createElement(CustomModal, {
+    onClose: () => setShowCustom(false),
+    onBegin: (description) => {
+      setShowCustom(false);
+      beginAdventure(buildCustomPremise(description));
+    },
+    disabled: loading
+  }), exportFallbackText !== null && /* @__PURE__ */ React.createElement(ExportFallbackModal, {
+    text: exportFallbackText,
+    onClose: () => setExportFallbackText(null)
+  })));
+}
+function TitleScreen({ onChoose, onOpenSaves, onOpenCustom, onOpenSettings, language, onChangeLanguage, loading, error }) {
+  return /* @__PURE__ */ React.createElement("div", {
+    className: "relative min-h-screen flex flex-col items-center justify-center px-6 py-16"
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "text-center mb-14 max-w-3xl fade-in"
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font text-xs mb-7",
+    style: { color: "var(--cream-faint)", letterSpacing: "0.45em" }
+  }, "AN HOUR THAT IS NOT YOURS · TYPED IN FREE WORDS"), /* @__PURE__ */ React.createElement("h1", {
+    className: "display-font text-5xl md:text-7xl mb-7",
+    style: {
+      color: "var(--cream-bright)",
+      letterSpacing: "0.04em",
+      lineHeight: 1.05,
+      fontWeight: 500
+    }
+  }, "The Borrowed Hour"), /* @__PURE__ */ React.createElement("div", {
+    className: "body-font italic text-lg md:text-xl",
+    style: { color: "var(--cream-dim)" }
+  }, "Four hours have been lent to you, and one is yours to invent. Spend yours carefully — the hour will come due.")), /* @__PURE__ */ React.createElement("div", {
+    className: "grid md:grid-cols-2 gap-5 max-w-5xl w-full"
+  }, PREMISES.map((p, i) => /* @__PURE__ */ React.createElement("button", {
+    key: p.id,
+    onClick: () => !loading && onChoose(p),
+    disabled: loading,
+    "data-realm": p.realm,
+    className: "premise-card p-7 md:p-8",
+    style: { animation: `fadeIn 0.9s ease-out ${0.3 + i * 0.15}s both` }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "flex items-center justify-between mb-5"
+  }, /* @__PURE__ */ React.createElement("span", {
+    className: `realm-pill realm-${p.realm}`
+  }, realmGlyph(p.realm), " ", p.realmLabel), /* @__PURE__ */ React.createElement("span", {
+    className: "display-font text-[10px]",
+    style: { color: "var(--cream-faint)", letterSpacing: "0.3em" }
+  }, ["I", "II", "III", "IV"][i])), /* @__PURE__ */ React.createElement("h2", {
+    className: "display-font text-2xl md:text-3xl mb-4",
+    style: {
+      color: "var(--cream-bright)",
+      lineHeight: 1.15,
+      letterSpacing: "0.02em",
+      fontWeight: 500
+    }
+  }, p.title), /* @__PURE__ */ React.createElement("p", {
+    className: "body-font text-base italic",
+    style: { color: "var(--cream)", lineHeight: 1.6 }
+  }, p.teaser))), /* @__PURE__ */ React.createElement("button", {
+    onClick: () => !loading && onOpenCustom(),
+    disabled: loading,
+    "data-realm": "wild",
+    className: "premise-card p-7 md:p-8 md:col-span-2",
+    style: {
+      animation: `fadeIn 0.9s ease-out ${0.3 + 4 * 0.15}s both`,
+      textAlign: "center"
+    }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "flex items-center justify-center gap-3 mb-4"
+  }, /* @__PURE__ */ React.createElement("span", {
+    className: "realm-pill realm-wild"
+  }, realmGlyph("wild"), " WILD"), /* @__PURE__ */ React.createElement("span", {
+    className: "display-font text-[10px]",
+    style: { color: "var(--cream-faint)", letterSpacing: "0.3em" }
+  }, "V")), /* @__PURE__ */ React.createElement("h2", {
+    className: "display-font text-2xl md:text-3xl mb-3",
+    style: {
+      color: "var(--cream-bright)",
+      lineHeight: 1.15,
+      letterSpacing: "0.02em",
+      fontWeight: 500
+    }
+  }, "The Unwritten Hour"), /* @__PURE__ */ React.createElement("p", {
+    className: "body-font text-base italic max-w-xl mx-auto",
+    style: { color: "var(--cream)", lineHeight: 1.6 }
+  }, "A door of your own making. Describe a world, a self, a situation — the hour will be drawn from your words."))), /* @__PURE__ */ React.createElement("div", {
+    className: "mt-10 flex items-center gap-4 flex-wrap justify-center"
+  }, /* @__PURE__ */ React.createElement("select", {
+    value: language,
+    onChange: (e) => onChangeLanguage(e.target.value),
+    disabled: loading,
+    className: "lang-select",
+    "aria-label": "Choose the language of your hour"
+  }, LANGUAGES.map((lang) => /* @__PURE__ */ React.createElement("option", {
+    key: lang.code,
+    value: lang.code
+  }, lang.label))), /* @__PURE__ */ React.createElement("button", {
+    onClick: onOpenSaves,
+    disabled: loading,
+    className: "icon-btn",
+    style: { padding: "8px 18px" }
+  }, "❀ RESUME AN HOUR"), /* @__PURE__ */ React.createElement("button", {
+    onClick: onOpenSettings,
+    disabled: loading,
+    className: "icon-btn",
+    style: { padding: "8px 18px" },
+    "aria-label": "Reader preferences",
+    title: "Reader preferences — contrast, motion, typewriter"
+  }, "⚙ READING")), loading && /* @__PURE__ */ React.createElement("div", {
+    className: "mt-12 body-font italic text-lg slow-fade-in",
+    style: { color: "var(--cream-dim)" }
+  }, "The hour begins", /* @__PURE__ */ React.createElement("span", {
+    className: "typing-dots"
+  }, /* @__PURE__ */ React.createElement("span", null, "."), /* @__PURE__ */ React.createElement("span", null, "."), /* @__PURE__ */ React.createElement("span", null, "."))), error && /* @__PURE__ */ React.createElement("div", {
+    className: "mt-12 italic text-center max-w-md body-font",
+    style: { color: "var(--rose-ember)" }
+  }, /* @__PURE__ */ React.createElement("div", null, error.message), error.detail && /* @__PURE__ */ React.createElement("div", {
+    className: "mt-2",
+    style: {
+      fontSize: "12px",
+      opacity: 0.6,
+      fontStyle: "italic",
+      letterSpacing: "0.01em"
+    }
+  }, error.detail)), /* @__PURE__ */ React.createElement("div", {
+    className: "mt-16 text-center max-w-xl fade-in",
+    style: { animationDelay: "1.1s" }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font text-[10px] mb-3",
+    style: { color: "var(--cream-faint)", letterSpacing: "0.4em" }
+  }, "A NOTE TO THE BORROWER"), /* @__PURE__ */ React.createElement("p", {
+    className: "body-font italic text-base",
+    style: { color: "var(--cream-faint)", lineHeight: 1.65 }
+  }, "Speak as you would speak — single verbs, full sentences, dialogue, plans, lies. The world will listen, and answer in kind. Set the hour aside when you must rest, and take it up again when you return.")));
+}
+function realmGlyph(realm) {
+  switch (realm) {
+    case "echo":
+      return "◷";
+    case "neon":
+      return "◈";
+    case "omen":
+      return "✦";
+    case "dream":
+      return "❋";
+    case "wild":
+      return "✷";
+    default:
+      return "·";
+  }
+}
+function GameScreen({
+  premise,
+  entries,
+  skipNonce,
+  instantReveal,
+  onEntryDone,
+  onMetaDone,
+  loading,
+  loadingPhrase,
+  error,
+  ended,
+  metaMode,
+  metaMessages,
+  onEnterMeta,
+  onExitMeta,
+  onOpenLedger,
+  onOpenSettings,
+  canUndo,
+  onUndo,
+  input,
+  onInputChange,
+  onKeyDown,
+  onSubmit,
+  onSkip,
+  onCancel,
+  onRestart,
+  onSave,
+  onOpenSaves,
+  onExport,
+  saveBanner,
+  scrollRef,
+  textareaRef
+}) {
+  const lastEntry = entries[entries.length - 1];
+  const showResolution = ended && lastEntry && lastEntry.type === "narration" && lastEntry.fullyRevealed && !metaMode;
+  const inputLocked = ended && !metaMode || loading;
+  const hasMeta = metaMessages.length > 0;
+  return /* @__PURE__ */ React.createElement("div", {
+    className: "relative flex flex-col",
+    style: { height: "var(--app-vh, 100dvh)", minHeight: "var(--app-vh, 100dvh)" }
+  }, /* @__PURE__ */ React.createElement("header", {
+    className: "game-header relative flex items-center justify-between px-6 py-4 border-b",
+    style: { borderColor: "rgba(232, 222, 197, 0.1)" }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "header-title display-font text-xs flex items-center gap-3",
+    style: { color: "var(--cream-dim)", letterSpacing: "0.3em" }
+  }, /* @__PURE__ */ React.createElement("span", {
+    style: { color: `var(--${premise.realm})` }
+  }, realmGlyph(premise.realm)), premise.title.toUpperCase()), /* @__PURE__ */ React.createElement("div", {
+    className: "header-actions flex items-center gap-2"
+  }, /* @__PURE__ */ React.createElement("button", {
+    onClick: onUndo,
+    disabled: !canUndo,
+    className: "icon-btn",
+    title: "Undo the last turn",
+    "aria-label": "Undo the last turn"
+  }, /* @__PURE__ */ React.createElement("span", {
+    "aria-hidden": "true"
+  }, "⟲"), /* @__PURE__ */ React.createElement("span", {
+    className: "btn-label"
+  }, " UNDO")), /* @__PURE__ */ React.createElement("button", {
+    onClick: onOpenLedger,
+    disabled: entries.length === 0,
+    className: "icon-btn",
+    title: "Open the ledger — see what's tracked",
+    "aria-label": "Open the ledger"
+  }, /* @__PURE__ */ React.createElement("span", {
+    "aria-hidden": "true"
+  }, "❖"), /* @__PURE__ */ React.createElement("span", {
+    className: "btn-label"
+  }, " LEDGER")), /* @__PURE__ */ React.createElement("button", {
+    onClick: onSave,
+    disabled: loading || entries.length === 0,
+    className: "icon-btn",
+    title: "Set aside this hour",
+    "aria-label": "Set aside this hour"
+  }, /* @__PURE__ */ React.createElement("span", {
+    "aria-hidden": "true"
+  }, "❀"), /* @__PURE__ */ React.createElement("span", {
+    className: "btn-label"
+  }, " SET ASIDE")), /* @__PURE__ */ React.createElement("button", {
+    onClick: () => onExport(false),
+    disabled: entries.length === 0,
+    className: "icon-btn",
+    title: hasMeta ? "Copy the chronicle as text — narration only, no commentary" : "Copy the chronicle as text — to keep, or to share",
+    "aria-label": "Copy the chronicle"
+  }, /* @__PURE__ */ React.createElement("span", {
+    "aria-hidden": "true"
+  }, "❧"), /* @__PURE__ */ React.createElement("span", {
+    className: "btn-label"
+  }, " COPY")), hasMeta && /* @__PURE__ */ React.createElement("button", {
+    onClick: () => onExport(true),
+    className: "icon-btn",
+    title: "Copy the chronicle and the director's commentary together",
+    "aria-label": "Copy the chronicle with commentary"
+  }, /* @__PURE__ */ React.createElement("span", {
+    "aria-hidden": "true"
+  }, "❧+"), /* @__PURE__ */ React.createElement("span", {
+    className: "btn-label"
+  }, " COPY ALL")), /* @__PURE__ */ React.createElement("button", {
+    onClick: onOpenSaves,
+    className: "icon-btn",
+    title: "Open hours",
+    "aria-label": "Open saved hours"
+  }, /* @__PURE__ */ React.createElement("span", {
+    "aria-hidden": "true"
+  }, "❍"), /* @__PURE__ */ React.createElement("span", {
+    className: "btn-label"
+  }, " HOURS")), /* @__PURE__ */ React.createElement("button", {
+    onClick: onOpenSettings,
+    className: "icon-btn",
+    title: "Reader preferences — contrast, motion, typewriter",
+    "aria-label": "Reader preferences"
+  }, /* @__PURE__ */ React.createElement("span", {
+    "aria-hidden": "true"
+  }, "⚙"), /* @__PURE__ */ React.createElement("span", {
+    className: "btn-label"
+  }, " READING")), /* @__PURE__ */ React.createElement("button", {
+    onClick: onRestart,
+    className: "icon-btn icon-btn-danger",
+    title: "Begin a new hour",
+    "aria-label": "Begin a new hour"
+  }, /* @__PURE__ */ React.createElement("span", {
+    "aria-hidden": "true"
+  }, "✕"), /* @__PURE__ */ React.createElement("span", {
+    className: "btn-label"
+  }, " ANEW")))), saveBanner && /* @__PURE__ */ React.createElement("div", {
+    className: "mx-auto mt-3 px-4 py-2 body-font italic text-sm fade-in",
+    style: {
+      color: saveBanner.kind === "ok" ? "var(--rose-gold)" : "var(--rose-ember)",
+      border: "1px solid",
+      borderColor: saveBanner.kind === "ok" ? "rgba(212, 165, 116, 0.3)" : "rgba(217, 122, 122, 0.3)",
+      background: "rgba(10, 8, 20, 0.65)"
+    }
+  }, saveBanner.text), /* @__PURE__ */ React.createElement("div", {
+    ref: scrollRef,
+    className: "game-scroll flex-1 overflow-y-auto px-6 py-12",
+    onClick: onSkip
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "max-w-3xl mx-auto space-y-8"
+  }, entries.length === 0 && loading && /* @__PURE__ */ React.createElement("div", {
+    className: "divider-mark body-font italic text-base slow-fade-in"
+  }, /* @__PURE__ */ React.createElement("span", null, loadingPhrase || "the hour begins to write itself"), /* @__PURE__ */ React.createElement("span", {
+    className: "typing-dots",
+    style: { marginLeft: "6px" }
+  }, /* @__PURE__ */ React.createElement("span", null, "."), /* @__PURE__ */ React.createElement("span", null, "."), /* @__PURE__ */ React.createElement("span", null, ".")), /* @__PURE__ */ React.createElement("button", {
+    onClick: (e) => {
+      e.stopPropagation();
+      onCancel?.();
+    },
+    className: "loading-stop-btn",
+    "aria-label": "Stop this request",
+    title: "Stop this request"
+  }, "STOP")), entries.map((entry, i) => {
+    if (entry.type === "narration") {
+      return /* @__PURE__ */ React.createElement("div", {
+        key: i,
+        className: "narration-text body-font text-lg fade-in",
+        style: { lineHeight: 1.7 }
+      }, /* @__PURE__ */ React.createElement(TypewriterText, {
+        text: entry.text,
+        instant: entry.fullyRevealed || instantReveal,
+        skipSignal: skipNonce,
+        onDone: () => onEntryDone(i),
+        scrollRef
+      }));
+    }
+    return /* @__PURE__ */ React.createElement("div", {
+      key: i,
+      className: "action-text body-font text-base fade-in",
+      style: { lineHeight: 1.6 }
+    }, entry.text);
+  }), entries.length === 1 && entries[0].type === "narration" && entries[0].fullyRevealed && !ended && !metaMode && /* @__PURE__ */ React.createElement("div", {
+    className: "text-center body-font italic slow-fade-in",
+    style: {
+      color: "var(--cream-faint)",
+      fontSize: "13px",
+      paddingTop: "4px",
+      letterSpacing: "0.02em"
+    }
+  }, /* @__PURE__ */ React.createElement("span", {
+    style: { color: `var(--${premise.realm})`, opacity: 0.7 }
+  }, "❧"), " ", "when this hour is spent, you may speak with its author about it"), showResolution && /* @__PURE__ */ React.createElement("div", {
+    className: "fade-in pt-4"
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "divider-mark display-font",
+    style: {
+      color: `var(--${premise.realm})`,
+      letterSpacing: "0.4em",
+      fontSize: "12px"
+    }
+  }, /* @__PURE__ */ React.createElement("span", null, "❦ THE HOUR IS SPENT ❦")), /* @__PURE__ */ React.createElement("div", {
+    className: "text-center mt-6 body-font italic text-base",
+    style: { color: "var(--cream-faint)" }
+  }, "The chronicle is closed. You may now speak with its author — ask what you missed, point out what felt amiss."), /* @__PURE__ */ React.createElement("div", {
+    className: "text-center mt-6 flex justify-center gap-3 flex-wrap"
+  }, /* @__PURE__ */ React.createElement("button", {
+    onClick: onEnterMeta,
+    className: "icon-btn",
+    style: {
+      padding: "10px 22px",
+      borderColor: `var(--${premise.realm}-border)`,
+      color: `var(--${premise.realm})`
+    }
+  }, "✦ SPEAK WITH THE AUTHOR"), /* @__PURE__ */ React.createElement("button", {
+    onClick: onSave,
+    className: "icon-btn",
+    style: { padding: "10px 22px" }
+  }, "❀ KEEP THIS HOUR"), /* @__PURE__ */ React.createElement("button", {
+    onClick: onRestart,
+    className: "icon-btn",
+    style: { padding: "10px 22px" }
+  }, "❀ BEGIN A NEW HOUR"))), metaMode && /* @__PURE__ */ React.createElement("div", {
+    className: "pt-4 fade-in"
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "divider-mark display-font",
+    style: {
+      color: `var(--${premise.realm})`,
+      letterSpacing: "0.4em",
+      fontSize: "11px"
+    }
+  }, /* @__PURE__ */ React.createElement("span", null, "✦ AUTHOR'S TABLE ✦")), /* @__PURE__ */ React.createElement("div", {
+    className: "text-center mt-3 mb-6 body-font italic text-sm",
+    style: { color: "var(--cream-faint)" }
+  }, "Out of character. Ask about plot threads you missed, things that felt inconsistent, or anything else about the story."), metaMessages.length === 0 && /* @__PURE__ */ React.createElement("div", {
+    className: "body-font text-base",
+    style: { color: "var(--cream-dim)", lineHeight: 1.7 }
+  }, /* @__PURE__ */ React.createElement("span", {
+    style: { fontStyle: "italic" }
+  }, "A few things you might ask:"), /* @__PURE__ */ React.createElement("ul", {
+    className: "mt-2 space-y-1",
+    style: { color: "var(--cream-dim)" }
+  }, /* @__PURE__ */ React.createElement("li", null, "— What plot threads or characters did I miss?"), /* @__PURE__ */ React.createElement("li", null, "— Were there other endings I could have reached?"), /* @__PURE__ */ React.createElement("li", null, "— That part where X happened — did it contradict Y?"), /* @__PURE__ */ React.createElement("li", null, "— What were you really trying to do with this story?"))), /* @__PURE__ */ React.createElement("div", {
+    className: "space-y-6 mt-6"
+  }, metaMessages.map((m, i) => {
+    if (m.role === "user") {
+      return /* @__PURE__ */ React.createElement("div", {
+        key: i,
+        className: "body-font fade-in",
+        style: {
+          color: "var(--cream-bright)",
+          padding: "10px 16px",
+          borderLeft: `2px solid var(--${premise.realm}-border)`,
+          background: "rgba(28, 22, 44, 0.35)"
+        }
+      }, m.text);
+    }
+    return /* @__PURE__ */ React.createElement("div", {
+      key: i,
+      className: "body-font text-base fade-in",
+      style: {
+        color: "var(--cream)",
+        lineHeight: 1.7,
+        whiteSpace: "pre-wrap"
+      }
+    }, /* @__PURE__ */ React.createElement(TypewriterText, {
+      text: m.text,
+      instant: m.fullyRevealed || instantReveal,
+      skipSignal: skipNonce,
+      onDone: () => onMetaDone(i),
+      scrollRef,
+      fastMode: true
+    }));
+  }))), loading && entries.length > 0 && /* @__PURE__ */ React.createElement("div", {
+    className: "italic body-font slow-fade-in",
+    style: { color: "var(--cream-dim)" }
+  }, loadingPhrase || (metaMode ? "the author considers" : "the hour considers"), /* @__PURE__ */ React.createElement("span", {
+    className: "typing-dots"
+  }, /* @__PURE__ */ React.createElement("span", null, "."), /* @__PURE__ */ React.createElement("span", null, "."), /* @__PURE__ */ React.createElement("span", null, ".")), /* @__PURE__ */ React.createElement("button", {
+    onClick: (e) => {
+      e.stopPropagation();
+      onCancel?.();
+    },
+    className: "loading-stop-btn",
+    "aria-label": "Stop this request",
+    title: "Stop this request"
+  }, "STOP")), error && /* @__PURE__ */ React.createElement("div", {
+    className: "italic body-font",
+    style: { color: "var(--rose-ember)" }
+  }, /* @__PURE__ */ React.createElement("div", null, error.message), error.detail && /* @__PURE__ */ React.createElement("div", {
+    className: "mt-1",
+    style: {
+      fontSize: "12px",
+      opacity: 0.6,
+      fontStyle: "italic"
+    }
+  }, error.detail)))), /* @__PURE__ */ React.createElement("div", {
+    className: "game-input-row relative px-6 py-5 border-t",
+    style: {
+      borderColor: "rgba(232, 222, 197, 0.1)",
+      background: "rgba(5, 3, 9, 0.8)",
+      backdropFilter: "blur(4px)"
+    }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "max-w-3xl mx-auto"
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "flex gap-3 items-start"
+  }, /* @__PURE__ */ React.createElement("span", {
+    className: "display-font text-2xl leading-none mt-2 select-none",
+    style: {
+      color: metaMode ? `var(--${premise.realm})` : "var(--rose-ember)"
+    }
+  }, metaMode ? "✦" : "›"), /* @__PURE__ */ React.createElement("textarea", {
+    ref: textareaRef,
+    value: input,
+    onChange: onInputChange,
+    onKeyDown,
+    disabled: inputLocked,
+    rows: 1,
+    autoFocus: !ended || metaMode,
+    placeholder: ended && !metaMode ? "The chronicle is closed." : metaMode ? "Ask the author. Speak frankly." : loading ? "" : "Speak. Move. Search your pockets. Lie. Run. Ask a question.",
+    className: "borrowed-input flex-1 px-4 py-3 resize-none text-lg disabled:opacity-50",
+    style: {
+      minHeight: "52px",
+      maxHeight: "160px",
+      fontFamily: "'Cormorant Garamond', serif",
+      lineHeight: 1.5
+    }
+  })), /* @__PURE__ */ React.createElement("div", {
+    className: "text-xs mt-2 ml-8 italic body-font flex flex-wrap items-center gap-x-4 gap-y-1",
+    style: { color: "var(--cream-faint)" }
+  }, /* @__PURE__ */ React.createElement("span", null, "↵ ", metaMode ? "ask" : "act"), /* @__PURE__ */ React.createElement("span", null, "⇧ ↵ new line"), /* @__PURE__ */ React.createElement("span", null, "click the page to skip the writing"), metaMode && /* @__PURE__ */ React.createElement("button", {
+    onClick: onExitMeta,
+    className: "ml-auto",
+    style: {
+      background: "transparent",
+      border: "none",
+      cursor: "pointer",
+      color: "var(--cream-dim)",
+      fontStyle: "italic",
+      fontFamily: "'Cormorant Garamond', serif",
+      fontSize: "12px",
+      textDecoration: "underline",
+      textUnderlineOffset: "3px"
+    }
+  }, "leave the author's table")))));
+}
+function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onClose, onLoad, onDelete, inGame }) {
+  const [armedKey, setArmedKey] = useState(null);
+  useEffect(() => {
+    if (!armedKey)
+      return;
+    const t = setTimeout(() => setArmedKey(null), 4000);
+    return () => clearTimeout(t);
+  }, [armedKey]);
+  const handleReleaseTap = (key, e) => {
+    e.stopPropagation();
+    if (armedKey === key) {
+      setArmedKey(null);
+      onDelete(key, e);
+    } else {
+      setArmedKey(key);
+    }
+  };
+  const ratio = saves.length / cap;
+  const countTone = saves.length >= cap ? "full" : ratio >= 0.8 ? "warn" : "ok";
+  const countColor = countTone === "full" ? "var(--rose-ember)" : countTone === "warn" ? "var(--rose-gold)" : "var(--cream-dim)";
+  const totalKB = totalBytes / 1024;
+  return /* @__PURE__ */ React.createElement("div", {
+    className: "modal-backdrop",
+    onClick: () => {
+      setArmedKey(null);
+      onClose();
+    }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "modal-panel",
+    onClick: (e) => {
+      setArmedKey(null);
+      e.stopPropagation();
+    }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "px-6 py-5 border-b flex items-center justify-between",
+    style: { borderColor: "rgba(232, 222, 197, 0.1)" }
+  }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font text-[10px] mb-1",
+    style: { color: "var(--cream-faint)", letterSpacing: "0.4em" }
+  }, "HOURS SET ASIDE"), /* @__PURE__ */ React.createElement("h2", {
+    className: "display-font text-xl",
+    style: { color: "var(--cream-bright)", letterSpacing: "0.04em" }
+  }, "Take an hour up again"), !loading && saves.length > 0 && /* @__PURE__ */ React.createElement("div", {
+    className: "body-font italic mt-1 flex flex-wrap gap-x-3",
+    style: { fontSize: 12, color: "var(--cream-dim)" }
+  }, /* @__PURE__ */ React.createElement("span", {
+    style: { color: countColor }
+  }, saves.length, " of ", cap, " kept", countTone === "full" && " — full", countTone === "warn" && " — nearing the cap"), /* @__PURE__ */ React.createElement("span", null, "·"), /* @__PURE__ */ React.createElement("span", null, formatKB(totalKB), " in total"), /* @__PURE__ */ React.createElement("span", null, "·"), /* @__PURE__ */ React.createElement("span", null, formatTokens(Math.round(totalBytes / APPROX_CHARS_PER_TOKEN))))), /* @__PURE__ */ React.createElement("button", {
+    onClick: onClose,
+    className: "display-font text-sm",
+    style: { color: "var(--cream-dim)", letterSpacing: "0.2em" },
+    "aria-label": "Close"
+  }, "✕")), /* @__PURE__ */ React.createElement("div", {
+    className: "overflow-y-auto px-6 py-5 space-y-3",
+    style: { minHeight: 200 }
+  }, loading ? /* @__PURE__ */ React.createElement("div", {
+    className: "text-center body-font italic py-12",
+    style: { color: "var(--cream-dim)" }
+  }, "Counting the hours", /* @__PURE__ */ React.createElement("span", {
+    className: "typing-dots"
+  }, /* @__PURE__ */ React.createElement("span", null, "."), /* @__PURE__ */ React.createElement("span", null, "."), /* @__PURE__ */ React.createElement("span", null, "."))) : saves.length === 0 ? /* @__PURE__ */ React.createElement("div", {
+    className: "text-center body-font italic py-12",
+    style: { color: "var(--cream-faint)" }
+  }, "No hours set aside yet.", inGame && /* @__PURE__ */ React.createElement("div", {
+    className: "mt-2 text-sm"
+  }, "Use ❀ SET ASIDE to keep your current hour.")) : saves.map((save) => /* @__PURE__ */ React.createElement("button", {
+    key: save.key,
+    className: "save-row",
+    onClick: () => onLoad(save)
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "flex items-center gap-2 mb-1 flex-wrap"
+  }, /* @__PURE__ */ React.createElement("span", {
+    className: `realm-pill realm-${save.realm}`,
+    style: { fontSize: 8, padding: "2px 7px" }
+  }, realmGlyph(save.realm), " ", save.realmLabel || save.realm?.toUpperCase()), /* @__PURE__ */ React.createElement("span", {
+    className: "display-font text-base",
+    style: { color: "var(--cream-bright)", letterSpacing: "0.02em" }
+  }, save.title)), /* @__PURE__ */ React.createElement("div", {
+    className: "body-font italic text-sm flex flex-wrap gap-x-3 items-center",
+    style: { color: "var(--cream-dim)" }
+  }, /* @__PURE__ */ React.createElement("span", null, save.turns || 0, " turns taken"), /* @__PURE__ */ React.createElement("span", null, "·"), /* @__PURE__ */ React.createElement("span", null, formatRelative(save.savedAt)), save.size && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", null, "·"), /* @__PURE__ */ React.createElement("span", {
+    title: `${formatKB(save.size.kb)} on disk · ${formatTokens(save.size.tokens)} if reloaded`,
+    style: { color: "var(--cream-faint)" }
+  }, formatKB(save.size.kb), " · ", formatTokens(save.size.tokens))), save.ended && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", null, "·"), /* @__PURE__ */ React.createElement("span", {
+    className: "display-font",
+    style: {
+      color: "var(--rose-gold)",
+      fontSize: 9,
+      letterSpacing: "0.3em"
+    }
+  }, "❦ COMPLETE")))), /* @__PURE__ */ React.createElement("span", {
+    onClick: (e) => handleReleaseTap(save.key, e),
+    className: "icon-btn icon-btn-danger",
+    style: {
+      padding: "5px 10px",
+      fontSize: 9,
+      background: armedKey === save.key ? "rgba(180, 70, 70, 0.25)" : undefined,
+      borderColor: armedKey === save.key ? "rgba(220, 100, 100, 0.7)" : undefined,
+      color: armedKey === save.key ? "rgba(255, 200, 200, 1)" : undefined
+    },
+    role: "button",
+    tabIndex: 0,
+    onKeyDown: (e) => {
+      if (e.key === "Enter" || e.key === " ")
+        handleReleaseTap(save.key, e);
+    },
+    title: armedKey === save.key ? "Tap again to release this hour permanently" : "Release this hour (tap, then confirm)",
+    "aria-label": armedKey === save.key ? `Confirm releasing ${save.title}` : `Release ${save.title}`
+  }, armedKey === save.key ? "✕ CONFIRM" : "RELEASE"))))));
+}
+function formatRelative(ts) {
+  if (!ts)
+    return "—";
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60000);
+  if (m < 1)
+    return "moments ago";
+  if (m < 60)
+    return `${m} minute${m === 1 ? "" : "s"} ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24)
+    return `${h} hour${h === 1 ? "" : "s"} ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30)
+    return `${d} day${d === 1 ? "" : "s"} ago`;
+  return new Date(ts).toLocaleDateString();
+}
+function SettingsModal({ settings, onChange, onClose, osReducedMotion }) {
+  return /* @__PURE__ */ React.createElement("div", {
+    className: "modal-backdrop",
+    onClick: onClose
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "modal-panel",
+    onClick: (e) => e.stopPropagation()
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "px-6 py-5 border-b flex items-center justify-between",
+    style: { borderColor: "rgba(232, 222, 197, 0.1)" }
+  }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font text-[10px] mb-1",
+    style: { color: "var(--cream-faint)", letterSpacing: "0.4em" }
+  }, "⚙ READING PREFERENCES"), /* @__PURE__ */ React.createElement("h2", {
+    className: "display-font text-xl",
+    style: { color: "var(--cream-bright)", letterSpacing: "0.04em" }
+  }, "Set the page to your eyes")), /* @__PURE__ */ React.createElement("button", {
+    onClick: onClose,
+    className: "display-font text-sm",
+    style: { color: "var(--cream-dim)", letterSpacing: "0.2em" },
+    "aria-label": "Close"
+  }, "✕")), /* @__PURE__ */ React.createElement("div", {
+    className: "overflow-y-auto px-6 py-5 space-y-3"
+  }, /* @__PURE__ */ React.createElement("p", {
+    className: "body-font italic text-sm",
+    style: { color: "var(--cream-dim)", lineHeight: 1.6 }
+  }, "The hour is told in cream-and-twilight by default. If that's hard on your reading, soften the rules below. Your choices are kept between sessions."), /* @__PURE__ */ React.createElement(SettingsToggleRow, {
+    id: "setting-high-contrast",
+    label: "High contrast",
+    description: "Bright text on flat black; no grain, no vignette, no atmospheric haze.",
+    value: settings.highContrast,
+    onChange: (v) => onChange("highContrast", v)
+  }), /* @__PURE__ */ React.createElement(SettingsToggleRow, {
+    id: "setting-disable-typewriter",
+    label: "Reveal at once",
+    description: "Skip the typewriter animation. Narration appears all at once, the moment it arrives.",
+    value: settings.disableTypewriter,
+    onChange: (v) => onChange("disableTypewriter", v)
+  }), /* @__PURE__ */ React.createElement("div", {
+    className: "settings-toggle",
+    style: { cursor: "default", opacity: 0.85 }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font",
+    style: {
+      color: "var(--cream-dim)",
+      letterSpacing: "0.18em",
+      fontSize: 11,
+      textTransform: "uppercase"
+    }
+  }, "System: reduce motion"), /* @__PURE__ */ React.createElement("div", {
+    className: "body-font italic",
+    style: { color: "var(--cream-faint)", fontSize: 12, marginTop: 4 }
+  }, osReducedMotion ? "On — read from your operating system. Animations are stilled and the typewriter is bypassed." : "Off — your operating system is not asking for reduced motion.")), /* @__PURE__ */ React.createElement("span", {
+    className: "display-font",
+    style: {
+      color: osReducedMotion ? "var(--rose-gold)" : "var(--cream-faint)",
+      fontSize: 10,
+      letterSpacing: "0.3em",
+      flexShrink: 0
+    }
+  }, osReducedMotion ? "ACTIVE" : "INACTIVE"))), /* @__PURE__ */ React.createElement("div", {
+    className: "px-6 py-4 border-t flex justify-end",
+    style: { borderColor: "rgba(232, 222, 197, 0.1)" }
+  }, /* @__PURE__ */ React.createElement("button", {
+    onClick: onClose,
+    className: "icon-btn",
+    style: { padding: "8px 18px" }
+  }, "✕ DONE"))));
+}
+function SettingsToggleRow({ id, label, description, value, onChange }) {
+  return /* @__PURE__ */ React.createElement("button", {
+    id,
+    type: "button",
+    role: "switch",
+    "aria-checked": value,
+    className: "settings-toggle",
+    onClick: () => onChange(!value)
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font",
+    style: {
+      color: "var(--cream-bright)",
+      letterSpacing: "0.18em",
+      fontSize: 11,
+      textTransform: "uppercase"
+    }
+  }, label), /* @__PURE__ */ React.createElement("div", {
+    className: "body-font italic",
+    style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4 }
+  }, description)), /* @__PURE__ */ React.createElement("span", {
+    className: "settings-toggle-track",
+    "data-on": value ? "true" : "false",
+    "aria-hidden": "true"
+  }, /* @__PURE__ */ React.createElement("span", {
+    className: "settings-toggle-thumb"
+  })));
+}
+function LedgerModal({ premise, gameState, onClose }) {
+  const realmColor = `var(--${premise.realm})`;
+  const has = (a) => Array.isArray(a) && a.length > 0;
+  const empty = !gameState || !gameState.scene && !gameState.time && !has(gameState.inventory) && !has(gameState.npcs) && !has(gameState.clues) && !gameState.summary;
+  return /* @__PURE__ */ React.createElement("div", {
+    className: "modal-backdrop",
+    onClick: onClose
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "modal-panel",
+    onClick: (e) => e.stopPropagation()
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "px-6 py-5 border-b flex items-center justify-between",
+    style: { borderColor: "rgba(232, 222, 197, 0.1)" }
+  }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font text-[10px] mb-1",
+    style: { color: "var(--cream-faint)", letterSpacing: "0.4em" }
+  }, "WHAT IS KEPT IN THE LEDGER"), /* @__PURE__ */ React.createElement("h2", {
+    className: "display-font text-xl",
+    style: { color: "var(--cream-bright)", letterSpacing: "0.04em" }
+  }, "The current state of your hour")), /* @__PURE__ */ React.createElement("button", {
+    onClick: onClose,
+    className: "display-font text-sm",
+    style: { color: "var(--cream-dim)", letterSpacing: "0.2em" }
+  }, "✕")), /* @__PURE__ */ React.createElement("div", {
+    className: "overflow-y-auto px-6 py-5 space-y-5"
+  }, empty ? /* @__PURE__ */ React.createElement("div", {
+    className: "text-center body-font italic py-8",
+    style: { color: "var(--cream-faint)" }
+  }, "The ledger is still blank. Take an action to fill it.") : /* @__PURE__ */ React.createElement(React.Fragment, null, (gameState.scene || gameState.time) && /* @__PURE__ */ React.createElement(LedgerBlock, {
+    label: "WHERE / WHEN",
+    color: realmColor
+  }, gameState.scene && /* @__PURE__ */ React.createElement("div", {
+    style: { color: "var(--cream-bright)" }
+  }, gameState.scene), gameState.time && /* @__PURE__ */ React.createElement("div", {
+    className: "italic mt-1",
+    style: { color: "var(--cream-dim)" }
+  }, gameState.time)), has(gameState.inventory) && /* @__PURE__ */ React.createElement(LedgerBlock, {
+    label: "ON YOUR PERSON",
+    color: realmColor
+  }, /* @__PURE__ */ React.createElement("ul", {
+    className: "space-y-1"
+  }, gameState.inventory.map((it, i) => /* @__PURE__ */ React.createElement("li", {
+    key: i,
+    style: { color: "var(--cream)" }
+  }, "— ", it)))), has(gameState.npcs) && /* @__PURE__ */ React.createElement(LedgerBlock, {
+    label: "ENCOUNTERED",
+    color: realmColor
+  }, /* @__PURE__ */ React.createElement("ul", {
+    className: "space-y-2"
+  }, gameState.npcs.map((n, i) => /* @__PURE__ */ React.createElement("li", {
+    key: i
+  }, /* @__PURE__ */ React.createElement("span", {
+    className: "display-font",
+    style: {
+      color: "var(--cream-bright)",
+      letterSpacing: "0.04em",
+      fontSize: "14px"
+    }
+  }, n.name), n.note && /* @__PURE__ */ React.createElement("span", {
+    className: "italic",
+    style: { color: "var(--cream-dim)" }
+  }, " ", "— ", n.note))))), has(gameState.clues) && /* @__PURE__ */ React.createElement(LedgerBlock, {
+    label: "WHAT YOU KNOW",
+    color: realmColor
+  }, /* @__PURE__ */ React.createElement("ul", {
+    className: "space-y-1"
+  }, gameState.clues.map((c, i) => /* @__PURE__ */ React.createElement("li", {
+    key: i,
+    style: { color: "var(--cream)" }
+  }, "— ", c)))), gameState.summary && /* @__PURE__ */ React.createElement(LedgerBlock, {
+    label: "THE STORY SO FAR",
+    color: realmColor
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "italic",
+    style: { color: "var(--cream)", lineHeight: 1.6 }
+  }, gameState.summary))))));
+}
+function LedgerBlock({ label, color, children }) {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font mb-2",
+    style: {
+      color: color || "var(--cream-faint)",
+      letterSpacing: "0.35em",
+      fontSize: "10px"
+    }
+  }, "❦ ", label), /* @__PURE__ */ React.createElement("div", {
+    className: "body-font text-base",
+    style: { lineHeight: 1.6 }
+  }, children));
+}
+function ExportFallbackModal({ text, onClose }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.focus();
+      try {
+        ref.current.select();
+      } catch {}
+    }
+  }, []);
+  return /* @__PURE__ */ React.createElement("div", {
+    className: "modal-backdrop",
+    onClick: onClose
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "modal-panel",
+    onClick: (e) => e.stopPropagation()
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "px-6 py-5 border-b flex items-center justify-between",
+    style: { borderColor: "rgba(232, 222, 197, 0.1)" }
+  }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font text-[10px] mb-1",
+    style: { color: "var(--cream-faint)", letterSpacing: "0.4em" }
+  }, "❧ COPY THE CHRONICLE"), /* @__PURE__ */ React.createElement("h2", {
+    className: "display-font text-xl",
+    style: { color: "var(--cream-bright)", letterSpacing: "0.04em" }
+  }, "Long-press the text below, then choose Copy")), /* @__PURE__ */ React.createElement("button", {
+    onClick: onClose,
+    className: "display-font text-sm",
+    style: { color: "var(--cream-dim)", letterSpacing: "0.2em" }
+  }, "✕")), /* @__PURE__ */ React.createElement("div", {
+    className: "px-6 py-5"
+  }, /* @__PURE__ */ React.createElement("p", {
+    className: "body-font italic text-sm mb-3",
+    style: { color: "var(--cream-dim)", lineHeight: 1.6 }
+  }, "Your browser would not place this on the clipboard directly. The chronicle is selected below — long-press (on phone) or use Ctrl/Cmd+C (on desktop) to copy it. Paste it wherever you wish."), /* @__PURE__ */ React.createElement("textarea", {
+    ref,
+    readOnly: true,
+    value: text,
+    className: "w-full body-font text-sm",
+    style: {
+      minHeight: "240px",
+      maxHeight: "50vh",
+      padding: "12px",
+      background: "rgba(0,0,0,0.3)",
+      border: "1px solid rgba(232, 222, 197, 0.15)",
+      borderRadius: "2px",
+      color: "var(--cream-bright)",
+      lineHeight: 1.5,
+      resize: "vertical"
+    }
+  })), /* @__PURE__ */ React.createElement("div", {
+    className: "px-6 py-4 border-t flex justify-end",
+    style: { borderColor: "rgba(232, 222, 197, 0.1)" }
+  }, /* @__PURE__ */ React.createElement("button", {
+    onClick: onClose,
+    className: "icon-btn",
+    style: { padding: "8px 18px" }
+  }, "✕ DONE"))));
+}
+function CustomModal({ onClose, onBegin, disabled }) {
+  const [text, setText] = useState("");
+  const ref = useRef(null);
+  useEffect(() => {
+    if (ref.current)
+      ref.current.focus();
+  }, []);
+  const tooShort = text.trim().length < 30;
+  const handleBegin = () => {
+    if (tooShort || disabled)
+      return;
+    onBegin(text.trim());
+  };
+  return /* @__PURE__ */ React.createElement("div", {
+    className: "modal-backdrop",
+    onClick: onClose
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "modal-panel",
+    onClick: (e) => e.stopPropagation()
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "px-6 py-5 border-b flex items-center justify-between",
+    style: { borderColor: "rgba(232, 222, 197, 0.1)" }
+  }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font text-[10px] mb-1",
+    style: { color: "var(--wild)", letterSpacing: "0.4em" }
+  }, "✷ THE UNWRITTEN HOUR"), /* @__PURE__ */ React.createElement("h2", {
+    className: "display-font text-xl",
+    style: { color: "var(--cream-bright)", letterSpacing: "0.04em" }
+  }, "Describe your scenario")), /* @__PURE__ */ React.createElement("button", {
+    onClick: onClose,
+    className: "display-font text-sm",
+    style: { color: "var(--cream-dim)", letterSpacing: "0.2em" }
+  }, "✕")), /* @__PURE__ */ React.createElement("div", {
+    className: "overflow-y-auto px-6 py-5 space-y-4"
+  }, /* @__PURE__ */ React.createElement("p", {
+    className: "body-font italic text-sm",
+    style: { color: "var(--cream-dim)", lineHeight: 1.6 }
+  }, "Describe enough to set the hour. Tell us where you are, what is happening, what is at stake — and most of all,", " ", /* @__PURE__ */ React.createElement("span", {
+    style: { color: "var(--cream-bright)" }
+  }, "who you are"), ": a name, a calling, a fear or appetite, a small particular truth that gives the hour a soul to pour through. A paragraph is plenty; even rich sentences will do."), /* @__PURE__ */ React.createElement("textarea", {
+    ref,
+    value: text,
+    onChange: (e) => setText(e.target.value),
+    onKeyDown: (e) => {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        handleBegin();
+      }
+    },
+    placeholder: "Example: A lighthouse keeper on a remote island during a long winter. Three nights ago a ship was wrecked on the rocks below — but the bodies on the beach are not from any crew you know, and they are wearing uniforms from a war that ended a hundred years ago. Tonight, something is climbing the spiral stair.",
+    className: "borrowed-input w-full px-4 py-3 resize-y text-base",
+    style: {
+      minHeight: "180px",
+      maxHeight: "320px",
+      fontFamily: "'Cormorant Garamond', serif",
+      lineHeight: 1.55,
+      borderColor: "rgba(184, 200, 150, 0.25)"
+    }
+  }), /* @__PURE__ */ React.createElement("div", {
+    className: "text-xs italic body-font flex items-center justify-between",
+    style: { color: "var(--cream-faint)" }
+  }, /* @__PURE__ */ React.createElement("span", null, tooShort ? "A little more, please — at least 30 characters." : `${text.trim().length} characters · ⌘/Ctrl + ↵ to begin`))), /* @__PURE__ */ React.createElement("div", {
+    className: "px-6 py-4 border-t flex items-center justify-end gap-3",
+    style: { borderColor: "rgba(232, 222, 197, 0.1)" }
+  }, /* @__PURE__ */ React.createElement("button", {
+    onClick: onClose,
+    className: "icon-btn",
+    style: { padding: "8px 18px" }
+  }, "CANCEL"), /* @__PURE__ */ React.createElement("button", {
+    onClick: handleBegin,
+    disabled: tooShort || disabled,
+    className: "icon-btn",
+    style: {
+      padding: "8px 22px",
+      borderColor: "var(--wild-border)",
+      color: "var(--wild)"
+    }
+  }, "✷ BEGIN THIS HOUR"))));
+}
+ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ React.createElement(App, null));
+
+  </script>
+</body>
+</html>
