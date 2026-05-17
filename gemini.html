@@ -761,14 +761,14 @@ function TypewriterText({
   }, []);
   const effectiveInstant = instant || reducedMotion;
   const [revealed, setRevealed] = useState(() => effectiveInstant ? text.length : 0);
-  const doneFiredRef = useRef(effectiveInstant);
+  const doneFiredRef = useRef(false);
   const onDoneRef = useRef(onDone);
   useEffect(() => {
     onDoneRef.current = onDone;
   });
   useEffect(() => {
     setRevealed(effectiveInstant ? text.length : 0);
-    doneFiredRef.current = effectiveInstant;
+    doneFiredRef.current = false;
   }, [text, effectiveInstant]);
   const initialSkipRef = useRef(skipSignal);
   useEffect(() => {
