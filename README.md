@@ -21,7 +21,7 @@ The port preserves the original two-model architecture:
 - Opening scenes use `gpt-5.4`, a mid-tier frontier model, because the opening establishes the voice and world texture for the rest of the hour.
 - Continuation turns and post-game meta discussion use `gpt-5.4-mini`, a lower-cost model that inherits the established voice while keeping repeated turns less expensive.
 
-The original Anthropic `tool_choice` flow has been adapted to OpenAI’s Responses API with structured JSON output for in-fiction turns. The original prompt-cache controls are intentionally treated as no-ops in this browser port because OpenAI prompt caching is automatic rather than requested with per-message cache-control blocks.
+The original Anthropic `tool_choice` flow has been adapted to OpenAI’s Responses API with structured JSON output for in-fiction turns. Anthropic-specific cache-control markers are omitted because OpenAI prompt caching is automatic and prefix-based rather than requested with per-message cache-control blocks.
 
 ## Files
 

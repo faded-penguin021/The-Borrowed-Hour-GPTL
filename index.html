@@ -86,7 +86,11 @@ var extractOpenAIText = (data) => {
     return data.output_text.trim();
   const chunks = [];
   for (const item of data.output || []) {
+    if (item.type && item.type !== "message")
+      continue;
     for (const part of item.content || []) {
+      if (part.type && part.type !== "output_text")
+        continue;
       if (typeof part.text === "string")
         chunks.push(part.text);
       if (typeof part.output_text === "string")
@@ -1545,7 +1549,7 @@ function App() {
     return () => clearTimeout(t);
   }, [saveBanner]);
   const skipReveal = () => setSkipNonce((n) => n + 1);
-  const callAPI = async (sys, msgs, useTool = false, model = MODEL_CONTINUATION, maxTokens = 3000, temperature = 0.6, cache = false, signal = null) => {
+  const callAPI = async (sys, msgs, useTool = false, model = MODEL_CONTINUATION, maxTokens = 3000, temperature = 0.6, signal = null) => {
     const body = {
       model,
       input: normalizeOpenAIMessages(sys, msgs),
@@ -1655,7 +1659,7 @@ function App() {
     try {
       const sys = buildSystem(chosen, language);
       const msgs = [{ role: "user", content: "Begin." }];
-      const raw = await callAPI(sys, msgs, true, MODEL_OPENING, 4500, 0.85, false, controller.signal);
+      const raw = await callAPI(sys, msgs, true, MODEL_OPENING, 4500, 0.85, controller.signal);
       if (controller.signal.aborted)
         return;
       const parsed = parseGMResponse(raw);
@@ -1765,17 +1769,11 @@ ${finalState}`
           },
           {
             role: "assistant",
-            content: [
-              {
-                type: "text",
-                text: "I have the chronicle in mind. I'm ready to talk about it with you.",
-                cache_control: { type: "ephemeral", ttl: "1h" }
-              }
-            ]
+            content: "I have the chronicle in mind. I'm ready to talk about it with you."
           },
           ...newMeta.map((m) => ({ role: m.role, content: m.text }))
         ];
-        const reply = await callAPI(sys, metaApiMessages, false, MODEL_CONTINUATION, 3000, 0.8, true, controller2.signal);
+        const reply = await callAPI(sys, metaApiMessages, false, MODEL_CONTINUATION, 3000, 0.8, controller2.signal);
         if (controller2.signal.aborted)
           return;
         setMetaMessages([
@@ -1859,23 +1857,7 @@ ${text}`);
     abortRef.current = { controller, rollback };
     try {
       const sys = buildSystem(premise, language);
-      const lastHistoricalIdx = apiHistory.length - 2;
-      const finalApiHistory = apiHistory.map((m, i) => {
-        if (i === lastHistoricalIdx && typeof m.content === "string") {
-          return {
-            ...m,
-            content: [
-              {
-                type: "text",
-                text: m.content,
-                cache_control: { type: "ephemeral", ttl: "1h" }
-              }
-            ]
-          };
-        }
-        return m;
-      });
-      const reply = await callAPI(sys, finalApiHistory, true, MODEL_CONTINUATION, 3500, 0.6, true, controller.signal);
+      const reply = await callAPI(sys, apiHistory, true, MODEL_CONTINUATION, 3500, 0.6, controller.signal);
       if (controller.signal.aborted)
         return;
       const parsed = parseGMResponse(reply);
