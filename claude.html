@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Borrowed Hour — Gemini Artifact</title>
+  <title>The Borrowed Hour — Claude Artifact</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -39,25 +39,25 @@ if (!window.storage) {
     }
   };
 }
-var getGeminiKey = () => {
-  const injected = window.GEMINI_API_KEY || document.querySelector('meta[name="gemini-api-key"]')?.content;
+var getClaudeKey = () => {
+  const injected = window.ANTHROPIC_API_KEY || document.querySelector('meta[name="anthropic-api-key"]')?.content;
   if (injected)
     return injected.trim();
-  const stored = localStorage.getItem(GEMINI_KEY_STORAGE);
+  const stored = localStorage.getItem(CLAUDE_KEY_STORAGE);
   if (stored)
     return stored.trim();
-  const entered = window.prompt("Enter a Gemini API key for this local standalone file. It is stored only in this browser's localStorage.");
+  const entered = window.prompt("Enter a Claude API key for this local standalone file. It is stored only in this browser's localStorage.");
   if (!entered || !entered.trim()) {
-    throw new BorrowedError("The hour cannot open yet.", "No Gemini API key was provided. Set window.GEMINI_API_KEY, add a meta gemini-api-key tag, or enter a key when prompted.");
+    throw new BorrowedError("The hour cannot open yet.", "No Claude API key was provided. Set window.ANTHROPIC_API_KEY, add a meta anthropic-api-key tag, or enter a key when prompted.");
   }
-  localStorage.setItem(GEMINI_KEY_STORAGE, entered.trim());
+  localStorage.setItem(CLAUDE_KEY_STORAGE, entered.trim());
   return entered.trim();
 };
-var resetGeminiKey = () => {
-  localStorage.removeItem(GEMINI_KEY_STORAGE);
-  window.alert("Stored Gemini API key removed. Reload and begin again to enter a different key.");
+var resetClaudeKey = () => {
+  localStorage.removeItem(CLAUDE_KEY_STORAGE);
+  window.alert("Stored Claude API key removed. Reload and begin again to enter a different key.");
 };
-var normalizeGeminiContent = (content) => {
+var normalizeClaudeContent = (content) => {
   if (typeof content === "string")
     return content;
   if (Array.isArray(content)) {
@@ -74,17 +74,15 @@ var normalizeGeminiContent = (content) => {
   }
   return String(content ?? "");
 };
-var normalizeGeminiMessages = (msgs) => msgs.map((m) => ({
-  role: m.role === "assistant" ? "model" : "user",
-  parts: [{ text: normalizeGeminiContent(m.content) }]
+var normalizeClaudeMessages = (msgs) => msgs.map((m) => ({
+  role: m.role === "assistant" ? "assistant" : "user",
+  content: normalizeClaudeContent(m.content)
 }));
-var extractGeminiText = (data) => {
+var extractClaudeText = (data) => {
   const chunks = [];
-  for (const candidate of data.candidates || []) {
-    for (const part of candidate.content?.parts || []) {
-      if (typeof part.text === "string")
-        chunks.push(part.text);
-    }
+  for (const part of data.content || []) {
+    if (part.type === "text" && typeof part.text === "string")
+      chunks.push(part.text);
   }
   return chunks.join(`
 `).trim();
@@ -267,7 +265,7 @@ var httpStatusHint = (status) => {
     case 400:
       return "API rejected the request (HTTP 400 — likely a malformed prompt or schema).";
     case 401:
-      return "API authentication failed (HTTP 401 — check your Gemini API key).";
+      return "API authentication failed (HTTP 401 — check your Claude API key).";
     case 403:
       return "API forbade the request (HTTP 403 — key may lack access to this model).";
     case 404:
@@ -283,9 +281,9 @@ var httpStatusHint = (status) => {
     case 502:
     case 503:
     case 504:
-      return `Gemini gateway error (HTTP ${status} — usually transient).`;
+      return `Claude gateway error (HTTP ${status} — usually transient).`;
     case 529:
-      return "Gemini model overloaded (HTTP 529 — try again in a moment).";
+      return "Claude model overloaded (HTTP 529 — try again in a moment).";
     default:
       return `Unexpected API status (HTTP ${status}).`;
   }
@@ -385,10 +383,10 @@ YOUR ROLE:
 - The player can type ANY input — single words, full sentences, dialogue, plans, internal thoughts. Treat their words as their character's actions, speech, or intentions. There is no command syntax. Free language is the rule. Never tell the player "I don't understand."
 - If the player speaks dialogue, voice NPCs distinctively — give them rhythms of speech, hesitations, unspoken things.
 - LENGTH RULES for the narration field — follow carefully:
-  • THE OPENING SCENE (your very first response, in reply to "Begin.") should be RICH and IMMERSIVE: 350 to 500 words. This is a HARD floor as well as a cap: do not compress the opening into a summary. Establish the world, the player's body in space, the texture of the place, the people present, and the first threads of wrongness. Multiple short paragraphs are correct. Every line must earn its place.
-  • EVERY TURN AFTER THAT should be roughly 180 to 320 words — typically 2 to 4 short paragraphs. This is the default for the Gemini version; match the fuller OpenAI/Claude pacing rather than answering tersely.
-  • You MAY exceed 320 words ONLY when a genuinely significant plot development demands it: a major revelation, a pivotal NPC encounter, a dramatic set-piece, the resolution of an arc, or the ending. Be cautious; never inflate.
-  • NEVER pad. Atmosphere should serve action and discovery, not replace them. But do render the scene: concrete action, sensory texture, and consequence should appear on the page rather than being compressed into a synopsis.
+  • THE OPENING SCENE (your very first response, in reply to "Begin.") should be RICH and IMMERSIVE: 300 to 450 words. This is a HARD cap — going over it eats the response budget and risks the state fields being truncated. Establish the world, the player's body in space, the texture of the place, the people present, and the first threads of wrongness. Multiple short paragraphs are correct. Every line must earn its place.
+  • EVERY TURN AFTER THAT should be roughly 100 to 250 words — typically 1 to 3 short paragraphs. This is the default.
+  • You MAY exceed 250 words ONLY when a genuinely significant plot development demands it: a major revelation, a pivotal NPC encounter, a dramatic set-piece, the resolution of an arc, or the ending. Be cautious; never inflate.
+  • NEVER pad. Atmosphere should serve action and discovery, not replace them.
 - Reward curiosity, exploration, and creative solutions. Allow failure, danger, real consequence.
 - Never end with "What do you do?" Leave space for the player to act into.
 - Never break character in the narration. Never refer to yourself as an AI, model, or system. Never explain mechanics.
@@ -499,7 +497,7 @@ On every turn you must call the tool \`narrate_and_update_state\` with the prose
 LANGUAGE — CRITICAL:
 Write all player-facing content in ${languageNameFor(language)}. This includes: the 'narration' field, every string in the 'state' object the player will read (scene, time, the contents of inventory items, npc names where appropriate and notes, clues, summary), and any wild-premise titles or teasers if you generate them. The 'gm_scratchpad' and 'hidden_state' fields are GM-internal — write them in whatever language you find easiest, English is fine. Your goal is that the player reads the entire chronicle in ${languageNameFor(language)} as if it were authored natively in that language: idiomatic phrasing, native register, culturally fluent rather than translated. Names of characters and places may stay in their original language when the seed specifies a culturally specific setting; let the seed and the genre guide that judgment.
 
-Begin now. Open with a rich, immersive first scene drawn from the seed above — establish place, atmosphere, the player's body in space, the texture of the world, and the first threads of wrongness. 350 to 500 words in the narration field — this is a hard floor and cap for the Gemini version. Populate the state fields based on the seed (initial inventory, initial scene, initial time, any NPCs introduced, any clues already evident, an initial summary). Do not greet the player as "you, the player" — only ever as the character within the world.`;
+Begin now. Open with a rich, immersive first scene drawn from the seed above — establish place, atmosphere, the player's body in space, the texture of the world, and the first threads of wrongness. 300 to 450 words in the narration field — this is a hard cap. Populate the state fields based on the seed (initial inventory, initial scene, initial time, any NPCs introduced, any clues already evident, an initial summary). Do not greet the player as "you, the player" — only ever as the character within the world.`;
 var SAVE_PREFIX = "borrowed:save:";
 var SETTINGS_KEY = "borrowed:settings:v1";
 var SAVE_CAP = 30;
@@ -533,10 +531,10 @@ var DEFAULT_SETTINGS = {
   highContrast: false,
   disableTypewriter: false
 };
-var MODEL_OPENING = "gemini-2.5-pro";
-var MODEL_CONTINUATION = "gemini-3-flash-preview";
-var GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-var GEMINI_KEY_STORAGE = "borrowed:gemini_api_key:v1";
+var MODEL_OPENING = "claude-sonnet-4-6";
+var MODEL_CONTINUATION = "claude-haiku-4-5-20251001";
+var CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
+var CLAUDE_KEY_STORAGE = "borrowed:anthropic_api_key:v1";
 var LANGUAGES = [
   { code: "en", label: "English", name: "English" },
   { code: "es", label: "Español", name: "Spanish" },
@@ -1540,18 +1538,17 @@ function App() {
   const skipReveal = () => setSkipNonce((n) => n + 1);
   const callAPI = async (sys, msgs, useTool = false, model = MODEL_CONTINUATION, maxTokens = 3000, temperature = 0.6, signal = null) => {
     const body = {
-      systemInstruction: { parts: [{ text: sys }] },
-      contents: normalizeGeminiMessages(msgs),
-      generationConfig: {
-        maxOutputTokens: maxTokens,
-        temperature
-      }
+      model,
+      max_tokens: maxTokens,
+      temperature,
+      system: sys,
+      messages: normalizeClaudeMessages(msgs)
     };
     if (useTool) {
-      body.generationConfig.responseMimeType = "application/json";
-      body.generationConfig.responseJsonSchema = GM_TOOL.input_schema;
+      body.tools = [GM_TOOL];
+      body.tool_choice = { type: "tool", name: GM_TOOL.name };
     }
-    const RETRYABLE = new Set([408, 409, 429, 500, 502, 503, 504]);
+    const RETRYABLE = new Set([408, 409, 429, 500, 502, 503, 504, 529]);
     const MAX_RETRIES = 2;
     let res = null;
     let lastErr = null;
@@ -1564,11 +1561,12 @@ function App() {
         throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
       }
       try {
-        res = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
+        res = await fetch(CLAUDE_API_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-goog-api-key": getGeminiKey()
+            "x-api-key": getClaudeKey(),
+            "anthropic-version": "2023-06-01"
           },
           body: JSON.stringify(body),
           signal: signal || undefined
@@ -1582,9 +1580,9 @@ function App() {
           const bodyText = await res.text();
           lastBodySnippet = bodyText.slice(0, 500);
         } catch {}
-        if (res.status === 400 && body.generationConfig.temperature !== undefined && /temperature/i.test(lastBodySnippet || "")) {
-          delete body.generationConfig.temperature;
-          lastErr = new BorrowedError("The hour falters.", "Gemini rejected temperature for this model; retrying with the model default.");
+        if (res.status === 400 && body.temperature !== undefined && /temperature/i.test(lastBodySnippet || "")) {
+          delete body.temperature;
+          lastErr = new BorrowedError("The hour falters.", "Claude rejected temperature for this model; retrying with the model default.");
           res = null;
           continue;
         }
@@ -1599,31 +1597,43 @@ function App() {
         }
         if (e instanceof BorrowedError)
           throw e;
-        lastErr = new BorrowedError("The hour falters.", `Network error before the Gemini API responded${e?.message ? ` (${e.message})` : ""}. Check your connection, CORS/proxy policy, and API key.`);
+        lastErr = new BorrowedError("The hour falters.", `Network error before the Claude API responded${e?.message ? ` (${e.message})` : ""}. Check your connection, CORS/proxy policy, and API key.`);
         res = null;
       }
     }
     if (!res) {
       if (typeof console !== "undefined" && console.warn) {
-        console.warn("[borrowed] Gemini API failure", { status: lastStatus, body: lastBodySnippet });
+        console.warn("[borrowed] Claude API failure", { status: lastStatus, body: lastBodySnippet });
       }
       throw lastErr || new BorrowedError("The hour falters.", "Unknown failure.");
     }
     const data = await res.json();
-    if (data.usageMetadata && typeof console !== "undefined" && console.debug) {
-      const u = data.usageMetadata;
+    if (data.usage && typeof console !== "undefined" && console.debug) {
+      const u = data.usage;
       console.debug("[borrowed] usage", {
         model,
-        input: u.promptTokenCount || 0,
-        cached_input: u.cachedContentTokenCount || 0,
-        output: u.candidatesTokenCount || 0,
-        total: u.totalTokenCount || 0
+        input: u.input_tokens || 0,
+        cache_read: u.cache_read_input_tokens || 0,
+        cache_write: u.cache_creation_input_tokens || 0,
+        output: u.output_tokens || 0
       });
     }
-    const text = extractGeminiText(data);
+    if (useTool) {
+      const toolUse = (data.content || []).find((part) => part.type === "tool_use" && part.name === GM_TOOL.name);
+      if (toolUse) {
+        if (data.stop_reason === "max_tokens") {
+          throw new BorrowedError("The hour falters.", `Tool input was truncated mid-JSON by max_tokens (currently ${maxTokens}). Increase max_tokens or shorten the prompt.`);
+        }
+        if (toolUse.input && typeof toolUse.input === "object")
+          return JSON.stringify(toolUse.input);
+        if (typeof toolUse.input === "string" && toolUse.input.trim())
+          return toolUse.input;
+      }
+    }
+    const text = extractClaudeText(data);
     if (!text) {
-      const reason = data.promptFeedback?.blockReason || data.candidates?.[0]?.finishReason || "unknown";
-      throw new BorrowedError("The page came back blank.", `Gemini returned an empty response. Reason: ${reason}.`);
+      const stop = data.stop_reason || "unknown";
+      throw new BorrowedError("The page came back blank.", `Claude returned an empty response. Stop reason: ${stop}.`);
     }
     return text;
   };
@@ -2229,8 +2239,8 @@ ${text}`);
     "aria-atomic": "true"
   }, liveRegionText), /* @__PURE__ */ React.createElement("button", {
     type: "button",
-    onClick: resetGeminiKey,
-    title: "Forget stored Gemini API key",
+    onClick: resetClaudeKey,
+    title: "Forget stored Claude API key",
     style: { position: "fixed", right: 12, bottom: 12, zIndex: 50, fontSize: 11, letterSpacing: "0.14em", padding: "7px 10px", border: "1px solid rgba(232,222,197,0.22)", borderRadius: 999, background: "rgba(22,18,21,0.72)", color: "rgba(232,222,197,0.58)" }
   }, "API KEY"), /* @__PURE__ */ React.createElement("div", {
     className: "relative z-10"
