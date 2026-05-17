@@ -385,10 +385,10 @@ YOUR ROLE:
 - The player can type ANY input — single words, full sentences, dialogue, plans, internal thoughts. Treat their words as their character's actions, speech, or intentions. There is no command syntax. Free language is the rule. Never tell the player "I don't understand."
 - If the player speaks dialogue, voice NPCs distinctively — give them rhythms of speech, hesitations, unspoken things.
 - LENGTH RULES for the narration field — follow carefully:
-  • THE OPENING SCENE (your very first response, in reply to "Begin.") should be RICH and IMMERSIVE: 350 to 500 words. This is a HARD floor as well as a cap: do not compress the opening into a summary. Establish the world, the player's body in space, the texture of the place, the people present, and the first threads of wrongness. Multiple short paragraphs are correct. Every line must earn its place.
-  • EVERY TURN AFTER THAT should be roughly 180 to 320 words — typically 2 to 4 short paragraphs. This is the default for the Gemini version; match the fuller OpenAI/Claude pacing rather than answering tersely.
-  • You MAY exceed 320 words ONLY when a genuinely significant plot development demands it: a major revelation, a pivotal NPC encounter, a dramatic set-piece, the resolution of an arc, or the ending. Be cautious; never inflate.
-  • NEVER pad. Atmosphere should serve action and discovery, not replace them. But do render the scene: concrete action, sensory texture, and consequence should appear on the page rather than being compressed into a synopsis.
+  • THE OPENING SCENE (your very first response, in reply to "Begin.") should be RICH and IMMERSIVE: 300 to 450 words. This is a HARD cap — going over it eats the response budget and risks the state fields being truncated. Establish the world, the player's body in space, the texture of the place, the people present, and the first threads of wrongness. Multiple short paragraphs are correct. Every line must earn its place.
+  • EVERY TURN AFTER THAT should be roughly 100 to 250 words — typically 1 to 3 short paragraphs. This is the default.
+  • You MAY exceed 250 words ONLY when a genuinely significant plot development demands it: a major revelation, a pivotal NPC encounter, a dramatic set-piece, the resolution of an arc, or the ending. Be cautious; never inflate.
+  • NEVER pad. Atmosphere should serve action and discovery, not replace them.
 - Reward curiosity, exploration, and creative solutions. Allow failure, danger, real consequence.
 - Never end with "What do you do?" Leave space for the player to act into.
 - Never break character in the narration. Never refer to yourself as an AI, model, or system. Never explain mechanics.
@@ -499,7 +499,7 @@ On every turn you must call the tool \`narrate_and_update_state\` with the prose
 LANGUAGE — CRITICAL:
 Write all player-facing content in ${languageNameFor(language)}. This includes: the 'narration' field, every string in the 'state' object the player will read (scene, time, the contents of inventory items, npc names where appropriate and notes, clues, summary), and any wild-premise titles or teasers if you generate them. The 'gm_scratchpad' and 'hidden_state' fields are GM-internal — write them in whatever language you find easiest, English is fine. Your goal is that the player reads the entire chronicle in ${languageNameFor(language)} as if it were authored natively in that language: idiomatic phrasing, native register, culturally fluent rather than translated. Names of characters and places may stay in their original language when the seed specifies a culturally specific setting; let the seed and the genre guide that judgment.
 
-Begin now. Open with a rich, immersive first scene drawn from the seed above — establish place, atmosphere, the player's body in space, the texture of the world, and the first threads of wrongness. 350 to 500 words in the narration field — this is a hard floor and cap for the Gemini version. Populate the state fields based on the seed (initial inventory, initial scene, initial time, any NPCs introduced, any clues already evident, an initial summary). Do not greet the player as "you, the player" — only ever as the character within the world.`;
+Begin now. Open with a rich, immersive first scene drawn from the seed above — establish place, atmosphere, the player's body in space, the texture of the world, and the first threads of wrongness. 300 to 450 words in the narration field — this is a hard cap. Populate the state fields based on the seed (initial inventory, initial scene, initial time, any NPCs introduced, any clues already evident, an initial summary). Do not greet the player as "you, the player" — only ever as the character within the world.`;
 var SAVE_PREFIX = "borrowed:save:";
 var SETTINGS_KEY = "borrowed:settings:v1";
 var SAVE_CAP = 30;
@@ -533,8 +533,8 @@ var DEFAULT_SETTINGS = {
   highContrast: false,
   disableTypewriter: false
 };
-var MODEL_OPENING = "gemini-2.5-pro";
-var MODEL_CONTINUATION = "gemini-3-flash-preview";
+var MODEL_OPENING = "gemini-flash-latest";
+var MODEL_CONTINUATION = "gemini-flash-lite-latest";
 var GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 var GEMINI_KEY_STORAGE = "borrowed:gemini_api_key:v1";
 var LANGUAGES = [
