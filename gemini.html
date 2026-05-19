@@ -551,8 +551,8 @@ var DEFAULT_SETTINGS = {
   highContrast: false,
   disableTypewriter: false
 };
-var MODEL_OPENING = "gemini-2.5-pro";
-var MODEL_CONTINUATION = "gemini-3-flash-preview";
+var MODEL_OPENING = "gemini-3.5-flash";
+var MODEL_CONTINUATION = "gemini-3.1-flash-lite";
 var GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 var GEMINI_KEY_STORAGE = "borrowed:gemini_api_key:v1";
 var LANGUAGES = [
@@ -1688,14 +1688,22 @@ function App() {
     try {
       const sys = buildSystem(chosen, language);
       const msgs = [{ role: "user", content: "Begin." }];
-      const raw = await callAPI(sys, msgs, true, MODEL_OPENING, 4500, 0.85, controller.signal);
+      const firstRaw = await callAPI(sys, msgs, true, MODEL_OPENING, 4500, 0.85, controller.signal);
       if (controller.signal.aborted)
         return;
-      const parsed = parseGMResponse(raw);
+      let openingRaw = firstRaw;
+      let parsed = parseGMResponse(openingRaw);
+      if (parsed.malformed) {
+        const retryRaw = await callAPI(sys, msgs, true, MODEL_OPENING, 6200, 0.8, controller.signal);
+        if (controller.signal.aborted)
+          return;
+        openingRaw = retryRaw;
+        parsed = parseGMResponse(openingRaw);
+      }
       if (parsed.malformed) {
         throw new BorrowedError("The hour stumbles in opening. Try once more.", parsed.diagnostic || "Tool response was malformed (likely truncated by max_tokens or missing required fields).");
       }
-      setHistory([...msgs, { role: "assistant", content: raw }]);
+      setHistory([...msgs, { role: "assistant", content: openingRaw }]);
       setEntries([{ type: "narration", text: parsed.narration, fullyRevealed: false }]);
       if (parsed.state)
         setGameState(parsed.state);
