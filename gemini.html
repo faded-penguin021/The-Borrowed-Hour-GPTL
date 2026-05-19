@@ -671,9 +671,11 @@ function repairJSON(text) {
 }
 function parseGMLogicResponse(rawText) {
   let text = (rawText || "").trim();
-  text = text.replace(/^\s*[`~]{3}[ 	]*[a-zA-Z]*[ 	]*?
+  text = text.replace(/^\s*[`~]{3}[ 	]*[a-zA-Z]*[ 	]*
+?
 ?/, "");
-  text = text.replace(/?
+  text = text.replace(/
+?
 ?[ 	]*[`~]{3}[ 	]*$/, "");
   text = text.trim();
 
