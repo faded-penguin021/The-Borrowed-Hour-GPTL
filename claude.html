@@ -668,16 +668,25 @@ function repairJSON(text) {
   return out;
 }
 function parseGMLogicResponse(rawText) {
-  let parsed = null;
-  try {
-    parsed = JSON.parse((rawText || "").trim());
-  } catch {
-    return { narrator_brief: "", state: null, ending: null, malformed: true, diagnostic: "Malformed GM logic response." };
+  const base = parseGMResponse(rawText);
+  if (!base || base.malformed || !base.state || typeof base.state !== "object") {
+    return { narrator_brief: "", state: null, ending: null, malformed: true, diagnostic: base?.diagnostic || "Malformed GM logic response." };
   }
-  if (!parsed || typeof parsed.narrator_brief !== "string" || !parsed.narrator_brief.trim() || !parsed.state || typeof parsed.state !== "object") {
+  let narratorBrief = "";
+  try {
+    const parsed = JSON.parse((rawText || "").trim());
+    if (parsed && typeof parsed.narrator_brief === "string" && parsed.narrator_brief.trim()) {
+      narratorBrief = parsed.narrator_brief.trim();
+    }
+  } catch {
+  }
+  if (!narratorBrief) {
+    narratorBrief = (base.narration || "").trim();
+  }
+  if (!narratorBrief) {
     return { narrator_brief: "", state: null, ending: null, malformed: true, diagnostic: "GM logic response missing narrator_brief/state." };
   }
-  return { narrator_brief: parsed.narrator_brief.trim(), state: parsed.state, ending: typeof parsed.ending === "string" ? parsed.ending : null, malformed: false };
+  return { narrator_brief: narratorBrief, state: base.state, ending: base.ending, malformed: false };
 }
 
 function parseGMResponse(rawText) {
