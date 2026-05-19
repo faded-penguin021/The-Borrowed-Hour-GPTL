@@ -239,6 +239,8 @@ ENDING CONDITIONS FOR THIS STORY:
   }
 ];
 var NARRATION_LOADING_PHRASES = [
+  "the GM turns the gears",
+  "the narrator takes the stage",
   "the hour considers",
   "the world arranges itself",
   "the page turns",
@@ -250,6 +252,22 @@ var NARRATION_LOADING_PHRASES = [
   "the hour weighs what comes next",
   "something is being decided about you"
 ];
+const GM_LOGIC_TOOL = {
+  name: "gm_decide",
+  description: "Decide consequences and update state; produce a public-safe narrator brief.",
+  input_schema: {
+    type: "object",
+    properties: {
+      gm_scratchpad: { type: "string" },
+      narrator_brief: { type: "string" },
+      state: { type: "object" },
+      ending: { type: "string" }
+    },
+    required: ["gm_scratchpad", "narrator_brief", "state"]
+  }
+};
+const buildNarratorSystem = (premise, language) => `You are the Narrator for The Borrowed Hour. Write ONLY player-facing narration in ${languageNameFor(language)} based on the brief. Do not add hidden twists or new major facts not implied by the brief. Keep second-person present tense and literary tone.`;
+
 var META_LOADING_PHRASES = [
   "the author considers",
   "the author gathers their thoughts",
@@ -662,6 +680,28 @@ function repairJSON(text) {
   }
   return out;
 }
+function parseGMLogicResponse(rawText) {
+  const base = parseGMResponse(rawText);
+  if (!base || base.malformed || !base.state || typeof base.state !== "object") {
+    return { narrator_brief: "", state: null, ending: null, malformed: true, diagnostic: base?.diagnostic || "Malformed GM logic response." };
+  }
+  let narratorBrief = "";
+  try {
+    const parsed = JSON.parse((rawText || "").trim());
+    if (parsed && typeof parsed.narrator_brief === "string" && parsed.narrator_brief.trim()) {
+      narratorBrief = parsed.narrator_brief.trim();
+    }
+  } catch {
+  }
+  if (!narratorBrief) {
+    narratorBrief = (base.narration || "").trim();
+  }
+  if (!narratorBrief) {
+    return { narrator_brief: "", state: null, ending: null, malformed: true, diagnostic: "GM logic response missing narrator_brief/state." };
+  }
+  return { narrator_brief: narratorBrief, state: base.state, ending: base.ending, malformed: false };
+}
+
 function parseGMResponse(rawText) {
   let text = (rawText || "").trim();
   text = text.replace(/^\s*[`~]{3}[ \t]*[a-zA-Z]*[ \t]*\r?\n?/, "");
@@ -869,6 +909,20 @@ function formatStateForPrompt(state) {
 `)
   };
 }
+function serializeStatePublic(state) {
+  if (!state || typeof state !== "object")
+    return "";
+  const pub = {
+    scene: state.scene || "",
+    time: state.time || "",
+    inventory: Array.isArray(state.inventory) ? state.inventory : [],
+    npcs: Array.isArray(state.npcs) ? state.npcs : [],
+    clues: Array.isArray(state.clues) ? state.clues : [],
+    summary: state.summary || ""
+  };
+  return JSON.stringify(pub, null, 2);
+}
+
 function stripHistoricalUser(content) {
   const m = content.match(/\[Player action\]\n([\s\S]*?)(?=\n\n\[GM-PRIVATE|$)/);
   if (!m)
@@ -1549,7 +1603,7 @@ function App() {
     return () => clearTimeout(t);
   }, [saveBanner]);
   const skipReveal = () => setSkipNonce((n) => n + 1);
-  const callAPI = async (sys, msgs, useTool = false, model = MODEL_CONTINUATION, maxTokens = 3000, temperature = 0.6, signal = null) => {
+  const callAPI = async (sys, msgs, useTool = false, model = MODEL_CONTINUATION, maxTokens = 3000, temperature = 0.6, signal = null, tool = GM_TOOL) => {
     const body = {
       model,
       input: normalizeOpenAIMessages(sys, msgs),
@@ -1560,8 +1614,8 @@ function App() {
       body.text = {
         format: {
           type: "json_schema",
-          name: GM_TOOL.name,
-          schema: GM_TOOL.input_schema,
+          name: tool.name,
+          schema: tool.input_schema,
           strict: false
         }
       };
@@ -1659,14 +1713,22 @@ function App() {
     try {
       const sys = buildSystem(chosen, language);
       const msgs = [{ role: "user", content: "Begin." }];
-      const raw = await callAPI(sys, msgs, true, MODEL_OPENING, 4500, 0.85, controller.signal);
+      const firstRaw = await callAPI(sys, msgs, true, MODEL_OPENING, 4500, 0.85, controller.signal);
       if (controller.signal.aborted)
         return;
-      const parsed = parseGMResponse(raw);
+      let openingRaw = firstRaw;
+      let parsed = parseGMResponse(openingRaw);
+      if (parsed.malformed) {
+        const retryRaw = await callAPI(sys, msgs, true, MODEL_OPENING, 6200, 0.8, controller.signal);
+        if (controller.signal.aborted)
+          return;
+        openingRaw = retryRaw;
+        parsed = parseGMResponse(openingRaw);
+      }
       if (parsed.malformed) {
         throw new BorrowedError("The hour stumbles in opening. Try once more.", parsed.diagnostic || "Tool response was malformed (likely truncated by max_tokens or missing required fields).");
       }
-      setHistory([...msgs, { role: "assistant", content: raw }]);
+      setHistory([...msgs, { role: "assistant", content: openingRaw }]);
       setEntries([{ type: "narration", text: parsed.narration, fullyRevealed: false }]);
       if (parsed.state)
         setGameState(parsed.state);
@@ -1856,23 +1918,30 @@ ${text}`);
     };
     abortRef.current = { controller, rollback };
     try {
-      const sys = buildSystem(premise, language);
-      const reply = await callAPI(sys, apiHistory, true, MODEL_CONTINUATION, 3500, 0.6, controller.signal);
+      const gmSys = buildSystem(premise, language);
+      const gmReply = await callAPI(gmSys, apiHistory, true, MODEL_CONTINUATION, 2600, 0.35, controller.signal, GM_LOGIC_TOOL);
       if (controller.signal.aborted)
         return;
-      const parsed = parseGMResponse(reply);
-      if (parsed.malformed) {
-        throw new BorrowedError("The hour stumbles. Try once more.", parsed.diagnostic || "Tool response was malformed (likely truncated by max_tokens or missing required fields).");
+      const gmParsed = parseGMLogicResponse(gmReply);
+      if (gmParsed.malformed) {
+        throw new BorrowedError("The hour stumbles. Try once more.", gmParsed.diagnostic || "GM logic response was malformed.");
       }
-      setHistory([...newHistory, { role: "assistant", content: reply }]);
+      const narratorSys = buildNarratorSystem(premise, language);
+      const recentNarration = entries.filter((e) => e.type === "narration").slice(-4).map((e) => e.text).join("\n\n");
+      const narratorPrompt = `[State]\n${serializeStatePublic(gmParsed.state)}\n\n[Narrator brief]\n${gmParsed.narrator_brief}\n\n[Recent narration]\n${recentNarration}`;
+      const narration = await callAPI(narratorSys, [{ role: "user", content: narratorPrompt }], false, MODEL_CONTINUATION, 1200, 0.8, controller.signal);
+      if (controller.signal.aborted)
+        return;
+      const assistantPayload = JSON.stringify({ gm_scratchpad: "", narration, state: gmParsed.state, ending: gmParsed.ending });
+      setHistory([...newHistory, { role: "assistant", content: assistantPayload }]);
       setEntries([
         ...newEntries,
-        { type: "narration", text: parsed.narration, fullyRevealed: false }
+        { type: "narration", text: narration, fullyRevealed: false }
       ]);
-      if (parsed.state && !(isStateEmpty(parsed.state) && !isStateEmpty(gameState))) {
-        setGameState(parsed.state);
+      if (gmParsed.state && !(isStateEmpty(gmParsed.state) && !isStateEmpty(gameState))) {
+        setGameState(gmParsed.state);
       }
-      if (parsed.ending)
+      if (gmParsed.ending)
         setEnded(true);
     } catch (e) {
       if (controller.signal.aborted)
