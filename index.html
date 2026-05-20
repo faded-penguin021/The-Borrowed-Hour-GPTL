@@ -60,9 +60,37 @@ var PROVIDER_META = {
     windowKey: "ANTHROPIC_API_KEY",
     metaName: "anthropic-api-key",
     models: ["claude-sonnet-4-6", "claude-haiku-4-5-20251001"]
+  },
+  deepseek: {
+    name: "DeepSeek",
+    keyStorage: "borrowed:deepseek_api_key:v1",
+    windowKey: "DEEPSEEK_API_KEY",
+    metaName: "deepseek-api-key",
+    models: ["deepseek-chat", "deepseek-reasoner"]
+  },
+  qwen: {
+    name: "Qwen",
+    keyStorage: "borrowed:qwen_api_key:v1",
+    windowKey: "QWEN_API_KEY",
+    metaName: "qwen-api-key",
+    models: ["qwen-max", "qwen-plus", "qwen-turbo"]
+  },
+  kimi: {
+    name: "Kimi",
+    keyStorage: "borrowed:kimi_api_key:v1",
+    windowKey: "KIMI_API_KEY",
+    metaName: "kimi-api-key",
+    models: ["kimi-k2-0905-preview", "moonshot-v1-32k", "moonshot-v1-8k"]
+  },
+  ernie: {
+    name: "ERNIE",
+    keyStorage: "borrowed:ernie_api_key:v1",
+    windowKey: "ERNIE_API_KEY",
+    metaName: "ernie-api-key",
+    models: ["ernie-4.5-turbo-128k", "ernie-4.5-turbo-32k", "ernie-x1-turbo-32k"]
   }
 };
-var PROVIDER_ORDER = ["gemini", "openai", "anthropic"];
+var PROVIDER_ORDER = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie"];
 var getProviderKey = (id) => {
   const m = PROVIDER_META[id];
   if (!m)
@@ -151,6 +179,75 @@ var extractClaudeText = (data) => {
   return chunks.join(`
 `).trim();
 };
+var normalizeChatMessages = (sys, msgs) => [
+  { role: "system", content: sys },
+  ...msgs.map((m) => ({
+    role: m.role === "assistant" ? "assistant" : "user",
+    content: normalizeContent(m.content)
+  }))
+];
+var extractChatText = (data) => {
+  const chunks = [];
+  for (const choice of data.choices || []) {
+    const content = choice.message?.content;
+    if (typeof content === "string" && content)
+      chunks.push(content);
+    else
+      chunks.push(normalizeContent(content));
+  }
+  return chunks.join(`
+`).trim();
+};
+var makeChatCompletionsProvider = ({ url, label, jsonSchema }) => ({
+  retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
+  buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
+    let system = sys;
+    const body = {
+      model,
+      max_tokens: maxTokens
+    };
+    if (temperature !== undefined)
+      body.temperature = temperature;
+    if (useTool) {
+      if (jsonSchema) {
+        body.response_format = {
+          type: "json_schema",
+          json_schema: { name: tool.name, schema: tool.input_schema, strict: false }
+        };
+      } else {
+        body.response_format = { type: "json_object" };
+        system += `
+
+Respond ONLY with a single valid JSON object matching this schema (no prose, no markdown fences): ${JSON.stringify(tool.input_schema)}`;
+      }
+    }
+    body.messages = normalizeChatMessages(system, msgs);
+    return {
+      url,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body
+    };
+  },
+  logUsage(data, model) {
+    if (!data.usage)
+      return;
+    const u = data.usage;
+    console.debug("[borrowed] usage", {
+      model,
+      input: u.prompt_tokens || 0,
+      output: u.completion_tokens || 0,
+      total: u.total_tokens || 0
+    });
+  },
+  extract(data) {
+    const text = extractChatText(data);
+    if (!text) {
+      const reason = data.choices?.[0]?.finish_reason || "unknown";
+      throw new BorrowedError("The page came back blank.", `${label} returned an empty response. Finish reason: ${reason}.`);
+    }
+    return text;
+  }
+});
 var PROVIDERS = {
   openai: {
     retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
@@ -298,7 +395,27 @@ var PROVIDERS = {
       }
       return text;
     }
-  }
+  },
+  deepseek: makeChatCompletionsProvider({
+    url: "https://api.deepseek.com/chat/completions",
+    label: "DeepSeek",
+    jsonSchema: false
+  }),
+  qwen: makeChatCompletionsProvider({
+    url: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    label: "Qwen",
+    jsonSchema: true
+  }),
+  kimi: makeChatCompletionsProvider({
+    url: "https://api.moonshot.cn/v1/chat/completions",
+    label: "Kimi",
+    jsonSchema: false
+  }),
+  ernie: makeChatCompletionsProvider({
+    url: "https://qianfan.baidubce.com/v2/chat/completions",
+    label: "ERNIE",
+    jsonSchema: false
+  })
 };
 var buildCustomPremise = (description) => ({
   id: "custom-" + Date.now().toString(36),
