@@ -73,12 +73,7 @@ var getProviderKey = (id) => {
   const stored = localStorage.getItem(m.keyStorage);
   if (stored)
     return stored.trim();
-  const entered = window.prompt(`Enter a ${m.name} API key for this local standalone file. It is stored only in this browser's localStorage.`);
-  if (!entered || !entered.trim()) {
-    throw new BorrowedError("The hour cannot open yet.", `No ${m.name} API key was provided. Set window.${m.windowKey}, add a meta ${m.metaName} tag, or enter a key when prompted.`);
-  }
-  localStorage.setItem(m.keyStorage, entered.trim());
-  return entered.trim();
+  throw new BorrowedError("The hour cannot open yet.", `No ${m.name} API key is saved. Open ⚙ Settings → API keys and paste your key there.`);
 };
 var resetProviderKey = (id) => {
   const m = PROVIDER_META[id];
@@ -1826,17 +1821,6 @@ function App() {
     return () => clearTimeout(t);
   }, [saveBanner]);
   const skipReveal = () => setSkipNonce((n) => n + 1);
-  const resetActiveKeys = () => {
-    const ids = [...new Set([settings.engineOpening?.provider, settings.engineContinuation?.provider].filter((id) => PROVIDER_META[id]))];
-    if (!ids.length) {
-      window.alert("No story engine is selected, so there is no stored key to forget.");
-      return;
-    }
-    ids.forEach(resetProviderKey);
-    const names = ids.map((id) => PROVIDER_META[id].name).join(" and ");
-    const plural = ids.length > 1;
-    window.alert(`Stored API key${plural ? "s" : ""} removed for ${names}. Reload and begin again to enter ${plural ? "different keys" : "a different key"}.`);
-  };
   const callAPI = async (sys, msgs, useTool = false, engine = settings.engineContinuation, maxTokens = 3000, temperature = 0.6, signal = null, tool = GM_TOOL) => {
     const providerId = engine?.provider;
     const model = engine?.model;
@@ -2541,12 +2525,7 @@ ${text}`);
     className: "sr-only",
     "aria-live": "polite",
     "aria-atomic": "true"
-  }, liveRegionText), /* @__PURE__ */ React.createElement("button", {
-    type: "button",
-    onClick: resetActiveKeys,
-    title: "Forget stored API keys for the selected engines",
-    style: { position: "fixed", right: 12, bottom: 12, zIndex: 50, fontSize: 11, letterSpacing: "0.14em", padding: "7px 10px", border: "1px solid rgba(232,222,197,0.22)", borderRadius: 999, background: "rgba(22,18,21,0.72)", color: "rgba(232,222,197,0.58)" }
-  }, "API KEY"), /* @__PURE__ */ React.createElement("div", {
+  }, liveRegionText), /* @__PURE__ */ React.createElement("div", {
     className: "relative z-10"
   }, phase === "title" ? /* @__PURE__ */ React.createElement(TitleScreen, {
     onChoose: beginAdventure,
@@ -3224,6 +3203,95 @@ function formatRelative(ts) {
     return `${d} day${d === 1 ? "" : "s"} ago`;
   return new Date(ts).toLocaleDateString();
 }
+function ApiKeyRow({ providerId }) {
+  const meta = PROVIDER_META[providerId];
+  const [stored, setStored] = React.useState(() => !!localStorage.getItem(meta.keyStorage));
+  const [editing, setEditing] = React.useState(false);
+  const [value, setValue] = React.useState("");
+  const fieldStyle = {
+    flex: 1,
+    padding: "7px 9px",
+    fontSize: 12,
+    borderRadius: 6,
+    border: "1px solid rgba(232,222,197,0.22)",
+    background: "rgba(22,18,21,0.9)",
+    color: "var(--cream-bright)",
+    fontFamily: "monospace",
+    minWidth: 0
+  };
+  const btnStyle = {
+    padding: "7px 11px",
+    fontSize: 11,
+    borderRadius: 6,
+    border: "1px solid rgba(232,222,197,0.22)",
+    background: "rgba(22,18,21,0.9)",
+    color: "var(--cream-dim)",
+    cursor: "pointer",
+    letterSpacing: "0.14em",
+    whiteSpace: "nowrap"
+  };
+  const saveKey = () => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    localStorage.setItem(meta.keyStorage, trimmed);
+    setValue("");
+    setEditing(false);
+    setStored(true);
+  };
+  const forgetKey = () => {
+    resetProviderKey(providerId);
+    setStored(false);
+    setEditing(false);
+    setValue("");
+  };
+  return /* @__PURE__ */ React.createElement("div", { style: { marginTop: 12 } },
+    /* @__PURE__ */ React.createElement("div", {
+      className: "display-font",
+      style: { color: "var(--cream-dim)", letterSpacing: "0.14em", fontSize: 10, textTransform: "uppercase", marginBottom: 5 }
+    }, meta.name),
+    stored && !editing
+      ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center" } },
+          /* @__PURE__ */ React.createElement("span", {
+            className: "body-font italic",
+            style: { color: "var(--cream-faint)", fontSize: 11, flex: 1 }
+          }, "Key stored"),
+          /* @__PURE__ */ React.createElement("button", { style: btnStyle, onClick: () => setEditing(true) }, "REPLACE"),
+          /* @__PURE__ */ React.createElement("button", { style: { ...btnStyle, color: "rgba(200,100,100,0.8)" }, onClick: forgetKey }, "FORGET"))
+      : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } },
+          /* @__PURE__ */ React.createElement("input", {
+            type: "password",
+            value,
+            onChange: (e) => setValue(e.target.value),
+            onKeyDown: (e) => { if (e.key === "Enter") saveKey(); if (e.key === "Escape") { setEditing(false); setValue(""); } },
+            placeholder: `Paste ${meta.name} API key…`,
+            "aria-label": `${meta.name} API key`,
+            style: fieldStyle,
+            autoComplete: "off"
+          }),
+          /* @__PURE__ */ React.createElement("button", {
+            style: { ...btnStyle, opacity: value.trim() ? 1 : 0.45, cursor: value.trim() ? "pointer" : "default" },
+            onClick: saveKey,
+            disabled: !value.trim()
+          }, "SAVE"),
+          stored && /* @__PURE__ */ React.createElement("button", { style: btnStyle, onClick: () => { setEditing(false); setValue(""); } }, "CANCEL"))
+  );
+}
+function ApiKeysSection() {
+  return /* @__PURE__ */ React.createElement("div", {
+    className: "settings-toggle",
+    style: { cursor: "default", display: "block" }
+  },
+    /* @__PURE__ */ React.createElement("div", {
+      className: "display-font",
+      style: { color: "var(--cream-bright)", letterSpacing: "0.18em", fontSize: 11, textTransform: "uppercase" }
+    }, "API keys"),
+    /* @__PURE__ */ React.createElement("div", {
+      className: "body-font italic",
+      style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4, lineHeight: 1.6 }
+    }, "Keys are stored only in this browser’s localStorage and are never sent anywhere except the provider’s own API."),
+    PROVIDER_ORDER.map((id) => /* @__PURE__ */ React.createElement(ApiKeyRow, { key: id, providerId: id }))
+  );
+}
 function EngineSelector({ label, hint, engine, onChange }) {
   const provider = PROVIDER_META[engine?.provider] ? engine.provider : "gemini";
   const meta = PROVIDER_META[provider];
@@ -3326,7 +3394,7 @@ function SettingsModal({ settings, onChange, onClose, osReducedMotion }) {
   }, "The hour is told in cream-and-twilight by default. If that's hard on your reading, soften the rules below. Your choices are kept between sessions."), /* @__PURE__ */ React.createElement(EngineSection, {
     settings,
     onChange
-  }), /* @__PURE__ */ React.createElement(SettingsToggleRow, {
+  }), /* @__PURE__ */ React.createElement(ApiKeysSection, null), /* @__PURE__ */ React.createElement(SettingsToggleRow, {
     id: "setting-high-contrast",
     label: "High contrast",
     description: "Bright text on flat black; no grain, no vignette, no atmospheric haze.",
