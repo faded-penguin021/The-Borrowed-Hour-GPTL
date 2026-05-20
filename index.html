@@ -88,9 +88,20 @@ var PROVIDER_META = {
     windowKey: "ERNIE_API_KEY",
     metaName: "ernie-api-key",
     models: ["ernie-4.5-turbo-128k", "ernie-4.5-turbo-32k", "ernie-x1-turbo-32k"]
+  },
+  local: {
+    name: "Local LLM",
+    keyStorage: "borrowed:local_api_key:v1",
+    urlStorage: "borrowed:local_url:v1",
+    windowKey: "LOCAL_LLM_API_KEY",
+    metaName: "local-llm-api-key",
+    keyOptional: true,
+    models: ["llama3.2", "llama3.1", "mistral", "phi3", "qwen2.5", "gemma3"]
   }
 };
-var PROVIDER_ORDER = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie"];
+var PROVIDER_ORDER = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie", "local"];
+var LOCAL_DEFAULT_URL = "http://localhost:11434/v1/chat/completions";
+var getLocalUrl = () => localStorage.getItem(PROVIDER_META.local.urlStorage)?.trim() || LOCAL_DEFAULT_URL;
 var getProviderKey = (id) => {
   const m = PROVIDER_META[id];
   if (!m)
@@ -101,6 +112,8 @@ var getProviderKey = (id) => {
   const stored = localStorage.getItem(m.keyStorage);
   if (stored)
     return stored.trim();
+  if (m.keyOptional)
+    return "";
   throw new BorrowedError("The hour cannot open yet.", `No ${m.name} API key is saved. Open ⚙ Settings → API keys and paste your key there.`);
 };
 var resetProviderKey = (id) => {
@@ -222,9 +235,13 @@ Respond ONLY with a single valid JSON object matching this schema (no prose, no 
       }
     }
     body.messages = normalizeChatMessages(system, msgs);
+    const resolvedUrl = typeof url === "function" ? url() : url;
+    const headers = { "Content-Type": "application/json" };
+    if (apiKey)
+      headers.Authorization = `Bearer ${apiKey}`;
     return {
-      url,
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      url: resolvedUrl,
+      headers,
       body
     };
   },
@@ -414,6 +431,11 @@ var PROVIDERS = {
   ernie: makeChatCompletionsProvider({
     url: "https://qianfan.baidubce.com/v2/chat/completions",
     label: "ERNIE",
+    jsonSchema: false
+  }),
+  local: makeChatCompletionsProvider({
+    url: () => getLocalUrl(),
+    label: "Local LLM",
     jsonSchema: false
   })
 };
@@ -3393,6 +3415,108 @@ function ApiKeyRow({ providerId }) {
           stored && /* @__PURE__ */ React.createElement("button", { style: btnStyle, onClick: () => { setEditing(false); setValue(""); } }, "CANCEL"))
   );
 }
+function LocalLLMRow() {
+  const meta = PROVIDER_META.local;
+  const [url, setUrl] = React.useState(() => localStorage.getItem(meta.urlStorage) || "");
+  const [key, setKey] = React.useState("");
+  const [keyStored, setKeyStored] = React.useState(() => !!localStorage.getItem(meta.keyStorage));
+  const [editingKey, setEditingKey] = React.useState(false);
+  const fieldStyle = {
+    flex: 1,
+    padding: "7px 9px",
+    fontSize: 12,
+    borderRadius: 6,
+    border: "1px solid rgba(232,222,197,0.22)",
+    background: "rgba(22,18,21,0.9)",
+    color: "var(--cream-bright)",
+    fontFamily: "monospace",
+    minWidth: 0,
+    width: "100%",
+    marginTop: 4
+  };
+  const btnStyle = {
+    padding: "7px 11px",
+    fontSize: 11,
+    borderRadius: 6,
+    border: "1px solid rgba(232,222,197,0.22)",
+    background: "rgba(22,18,21,0.9)",
+    color: "var(--cream-dim)",
+    cursor: "pointer",
+    letterSpacing: "0.14em",
+    whiteSpace: "nowrap"
+  };
+  const saveUrl = (v) => {
+    const trimmed = v.trim();
+    if (trimmed)
+      localStorage.setItem(meta.urlStorage, trimmed);
+    else
+      localStorage.removeItem(meta.urlStorage);
+  };
+  const saveKey = () => {
+    const trimmed = key.trim();
+    if (!trimmed) return;
+    localStorage.setItem(meta.keyStorage, trimmed);
+    setKey("");
+    setEditingKey(false);
+    setKeyStored(true);
+  };
+  const forgetKey = () => {
+    localStorage.removeItem(meta.keyStorage);
+    setKeyStored(false);
+    setEditingKey(false);
+    setKey("");
+  };
+  return /* @__PURE__ */ React.createElement("div", { style: { marginTop: 12 } },
+    /* @__PURE__ */ React.createElement("div", {
+      className: "display-font",
+      style: { color: "var(--cream-dim)", letterSpacing: "0.14em", fontSize: 10, textTransform: "uppercase", marginBottom: 5 }
+    }, "Local LLM"),
+    /* @__PURE__ */ React.createElement("div", {
+      className: "body-font italic",
+      style: { color: "var(--cream-faint)", fontSize: 11, lineHeight: 1.5, marginBottom: 4 }
+    }, "Paste the chat-completions endpoint of your local server (Ollama, LM Studio, llama.cpp). No API key required for most local setups. For Ollama, start it with OLLAMA_ORIGINS=* to allow browser access."),
+    /* @__PURE__ */ React.createElement("input", {
+      type: "text",
+      value: url,
+      placeholder: LOCAL_DEFAULT_URL,
+      "aria-label": "Local LLM endpoint URL",
+      onChange: (e) => setUrl(e.target.value),
+      onBlur: (e) => saveUrl(e.target.value),
+      style: fieldStyle,
+      autoComplete: "off",
+      spellCheck: false
+    }),
+    /* @__PURE__ */ React.createElement("div", {
+      className: "display-font",
+      style: { color: "var(--cream-faint)", letterSpacing: "0.12em", fontSize: 10, textTransform: "uppercase", marginTop: 8, marginBottom: 4 }
+    }, "Bearer token (optional)"),
+    keyStored && !editingKey
+      ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center" } },
+          /* @__PURE__ */ React.createElement("span", {
+            className: "body-font italic",
+            style: { color: "var(--cream-faint)", fontSize: 11, flex: 1 }
+          }, "Token stored"),
+          /* @__PURE__ */ React.createElement("button", { style: btnStyle, onClick: () => setEditingKey(true) }, "REPLACE"),
+          /* @__PURE__ */ React.createElement("button", { style: { ...btnStyle, color: "rgba(200,100,100,0.8)" }, onClick: forgetKey }, "FORGET"))
+      : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } },
+          /* @__PURE__ */ React.createElement("input", {
+            type: "password",
+            value: key,
+            onChange: (e) => setKey(e.target.value),
+            onKeyDown: (e) => { if (e.key === "Enter") saveKey(); if (e.key === "Escape") { setEditingKey(false); setKey(""); } },
+            placeholder: "Bearer token (leave blank if not needed)",
+            "aria-label": "Local LLM bearer token",
+            style: { ...fieldStyle, marginTop: 0 },
+            autoComplete: "off"
+          }),
+          /* @__PURE__ */ React.createElement("button", {
+            style: { ...btnStyle, opacity: key.trim() ? 1 : 0.45, cursor: key.trim() ? "pointer" : "default" },
+            onClick: saveKey,
+            disabled: !key.trim()
+          }, "SAVE"),
+          keyStored && /* @__PURE__ */ React.createElement("button", { style: btnStyle, onClick: () => { setEditingKey(false); setKey(""); } }, "CANCEL"))
+  );
+}
 function ApiKeysSection() {
   return /* @__PURE__ */ React.createElement("div", {
     className: "settings-toggle",
@@ -3406,7 +3530,8 @@ function ApiKeysSection() {
       className: "body-font italic",
       style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4, lineHeight: 1.6 }
     }, "Keys are stored only in this browser’s localStorage and are never sent anywhere except the provider’s own API."),
-    PROVIDER_ORDER.map((id) => /* @__PURE__ */ React.createElement(ApiKeyRow, { key: id, providerId: id }))
+    PROVIDER_ORDER.filter((id) => id !== "local").map((id) => /* @__PURE__ */ React.createElement(ApiKeyRow, { key: id, providerId: id })),
+    /* @__PURE__ */ React.createElement(LocalLLMRow, null)
   );
 }
 function EngineSelector({ label, hint, engine, onChange }) {
