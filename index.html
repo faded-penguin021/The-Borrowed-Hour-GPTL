@@ -898,12 +898,14 @@ var formatTokens = (t) => {
   return `~${(t / 1000).toFixed(t < 1e4 ? 1 : 0)}K tokens`;
 };
 var DEFAULT_ENGINE_OPENING = { provider: "gemini", model: "gemini-3.5-flash" };
-var DEFAULT_ENGINE_CONTINUATION = { provider: "gemini", model: "gemini-flash-lite-latest" };
+var DEFAULT_ENGINE_GM = { provider: "gemini", model: "gemini-3.1-flash-lite" };
+var DEFAULT_ENGINE_NARRATOR = { provider: "gemini", model: "gemini-3.1-flash-lite" };
 var DEFAULT_SETTINGS = {
   highContrast: false,
   disableTypewriter: false,
   engineOpening: DEFAULT_ENGINE_OPENING,
-  engineContinuation: DEFAULT_ENGINE_CONTINUATION
+  engineGM: DEFAULT_ENGINE_GM,
+  engineNarrator: DEFAULT_ENGINE_NARRATOR
 };
 var LANGUAGES = [
   { code: "en", label: "English", name: "English" },
@@ -1960,7 +1962,7 @@ function App() {
     return () => clearTimeout(t);
   }, [saveBanner]);
   const skipReveal = () => setSkipNonce((n) => n + 1);
-  const callAPI = async (sys, msgs, useTool = false, engine = settings.engineContinuation, maxTokens = 3000, temperature = 0.6, signal = null, tool = GM_TOOL) => {
+  const callAPI = async (sys, msgs, useTool = false, engine = settings.engineNarrator, maxTokens = 3000, temperature = 0.6, signal = null, tool = GM_TOOL) => {
     const providerId = engine?.provider;
     const model = engine?.model;
     const provider = PROVIDERS[providerId];
@@ -2187,7 +2189,7 @@ ${finalState}`
           },
           ...newMeta.map((m) => ({ role: m.role, content: m.text }))
         ];
-        const reply = await callAPI(sys, metaApiMessages, false, settings.engineContinuation, 3000, 0.8, controller2.signal);
+        const reply = await callAPI(sys, metaApiMessages, false, settings.engineNarrator, 3000, 0.8, controller2.signal);
         if (controller2.signal.aborted)
           return;
         setMetaMessages([
@@ -2271,7 +2273,7 @@ ${text}`);
     abortRef.current = { controller, rollback };
     try {
       const gmSys = buildSystem(premise, language);
-      const gmReply = await callAPI(gmSys, apiHistory, true, settings.engineContinuation, 2600, 0.35, controller.signal, GM_LOGIC_TOOL);
+      const gmReply = await callAPI(gmSys, apiHistory, true, settings.engineGM, 2600, 0.35, controller.signal, GM_LOGIC_TOOL);
       if (controller.signal.aborted)
         return;
       const gmParsed = parseGMLogicResponse(gmReply);
@@ -2281,7 +2283,7 @@ ${text}`);
       const narratorSys = buildNarratorSystem(premise, language);
       const recentNarration = entries.filter((e) => e.type === "narration").slice(-4).map((e) => e.text).join("\n\n");
       const narratorPrompt = `[State]\n${serializeStatePublic(gmParsed.state)}\n\n[Narrator brief]\n${gmParsed.narrator_brief}\n\n[Recent narration]\n${recentNarration}`;
-      const narration = await callAPI(narratorSys, [{ role: "user", content: narratorPrompt }], false, settings.engineContinuation, 1200, 0.8, controller.signal);
+      const narration = await callAPI(narratorSys, [{ role: "user", content: narratorPrompt }], false, settings.engineNarrator, 1200, 0.8, controller.signal);
       if (controller.signal.aborted)
         return;
       const assistantPayload = JSON.stringify({ gm_scratchpad: "", narration, state: gmParsed.state, ending: gmParsed.ending });
@@ -3595,16 +3597,21 @@ function EngineSection({ settings, onChange }) {
   }, "Story engines"), /* @__PURE__ */ React.createElement("div", {
     className: "body-font italic",
     style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4, lineHeight: 1.6 }
-  }, "Choose which model writes the opening scene and which carries the continuation turns. Any provider and model mix is allowed — even a different provider for each. Each provider asks for its own API key the first time it is used."), /* @__PURE__ */ React.createElement(EngineSelector, {
+  }, "Three separate models handle distinct roles: the Opener sets the literary tone, the GM resolves logic and state, the Narrator renders player-facing prose. Any provider and model mix is allowed — even a different provider for each role. Each provider asks for its own API key the first time it is used."), /* @__PURE__ */ React.createElement(EngineSelector, {
     label: "Opening scene",
     hint: "The voice-setting first turn. Preferred: Gemini · gemini-3.5-flash.",
     engine: settings.engineOpening,
     onChange: (v) => onChange("engineOpening", v)
   }), /* @__PURE__ */ React.createElement(EngineSelector, {
-    label: "Continuation & discussion",
-    hint: "Every later turn and post-game discussion. Preferred: Gemini · gemini-flash-lite-latest.",
-    engine: settings.engineContinuation,
-    onChange: (v) => onChange("engineContinuation", v)
+    label: "GM logic",
+    hint: "Hidden rules layer: adjudicates actions and updates game state. Preferred: Gemini · gemini-3.1-flash-lite.",
+    engine: settings.engineGM,
+    onChange: (v) => onChange("engineGM", v)
+  }), /* @__PURE__ */ React.createElement(EngineSelector, {
+    label: "Narration & discussion",
+    hint: "Renders player-facing prose each turn and post-game discussion. Preferred: Gemini · gemini-3.1-flash-lite.",
+    engine: settings.engineNarrator,
+    onChange: (v) => onChange("engineNarrator", v)
   }));
 }
 function SettingsModal({ settings, onChange, onClose, osReducedMotion }) {
