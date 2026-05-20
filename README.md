@@ -1,56 +1,60 @@
-# The Borrowed Hour — Standalone Artifacts
+# The Borrowed Hour — Standalone Artifact
 
-This repository contains standalone HTML ports of the Claude Artifact version of **The Borrowed Hour**, a literary interactive text adventure with built-in scenarios and a custom “Wild” mode.
+This repository contains a single standalone HTML port of the Claude Artifact version of **The Borrowed Hour**, a literary interactive text adventure with built-in scenarios and a custom “Wild” mode.
+
+The OpenAI, Gemini, and Claude builds that used to live in three separate files have been merged into one `index.html`. The API provider and the models are now chosen at runtime from the Settings panel.
 
 ## Run
 
-Open any standalone file in a modern browser, or serve the repository directory locally:
+Open `index.html` in a modern browser, or serve the repository directory locally:
 
 ```bash
 python -m http.server 8000
 ```
 
-Then visit one of:
+Then visit <http://localhost:8000/index.html>.
 
-- <http://localhost:8000/index.html> for the OpenAI version.
-- <http://localhost:8000/gemini.html> for the Gemini version.
-- <http://localhost:8000/claude.html> for the Claude version.
+## Choosing engines
 
-All versions prompt for a provider API key the first time you begin an hour. The key is stored only in the browser’s `localStorage`; use the small **API KEY** button in the lower-right corner to forget it.
+Open **⚙ Settings** from the title screen and find the **Story engines** section. Two engines are configured independently:
 
-For embedded environments that inject secrets:
+- **Opening scene** — the model that writes the voice-setting first turn.
+- **Continuation & discussion** — the model that handles every later turn and post-game discussion.
 
-- OpenAI: provide `window.OPENAI_API_KEY` before the app script runs or add a `<meta name="openai-api-key" content="...">` tag.
-- Gemini: provide `window.GEMINI_API_KEY` before the app script runs or add a `<meta name="gemini-api-key" content="...">` tag.
-- Claude: provide `window.ANTHROPIC_API_KEY` before the app script runs or add a `<meta name="anthropic-api-key" content="...">` tag.
+For each engine you pick a provider (OpenAI, Gemini, or Claude) and a model. Any combination is allowed, including a different provider for each engine — for example a Gemini Flash-Lite opening with a Claude Sonnet continuation. Each provider's preset models appear in the dropdown; choose **Custom…** to type any model ID by hand. Your selections are saved in the browser between sessions.
 
-## Model strategies
+### Preferred defaults
 
-All ports preserve the original two-model architecture: a stronger/fuller model writes the opening scene because it establishes the hour’s voice and texture, while a lower-cost model handles continuations and post-game discussion.
+The original two-model architecture pairs a fuller model on the voice-setting opening with a lower-cost model on the repeated continuation loop. The defaults are:
 
-### OpenAI version (`index.html`)
+- Opening: Gemini `gemini-3.5-flash`
+- Continuation & discussion: Gemini `gemini-flash-lite-latest`
 
-- Opening scenes use `gpt-5.4-mini`, keeping the strongest mini model on the voice-setting turn without paying full frontier-model prices.
-- Continuation turns and post-game meta discussion use `gpt-5-mini`, a cheaper near-frontier model for the repeated turn loop.
-- `gpt-5.4-nano` is cheaper still, but this port avoids it by default because the chronicle needs literary prose and stateful scene judgment rather than simple high-volume extraction/classification behavior.
-- The original Anthropic `tool_choice` flow is adapted to OpenAI’s Responses API with structured JSON output for in-fiction turns. Anthropic-specific cache-control markers are omitted because OpenAI prompt caching is automatic and prefix-based rather than requested with per-message cache-control blocks.
+The preset model lists are:
 
-### Gemini version (`gemini.html`)
+- **OpenAI** — `gpt-5.4-mini`, `gpt-5-mini`, `gpt-5.4-nano`
+- **Gemini** — `gemini-3.5-flash`, `gemini-3.1-flash-lite`, `gemini-flash-lite-latest`
+- **Claude** — `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`
 
-- Opening scenes use `gemini-2.5-pro`.
-- Continuation turns and post-game meta discussion use `gemini-3-flash-preview`.
-- The same GM schema is sent to Gemini `generateContent` with `responseMimeType: "application/json"` and `responseJsonSchema` for in-fiction turns.
-- The Gemini prompt has a provider-specific length guard: openings target 350–500 words and continuations target 180–320 words so Flash does not collapse turns into terse summaries.
+## API keys
 
-### Claude version (`claude.html`)
+Each provider prompts for its own API key the first time it is used. The key is stored only in the browser's `localStorage`. Use the small **API KEY** button in the lower-right corner to forget the stored key(s) for whichever providers the current engines use.
 
-- Opening scenes use `claude-sonnet-4-6`, matching the original Claude Artifact's voice-setting tier.
-- Continuation turns and post-game meta discussion use `claude-haiku-4-5-20251001`, matching the original cheaper continuation tier.
-- The GM schema is sent as an Anthropic tool with `tool_choice` forcing `narrate_and_update_state` on in-fiction turns.
+For embedded environments that inject secrets, provide the key before the app script runs or via a `<meta>` tag:
+
+- OpenAI: `window.OPENAI_API_KEY` or `<meta name="openai-api-key" content="...">`
+- Gemini: `window.GEMINI_API_KEY` or `<meta name="gemini-api-key" content="...">`
+- Claude: `window.ANTHROPIC_API_KEY` or `<meta name="anthropic-api-key" content="...">`
+
+## Provider adapters
+
+`index.html` keeps a small `PROVIDERS` registry. Each provider supplies a request builder, a usage logger, and a response extractor:
+
+- **OpenAI** — Responses API with structured JSON output for in-fiction turns. Anthropic-style cache-control markers are omitted because OpenAI prompt caching is automatic and prefix-based.
+- **Gemini** — `generateContent` with `responseMimeType: "application/json"` and `responseJsonSchema` for in-fiction turns.
+- **Claude** — Anthropic Messages API; the GM schema is sent as a tool with `tool_choice` forcing the tool call on in-fiction turns.
 
 ## Files
 
-- `index.html` — the standalone OpenAI artifact implementation.
-- `gemini.html` — the standalone Gemini artifact implementation.
-- `claude.html` — the standalone Claude artifact implementation.
+- `index.html` — the unified standalone artifact implementation.
 - `the_borrowed_hour (17).txt` — the original Claude Artifact source used as the porting reference.
