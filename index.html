@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Borrowed Hour — OpenAI Artifact</title>
+  <title>The Borrowed Hour</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -39,25 +39,53 @@ if (!window.storage) {
     }
   };
 }
-var getOpenAIKey = () => {
-  const injected = window.OPENAI_API_KEY || document.querySelector('meta[name="openai-api-key"]')?.content;
+var PROVIDER_META = {
+  gemini: {
+    name: "Gemini",
+    keyStorage: "borrowed:gemini_api_key:v1",
+    windowKey: "GEMINI_API_KEY",
+    metaName: "gemini-api-key",
+    models: ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-flash-lite-latest"]
+  },
+  openai: {
+    name: "OpenAI",
+    keyStorage: "borrowed:openai_api_key:v1",
+    windowKey: "OPENAI_API_KEY",
+    metaName: "openai-api-key",
+    models: ["gpt-5.4-mini", "gpt-5-mini", "gpt-5.4-nano"]
+  },
+  anthropic: {
+    name: "Claude",
+    keyStorage: "borrowed:anthropic_api_key:v1",
+    windowKey: "ANTHROPIC_API_KEY",
+    metaName: "anthropic-api-key",
+    models: ["claude-sonnet-4-6", "claude-haiku-4-5-20251001"]
+  }
+};
+var PROVIDER_ORDER = ["gemini", "openai", "anthropic"];
+var getProviderKey = (id) => {
+  const m = PROVIDER_META[id];
+  if (!m)
+    throw new BorrowedError("The hour cannot open yet.", `Unknown API provider "${id}".`);
+  const injected = window[m.windowKey] || document.querySelector(`meta[name="${m.metaName}"]`)?.content;
   if (injected)
     return injected.trim();
-  const stored = localStorage.getItem(OPENAI_KEY_STORAGE);
+  const stored = localStorage.getItem(m.keyStorage);
   if (stored)
     return stored.trim();
-  const entered = window.prompt("Enter an OpenAI API key for this local standalone file. It is stored only in this browser's localStorage.");
+  const entered = window.prompt(`Enter a ${m.name} API key for this local standalone file. It is stored only in this browser's localStorage.`);
   if (!entered || !entered.trim()) {
-    throw new BorrowedError("The hour cannot open yet.", "No OpenAI API key was provided. Set window.OPENAI_API_KEY, add a meta openai-api-key tag, or enter a key when prompted.");
+    throw new BorrowedError("The hour cannot open yet.", `No ${m.name} API key was provided. Set window.${m.windowKey}, add a meta ${m.metaName} tag, or enter a key when prompted.`);
   }
-  localStorage.setItem(OPENAI_KEY_STORAGE, entered.trim());
+  localStorage.setItem(m.keyStorage, entered.trim());
   return entered.trim();
 };
-var resetOpenAIKey = () => {
-  localStorage.removeItem(OPENAI_KEY_STORAGE);
-  window.alert("Stored OpenAI API key removed. Reload and begin again to enter a different key.");
+var resetProviderKey = (id) => {
+  const m = PROVIDER_META[id];
+  if (m)
+    localStorage.removeItem(m.keyStorage);
 };
-var normalizeOpenAIContent = (content) => {
+var normalizeContent = (content) => {
   if (typeof content === "string")
     return content;
   if (Array.isArray(content)) {
@@ -78,9 +106,17 @@ var normalizeOpenAIMessages = (sys, msgs) => [
   { role: "developer", content: sys },
   ...msgs.map((m) => ({
     role: m.role === "assistant" ? "assistant" : "user",
-    content: normalizeOpenAIContent(m.content)
+    content: normalizeContent(m.content)
   }))
 ];
+var normalizeGeminiMessages = (msgs) => msgs.map((m) => ({
+  role: m.role === "assistant" ? "model" : "user",
+  parts: [{ text: normalizeContent(m.content) }]
+}));
+var normalizeClaudeMessages = (msgs) => msgs.map((m) => ({
+  role: m.role === "assistant" ? "assistant" : "user",
+  content: normalizeContent(m.content)
+}));
 var extractOpenAIText = (data) => {
   if (typeof data.output_text === "string" && data.output_text.trim())
     return data.output_text.trim();
@@ -99,6 +135,175 @@ var extractOpenAIText = (data) => {
   }
   return chunks.join(`
 `).trim();
+};
+var extractGeminiText = (data) => {
+  const chunks = [];
+  for (const candidate of data.candidates || []) {
+    for (const part of candidate.content?.parts || []) {
+      if (typeof part.text === "string")
+        chunks.push(part.text);
+    }
+  }
+  return chunks.join(`
+`).trim();
+};
+var extractClaudeText = (data) => {
+  const chunks = [];
+  for (const part of data.content || []) {
+    if (part.type === "text" && typeof part.text === "string")
+      chunks.push(part.text);
+  }
+  return chunks.join(`
+`).trim();
+};
+var PROVIDERS = {
+  openai: {
+    retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
+    buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
+      const body = {
+        model,
+        input: normalizeOpenAIMessages(sys, msgs),
+        max_output_tokens: maxTokens
+      };
+      if (temperature !== undefined)
+        body.temperature = temperature;
+      if (useTool) {
+        body.text = {
+          format: {
+            type: "json_schema",
+            name: tool.name,
+            schema: tool.input_schema,
+            strict: false
+          }
+        };
+      }
+      return {
+        url: "https://api.openai.com/v1/responses",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body
+      };
+    },
+    logUsage(data, model) {
+      if (!data.usage)
+        return;
+      const u = data.usage;
+      console.debug("[borrowed] usage", {
+        model,
+        input: u.input_tokens || 0,
+        cached_input: u.input_tokens_details?.cached_tokens || 0,
+        output: u.output_tokens || 0,
+        total: u.total_tokens || 0
+      });
+    },
+    extract(data) {
+      const text = extractOpenAIText(data);
+      if (!text) {
+        const status = data.status || "unknown";
+        const incomplete = data.incomplete_details?.reason ? ` Reason: ${data.incomplete_details.reason}.` : "";
+        throw new BorrowedError("The page came back blank.", `OpenAI returned an empty response. Status: ${status}.${incomplete}`);
+      }
+      return text;
+    }
+  },
+  gemini: {
+    retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
+    buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
+      const generationConfig = { maxOutputTokens: maxTokens };
+      if (temperature !== undefined)
+        generationConfig.temperature = temperature;
+      if (useTool) {
+        generationConfig.responseMimeType = "application/json";
+        generationConfig.responseJsonSchema = tool.input_schema;
+      }
+      return {
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body: {
+          systemInstruction: { parts: [{ text: sys }] },
+          contents: normalizeGeminiMessages(msgs),
+          generationConfig
+        }
+      };
+    },
+    logUsage(data, model) {
+      if (!data.usageMetadata)
+        return;
+      const u = data.usageMetadata;
+      console.debug("[borrowed] usage", {
+        model,
+        input: u.promptTokenCount || 0,
+        cached_input: u.cachedContentTokenCount || 0,
+        output: u.candidatesTokenCount || 0,
+        total: u.totalTokenCount || 0
+      });
+    },
+    extract(data) {
+      const text = extractGeminiText(data);
+      if (!text) {
+        const reason = data.promptFeedback?.blockReason || data.candidates?.[0]?.finishReason || "unknown";
+        throw new BorrowedError("The page came back blank.", `Gemini returned an empty response. Reason: ${reason}.`);
+      }
+      return text;
+    }
+  },
+  anthropic: {
+    retryable: new Set([408, 409, 429, 500, 502, 503, 504, 529]),
+    buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
+      const body = {
+        model,
+        max_tokens: maxTokens,
+        system: sys,
+        messages: normalizeClaudeMessages(msgs)
+      };
+      if (temperature !== undefined)
+        body.temperature = temperature;
+      if (useTool) {
+        body.tools = [tool];
+        body.tool_choice = { type: "tool", name: tool.name };
+      }
+      return {
+        url: "https://api.anthropic.com/v1/messages",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01"
+        },
+        body
+      };
+    },
+    logUsage(data, model) {
+      if (!data.usage)
+        return;
+      const u = data.usage;
+      console.debug("[borrowed] usage", {
+        model,
+        input: u.input_tokens || 0,
+        cache_read: u.cache_read_input_tokens || 0,
+        cache_write: u.cache_creation_input_tokens || 0,
+        output: u.output_tokens || 0
+      });
+    },
+    extract(data, useTool, tool, maxTokens) {
+      if (useTool) {
+        const toolUse = (data.content || []).find((part) => part.type === "tool_use" && part.name === tool.name);
+        if (toolUse) {
+          if (data.stop_reason === "max_tokens") {
+            throw new BorrowedError("The hour falters.", `Tool input was truncated mid-JSON by max_tokens (currently ${maxTokens}). Increase max_tokens or shorten the prompt.`);
+          }
+          if (toolUse.input && typeof toolUse.input === "object")
+            return JSON.stringify(toolUse.input);
+          if (typeof toolUse.input === "string" && toolUse.input.trim())
+            return toolUse.input;
+        }
+      }
+      const text = extractClaudeText(data);
+      if (!text) {
+        const stop = data.stop_reason || "unknown";
+        throw new BorrowedError("The page came back blank.", `Claude returned an empty response. Stop reason: ${stop}.`);
+      }
+      return text;
+    }
+  }
 };
 var buildCustomPremise = (description) => ({
   id: "custom-" + Date.now().toString(36),
@@ -291,12 +496,12 @@ class BorrowedError extends Error {
     this.detail = detail || null;
   }
 }
-var httpStatusHint = (status) => {
+var httpStatusHint = (status, providerName = "the API") => {
   switch (status) {
     case 400:
       return "API rejected the request (HTTP 400 — likely a malformed prompt or schema).";
     case 401:
-      return "API authentication failed (HTTP 401 — check your OpenAI API key).";
+      return `API authentication failed (HTTP 401 — check your ${providerName} API key).`;
     case 403:
       return "API forbade the request (HTTP 403 — key may lack access to this model).";
     case 404:
@@ -312,9 +517,9 @@ var httpStatusHint = (status) => {
     case 502:
     case 503:
     case 504:
-      return `OpenAI gateway error (HTTP ${status} — usually transient).`;
+      return `${providerName} gateway error (HTTP ${status} — usually transient).`;
     case 529:
-      return "OpenAI model overloaded (HTTP 529 — try again in a moment).";
+      return `${providerName} model overloaded (HTTP 529 — try again in a moment).`;
     default:
       return `Unexpected API status (HTTP ${status}).`;
   }
@@ -558,14 +763,14 @@ var formatTokens = (t) => {
     return `~${t} tokens`;
   return `~${(t / 1000).toFixed(t < 1e4 ? 1 : 0)}K tokens`;
 };
+var DEFAULT_ENGINE_OPENING = { provider: "gemini", model: "gemini-3.5-flash" };
+var DEFAULT_ENGINE_CONTINUATION = { provider: "gemini", model: "gemini-flash-lite-latest" };
 var DEFAULT_SETTINGS = {
   highContrast: false,
-  disableTypewriter: false
+  disableTypewriter: false,
+  engineOpening: DEFAULT_ENGINE_OPENING,
+  engineContinuation: DEFAULT_ENGINE_CONTINUATION
 };
-var MODEL_OPENING = "gpt-5.4-mini";
-var MODEL_CONTINUATION = "gpt-5-mini";
-var OPENAI_API_URL = "https://api.openai.com/v1/responses";
-var OPENAI_KEY_STORAGE = "borrowed:openai_api_key:v1";
 var LANGUAGES = [
   { code: "en", label: "English", name: "English" },
   { code: "es", label: "Español", name: "Spanish" },
@@ -682,12 +887,8 @@ function repairJSON(text) {
 }
 function parseGMLogicResponse(rawText) {
   let text = (rawText || "").trim();
-  text = text.replace(/^\s*[`~]{3}[ 	]*[a-zA-Z]*[ 	]*
-?
-?/, "");
-  text = text.replace(/
-?
-?[ 	]*[`~]{3}[ 	]*$/, "");
+  text = text.replace(/^\s*[`~]{3}[ \t]*[a-zA-Z]*[ \t]*\r?\n?/, "");
+  text = text.replace(/\r?\n?[ \t]*[`~]{3}[ \t]*$/, "");
   text = text.trim();
 
   let parsed = tryParseJSON(text);
@@ -1625,24 +1826,27 @@ function App() {
     return () => clearTimeout(t);
   }, [saveBanner]);
   const skipReveal = () => setSkipNonce((n) => n + 1);
-  const callAPI = async (sys, msgs, useTool = false, model = MODEL_CONTINUATION, maxTokens = 3000, temperature = 0.6, signal = null, tool = GM_TOOL) => {
-    const body = {
-      model,
-      input: normalizeOpenAIMessages(sys, msgs),
-      max_output_tokens: maxTokens,
-      temperature
-    };
-    if (useTool) {
-      body.text = {
-        format: {
-          type: "json_schema",
-          name: tool.name,
-          schema: tool.input_schema,
-          strict: false
-        }
-      };
+  const resetActiveKeys = () => {
+    const ids = [...new Set([settings.engineOpening?.provider, settings.engineContinuation?.provider].filter((id) => PROVIDER_META[id]))];
+    if (!ids.length) {
+      window.alert("No story engine is selected, so there is no stored key to forget.");
+      return;
     }
-    const RETRYABLE = new Set([408, 409, 429, 500, 502, 503, 504]);
+    ids.forEach(resetProviderKey);
+    const names = ids.map((id) => PROVIDER_META[id].name).join(" and ");
+    const plural = ids.length > 1;
+    window.alert(`Stored API key${plural ? "s" : ""} removed for ${names}. Reload and begin again to enter ${plural ? "different keys" : "a different key"}.`);
+  };
+  const callAPI = async (sys, msgs, useTool = false, engine = settings.engineContinuation, maxTokens = 3000, temperature = 0.6, signal = null, tool = GM_TOOL) => {
+    const providerId = engine?.provider;
+    const model = engine?.model;
+    const provider = PROVIDERS[providerId];
+    const meta = PROVIDER_META[providerId];
+    if (!provider || !meta || !model || !String(model).trim()) {
+      throw new BorrowedError("The hour cannot open yet.", "No story engine is selected. Open Settings → Story engines and choose a provider and a model.");
+    }
+    let temp = temperature;
+    const RETRYABLE = provider.retryable;
     const MAX_RETRIES = 2;
     let res = null;
     let lastErr = null;
@@ -1654,14 +1858,28 @@ function App() {
       if (signal && signal.aborted) {
         throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
       }
+      let request;
       try {
-        res = await fetch(OPENAI_API_URL, {
+        request = provider.buildRequest({
+          sys,
+          msgs,
+          useTool,
+          model,
+          maxTokens,
+          temperature: temp,
+          tool,
+          apiKey: getProviderKey(providerId)
+        });
+      } catch (e) {
+        if (e instanceof BorrowedError)
+          throw e;
+        throw new BorrowedError("The hour falters.", `Could not build the ${meta.name} request${e?.message ? ` (${e.message})` : ""}.`);
+      }
+      try {
+        res = await fetch(request.url, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getOpenAIKey()}`
-          },
-          body: JSON.stringify(body),
+          headers: request.headers,
+          body: JSON.stringify(request.body),
           signal: signal || undefined
         });
         if (res.ok) {
@@ -1673,13 +1891,13 @@ function App() {
           const bodyText = await res.text();
           lastBodySnippet = bodyText.slice(0, 500);
         } catch {}
-        if (res.status === 400 && body.temperature !== undefined && /temperature/i.test(lastBodySnippet || "")) {
-          delete body.temperature;
-          lastErr = new BorrowedError("The hour falters.", "OpenAI rejected temperature for this model; retrying with the model default.");
+        if (res.status === 400 && temp !== undefined && /temperature/i.test(lastBodySnippet || "")) {
+          temp = undefined;
+          lastErr = new BorrowedError("The hour falters.", `${meta.name} rejected temperature for this model; retrying with the model default.`);
           res = null;
           continue;
         }
-        const hint = httpStatusHint(res.status);
+        const hint = httpStatusHint(res.status, meta.name);
         if (!RETRYABLE.has(res.status))
           throw new BorrowedError("The hour falters.", hint);
         lastErr = new BorrowedError("The hour falters.", attempt < MAX_RETRIES ? `${hint} Retrying…` : `${hint} Retried ${MAX_RETRIES} times without success.`);
@@ -1690,34 +1908,23 @@ function App() {
         }
         if (e instanceof BorrowedError)
           throw e;
-        lastErr = new BorrowedError("The hour falters.", `Network error before the OpenAI API responded${e?.message ? ` (${e.message})` : ""}. Check your connection, CORS/proxy policy, and API key.`);
+        lastErr = new BorrowedError("The hour falters.", `Network error before the ${meta.name} API responded${e?.message ? ` (${e.message})` : ""}. Check your connection, CORS/proxy policy, and API key.`);
         res = null;
       }
     }
     if (!res) {
       if (typeof console !== "undefined" && console.warn) {
-        console.warn("[borrowed] OpenAI API failure", { status: lastStatus, body: lastBodySnippet });
+        console.warn(`[borrowed] ${meta.name} API failure`, { status: lastStatus, body: lastBodySnippet });
       }
       throw lastErr || new BorrowedError("The hour falters.", "Unknown failure.");
     }
     const data = await res.json();
-    if (data.usage && typeof console !== "undefined" && console.debug) {
-      const u = data.usage;
-      console.debug("[borrowed] usage", {
-        model,
-        input: u.input_tokens || 0,
-        cached_input: u.input_tokens_details?.cached_tokens || 0,
-        output: u.output_tokens || 0,
-        total: u.total_tokens || 0
-      });
+    if (typeof console !== "undefined" && console.debug) {
+      try {
+        provider.logUsage(data, model);
+      } catch {}
     }
-    const text = extractOpenAIText(data);
-    if (!text) {
-      const status = data.status || "unknown";
-      const incomplete = data.incomplete_details?.reason ? ` Reason: ${data.incomplete_details.reason}.` : "";
-      throw new BorrowedError("The page came back blank.", `OpenAI returned an empty response. Status: ${status}.${incomplete}`);
-    }
-    return text;
+    return provider.extract(data, useTool, tool, maxTokens);
   };
   const beginAdventure = async (chosen) => {
     setPremise(chosen);
@@ -1735,13 +1942,13 @@ function App() {
     try {
       const sys = buildSystem(chosen, language);
       const msgs = [{ role: "user", content: "Begin." }];
-      const firstRaw = await callAPI(sys, msgs, true, MODEL_OPENING, 4500, 0.85, controller.signal);
+      const firstRaw = await callAPI(sys, msgs, true, settings.engineOpening, 4500, 0.85, controller.signal);
       if (controller.signal.aborted)
         return;
       let openingRaw = firstRaw;
       let parsed = parseGMResponse(openingRaw);
       if (parsed.malformed) {
-        const retryRaw = await callAPI(sys, msgs, true, MODEL_OPENING, 6200, 0.8, controller.signal);
+        const retryRaw = await callAPI(sys, msgs, true, settings.engineOpening, 6200, 0.8, controller.signal);
         if (controller.signal.aborted)
           return;
         openingRaw = retryRaw;
@@ -1857,7 +2064,7 @@ ${finalState}`
           },
           ...newMeta.map((m) => ({ role: m.role, content: m.text }))
         ];
-        const reply = await callAPI(sys, metaApiMessages, false, MODEL_CONTINUATION, 3000, 0.8, controller2.signal);
+        const reply = await callAPI(sys, metaApiMessages, false, settings.engineContinuation, 3000, 0.8, controller2.signal);
         if (controller2.signal.aborted)
           return;
         setMetaMessages([
@@ -1941,7 +2148,7 @@ ${text}`);
     abortRef.current = { controller, rollback };
     try {
       const gmSys = buildSystem(premise, language);
-      const gmReply = await callAPI(gmSys, apiHistory, true, MODEL_CONTINUATION, 2600, 0.35, controller.signal, GM_LOGIC_TOOL);
+      const gmReply = await callAPI(gmSys, apiHistory, true, settings.engineContinuation, 2600, 0.35, controller.signal, GM_LOGIC_TOOL);
       if (controller.signal.aborted)
         return;
       const gmParsed = parseGMLogicResponse(gmReply);
@@ -1951,7 +2158,7 @@ ${text}`);
       const narratorSys = buildNarratorSystem(premise, language);
       const recentNarration = entries.filter((e) => e.type === "narration").slice(-4).map((e) => e.text).join("\n\n");
       const narratorPrompt = `[State]\n${serializeStatePublic(gmParsed.state)}\n\n[Narrator brief]\n${gmParsed.narrator_brief}\n\n[Recent narration]\n${recentNarration}`;
-      const narration = await callAPI(narratorSys, [{ role: "user", content: narratorPrompt }], false, MODEL_CONTINUATION, 1200, 0.8, controller.signal);
+      const narration = await callAPI(narratorSys, [{ role: "user", content: narratorPrompt }], false, settings.engineContinuation, 1200, 0.8, controller.signal);
       if (controller.signal.aborted)
         return;
       const assistantPayload = JSON.stringify({ gm_scratchpad: "", narration, state: gmParsed.state, ending: gmParsed.ending });
@@ -2336,8 +2543,8 @@ ${text}`);
     "aria-atomic": "true"
   }, liveRegionText), /* @__PURE__ */ React.createElement("button", {
     type: "button",
-    onClick: resetOpenAIKey,
-    title: "Forget stored OpenAI API key",
+    onClick: resetActiveKeys,
+    title: "Forget stored API keys for the selected engines",
     style: { position: "fixed", right: 12, bottom: 12, zIndex: 50, fontSize: 11, letterSpacing: "0.14em", padding: "7px 10px", border: "1px solid rgba(232,222,197,0.22)", borderRadius: 999, background: "rgba(22,18,21,0.72)", color: "rgba(232,222,197,0.58)" }
   }, "API KEY"), /* @__PURE__ */ React.createElement("div", {
     className: "relative z-10"
@@ -3017,6 +3224,79 @@ function formatRelative(ts) {
     return `${d} day${d === 1 ? "" : "s"} ago`;
   return new Date(ts).toLocaleDateString();
 }
+function EngineSelector({ label, hint, engine, onChange }) {
+  const provider = PROVIDER_META[engine?.provider] ? engine.provider : "gemini";
+  const meta = PROVIDER_META[provider];
+  const model = engine?.model || "";
+  const isCustom = !meta.models.includes(model);
+  const fieldStyle = {
+    width: "100%",
+    marginTop: 6,
+    padding: "7px 9px",
+    fontSize: 12,
+    borderRadius: 6,
+    border: "1px solid rgba(232,222,197,0.22)",
+    background: "rgba(22,18,21,0.9)",
+    color: "var(--cream-bright)"
+  };
+  return /* @__PURE__ */ React.createElement("div", {
+    style: { marginTop: 14 }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font",
+    style: { color: "var(--cream-dim)", letterSpacing: "0.16em", fontSize: 10, textTransform: "uppercase" }
+  }, label), /* @__PURE__ */ React.createElement("div", {
+    className: "body-font italic",
+    style: { color: "var(--cream-faint)", fontSize: 11, marginTop: 2 }
+  }, hint), /* @__PURE__ */ React.createElement("select", {
+    value: provider,
+    "aria-label": `${label} — provider`,
+    onChange: (e) => {
+      const np = e.target.value;
+      onChange({ provider: np, model: PROVIDER_META[np].models[0] });
+    },
+    style: fieldStyle
+  }, PROVIDER_ORDER.map((id) => /* @__PURE__ */ React.createElement("option", { key: id, value: id }, PROVIDER_META[id].name))), /* @__PURE__ */ React.createElement("select", {
+    value: isCustom ? "__custom__" : model,
+    "aria-label": `${label} — model`,
+    onChange: (e) => {
+      const v = e.target.value;
+      onChange({ provider, model: v === "__custom__" ? "" : v });
+    },
+    style: fieldStyle
+  }, [
+    ...meta.models.map((m) => /* @__PURE__ */ React.createElement("option", { key: m, value: m }, m)),
+    /* @__PURE__ */ React.createElement("option", { key: "__custom__", value: "__custom__" }, "Custom…")
+  ]), isCustom && /* @__PURE__ */ React.createElement("input", {
+    type: "text",
+    value: model,
+    placeholder: "Enter a model ID",
+    "aria-label": `${label} — custom model ID`,
+    onChange: (e) => onChange({ provider, model: e.target.value }),
+    style: fieldStyle
+  }));
+}
+function EngineSection({ settings, onChange }) {
+  return /* @__PURE__ */ React.createElement("div", {
+    className: "settings-toggle",
+    style: { cursor: "default", display: "block" }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font",
+    style: { color: "var(--cream-bright)", letterSpacing: "0.18em", fontSize: 11, textTransform: "uppercase" }
+  }, "Story engines"), /* @__PURE__ */ React.createElement("div", {
+    className: "body-font italic",
+    style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4, lineHeight: 1.6 }
+  }, "Choose which model writes the opening scene and which carries the continuation turns. Any provider and model mix is allowed — even a different provider for each. Each provider asks for its own API key the first time it is used."), /* @__PURE__ */ React.createElement(EngineSelector, {
+    label: "Opening scene",
+    hint: "The voice-setting first turn. Preferred: Gemini · gemini-3.5-flash.",
+    engine: settings.engineOpening,
+    onChange: (v) => onChange("engineOpening", v)
+  }), /* @__PURE__ */ React.createElement(EngineSelector, {
+    label: "Continuation & discussion",
+    hint: "Every later turn and post-game discussion. Preferred: Gemini · gemini-flash-lite-latest.",
+    engine: settings.engineContinuation,
+    onChange: (v) => onChange("engineContinuation", v)
+  }));
+}
 function SettingsModal({ settings, onChange, onClose, osReducedMotion }) {
   return /* @__PURE__ */ React.createElement("div", {
     className: "modal-backdrop",
@@ -3043,7 +3323,10 @@ function SettingsModal({ settings, onChange, onClose, osReducedMotion }) {
   }, /* @__PURE__ */ React.createElement("p", {
     className: "body-font italic text-sm",
     style: { color: "var(--cream-dim)", lineHeight: 1.6 }
-  }, "The hour is told in cream-and-twilight by default. If that's hard on your reading, soften the rules below. Your choices are kept between sessions."), /* @__PURE__ */ React.createElement(SettingsToggleRow, {
+  }, "The hour is told in cream-and-twilight by default. If that's hard on your reading, soften the rules below. Your choices are kept between sessions."), /* @__PURE__ */ React.createElement(EngineSection, {
+    settings,
+    onChange
+  }), /* @__PURE__ */ React.createElement(SettingsToggleRow, {
     id: "setting-high-contrast",
     label: "High contrast",
     description: "Bright text on flat black; no grain, no vignette, no atmospheric haze.",
