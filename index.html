@@ -89,6 +89,13 @@ var PROVIDER_META = {
     metaName: "ernie-api-key",
     models: ["ernie-4.5-turbo-128k", "ernie-4.5-turbo-32k", "ernie-x1-turbo-32k"]
   },
+  mistral: {
+    name: "Mistral",
+    keyStorage: "borrowed:mistral_api_key:v1",
+    windowKey: "MISTRAL_API_KEY",
+    metaName: "mistral-api-key",
+    models: ["mistral-large-latest", "mistral-small-latest", "open-mistral-nemo"]
+  },
   local: {
     name: "Local LLM",
     keyStorage: "borrowed:local_api_key:v1",
@@ -99,16 +106,17 @@ var PROVIDER_META = {
     models: ["llama3.2", "llama3.1", "mistral", "phi3", "qwen2.5", "gemma3"]
   }
 };
-var PROVIDER_ORDER = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie", "local"];
+var PROVIDER_ORDER = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie", "mistral", "local"];
 var FREE_MODELS_BY_PROVIDER = {
-  gemini:   { opener: "gemini-3.5-flash",    gm: "gemini-3.1-flash-lite",   narrator: "gemini-3.1-flash-lite" },
-  openai:   { opener: "gpt-5-mini",           gm: "gpt-5.4-mini",            narrator: "gpt-5.4-nano" },
-  anthropic:{ opener: "claude-sonnet-4-6",    gm: "claude-haiku-4-5-20251001", narrator: "claude-haiku-4-5-20251001" },
-  deepseek: { opener: "deepseek-chat",        gm: "deepseek-reasoner",       narrator: "deepseek-chat" },
-  qwen:     { opener: "qwen-plus",            gm: "qwen-turbo",              narrator: "qwen-turbo" },
-  kimi:     { opener: "kimi-k2-0905-preview", gm: "moonshot-v1-8k",          narrator: "moonshot-v1-8k" },
-  ernie:    { opener: "ernie-4.5-turbo-128k", gm: "ernie-4.5-turbo-32k",     narrator: "ernie-4.5-turbo-32k" },
-  local:    { opener: "llama3.2",             gm: "llama3.1",                narrator: "llama3.2" }
+  gemini:   { opener: "gemini-3.5-flash",      gm: "gemini-3.1-flash-lite",     narrator: "gemini-3.1-flash-lite" },
+  openai:   { opener: "gpt-5-mini",             gm: "gpt-5.4-mini",              narrator: "gpt-5.4-nano" },
+  anthropic:{ opener: "claude-sonnet-4-6",      gm: "claude-haiku-4-5-20251001", narrator: "claude-haiku-4-5-20251001" },
+  deepseek: { opener: "deepseek-chat",          gm: "deepseek-reasoner",         narrator: "deepseek-chat" },
+  qwen:     { opener: "qwen-plus",              gm: "qwen-turbo",                narrator: "qwen-turbo" },
+  kimi:     { opener: "kimi-k2-0905-preview",   gm: "moonshot-v1-8k",            narrator: "moonshot-v1-8k" },
+  ernie:    { opener: "ernie-4.5-turbo-128k",   gm: "ernie-4.5-turbo-32k",       narrator: "ernie-4.5-turbo-32k" },
+  mistral:  { opener: "mistral-large-latest",   gm: "mistral-small-latest",      narrator: "mistral-small-latest" },
+  local:    { opener: "llama3.2",               gm: "llama3.1",                  narrator: "llama3.2" }
 };
 var LOCAL_DEFAULT_URL = "http://localhost:11434/v1/chat/completions";
 var getLocalUrl = () => localStorage.getItem(PROVIDER_META.local.urlStorage)?.trim() || LOCAL_DEFAULT_URL;
@@ -442,6 +450,11 @@ var PROVIDERS = {
     url: "https://qianfan.baidubce.com/v2/chat/completions",
     label: "ERNIE",
     jsonSchema: false
+  }),
+  mistral: makeChatCompletionsProvider({
+    url: "https://api.mistral.ai/v1/chat/completions",
+    label: "Mistral",
+    jsonSchema: true
   }),
   local: makeChatCompletionsProvider({
     url: () => getLocalUrl(),
