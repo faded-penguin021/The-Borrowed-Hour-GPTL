@@ -109,8 +109,8 @@ var PROVIDER_META = {
     windowKey: "DEEPSEEK_API_KEY",
     metaName: "deepseek-api-key",
     models: [
-      { id: "deepseek-chat", tier: "paid" },
-      { id: "deepseek-reasoner", tier: "paid" }
+      { id: "deepseek-v4-flash", tier: "paid" },
+      { id: "deepseek-v4-pro", tier: "paid" }
     ]
   },
   qwen: {
@@ -217,7 +217,7 @@ var FREE_MODELS_BY_PROVIDER = {
   gemini:   { opener: "gemini-3.5-flash",      gm: "gemma-4-31b-it",            narrator: "gemma-4-31b-it" },
   openai:   { opener: "gpt-5-mini",             gm: "gpt-5.4-mini",              narrator: "gpt-5.4-nano" },
   anthropic:{ opener: "claude-sonnet-4-6",      gm: "claude-haiku-4-5-20251001", narrator: "claude-haiku-4-5-20251001" },
-  deepseek: { opener: "deepseek-chat",          gm: "deepseek-reasoner",         narrator: "deepseek-chat" },
+  deepseek: { opener: "deepseek-v4-flash",      gm: "deepseek-v4-pro",           narrator: "deepseek-v4-flash" },
   qwen:     { opener: "qwen-plus",              gm: "qwen-turbo",                narrator: "qwen-turbo" },
   kimi:     { opener: "kimi-k2-0905-preview",   gm: "moonshot-v1-8k",            narrator: "moonshot-v1-8k" },
   ernie:    { opener: "ernie-4.5-turbo-128k",   gm: "ernie-4.5-turbo-32k",       narrator: "ernie-4.5-turbo-32k" },
