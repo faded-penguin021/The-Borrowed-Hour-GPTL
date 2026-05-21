@@ -1900,6 +1900,8 @@ function App() {
   const [loadingPhrase, setLoadingPhrase] = useState("");
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const settingsLoadedRef = useRef(false);
+  const [sessionTokens, setSessionTokens] = useState({ input: 0, output: 0 });
+  const sessionTokensRef = useRef({ input: 0, output: 0 });
   useEffect(() => {
     (async () => {
       try {
@@ -2074,9 +2076,34 @@ function App() {
         provider.logUsage(data, model);
       } catch {}
     }
+    try {
+      let inp = 0, out = 0;
+      if (providerId === "gemini") {
+        const u = data.usageMetadata;
+        inp = u?.promptTokenCount || 0;
+        out = u?.candidatesTokenCount || 0;
+      } else if (providerId === "openai") {
+        const u = data.usage;
+        inp = u?.input_tokens || 0;
+        out = u?.output_tokens || 0;
+      } else {
+        const u = data.usage;
+        inp = u?.prompt_tokens || u?.input_tokens || 0;
+        out = u?.completion_tokens || u?.output_tokens || 0;
+      }
+      if (inp || out) {
+        sessionTokensRef.current = {
+          input: sessionTokensRef.current.input + inp,
+          output: sessionTokensRef.current.output + out
+        };
+        setSessionTokens({ ...sessionTokensRef.current });
+      }
+    } catch {}
     return provider.extract(data, useTool, tool, maxTokens);
   };
   const beginAdventure = async (chosen) => {
+    sessionTokensRef.current = { input: 0, output: 0 };
+    setSessionTokens({ input: 0, output: 0 });
     setPremise(chosen);
     setPhase("playing");
     setGameState(EMPTY_STATE);
@@ -2442,6 +2469,8 @@ ${text}`);
     setMetaMessages([]);
   };
   const restart = () => {
+    sessionTokensRef.current = { input: 0, output: 0 };
+    setSessionTokens({ input: 0, output: 0 });
     setPhase("title");
     setPremise(null);
     setEntries([]);
@@ -2732,6 +2761,7 @@ ${text}`);
     onOpenSaves: openSavesModal,
     onExport: exportChronicle,
     saveBanner,
+    sessionTokens,
     scrollRef,
     textareaRef
   }), showSaves && /* @__PURE__ */ React.createElement(SavesModal, {
@@ -2933,9 +2963,11 @@ function GameScreen({
   onOpenSaves,
   onExport,
   saveBanner,
+  sessionTokens,
   scrollRef,
   textareaRef
 }) {
+  const totalTokens = (sessionTokens?.input || 0) + (sessionTokens?.output || 0);
   const lastEntry = entries[entries.length - 1];
   const showResolution = ended && lastEntry && lastEntry.type === "narration" && lastEntry.fullyRevealed && !metaMode;
   const inputLocked = ended && !metaMode || loading;
@@ -2951,7 +2983,11 @@ function GameScreen({
     style: { color: "var(--cream-dim)", letterSpacing: "0.3em" }
   }, /* @__PURE__ */ React.createElement("span", {
     style: { color: `var(--${premise.realm})` }
-  }, realmGlyph(premise.realm)), premise.title.toUpperCase()), /* @__PURE__ */ React.createElement("div", {
+  }, realmGlyph(premise.realm)), premise.title.toUpperCase()), totalTokens > 0 && /* @__PURE__ */ React.createElement("div", {
+    className: "display-font",
+    title: `${sessionTokens.input.toLocaleString()} tokens in · ${sessionTokens.output.toLocaleString()} tokens out`,
+    style: { color: "var(--cream-faint)", fontSize: 10, letterSpacing: "0.2em", userSelect: "none" }
+  }, formatTokens(totalTokens), " THIS SESSION"), /* @__PURE__ */ React.createElement("div", {
     className: "header-actions flex items-center gap-2"
   }, /* @__PURE__ */ React.createElement("button", {
     onClick: onUndo,
