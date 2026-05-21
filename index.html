@@ -796,9 +796,13 @@ const GM_LOGIC_TOOL = {
       gm_scratchpad: { type: "string" },
       narrator_brief: { type: "string" },
       state: { type: "object" },
-      ending: { type: "string" }
+      ending: {
+        type: "string",
+        enum: ["ongoing", "good", "bittersweet", "pyrrhic", "ambiguous", "bad"],
+        description: "Set to 'ongoing' while the story is continuing. Only select another value if the game has concluded per the genre-specific ending conditions."
+      }
     },
-    required: ["gm_scratchpad", "narrator_brief", "state"]
+    required: ["gm_scratchpad", "narrator_brief", "state", "ending"]
   }
 };
 const buildNarratorSystem = (premise, language) => `You are the Narrator for The Borrowed Hour. Write ONLY player-facing narration in ${languageNameFor(language)} based on the brief. Do not add hidden twists or new major facts not implied by the brief. Keep second-person present tense and literary tone.`;
@@ -930,11 +934,11 @@ These two checks are the scratchpad's job; do them here, in writing, every turn.
       },
       ending: {
         type: "string",
-        enum: ["good", "bittersweet", "pyrrhic", "ambiguous", "bad"],
-        description: "Set only when the chronicle has reached a true ending per the genre-specific guidance. Otherwise omit. The five types are NOT a softer middle — each is a definite commitment. GOOD: the objective is achieved cleanly. BITTERSWEET: achieved at a cost the player will carry. PYRRHIC: achieved in a way that hollowed out the achievement or the achiever. AMBIGUOUS: the resolution genuinely refuses closure (reserve for stories that earned this; do NOT use to dodge a clean ending). BAD: the player dies, fails irrevocably, or severs the way back. If the genre's named ending condition is met, you must commit — set this field. See the system prompt's ENDING THE CHRONICLE section."
+        enum: ["ongoing", "good", "bittersweet", "pyrrhic", "ambiguous", "bad"],
+        description: "Set to 'ongoing' while the chronicle is in progress — this is the value for every normal turn. Set one of the other values ONLY when the chronicle has reached a true ending per the genre-specific guidance. The five ending types are NOT a softer middle — each is a definite commitment. GOOD: the objective is achieved cleanly. BITTERSWEET: achieved at a cost the player will carry. PYRRHIC: achieved in a way that hollowed out the achievement or the achiever. AMBIGUOUS: the resolution genuinely refuses closure (reserve for stories that earned this; do NOT use to dodge a clean ending). BAD: the player dies, fails irrevocably, or severs the way back. If the genre's named ending condition is met, you must commit — set this field. See the system prompt's ENDING THE CHRONICLE section."
       }
     },
-    required: ["gm_scratchpad", "narration", "state"]
+    required: ["gm_scratchpad", "narration", "state", "ending"]
   }
 };
 var buildSystem = (premise, language = DEFAULT_LANGUAGE) => `You are the Game Master of an immersive text adventure called "The Borrowed Hour." The player has chosen this scenario:
@@ -1055,10 +1059,10 @@ Common failure to avoid: writing a beautiful resolution scene and then NOT setti
 
 If the player writes something like "this feels like a conclusion" or "I think we're done" or "is the story over?" and a valid ending condition has in fact been reached, treat that as the player giving you permission to formally close. Set 'ending', write a brief final beat or coda, stop. Do not write another full turn before closing.
 
-A near-miss, wound, setback, or cliffhanger is NOT an ending — leave 'ending' unset. Only when the genre-specific ending conditions are met do you commit. (A wounded continuation per the rule above is a continuation, not an ending.) But when those conditions ARE met, you must commit.
+A near-miss, wound, setback, or cliffhanger is NOT an ending — set 'ending' to "ongoing". Only when the genre-specific ending conditions are met do you commit. (A wounded continuation per the rule above is a continuation, not an ending.) But when those conditions ARE met, you must commit.
 
 OUTPUT — CRITICAL:
-On every turn you must call the tool \`narrate_and_update_state\` with the prose for the player ('narration') and the complete refreshed state object. The schema enforces structure; you focus on the writing. Fill the fields IN ORDER: 'gm_scratchpad' first (your private thinking — assess the action, consult the rules, plan the consequences), THEN 'narration' (what the player reads, conditioned by what you just thought through), THEN 'state' (refreshed in full). Use 'hidden_state' for anything the GM must remember but the player must not see — clocks, twists, secret allegiances, loop counts. Set 'ending' only when a true ending has been reached; otherwise omit it.
+On every turn you must call the tool \`narrate_and_update_state\` with the prose for the player ('narration') and the complete refreshed state object. The schema enforces structure; you focus on the writing. Fill the fields IN ORDER: 'gm_scratchpad' first (your private thinking — assess the action, consult the rules, plan the consequences), THEN 'narration' (what the player reads, conditioned by what you just thought through), THEN 'state' (refreshed in full). Use 'hidden_state' for anything the GM must remember but the player must not see — clocks, twists, secret allegiances, loop counts. Set 'ending' to one of the five ending types only when a true ending has been reached; otherwise set it to "ongoing".
 
 LANGUAGE — CRITICAL:
 Write all player-facing content in ${languageNameFor(language)}. This includes: the 'narration' field, every string in the 'state' object the player will read (scene, time, the contents of inventory items, npc names where appropriate and notes, clues, summary), and any wild-premise titles or teasers if you generate them. The 'gm_scratchpad' and 'hidden_state' fields are GM-internal — write them in whatever language you find easiest, English is fine. Your goal is that the player reads the entire chronicle in ${languageNameFor(language)} as if it were authored natively in that language: idiomatic phrasing, native register, culturally fluent rather than translated. Names of characters and places may stay in their original language when the seed specifies a culturally specific setting; let the seed and the genre guide that judgment.
