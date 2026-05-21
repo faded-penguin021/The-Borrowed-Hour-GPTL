@@ -913,7 +913,8 @@ var DEFAULT_ENGINE_NARRATOR = { provider: "gemini", model: "gemini-3.1-flash-lit
 var DEFAULT_SETTINGS = {
   highContrast: false,
   disableTypewriter: false,
-  useFreeModels: false,
+  engineStack: "gemini",
+  freeModelSelection: false,
   engineOpening: DEFAULT_ENGINE_OPENING,
   engineGM: DEFAULT_ENGINE_GM,
   engineNarrator: DEFAULT_ENGINE_NARRATOR
@@ -3598,17 +3599,56 @@ function EngineSelector({ label, hint, engine, onChange }) {
     style: fieldStyle
   }));
 }
+function EngineRoleDisplay({ label, engine }) {
+  const providerName = PROVIDER_META[engine?.provider]?.name || engine?.provider || "—";
+  const model = engine?.model || "—";
+  const fieldStyle = {
+    width: "100%",
+    marginTop: 6,
+    padding: "7px 9px",
+    fontSize: 12,
+    borderRadius: 6,
+    border: "1px solid rgba(232,222,197,0.12)",
+    background: "rgba(22,18,21,0.5)",
+    color: "var(--cream-dim)",
+    fontFamily: "inherit",
+    letterSpacing: "0.02em"
+  };
+  return /* @__PURE__ */ React.createElement("div", {
+    style: { marginTop: 14 }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font",
+    style: { color: "var(--cream-dim)", letterSpacing: "0.16em", fontSize: 10, textTransform: "uppercase" }
+  }, label), /* @__PURE__ */ React.createElement("div", {
+    style: { ...fieldStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }
+  }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--cream-faint)" } }, providerName), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--cream-dim)" } }, model)));
+}
 function EngineSection({ settings, onChange }) {
-  const handleFreeModels = (enabled) => {
-    onChange("useFreeModels", enabled);
-    if (enabled) {
-      const fp = (role, key) => {
-        const preset = FREE_MODELS_BY_PROVIDER[role.provider];
-        return preset ? { ...role, model: preset[key] } : role;
-      };
-      onChange("engineOpening", fp(settings.engineOpening, "opener"));
-      onChange("engineGM", fp(settings.engineGM, "gm"));
-      onChange("engineNarrator", fp(settings.engineNarrator, "narrator"));
+  const stack = settings.engineStack || "gemini";
+  const free = !!settings.freeModelSelection;
+  const fieldStyle = {
+    width: "100%",
+    marginTop: 6,
+    padding: "7px 9px",
+    fontSize: 12,
+    borderRadius: 6,
+    border: "1px solid rgba(232,222,197,0.22)",
+    background: "rgba(22,18,21,0.9)",
+    color: "var(--cream-bright)"
+  };
+  const handleStackChange = (newStack) => {
+    const preset = FREE_MODELS_BY_PROVIDER[newStack];
+    onChange("engineStack", newStack);
+    if (preset) {
+      onChange("engineOpening",  { provider: newStack, model: preset.opener });
+      onChange("engineGM",       { provider: newStack, model: preset.gm });
+      onChange("engineNarrator", { provider: newStack, model: preset.narrator });
+    }
+  };
+  const handleFreeSelection = (enabled) => {
+    onChange("freeModelSelection", enabled);
+    if (!enabled) {
+      handleStackChange(stack);
     }
   };
   return /* @__PURE__ */ React.createElement("div", {
@@ -3620,27 +3660,48 @@ function EngineSection({ settings, onChange }) {
   }, "Story engines"), /* @__PURE__ */ React.createElement("div", {
     className: "body-font italic",
     style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4, lineHeight: 1.6 }
-  }, "Three separate models handle distinct roles: the Opener sets the literary tone, the GM resolves logic and state, the Narrator renders player-facing prose. Any provider and model mix is allowed — even a different provider for each role. Each provider asks for its own API key the first time it is used."), /* @__PURE__ */ React.createElement(SettingsToggleRow, {
-    id: "setting-use-free-models",
-    label: "Use free-tier models",
-    description: "Auto-select the most capable free or low-cost model for each role based on the chosen provider. You can still adjust the selections below.",
-    value: settings.useFreeModels,
-    onChange: handleFreeModels
-  }), /* @__PURE__ */ React.createElement(EngineSelector, {
-    label: "Opening scene",
-    hint: "The voice-setting first turn.",
-    engine: settings.engineOpening,
-    onChange: (v) => onChange("engineOpening", v)
-  }), /* @__PURE__ */ React.createElement(EngineSelector, {
-    label: "GM logic",
-    hint: "Hidden rules layer: adjudicates actions and updates game state.",
-    engine: settings.engineGM,
-    onChange: (v) => onChange("engineGM", v)
-  }), /* @__PURE__ */ React.createElement(EngineSelector, {
-    label: "Narration & discussion",
-    hint: "Renders player-facing prose each turn and post-game discussion.",
-    engine: settings.engineNarrator,
-    onChange: (v) => onChange("engineNarrator", v)
+  }, "Three separate models handle distinct roles: the Opener sets the literary tone, the GM resolves logic and state, the Narrator renders player-facing prose."),
+  !free && /* @__PURE__ */ React.createElement(React.Fragment, null,
+    /* @__PURE__ */ React.createElement("div", {
+      className: "display-font",
+      style: { color: "var(--cream-dim)", letterSpacing: "0.16em", fontSize: 10, textTransform: "uppercase", marginTop: 14 }
+    }, "Model stack"),
+    /* @__PURE__ */ React.createElement("select", {
+      value: stack,
+      "aria-label": "Model stack",
+      onChange: (e) => handleStackChange(e.target.value),
+      style: fieldStyle
+    }, PROVIDER_ORDER.map((id) => /* @__PURE__ */ React.createElement("option", { key: id, value: id }, PROVIDER_META[id].name))),
+    /* @__PURE__ */ React.createElement(EngineRoleDisplay, { label: "Opening scene",        engine: settings.engineOpening }),
+    /* @__PURE__ */ React.createElement(EngineRoleDisplay, { label: "GM logic",             engine: settings.engineGM }),
+    /* @__PURE__ */ React.createElement(EngineRoleDisplay, { label: "Narration & discussion",engine: settings.engineNarrator })
+  ),
+  free && /* @__PURE__ */ React.createElement(React.Fragment, null,
+    /* @__PURE__ */ React.createElement(EngineSelector, {
+      label: "Opening scene",
+      hint: "The voice-setting first turn.",
+      engine: settings.engineOpening,
+      onChange: (v) => onChange("engineOpening", v)
+    }),
+    /* @__PURE__ */ React.createElement(EngineSelector, {
+      label: "GM logic",
+      hint: "Hidden rules layer: adjudicates actions and updates game state.",
+      engine: settings.engineGM,
+      onChange: (v) => onChange("engineGM", v)
+    }),
+    /* @__PURE__ */ React.createElement(EngineSelector, {
+      label: "Narration & discussion",
+      hint: "Renders player-facing prose each turn and post-game discussion.",
+      engine: settings.engineNarrator,
+      onChange: (v) => onChange("engineNarrator", v)
+    })
+  ),
+  /* @__PURE__ */ React.createElement(SettingsToggleRow, {
+    id: "setting-free-model-selection",
+    label: "Free model selection",
+    description: "Override the stack and pick any provider and model for each role independently — even mix across providers.",
+    value: free,
+    onChange: handleFreeSelection
   }));
 }
 function SettingsModal({ settings, onChange, onClose, osReducedMotion }) {
