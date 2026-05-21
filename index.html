@@ -132,6 +132,16 @@ var PROVIDER_META = {
   }
 };
 var PROVIDER_ORDER = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie", "local"];
+var FREE_MODELS_BY_PROVIDER = {
+  gemini:   { opener: "gemini-3.5-flash",    gm: "gemini-3.1-flash-lite",   narrator: "gemini-3.1-flash-lite" },
+  openai:   { opener: "gpt-5-mini",           gm: "gpt-5.4-mini",            narrator: "gpt-5.4-nano" },
+  anthropic:{ opener: "claude-sonnet-4-6",    gm: "claude-haiku-4-5-20251001", narrator: "claude-haiku-4-5-20251001" },
+  deepseek: { opener: "deepseek-chat",        gm: "deepseek-reasoner",       narrator: "deepseek-chat" },
+  qwen:     { opener: "qwen-plus",            gm: "qwen-turbo",              narrator: "qwen-turbo" },
+  kimi:     { opener: "kimi-k2-0905-preview", gm: "moonshot-v1-8k",          narrator: "moonshot-v1-8k" },
+  ernie:    { opener: "ernie-4.5-turbo-128k", gm: "ernie-4.5-turbo-32k",     narrator: "ernie-4.5-turbo-32k" },
+  local:    { opener: "llama3.2",             gm: "llama3.1",                narrator: "llama3.2" }
+};
 var LOCAL_DEFAULT_URL = "http://localhost:11434/v1/chat/completions";
 var getLocalUrl = () => localStorage.getItem(PROVIDER_META.local.urlStorage)?.trim() || LOCAL_DEFAULT_URL;
 var getProviderKey = async (id) => {
@@ -947,6 +957,7 @@ var DEFAULT_ENGINE_NARRATOR = { provider: "gemini", model: "gemini-3.1-flash-lit
 var DEFAULT_SETTINGS = {
   highContrast: false,
   disableTypewriter: false,
+  useFreeModels: false,
   engineOpening: DEFAULT_ENGINE_OPENING,
   engineGM: DEFAULT_ENGINE_GM,
   engineNarrator: DEFAULT_ENGINE_NARRATOR
@@ -3650,6 +3661,18 @@ function EngineSelector({ label, hint, engine, onChange }) {
   }));
 }
 function EngineSection({ settings, onChange }) {
+  const handleFreeModels = (enabled) => {
+    onChange("useFreeModels", enabled);
+    if (enabled) {
+      const fp = (role, key) => {
+        const preset = FREE_MODELS_BY_PROVIDER[role.provider];
+        return preset ? { ...role, model: preset[key] } : role;
+      };
+      onChange("engineOpening", fp(settings.engineOpening, "opener"));
+      onChange("engineGM", fp(settings.engineGM, "gm"));
+      onChange("engineNarrator", fp(settings.engineNarrator, "narrator"));
+    }
+  };
   return /* @__PURE__ */ React.createElement("div", {
     className: "settings-toggle",
     style: { cursor: "default", display: "block" }
@@ -3659,19 +3682,25 @@ function EngineSection({ settings, onChange }) {
   }, "Story engines"), /* @__PURE__ */ React.createElement("div", {
     className: "body-font italic",
     style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4, lineHeight: 1.6 }
-  }, "Three separate models handle distinct roles: the Opener sets the literary tone, the GM resolves logic and state, the Narrator renders player-facing prose. Any provider and model mix is allowed — even a different provider for each role. Each provider asks for its own API key the first time it is used."), /* @__PURE__ */ React.createElement(EngineSelector, {
+  }, "Three separate models handle distinct roles: the Opener sets the literary tone, the GM resolves logic and state, the Narrator renders player-facing prose. Any provider and model mix is allowed — even a different provider for each role. Each provider asks for its own API key the first time it is used."), /* @__PURE__ */ React.createElement(SettingsToggleRow, {
+    id: "setting-use-free-models",
+    label: "Use free-tier models",
+    description: "Auto-select the most capable free or low-cost model for each role based on the chosen provider. You can still adjust the selections below.",
+    value: settings.useFreeModels,
+    onChange: handleFreeModels
+  }), /* @__PURE__ */ React.createElement(EngineSelector, {
     label: "Opening scene",
-    hint: "The voice-setting first turn. Preferred: Gemini · gemini-3.5-flash.",
+    hint: "The voice-setting first turn.",
     engine: settings.engineOpening,
     onChange: (v) => onChange("engineOpening", v)
   }), /* @__PURE__ */ React.createElement(EngineSelector, {
     label: "GM logic",
-    hint: "Hidden rules layer: adjudicates actions and updates game state. Preferred: Gemini · gemini-3.1-flash-lite.",
+    hint: "Hidden rules layer: adjudicates actions and updates game state.",
     engine: settings.engineGM,
     onChange: (v) => onChange("engineGM", v)
   }), /* @__PURE__ */ React.createElement(EngineSelector, {
     label: "Narration & discussion",
-    hint: "Renders player-facing prose each turn and post-game discussion. Preferred: Gemini · gemini-3.1-flash-lite.",
+    hint: "Renders player-facing prose each turn and post-game discussion.",
     engine: settings.engineNarrator,
     onChange: (v) => onChange("engineNarrator", v)
   }));
