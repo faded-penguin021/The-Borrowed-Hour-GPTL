@@ -77,7 +77,7 @@ var PROVIDER_META = {
     keyStorage: "borrowed:gemini_api_key:v1",
     windowKey: "GEMINI_API_KEY",
     metaName: "gemini-api-key",
-    models: ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-flash-lite-latest"]
+    models: ["gemini-3.5-flash", "gemma-4-31b-it"]
   },
   openai: {
     name: "OpenAI",
@@ -140,7 +140,7 @@ var PROVIDER_META = {
 };
 var PROVIDER_ORDER = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie", "mistral", "local"];
 var FREE_MODELS_BY_PROVIDER = {
-  gemini:   { opener: "gemini-3.5-flash",      gm: "gemini-3.1-flash-lite",     narrator: "gemini-3.1-flash-lite" },
+  gemini:   { opener: "gemini-3.5-flash",      gm: "gemma-4-31b-it",            narrator: "gemma-4-31b-it" },
   openai:   { opener: "gpt-5-mini",             gm: "gpt-5.4-mini",              narrator: "gpt-5.4-nano" },
   anthropic:{ opener: "claude-sonnet-4-6",      gm: "claude-haiku-4-5-20251001", narrator: "claude-haiku-4-5-20251001" },
   deepseek: { opener: "deepseek-chat",          gm: "deepseek-reasoner",         narrator: "deepseek-chat" },
@@ -1094,8 +1094,8 @@ var formatTokens = (t) => {
   return `~${(t / 1000).toFixed(t < 1e4 ? 1 : 0)}K tokens`;
 };
 var DEFAULT_ENGINE_OPENING = { provider: "gemini", model: "gemini-3.5-flash" };
-var DEFAULT_ENGINE_GM = { provider: "gemini", model: "gemini-3.1-flash-lite" };
-var DEFAULT_ENGINE_NARRATOR = { provider: "gemini", model: "gemini-3.1-flash-lite" };
+var DEFAULT_ENGINE_GM = { provider: "gemini", model: "gemma-4-31b-it" };
+var DEFAULT_ENGINE_NARRATOR = { provider: "gemini", model: "gemma-4-31b-it" };
 var DEFAULT_SETTINGS = {
   highContrast: false,
   disableTypewriter: false,
@@ -2083,7 +2083,13 @@ function App() {
         const r = await window.storage.get(SETTINGS_KEY);
         if (r?.value) {
           const parsed = JSON.parse(r.value);
-          setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+          const merged = { ...DEFAULT_SETTINGS, ...parsed };
+          for (const role of ["engineOpening", "engineGM", "engineNarrator"]) {
+            const eng = merged[role];
+            if (eng?.provider === "gemini" && (eng.model === "gemini-3.1-flash-lite" || eng.model === "gemini-flash-lite-latest"))
+              merged[role] = { ...eng, model: "gemma-4-31b-it" };
+          }
+          setSettings(merged);
         }
       } catch {} finally {
         settingsLoadedRef.current = true;
