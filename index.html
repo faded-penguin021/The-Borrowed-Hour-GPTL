@@ -4,9 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>The Borrowed Hour</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.openai.com https://generativelanguage.googleapis.com https://api.anthropic.com https://api.deepseek.com https://dashscope.aliyuncs.com https://api.moonshot.cn https://qianfan.baidubce.com http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:*; img-src 'self' data:; base-uri 'self'; form-action 'none'" />
   <script src="https://cdn.tailwindcss.com"></script>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin="anonymous" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin="anonymous" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
 </head>
 <body>
   <div id="root"></div>
@@ -39,6 +40,37 @@ if (!window.storage) {
     }
   };
 }
+var ENC_PREFIX = "enc:v1:";
+var KDF = { name: "PBKDF2", hash: "SHA-256", iterations: 310000 };
+var AES = { name: "AES-GCM", length: 256 };
+async function deriveKey(passphrase, salt) {
+  const km = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(passphrase), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    { ...KDF, salt }, km, AES, false, ["encrypt", "decrypt"]);
+}
+var toB64 = (b) => btoa(String.fromCharCode(...new Uint8Array(b)));
+var fromB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+async function encryptSecret(plaintext, passphrase) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(passphrase, salt);
+  const ct = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv }, key, new TextEncoder().encode(plaintext));
+  return ENC_PREFIX + `${toB64(salt)}.${toB64(iv)}.${toB64(ct)}`;
+}
+async function decryptSecret(bundle, passphrase) {
+  const [s, iv, ct] = bundle.slice(ENC_PREFIX.length).split(".");
+  const key = await deriveKey(passphrase, fromB64(s));
+  const pt = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: fromB64(iv) }, key, fromB64(ct));
+  return new TextDecoder().decode(pt);
+}
+var scrubSecrets = (s) => {
+  if (typeof s !== "string")
+    return s;
+  return s.replace(/(sk-[A-Za-z0-9_-]{16,})|(AIza[A-Za-z0-9_-]{20,})/g, "[REDACTED]");
+};
 var PROVIDER_META = {
   gemini: {
     name: "Gemini",
@@ -102,7 +134,7 @@ var PROVIDER_META = {
 var PROVIDER_ORDER = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie", "local"];
 var LOCAL_DEFAULT_URL = "http://localhost:11434/v1/chat/completions";
 var getLocalUrl = () => localStorage.getItem(PROVIDER_META.local.urlStorage)?.trim() || LOCAL_DEFAULT_URL;
-var getProviderKey = (id) => {
+var getProviderKey = async (id) => {
   const m = PROVIDER_META[id];
   if (!m)
     throw new BorrowedError("The hour cannot open yet.", `Unknown API provider "${id}".`);
@@ -110,8 +142,20 @@ var getProviderKey = (id) => {
   if (injected)
     return injected.trim();
   const stored = localStorage.getItem(m.keyStorage);
-  if (stored)
-    return stored.trim();
+  if (stored) {
+    if (!stored.startsWith(ENC_PREFIX))
+      return stored.trim();
+    if (!window.__sessionPassphrase)
+      window.__sessionPassphrase = prompt("Enter your session passphrase to unlock API keys:");
+    if (!window.__sessionPassphrase)
+      throw new BorrowedError("The hour cannot open yet.", "A session passphrase is required to unlock your API key.");
+    try {
+      return (await decryptSecret(stored, window.__sessionPassphrase)).trim();
+    } catch {
+      window.__sessionPassphrase = null;
+      throw new BorrowedError("The hour cannot open yet.", "Could not unlock the API key — wrong passphrase. Try again.");
+    }
+  }
   if (m.keyOptional)
     return "";
   throw new BorrowedError("The hour cannot open yet.", `No ${m.name} API key is saved. Open ⚙ Settings → API keys and paste your key there.`);
@@ -1985,6 +2029,7 @@ function App() {
       }
       let request;
       try {
+        const apiKey = await getProviderKey(providerId);
         request = provider.buildRequest({
           sys,
           msgs,
@@ -1993,7 +2038,7 @@ function App() {
           maxTokens,
           temperature: temp,
           tool,
-          apiKey: getProviderKey(providerId)
+          apiKey
         });
       } catch (e) {
         if (e instanceof BorrowedError)
@@ -2014,7 +2059,7 @@ function App() {
         lastStatus = res.status;
         try {
           const bodyText = await res.text();
-          lastBodySnippet = bodyText.slice(0, 500);
+          lastBodySnippet = scrubSecrets(bodyText.slice(0, 500));
         } catch {}
         if (res.status === 400 && temp !== undefined && /temperature/i.test(lastBodySnippet || "")) {
           temp = undefined;
@@ -3371,10 +3416,16 @@ function ApiKeyRow({ providerId }) {
     letterSpacing: "0.14em",
     whiteSpace: "nowrap"
   };
-  const saveKey = () => {
+  const saveKey = async () => {
     const trimmed = value.trim();
     if (!trimmed) return;
-    localStorage.setItem(meta.keyStorage, trimmed);
+    let passphrase = window.__sessionPassphrase;
+    if (!passphrase) {
+      passphrase = prompt("Set a session passphrase to encrypt your API keys:");
+      if (!passphrase) return;
+      window.__sessionPassphrase = passphrase;
+    }
+    localStorage.setItem(meta.keyStorage, await encryptSecret(trimmed, passphrase));
     setValue("");
     setEditing(false);
     setStored(true);
@@ -3447,17 +3498,28 @@ function LocalLLMRow() {
     letterSpacing: "0.14em",
     whiteSpace: "nowrap"
   };
+  const isValidLocalUrl = (u) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?(\/.*)?$/i.test(u);
   const saveUrl = (v) => {
     const trimmed = v.trim();
-    if (trimmed)
+    if (trimmed) {
+      if (!isValidLocalUrl(trimmed)) {
+        alert("Local LLM URL must point to localhost or 127.0.0.1 for security.");
+        return;
+      }
       localStorage.setItem(meta.urlStorage, trimmed);
-    else
+    } else
       localStorage.removeItem(meta.urlStorage);
   };
-  const saveKey = () => {
+  const saveKey = async () => {
     const trimmed = key.trim();
     if (!trimmed) return;
-    localStorage.setItem(meta.keyStorage, trimmed);
+    let passphrase = window.__sessionPassphrase;
+    if (!passphrase) {
+      passphrase = prompt("Set a session passphrase to encrypt your API keys:");
+      if (!passphrase) return;
+      window.__sessionPassphrase = passphrase;
+    }
+    localStorage.setItem(meta.keyStorage, await encryptSecret(trimmed, passphrase));
     setKey("");
     setEditingKey(false);
     setKeyStored(true);
