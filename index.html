@@ -220,7 +220,7 @@ var FREE_MODELS_BY_PROVIDER = {
   kimi:     { opener: "kimi-k2.5",              gm: "kimi-k2.5",                 narrator: "kimi-k2.5" },
   ernie:    { opener: "ernie-4.5-turbo-128k",   gm: "ernie-4.5-turbo-32k",       narrator: "ernie-4.5-turbo-32k" },
   mistral:  { opener: "mistral-large-latest",   gm: "mistral-small-latest",      narrator: "mistral-small-latest" },
-  groq:     { opener: "meta-llama/llama-4-scout-17b-16e-instruct", gm: "meta-llama/llama-4-scout-17b-16e-instruct", narrator: "meta-llama/llama-4-scout-17b-16e-instruct" },
+  groq:     { opener: "llama-3.3-70b-versatile", gm: "llama-3.3-70b-versatile", narrator: "llama-3.3-70b-versatile" },
   openrouter:{ opener: "deepseek/deepseek-v4-flash:free", gm: "deepseek/deepseek-v4-flash:free", narrator: "deepseek/deepseek-v4-flash:free" },
   cerebras: { opener: "llama-3.3-70b",          gm: "llama-3.3-70b",             narrator: "llama-3.3-70b" },
   local:    { opener: "llama3.2",               gm: "llama3.1",                  narrator: "llama3.2" }
@@ -2753,8 +2753,6 @@ ${text}`);
     });
     const TRIM_THRESHOLD = 60;
     const KEEP_RECENT = 44;
-    // Groq's free tier rejects any single request larger than the model's per-minute token
-    // budget, so the GM call needs a tighter history cap there. Other providers keep the full cap.
     const CHAR_CAP = settings.engineGM?.provider === "groq" ? 60000 : 80000;
     const charsOf = (msgs) => msgs.reduce((sum, m) => sum + (typeof m.content === "string" ? m.content.length : 0), 0);
     if (apiHistory.length > TRIM_THRESHOLD) {
