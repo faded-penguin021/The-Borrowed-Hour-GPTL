@@ -273,6 +273,39 @@ var extractChatText = (data) => {
   return chunks.join(`
 `).trim();
 };
+var sseEventData = (rawEvent) => {
+  const dataLines = [];
+  for (const line of rawEvent.split(`
+`)) {
+    if (line.startsWith("data:"))
+      dataLines.push(line.slice(5).replace(/^ /, ""));
+  }
+  return dataLines.join(`
+`).trim();
+};
+var parseChatStreamEvent = (rawEvent) => {
+  const data = sseEventData(rawEvent);
+  if (!data || data === "[DONE]")
+    return null;
+  let json;
+  try {
+    json = JSON.parse(data);
+  } catch {
+    return null;
+  }
+  const out = {};
+  const delta = json.choices?.[0]?.delta?.content;
+  if (typeof delta === "string" && delta)
+    out.text = delta;
+  if (json.usage)
+    out.usage = {
+      input: json.usage.prompt_tokens || json.usage.input_tokens || 0,
+      output: json.usage.completion_tokens || json.usage.output_tokens || 0
+    };
+  if (json.error)
+    out.error = json.error.message || String(json.error);
+  return out;
+};
 var makeChatCompletionsProvider = ({ url, label, jsonSchema }) => ({
   retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
   buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
@@ -318,6 +351,12 @@ Respond ONLY with a single valid JSON object matching this schema (no prose, no 
       total: u.total_tokens || 0
     });
   },
+  buildStreamRequest(params) {
+    const request = this.buildRequest({ ...params, useTool: false, tool: GM_TOOL });
+    request.body.stream = true;
+    return request;
+  },
+  parseStreamEvent: parseChatStreamEvent,
   extract(data) {
     const text = extractChatText(data);
     if (!text) {
@@ -366,6 +405,33 @@ var PROVIDERS = {
         total: u.total_tokens || 0
       });
     },
+    buildStreamRequest(params) {
+      const request = this.buildRequest({ ...params, useTool: false, tool: GM_TOOL });
+      request.body.stream = true;
+      return request;
+    },
+    parseStreamEvent(rawEvent) {
+      const data = sseEventData(rawEvent);
+      if (!data || data === "[DONE]")
+        return null;
+      let json;
+      try {
+        json = JSON.parse(data);
+      } catch {
+        return null;
+      }
+      const out = {};
+      if (json.type === "response.output_text.delta" && typeof json.delta === "string")
+        out.text = json.delta;
+      if ((json.type === "response.completed" || json.type === "response.incomplete") && json.response?.usage)
+        out.usage = {
+          input: json.response.usage.input_tokens || 0,
+          output: json.response.usage.output_tokens || 0
+        };
+      if (json.type === "error" || json.type === "response.failed")
+        out.error = json.response?.error?.message || json.message || "stream error";
+      return out;
+    },
     extract(data) {
       const text = extractOpenAIText(data);
       if (!text) {
@@ -407,6 +473,40 @@ var PROVIDERS = {
         output: u.candidatesTokenCount || 0,
         total: u.totalTokenCount || 0
       });
+    },
+    buildStreamRequest({ sys, msgs, model, maxTokens, temperature, apiKey }) {
+      const request = this.buildRequest({ sys, msgs, useTool: false, model, maxTokens, temperature, tool: GM_TOOL, apiKey });
+      request.url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`;
+      return request;
+    },
+    parseStreamEvent(rawEvent) {
+      const data = sseEventData(rawEvent);
+      if (!data)
+        return null;
+      let json;
+      try {
+        json = JSON.parse(data);
+      } catch {
+        return null;
+      }
+      const out = {};
+      let text = "";
+      for (const candidate of json.candidates || []) {
+        for (const part of candidate.content?.parts || []) {
+          if (typeof part.text === "string")
+            text += part.text;
+        }
+      }
+      if (text)
+        out.text = text;
+      if (json.usageMetadata)
+        out.usage = {
+          input: json.usageMetadata.promptTokenCount || 0,
+          output: json.usageMetadata.candidatesTokenCount || 0
+        };
+      if (json.error)
+        out.error = json.error.message || String(json.error);
+      return out;
     },
     extract(data) {
       const text = extractGeminiText(data);
@@ -453,6 +553,35 @@ var PROVIDERS = {
         cache_write: u.cache_creation_input_tokens || 0,
         output: u.output_tokens || 0
       });
+    },
+    buildStreamRequest(params) {
+      const request = this.buildRequest({ ...params, useTool: false, tool: GM_TOOL });
+      request.body.stream = true;
+      return request;
+    },
+    parseStreamEvent(rawEvent) {
+      const data = sseEventData(rawEvent);
+      if (!data)
+        return null;
+      let json;
+      try {
+        json = JSON.parse(data);
+      } catch {
+        return null;
+      }
+      const out = {};
+      if (json.type === "content_block_delta" && json.delta?.type === "text_delta" && typeof json.delta.text === "string")
+        out.text = json.delta.text;
+      if (json.type === "message_start" && json.message?.usage)
+        out.usage = {
+          input: json.message.usage.input_tokens || 0,
+          output: json.message.usage.output_tokens || 0
+        };
+      if (json.type === "message_delta" && json.usage)
+        out.usage = { output: json.usage.output_tokens || 0 };
+      if (json.type === "error")
+        out.error = json.error?.message || "stream error";
+      return out;
     },
     extract(data, useTool, tool, maxTokens) {
       if (useTool) {
@@ -970,6 +1099,7 @@ var DEFAULT_ENGINE_NARRATOR = { provider: "gemini", model: "gemini-3.1-flash-lit
 var DEFAULT_SETTINGS = {
   highContrast: false,
   disableTypewriter: false,
+  streamNarration: true,
   engineStack: "gemini",
   freeModelSelection: false,
   engineOpening: DEFAULT_ENGINE_OPENING,
@@ -1942,6 +2072,7 @@ function App() {
   const [saveBanner, setSaveBanner] = useState(null);
   const [exportFallbackText, setExportFallbackText] = useState(null);
   const [loadingPhrase, setLoadingPhrase] = useState("");
+  const [recovery, setRecovery] = useState(null);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const settingsLoadedRef = useRef(false);
   const [sessionTokens, setSessionTokens] = useState({ input: 0, output: 0 });
@@ -2146,6 +2277,134 @@ function App() {
     } catch {}
     return provider.extract(data, useTool, tool, maxTokens);
   };
+  const streamAPI = async (sys, msgs, engine, maxTokens, temperature, signal, onDelta) => {
+    const providerId = engine?.provider;
+    const model = engine?.model;
+    const provider = PROVIDERS[providerId];
+    const meta = PROVIDER_META[providerId];
+    if (!provider || !meta || !model || !String(model).trim()) {
+      throw new BorrowedError("The hour cannot open yet.", "No story engine is selected. Open Settings → Story engines and choose a provider and a model.");
+    }
+    if (typeof provider.buildStreamRequest !== "function" || typeof provider.parseStreamEvent !== "function") {
+      const fallback = await callAPI(sys, msgs, false, engine, maxTokens, temperature, signal);
+      if (fallback)
+        onDelta(fallback);
+      return fallback;
+    }
+    let temp = temperature;
+    const RETRYABLE = provider.retryable;
+    const MAX_RETRIES = 2;
+    let lastErr = null;
+    for (let attempt = 0;attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0)
+        await new Promise((r) => setTimeout(r, 300 * Math.pow(2, attempt)));
+      if (signal && signal.aborted) {
+        throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
+      }
+      let request;
+      try {
+        const apiKey = await getProviderKey(providerId);
+        request = provider.buildStreamRequest({ sys, msgs, model, maxTokens, temperature: temp, apiKey });
+      } catch (e) {
+        if (e instanceof BorrowedError)
+          throw e;
+        throw new BorrowedError("The hour falters.", `Could not build the ${meta.name} request${e?.message ? ` (${e.message})` : ""}.`);
+      }
+      let res;
+      try {
+        res = await fetch(request.url, {
+          method: "POST",
+          headers: request.headers,
+          body: JSON.stringify(request.body),
+          signal: signal || undefined
+        });
+      } catch (e) {
+        if (e && e.name === "AbortError" || signal && signal.aborted) {
+          throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
+        }
+        lastErr = new BorrowedError("The hour falters.", `Network error before the ${meta.name} API responded${e?.message ? ` (${e.message})` : ""}. Check your connection, CORS/proxy policy, and API key.`);
+        continue;
+      }
+      if (!res.ok) {
+        let bodySnippet = null;
+        try {
+          bodySnippet = scrubSecrets((await res.text()).slice(0, 500));
+        } catch {}
+        if (res.status === 400 && temp !== undefined && /temperature/i.test(bodySnippet || "")) {
+          temp = undefined;
+          lastErr = new BorrowedError("The hour falters.", `${meta.name} rejected temperature for this model; retrying with the model default.`);
+          continue;
+        }
+        const hint = httpStatusHint(res.status, meta.name);
+        if (!RETRYABLE.has(res.status))
+          throw new BorrowedError("The hour falters.", hint);
+        lastErr = new BorrowedError("The hour falters.", attempt < MAX_RETRIES ? `${hint} Retrying…` : `${hint} Retried ${MAX_RETRIES} times without success.`);
+        continue;
+      }
+      if (!res.body) {
+        throw new BorrowedError("The hour falters.", `${meta.name} returned no readable stream body.`);
+      }
+      let full = "";
+      let usage = null;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder;
+      let buffer = "";
+      const handleEvent = (rawEvent) => {
+        if (!rawEvent.trim())
+          return;
+        const parsed = provider.parseStreamEvent(rawEvent);
+        if (!parsed)
+          return;
+        if (parsed.usage)
+          usage = Object.assign(usage || {}, parsed.usage);
+        if (parsed.error)
+          throw new BorrowedError("The hour falters.", `${meta.name} reported an error mid-stream: ${parsed.error}`);
+        if (parsed.text) {
+          full += parsed.text;
+          onDelta(parsed.text);
+        }
+      };
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done)
+            break;
+          buffer += decoder.decode(value, { stream: true }).replace(/\r/g, "");
+          let idx;
+          while ((idx = buffer.indexOf(`
+
+`)) !== -1) {
+            const rawEvent = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 2);
+            handleEvent(rawEvent);
+          }
+        }
+        handleEvent(buffer);
+      } catch (e) {
+        try {
+          reader.cancel();
+        } catch {}
+        if (e && e.name === "AbortError" || signal && signal.aborted) {
+          throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
+        }
+        const err = e instanceof BorrowedError ? e : new BorrowedError("The hour falters.", `The ${meta.name} narration stream broke${e?.message ? ` (${e.message})` : ""}.`);
+        if (full)
+          err.partial = full;
+        throw err;
+      }
+      if (usage && (usage.input || usage.output)) {
+        sessionTokensRef.current = {
+          input: sessionTokensRef.current.input + (usage.input || 0),
+          output: sessionTokensRef.current.output + (usage.output || 0)
+        };
+        setSessionTokens({ ...sessionTokensRef.current });
+      }
+      if (!full.trim())
+        throw new BorrowedError("The page came back blank.", `${meta.name} returned an empty narration stream.`);
+      return full;
+    }
+    throw lastErr || new BorrowedError("The hour falters.", "Unknown failure.");
+  };
   const beginAdventure = async (chosen) => {
     sessionTokensRef.current = { input: 0, output: 0 };
     setSessionTokens({ input: 0, output: 0 });
@@ -2155,6 +2414,7 @@ function App() {
     setLoadingPhrase(pickPhrase(OPENING_LOADING_PHRASES));
     setLoading(true);
     setError(null);
+    setRecovery(null);
     const controller = new AbortController;
     const rollback = () => {
       setPhase("title");
@@ -2200,6 +2460,69 @@ function App() {
       }
     }
   };
+  const finalizeNarration = (narration, gmParsed, baseEntries, baseHistory, fullyRevealed) => {
+    const assistantPayload = JSON.stringify({ gm_scratchpad: "", narration, state: gmParsed.state, ending: gmParsed.ending });
+    setHistory([...baseHistory, { role: "assistant", content: assistantPayload }]);
+    setEntries([...baseEntries, { type: "narration", text: narration, fullyRevealed }]);
+    if (gmParsed.state && !(isStateEmpty(gmParsed.state) && !isStateEmpty(gameState))) {
+      setGameState(gmParsed.state);
+    }
+    if (gmParsed.ending)
+      setEnded(true);
+  };
+  const continueNarration = async () => {
+    const rec = recovery;
+    if (!rec || loading)
+      return;
+    setError(null);
+    setRecovery(null);
+    setLoadingPhrase(pickPhrase(NARRATION_LOADING_PHRASES));
+    setLoading(true);
+    const narrationIndex = rec.baseEntries.length;
+    let acc = rec.partial;
+    const controller = new AbortController;
+    const rollback = () => {
+      finalizeNarration(rec.partial, rec.gmParsed, rec.baseEntries, rec.baseHistory, true);
+      setRecovery(rec);
+    };
+    abortRef.current = { controller, rollback };
+    const continuePrompt = `${rec.narratorPrompt}
+
+[Partial narration already shown to the player]
+${rec.partial}
+
+The narration above was interrupted and cut off before it finished. Continue it seamlessly from exactly where it stops — do not repeat or restate any of it, do not open a new scene. Write only the continuation, carrying the same passage to a natural close.`;
+    const onDelta = (chunk) => {
+      acc += chunk;
+      setEntries((prev) => {
+        if (!prev[narrationIndex] || prev[narrationIndex].type !== "narration")
+          return prev;
+        const next = prev.slice();
+        next[narrationIndex] = { ...next[narrationIndex], text: acc };
+        return next;
+      });
+    };
+    setEntries([...rec.baseEntries, { type: "narration", text: rec.partial, streaming: true }]);
+    try {
+      await streamAPI(rec.narratorSys, [{ role: "user", content: continuePrompt }], settings.engineNarrator, 700, 0.8, controller.signal, onDelta);
+      if (controller.signal.aborted)
+        return;
+      finalizeNarration(acc, rec.gmParsed, rec.baseEntries, rec.baseHistory, true);
+    } catch (e) {
+      if (controller.signal.aborted)
+        return;
+      if (e instanceof BorrowedError && e.detail === "Request cancelled by the player.")
+        return;
+      setError(formatError(e));
+      finalizeNarration(acc, rec.gmParsed, rec.baseEntries, rec.baseHistory, true);
+      setRecovery({ ...rec, partial: acc });
+    } finally {
+      if (abortRef.current?.controller === controller) {
+        setLoading(false);
+        abortRef.current = null;
+      }
+    }
+  };
   const submit = async () => {
     const text = input.trim();
     if (!text || loading)
@@ -2207,6 +2530,7 @@ function App() {
     if (!metaMode && ended)
       return;
     skipReveal();
+    setRecovery(null);
     const previousInput = input;
     const previousInputHistory = inputHistory;
     const previousInputHistoryIndex = inputHistoryIndex;
@@ -2380,20 +2704,52 @@ ${text}`);
       const narratorSys = buildNarratorSystem(premise, language);
       const recentNarration = entries.filter((e) => e.type === "narration").slice(-4).map((e) => e.text).join("\n\n");
       const narratorPrompt = `[State]\n${serializeStatePublic(gmParsed.state)}\n\n[Narrator brief]\n${gmParsed.narrator_brief}\n\n[Recent narration]\n${recentNarration}`;
-      const narration = await callAPI(narratorSys, [{ role: "user", content: narratorPrompt }], false, settings.engineNarrator, 1200, 0.8, controller.signal);
-      if (controller.signal.aborted)
-        return;
-      const assistantPayload = JSON.stringify({ gm_scratchpad: "", narration, state: gmParsed.state, ending: gmParsed.ending });
-      setHistory([...newHistory, { role: "assistant", content: assistantPayload }]);
-      setEntries([
-        ...newEntries,
-        { type: "narration", text: narration, fullyRevealed: false }
-      ]);
-      if (gmParsed.state && !(isStateEmpty(gmParsed.state) && !isStateEmpty(gameState))) {
-        setGameState(gmParsed.state);
+      if (settings.streamNarration) {
+        const narrationIndex = newEntries.length;
+        let acc = "";
+        setEntries([...newEntries, { type: "narration", text: "", streaming: true }]);
+        const onDelta = (chunk) => {
+          acc += chunk;
+          setEntries((prev) => {
+            if (!prev[narrationIndex] || prev[narrationIndex].type !== "narration")
+              return prev;
+            const next = prev.slice();
+            next[narrationIndex] = { ...next[narrationIndex], text: acc };
+            return next;
+          });
+        };
+        let narration;
+        try {
+          narration = await streamAPI(narratorSys, [{ role: "user", content: narratorPrompt }], settings.engineNarrator, 1200, 0.8, controller.signal, onDelta);
+        } catch (e) {
+          if (controller.signal.aborted)
+            return;
+          if (e instanceof BorrowedError && e.detail === "Request cancelled by the player.")
+            return;
+          if (e && typeof e.partial === "string" && e.partial) {
+            finalizeNarration(e.partial, gmParsed, newEntries, newHistory, true);
+            setError(formatError(e));
+            setRecovery({
+              narratorSys,
+              narratorPrompt,
+              gmParsed,
+              baseEntries: newEntries,
+              baseHistory: newHistory,
+              partial: e.partial
+            });
+            return;
+          }
+          throw e;
+        }
+        if (controller.signal.aborted)
+          return;
+        finalizeNarration(narration, gmParsed, newEntries, newHistory, true);
+      } else {
+        const narration = await callAPI(narratorSys, [{ role: "user", content: narratorPrompt }], false, settings.engineNarrator, 1200, 0.8, controller.signal);
+        if (controller.signal.aborted)
+          return;
+        finalizeNarration(narration, gmParsed, newEntries, newHistory, false);
       }
-      if (gmParsed.ending)
-        setEnded(true);
     } catch (e) {
       if (controller.signal.aborted)
         return;
@@ -2499,6 +2855,7 @@ ${text}`);
     setGameState(newState);
     setEnded(false);
     setError(null);
+    setRecovery(null);
     setSaveBanner({ kind: "ok", text: "The last turn is unmade." });
   };
   const enterMetaMode = () => {
@@ -2522,6 +2879,7 @@ ${text}`);
     setHistory([]);
     setInput("");
     setError(null);
+    setRecovery(null);
     setEnded(false);
     setGameState(EMPTY_STATE);
     setShowLedger(false);
@@ -2631,6 +2989,7 @@ ${text}`);
     setHistory(save.history || []);
     setInput("");
     setError(null);
+    setRecovery(null);
     setEnded(!!save.ended);
     setGameState(save.gameState || EMPTY_STATE);
     setLanguage(save.language || DEFAULT_LANGUAGE);
@@ -2801,6 +3160,8 @@ ${text}`);
     onSubmit: submit,
     onSkip: skipReveal,
     onCancel: cancelRequest,
+    recovery,
+    onContinueNarration: continueNarration,
     onRestart: restart,
     onSave: saveCurrent,
     onOpenSaves: openSavesModal,
@@ -3003,6 +3364,8 @@ function GameScreen({
   onSubmit,
   onSkip,
   onCancel,
+  recovery,
+  onContinueNarration,
   onRestart,
   onSave,
   onOpenSaves,
@@ -3153,7 +3516,7 @@ function GameScreen({
         style: { lineHeight: 1.7 }
       }, /* @__PURE__ */ React.createElement(TypewriterText, {
         text: entry.text,
-        instant: entry.fullyRevealed || instantReveal,
+        instant: entry.fullyRevealed || entry.streaming || instantReveal,
         skipSignal: skipNonce,
         onDone: () => onEntryDone(i),
         scrollRef
@@ -3255,7 +3618,7 @@ function GameScreen({
       scrollRef,
       fastMode: true
     }));
-  }))), loading && entries.length > 0 && /* @__PURE__ */ React.createElement("div", {
+  }))), loading && entries.length > 0 && !lastEntry?.streaming && /* @__PURE__ */ React.createElement("div", {
     className: "italic body-font slow-fade-in",
     style: { color: "var(--cream-dim)" }
   }, loadingPhrase || (metaMode ? "the author considers" : "the hour considers"), /* @__PURE__ */ React.createElement("span", {
@@ -3278,7 +3641,21 @@ function GameScreen({
       opacity: 0.6,
       fontStyle: "italic"
     }
-  }, error.detail)))), /* @__PURE__ */ React.createElement("div", {
+  }, error.detail)), recovery && !loading && /* @__PURE__ */ React.createElement("div", {
+    className: "mt-3 fade-in"
+  }, /* @__PURE__ */ React.createElement("button", {
+    onClick: (e) => {
+      e.stopPropagation();
+      onContinueNarration?.();
+    },
+    className: "icon-btn",
+    style: {
+      padding: "9px 20px",
+      borderColor: `var(--${premise.realm}-border)`,
+      color: `var(--${premise.realm})`
+    },
+    title: "Have the narrator finish the interrupted passage"
+  }, "✦ CONTINUE THE NARRATION")))), /* @__PURE__ */ React.createElement("div", {
     className: "game-input-row relative px-6 py-5 border-t",
     style: {
       borderColor: "rgba(232, 222, 197, 0.1)",
@@ -3864,6 +4241,12 @@ function SettingsModal({ settings, onChange, onClose, osReducedMotion }) {
     description: "Skip the typewriter animation. Narration appears all at once, the moment it arrives.",
     value: settings.disableTypewriter,
     onChange: (v) => onChange("disableTypewriter", v)
+  }), /* @__PURE__ */ React.createElement(SettingsToggleRow, {
+    id: "setting-stream-narration",
+    label: "Stream the narration",
+    description: "Let narration arrive word by word as the narrator writes it, instead of waiting for the whole passage. The opening scene always arrives whole.",
+    value: settings.streamNarration,
+    onChange: (v) => onChange("streamNarration", v)
   }), /* @__PURE__ */ React.createElement("div", {
     className: "settings-toggle",
     style: { cursor: "default", opacity: 0.85 }
