@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>The Borrowed Hour</title>
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.openai.com https://generativelanguage.googleapis.com https://api.anthropic.com https://api.deepseek.com https://dashscope.aliyuncs.com https://api.moonshot.cn https://qianfan.baidubce.com http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:*; img-src 'self' data:; base-uri 'self'; form-action 'none'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.openai.com https://generativelanguage.googleapis.com https://api.anthropic.com https://api.deepseek.com https://dashscope.aliyuncs.com https://api.moonshot.cn https://qianfan.baidubce.com https://api.mistral.ai https://api.groq.com https://openrouter.ai https://api.cerebras.ai http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:*; img-src 'self' data:; base-uri 'self'; form-action 'none'" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin="anonymous" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
   <script crossorigin="anonymous" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
@@ -77,56 +77,122 @@ var PROVIDER_META = {
     keyStorage: "borrowed:gemini_api_key:v1",
     windowKey: "GEMINI_API_KEY",
     metaName: "gemini-api-key",
-    models: ["gemini-3.5-flash", "gemma-4-31b-it"]
+    models: [
+      { id: "gemini-3.5-flash", tier: "free" },
+      { id: "gemma-4-31b-it", tier: "free" }
+    ]
   },
   openai: {
     name: "OpenAI",
     keyStorage: "borrowed:openai_api_key:v1",
     windowKey: "OPENAI_API_KEY",
     metaName: "openai-api-key",
-    models: ["gpt-5.4-mini", "gpt-5-mini", "gpt-5.4-nano"]
+    models: [
+      { id: "gpt-5.4-mini", tier: "paid" },
+      { id: "gpt-5-mini", tier: "paid" },
+      { id: "gpt-5.4-nano", tier: "paid" }
+    ]
   },
   anthropic: {
     name: "Claude",
     keyStorage: "borrowed:anthropic_api_key:v1",
     windowKey: "ANTHROPIC_API_KEY",
     metaName: "anthropic-api-key",
-    models: ["claude-sonnet-4-6", "claude-haiku-4-5-20251001"]
+    models: [
+      { id: "claude-sonnet-4-6", tier: "paid" },
+      { id: "claude-haiku-4-5-20251001", tier: "paid" }
+    ]
   },
   deepseek: {
     name: "DeepSeek",
     keyStorage: "borrowed:deepseek_api_key:v1",
     windowKey: "DEEPSEEK_API_KEY",
     metaName: "deepseek-api-key",
-    models: ["deepseek-chat", "deepseek-reasoner"]
+    models: [
+      { id: "deepseek-chat", tier: "paid" },
+      { id: "deepseek-reasoner", tier: "paid" }
+    ]
   },
   qwen: {
     name: "Qwen",
     keyStorage: "borrowed:qwen_api_key:v1",
     windowKey: "QWEN_API_KEY",
     metaName: "qwen-api-key",
-    models: ["qwen-max", "qwen-plus", "qwen-turbo"]
+    models: [
+      { id: "qwen-max", tier: "paid" },
+      { id: "qwen-plus", tier: "paid" },
+      { id: "qwen-turbo", tier: "paid" }
+    ]
   },
   kimi: {
     name: "Kimi",
     keyStorage: "borrowed:kimi_api_key:v1",
     windowKey: "KIMI_API_KEY",
     metaName: "kimi-api-key",
-    models: ["kimi-k2-0905-preview", "moonshot-v1-32k", "moonshot-v1-8k"]
+    models: [
+      { id: "kimi-k2-0905-preview", tier: "paid" },
+      { id: "moonshot-v1-32k", tier: "paid" },
+      { id: "moonshot-v1-8k", tier: "paid" }
+    ]
   },
   ernie: {
     name: "ERNIE",
     keyStorage: "borrowed:ernie_api_key:v1",
     windowKey: "ERNIE_API_KEY",
     metaName: "ernie-api-key",
-    models: ["ernie-4.5-turbo-128k", "ernie-4.5-turbo-32k", "ernie-x1-turbo-32k"]
+    models: [
+      { id: "ernie-4.5-turbo-128k", tier: "paid" },
+      { id: "ernie-4.5-turbo-32k", tier: "paid" },
+      { id: "ernie-x1-turbo-32k", tier: "paid" }
+    ]
   },
   mistral: {
     name: "Mistral",
     keyStorage: "borrowed:mistral_api_key:v1",
     windowKey: "MISTRAL_API_KEY",
     metaName: "mistral-api-key",
-    models: ["mistral-large-latest", "mistral-small-latest", "open-mistral-nemo"]
+    models: [
+      { id: "mistral-large-latest", tier: "paid" },
+      { id: "mistral-small-latest", tier: "paid" },
+      { id: "open-mistral-nemo", tier: "paid" }
+    ]
+  },
+  groq: {
+    name: "Groq",
+    keyStorage: "borrowed:groq_api_key:v1",
+    windowKey: "GROQ_API_KEY",
+    metaName: "groq-api-key",
+    models: [
+      { id: "llama-3.3-70b-versatile", tier: "free" },
+      { id: "llama-3.1-8b-instant", tier: "free" },
+      { id: "openai/gpt-oss-120b", tier: "free" },
+      { id: "qwen/qwen3-32b", tier: "free" }
+    ]
+  },
+  openrouter: {
+    name: "OpenRouter",
+    keyStorage: "borrowed:openrouter_api_key:v1",
+    windowKey: "OPENROUTER_API_KEY",
+    metaName: "openrouter-api-key",
+    models: [
+      { id: "deepseek/deepseek-chat-v3.1:free", tier: "free" },
+      { id: "meta-llama/llama-3.3-70b-instruct:free", tier: "free" },
+      { id: "qwen/qwen3-32b:free", tier: "free" },
+      { id: "anthropic/claude-sonnet-4-6", tier: "paid" },
+      { id: "openai/gpt-5.4-mini", tier: "paid" }
+    ]
+  },
+  cerebras: {
+    // Cerebras free tier caps total context at 8192 tokens; long GM sessions may hit it.
+    name: "Cerebras",
+    keyStorage: "borrowed:cerebras_api_key:v1",
+    windowKey: "CEREBRAS_API_KEY",
+    metaName: "cerebras-api-key",
+    models: [
+      { id: "llama-3.3-70b", tier: "free" },
+      { id: "gpt-oss-120b", tier: "free" },
+      { id: "qwen-3-32b", tier: "free" }
+    ]
   },
   local: {
     name: "Local LLM",
@@ -135,11 +201,19 @@ var PROVIDER_META = {
     windowKey: "LOCAL_LLM_API_KEY",
     metaName: "local-llm-api-key",
     keyOptional: true,
-    models: ["llama3.2", "llama3.1", "mistral", "phi3", "qwen2.5", "gemma3"]
+    models: [
+      { id: "llama3.2", tier: "free" },
+      { id: "llama3.1", tier: "free" },
+      { id: "mistral", tier: "free" },
+      { id: "phi3", tier: "free" },
+      { id: "qwen2.5", tier: "free" },
+      { id: "gemma3", tier: "free" }
+    ]
   }
 };
-var PROVIDER_ORDER = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie", "mistral", "local"];
+var PROVIDER_ORDER = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie", "mistral", "groq", "openrouter", "cerebras", "local"];
 var FREE_MODELS_BY_PROVIDER = {
+  free:     { provider: "openrouter", opener: "deepseek/deepseek-chat-v3.1:free", gm: "deepseek/deepseek-chat-v3.1:free", narrator: "deepseek/deepseek-chat-v3.1:free" },
   gemini:   { opener: "gemini-3.5-flash",      gm: "gemma-4-31b-it",            narrator: "gemma-4-31b-it" },
   openai:   { opener: "gpt-5-mini",             gm: "gpt-5.4-mini",              narrator: "gpt-5.4-nano" },
   anthropic:{ opener: "claude-sonnet-4-6",      gm: "claude-haiku-4-5-20251001", narrator: "claude-haiku-4-5-20251001" },
@@ -148,6 +222,9 @@ var FREE_MODELS_BY_PROVIDER = {
   kimi:     { opener: "kimi-k2-0905-preview",   gm: "moonshot-v1-8k",            narrator: "moonshot-v1-8k" },
   ernie:    { opener: "ernie-4.5-turbo-128k",   gm: "ernie-4.5-turbo-32k",       narrator: "ernie-4.5-turbo-32k" },
   mistral:  { opener: "mistral-large-latest",   gm: "mistral-small-latest",      narrator: "mistral-small-latest" },
+  groq:     { opener: "llama-3.3-70b-versatile", gm: "openai/gpt-oss-120b",      narrator: "llama-3.3-70b-versatile" },
+  openrouter:{ opener: "deepseek/deepseek-chat-v3.1:free", gm: "deepseek/deepseek-chat-v3.1:free", narrator: "deepseek/deepseek-chat-v3.1:free" },
+  cerebras: { opener: "llama-3.3-70b",          gm: "llama-3.3-70b",             narrator: "llama-3.3-70b" },
   local:    { opener: "llama3.2",               gm: "llama3.1",                  narrator: "llama3.2" }
 };
 var LOCAL_DEFAULT_URL = "http://localhost:11434/v1/chat/completions";
@@ -628,6 +705,21 @@ var PROVIDERS = {
     url: "https://api.mistral.ai/v1/chat/completions",
     label: "Mistral",
     jsonSchema: true
+  }),
+  groq: makeChatCompletionsProvider({
+    url: "https://api.groq.com/openai/v1/chat/completions",
+    label: "Groq",
+    jsonSchema: false
+  }),
+  openrouter: makeChatCompletionsProvider({
+    url: "https://openrouter.ai/api/v1/chat/completions",
+    label: "OpenRouter",
+    jsonSchema: false
+  }),
+  cerebras: makeChatCompletionsProvider({
+    url: "https://api.cerebras.ai/v1/chat/completions",
+    label: "Cerebras",
+    jsonSchema: false
   }),
   local: makeChatCompletionsProvider({
     url: () => getLocalUrl(),
@@ -4054,7 +4146,7 @@ function EngineSelector({ label, hint, engine, onChange }) {
   const provider = PROVIDER_META[engine?.provider] ? engine.provider : "gemini";
   const meta = PROVIDER_META[provider];
   const model = engine?.model || "";
-  const isCustom = !meta.models.includes(model);
+  const isCustom = !meta.models.some((m) => m.id === model);
   const fieldStyle = {
     width: "100%",
     marginTop: 6,
@@ -4078,7 +4170,7 @@ function EngineSelector({ label, hint, engine, onChange }) {
     "aria-label": `${label} — provider`,
     onChange: (e) => {
       const np = e.target.value;
-      onChange({ provider: np, model: PROVIDER_META[np].models[0] });
+      onChange({ provider: np, model: PROVIDER_META[np].models[0].id });
     },
     style: fieldStyle
   }, PROVIDER_ORDER.map((id) => /* @__PURE__ */ React.createElement("option", { key: id, value: id }, PROVIDER_META[id].name))), /* @__PURE__ */ React.createElement("select", {
@@ -4090,7 +4182,7 @@ function EngineSelector({ label, hint, engine, onChange }) {
     },
     style: fieldStyle
   }, [
-    ...meta.models.map((m) => /* @__PURE__ */ React.createElement("option", { key: m, value: m }, m)),
+    ...meta.models.map((m) => /* @__PURE__ */ React.createElement("option", { key: m.id, value: m.id }, `${m.id} · ${m.tier}`)),
     /* @__PURE__ */ React.createElement("option", { key: "__custom__", value: "__custom__" }, "Custom…")
   ]), isCustom && /* @__PURE__ */ React.createElement("input", {
     type: "text",
@@ -4142,9 +4234,10 @@ function EngineSection({ settings, onChange }) {
     const preset = FREE_MODELS_BY_PROVIDER[newStack];
     onChange("engineStack", newStack);
     if (preset) {
-      onChange("engineOpening",  { provider: newStack, model: preset.opener });
-      onChange("engineGM",       { provider: newStack, model: preset.gm });
-      onChange("engineNarrator", { provider: newStack, model: preset.narrator });
+      const prov = preset.provider || newStack;
+      onChange("engineOpening",  { provider: prov, model: preset.opener });
+      onChange("engineGM",       { provider: prov, model: preset.gm });
+      onChange("engineNarrator", { provider: prov, model: preset.narrator });
     }
   };
   const handleFreeSelection = (enabled) => {
@@ -4173,7 +4266,10 @@ function EngineSection({ settings, onChange }) {
       "aria-label": "Model stack",
       onChange: (e) => handleStackChange(e.target.value),
       style: fieldStyle
-    }, PROVIDER_ORDER.map((id) => /* @__PURE__ */ React.createElement("option", { key: id, value: id }, PROVIDER_META[id].name))),
+    }, [
+      /* @__PURE__ */ React.createElement("option", { key: "free", value: "free" }, "Free (OpenRouter · DeepSeek)"),
+      ...PROVIDER_ORDER.map((id) => /* @__PURE__ */ React.createElement("option", { key: id, value: id }, PROVIDER_META[id].name))
+    ]),
     /* @__PURE__ */ React.createElement(EngineRoleDisplay, { label: "Opening scene",        engine: settings.engineOpening }),
     /* @__PURE__ */ React.createElement(EngineRoleDisplay, { label: "GM logic",             engine: settings.engineGM }),
     /* @__PURE__ */ React.createElement(EngineRoleDisplay, { label: "Narration & discussion",engine: settings.engineNarrator })
