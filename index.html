@@ -110,7 +110,7 @@ var PROVIDER_META = {
     metaName: "deepseek-api-key",
     models: [
       { id: "deepseek-v4-flash", tier: "paid" },
-      { id: "deepseek-v4-pro", tier: "paid" }
+      { id: "deepseek-v4-flash", tier: "paid" }
     ]
   },
   qwen: {
@@ -130,9 +130,9 @@ var PROVIDER_META = {
     windowKey: "KIMI_API_KEY",
     metaName: "kimi-api-key",
     models: [
-      { id: "kimi-k2.6", tier: "paid" },
-      { id: "kimi-k2.6-thinking", tier: "paid" },
-      { id: "kimi-k2.6", tier: "paid" }
+      { id: "kimi-k2.5", tier: "paid" },
+      { id: "kimi-k2.5", tier: "paid" },
+      { id: "kimi-k2.5", tier: "paid" }
     ]
   },
   ernie: {
@@ -217,9 +217,9 @@ var FREE_MODELS_BY_PROVIDER = {
   gemini:   { opener: "gemini-3.5-flash",      gm: "gemma-4-31b-it",            narrator: "gemma-4-31b-it" },
   openai:   { opener: "gpt-5-mini",             gm: "gpt-5.4-mini",              narrator: "gpt-5.4-nano" },
   anthropic:{ opener: "claude-sonnet-4-6",      gm: "claude-haiku-4-5-20251001", narrator: "claude-haiku-4-5-20251001" },
-  deepseek: { opener: "deepseek-v4-flash",      gm: "deepseek-v4-pro",           narrator: "deepseek-v4-flash" },
+  deepseek: { opener: "deepseek-v4-flash",      gm: "deepseek-v4-flash",         narrator: "deepseek-v4-flash" },
   qwen:     { opener: "qwen-flash",            gm: "qwen-max",                  narrator: "qwen-flash" },
-  kimi:     { opener: "kimi-k2.6",              gm: "kimi-k2.6-thinking",        narrator: "kimi-k2.6" },
+  kimi:     { opener: "kimi-k2.5",              gm: "kimi-k2.5",                 narrator: "kimi-k2.5" },
   ernie:    { opener: "ernie-4.5-turbo-128k",   gm: "ernie-4.5-turbo-32k",       narrator: "ernie-4.5-turbo-32k" },
   mistral:  { opener: "mistral-large-latest",   gm: "mistral-small-latest",      narrator: "mistral-small-latest" },
   groq:     { opener: "llama-3.3-70b-versatile", gm: "openai/gpt-oss-120b",      narrator: "llama-3.3-70b-versatile" },
