@@ -2967,7 +2967,6 @@ function GameScreen({
   scrollRef,
   textareaRef
 }) {
-  const totalTokens = (sessionTokens?.input || 0) + (sessionTokens?.output || 0);
   const lastEntry = entries[entries.length - 1];
   const showResolution = ended && lastEntry && lastEntry.type === "narration" && lastEntry.fullyRevealed && !metaMode;
   const inputLocked = ended && !metaMode || loading;
@@ -2983,11 +2982,7 @@ function GameScreen({
     style: { color: "var(--cream-dim)", letterSpacing: "0.3em" }
   }, /* @__PURE__ */ React.createElement("span", {
     style: { color: `var(--${premise.realm})` }
-  }, realmGlyph(premise.realm)), premise.title.toUpperCase()), totalTokens > 0 && /* @__PURE__ */ React.createElement("div", {
-    className: "display-font",
-    title: `${sessionTokens.input.toLocaleString()} tokens in · ${sessionTokens.output.toLocaleString()} tokens out`,
-    style: { color: "var(--cream-faint)", fontSize: 10, letterSpacing: "0.2em", userSelect: "none" }
-  }, formatTokens(totalTokens), " THIS SESSION"), /* @__PURE__ */ React.createElement("div", {
+  }, realmGlyph(premise.realm)), premise.title.toUpperCase()), /* @__PURE__ */ React.createElement("div", {
     className: "header-actions flex items-center gap-2"
   }, /* @__PURE__ */ React.createElement("button", {
     onClick: onUndo,
@@ -3065,7 +3060,20 @@ function GameScreen({
     "aria-hidden": "true"
   }, "✕"), /* @__PURE__ */ React.createElement("span", {
     className: "btn-label"
-  }, " ANEW")))), saveBanner && /* @__PURE__ */ React.createElement("div", {
+  }, " ANEW")))), (sessionTokens?.input > 0 || sessionTokens?.output > 0) && /* @__PURE__ */ React.createElement("div", {
+    className: "display-font",
+    style: {
+      display: "flex",
+      justifyContent: "flex-end",
+      gap: 16,
+      padding: "4px 20px",
+      fontSize: 9,
+      letterSpacing: "0.2em",
+      color: "var(--cream-faint)",
+      borderBottom: "1px solid rgba(232,222,197,0.07)",
+      userSelect: "none"
+    }
+  }, /* @__PURE__ */ React.createElement("span", null, formatTokens(sessionTokens.input), " IN"), /* @__PURE__ */ React.createElement("span", { style: { opacity: 0.35 } }, "·"), /* @__PURE__ */ React.createElement("span", null, formatTokens(sessionTokens.output), " OUT")), saveBanner && /* @__PURE__ */ React.createElement("div", {
     className: "mx-auto mt-3 px-4 py-2 body-font italic text-sm fade-in",
     style: {
       color: saveBanner.kind === "ok" ? "var(--rose-gold)" : "var(--rose-ember)",
