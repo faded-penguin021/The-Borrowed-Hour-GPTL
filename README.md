@@ -28,40 +28,42 @@ Pick a **Model stack** to fill all three roles from one provider's preset at onc
 
 ### Default stack
 
-The default **Gemini** stack pairs a fuller model on the one-off opening with a lighter model on the repeated loop:
+The default **Free (Mistral)** stack pairs a fuller model on the one-off opening with mid-tier models on the repeated loop. All models have free API tier access:
 
 | Role | Default |
 |---|---|
-| Opening scene | Gemini `gemini-3.5-flash` |
-| GM logic | Gemini `gemma-4-31b-it` |
-| Narration & discussion | Gemini `gemma-4-31b-it` |
+| Opening scene | Mistral `mistral-large-latest` |
+| GM logic | Mistral `mistral-medium-latest` |
+| Narration & discussion | Mistral `mistral-medium-latest` |
 
-A dedicated **Free (OpenRouter · DeepSeek)** stack routes all three roles through OpenRouter's free `deepseek/deepseek-v4-flash:free`.
+Mistral's free tier on the experimental API is generous enough for repeated per-turn calls without rate-limit collisions.
 
 ### Preset model lists
 
 | Provider | Models |
 |---|---|
-| **Gemini** | `gemini-3.5-flash`, `gemma-4-31b-it` |
+| **Gemini** | `gemini-3.5-flash` |
 | **OpenAI** | `gpt-5.4-mini`, `gpt-5-mini`, `gpt-5.4-nano` |
 | **Claude** | `claude-sonnet-4-6`, `claude-haiku-4-5-20251001` |
 | **DeepSeek** | `deepseek-v4-flash` |
-| **Qwen** | `qwen-max`, `qwen-plus`, `qwen-flash` |
+| **Qwen** | `qwen-plus`, `qwen-flash` |
 | **Kimi** | `kimi-k2.5` |
-| **ERNIE** | `ernie-4.5-turbo-128k`, `ernie-4.5-turbo-32k`, `ernie-x1-turbo-32k` |
-| **Mistral** | `mistral-large-latest`, `mistral-small-latest`, `open-mistral-nemo` |
-| **Groq** | `meta-llama/llama-4-scout-17b-16e-instruct`, `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`, `openai/gpt-oss-120b`, `qwen/qwen3-32b` |
-| **OpenRouter** | `deepseek/deepseek-v4-flash:free`, `z-ai/glm-4.5-air:free`, `google/gemma-4-31b-it:free`, `anthropic/claude-sonnet-4-6`, `openai/gpt-5.4-mini` |
-| **Cerebras** | `llama-3.3-70b`, `gpt-oss-120b`, `qwen-3-32b` |
-| **Local LLM** | `llama3.2`, `llama3.1`, `mistral`, `phi3`, `qwen2.5`, `gemma3` (or any custom ID) |
+| **ERNIE** | `ernie-4.5-turbo-128k`, `ernie-4.5-turbo-32k` |
+| **Mistral** | `mistral-small-latest`, `mistral-medium-latest` (both free), `mistral-large-latest` (free) |
+| **Groq** | `llama-3.3-70b-versatile`, `meta-llama/llama-4-scout-17b-16e-instruct`, `openai/gpt-oss-120b` |
+| **OpenRouter** | `deepseek/deepseek-v4-flash:free`, `z-ai/glm-4.5-air:free`, `anthropic/claude-sonnet-4-6`, `openai/gpt-5.4-mini` |
+| **Cerebras** | `llama-3.3-70b`, `gpt-oss-120b` |
+| **Local LLM** | `llama3.2`, `llama3.1`, `mistral`, `phi3`, `qwen2.5` (or any custom ID) |
 
 ### Free-tier notes
 
-Each GM turn sends a large request — system prompt, tool schema, and the rolling chronicle history. Free tiers differ in how much they allow per request:
+Each GM turn sends a large request — system prompt, tool schema, and the rolling chronicle history. Free tiers differ in how much they allow per request and per minute:
 
-- **OpenRouter** and **Gemini** have the most per-request headroom and are the most reliable free options; both still cap total requests per day.
-- **Groq** rejects any single request larger than the model's per-minute token budget. The Groq stack defaults to `meta-llama/llama-4-scout-17b-16e-instruct`, which has the most headroom; very long sessions can still hit the limit.
-- **Cerebras**' free tier caps context at 8,192 tokens — too small for a GM turn — so Cerebras needs a paid tier here.
+- **Mistral** (default) has generous free API access with no per-minute token limits, making it the most reliable free option. Both medium and large models are available on the free tier.
+- **Gemini** (`gemini-3.5-flash`) has daily request quotas but no per-minute caps; suitable for casual play but capped at ~20 games/day.
+- **Groq** rejects requests larger than the model's per-minute budget. Uses `llama-3.3-70b-versatile` by default for higher throughput; very long sessions can still exceed limits.
+- **Cerebras**' free tier caps context at 8,192 tokens — too small for a GM turn — so paid tier is required here.
+- **OpenRouter** free models (`deepseek-v4-flash:free`) have tight per-minute caps and are not recommended for repeated calls.
 
 ## API keys
 
