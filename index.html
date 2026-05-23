@@ -374,6 +374,7 @@ var parseChatStreamEvent = (rawEvent) => {
   return out;
 };
 var makeChatCompletionsProvider = ({ url, label, jsonSchema }) => ({
+  toolUse: !!jsonSchema,
   retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
   buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
     let system = sys;
@@ -435,6 +436,7 @@ Respond ONLY with a single valid JSON object matching this schema (no prose, no 
 });
 var PROVIDERS = {
   openai: {
+    toolUse: true,
     retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
     buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
       const body = {
@@ -510,6 +512,7 @@ var PROVIDERS = {
     }
   },
   gemini: {
+    toolUse: true,
     retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
     buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
       const generationConfig = { maxOutputTokens: maxTokens };
@@ -585,6 +588,7 @@ var PROVIDERS = {
     }
   },
   anthropic: {
+    toolUse: true,
     retryable: new Set([408, 409, 429, 500, 502, 503, 504, 529]),
     buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
       const body = {
@@ -717,6 +721,8 @@ var PROVIDERS = {
     jsonSchema: false
   })
 };
+var providerSupportsToolUse = (id) => !!PROVIDERS[id]?.toolUse;
+var TOOL_USE_PROVIDER_ORDER = PROVIDER_ORDER.filter(providerSupportsToolUse);
 var buildCustomPremise = (description) => ({
   id: "custom-" + Date.now().toString(36),
   realm: "wild",
@@ -2171,6 +2177,20 @@ function App() {
             if (eng?.provider === "gemini" && (eng.model === "gemini-3.1-flash-lite" || eng.model === "gemini-flash-lite-latest"))
               merged[role] = { ...eng, model: "gemma-4-31b-it" };
           }
+          if (merged.engineStack && merged.engineStack !== "free" && !providerSupportsToolUse(merged.engineStack)) {
+            merged.engineStack = "free";
+            if (!merged.freeModelSelection) {
+              const preset = FREE_MODELS_BY_PROVIDER.free;
+              const prov = preset.provider || "mistral";
+              merged.engineOpening  = { provider: prov, model: preset.opener };
+              merged.engineGM       = { provider: prov, model: preset.gm };
+              merged.engineNarrator = { provider: prov, model: preset.narrator };
+            }
+          }
+          if (merged.engineOpening?.provider && !providerSupportsToolUse(merged.engineOpening.provider))
+            merged.engineOpening = DEFAULT_ENGINE_OPENING;
+          if (merged.engineGM?.provider && !providerSupportsToolUse(merged.engineGM.provider))
+            merged.engineGM = DEFAULT_ENGINE_GM;
           setSettings(merged);
         }
       } catch {} finally {
@@ -4132,8 +4152,10 @@ function ApiKeysSection() {
     /* @__PURE__ */ React.createElement(LocalLLMRow, null)
   );
 }
-function EngineSelector({ label, hint, engine, onChange }) {
-  const provider = PROVIDER_META[engine?.provider] ? engine.provider : "gemini";
+function EngineSelector({ label, hint, engine, onChange, requireToolUse = false }) {
+  const allowedProviders = requireToolUse ? TOOL_USE_PROVIDER_ORDER : PROVIDER_ORDER;
+  const providerValid = PROVIDER_META[engine?.provider] && (!requireToolUse || providerSupportsToolUse(engine.provider));
+  const provider = providerValid ? engine.provider : allowedProviders[0];
   const meta = PROVIDER_META[provider];
   const model = engine?.model || "";
   const isCustom = !meta.models.some((m) => m.id === model);
@@ -4163,7 +4185,7 @@ function EngineSelector({ label, hint, engine, onChange }) {
       onChange({ provider: np, model: PROVIDER_META[np].models[0].id });
     },
     style: fieldStyle
-  }, PROVIDER_ORDER.map((id) => /* @__PURE__ */ React.createElement("option", { key: id, value: id }, PROVIDER_META[id].name))), /* @__PURE__ */ React.createElement("select", {
+  }, allowedProviders.map((id) => /* @__PURE__ */ React.createElement("option", { key: id, value: id }, PROVIDER_META[id].name))), /* @__PURE__ */ React.createElement("select", {
     value: isCustom ? "__custom__" : model,
     "aria-label": `${label} — model`,
     onChange: (e) => {
@@ -4245,7 +4267,7 @@ function EngineSection({ settings, onChange }) {
   }, "Story engines"), /* @__PURE__ */ React.createElement("div", {
     className: "body-font italic",
     style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4, lineHeight: 1.6 }
-  }, "Three separate models handle distinct roles: the Opener sets the literary tone, the GM resolves logic and state, the Narrator renders player-facing prose."),
+  }, "Three separate models handle distinct roles: the Opener sets the literary tone, the GM resolves logic and state, the Narrator renders player-facing prose. The Opener and GM call structured tools, so they are restricted to providers with reliable tool-use support; the Narrator can use any provider."),
   !free && /* @__PURE__ */ React.createElement(React.Fragment, null,
     /* @__PURE__ */ React.createElement("div", {
       className: "display-font",
@@ -4258,7 +4280,7 @@ function EngineSection({ settings, onChange }) {
       style: fieldStyle
     }, [
       /* @__PURE__ */ React.createElement("option", { key: "free", value: "free" }, "Free (Mistral)"),
-      ...PROVIDER_ORDER.map((id) => /* @__PURE__ */ React.createElement("option", { key: id, value: id }, PROVIDER_META[id].name))
+      ...TOOL_USE_PROVIDER_ORDER.map((id) => /* @__PURE__ */ React.createElement("option", { key: id, value: id }, PROVIDER_META[id].name))
     ]),
     /* @__PURE__ */ React.createElement(EngineRoleDisplay, { label: "Opening scene",        engine: settings.engineOpening }),
     /* @__PURE__ */ React.createElement(EngineRoleDisplay, { label: "GM logic",             engine: settings.engineGM }),
@@ -4267,15 +4289,17 @@ function EngineSection({ settings, onChange }) {
   free && /* @__PURE__ */ React.createElement(React.Fragment, null,
     /* @__PURE__ */ React.createElement(EngineSelector, {
       label: "Opening scene",
-      hint: "The voice-setting first turn.",
+      hint: "The voice-setting first turn. Tool-use providers only.",
       engine: settings.engineOpening,
-      onChange: (v) => onChange("engineOpening", v)
+      onChange: (v) => onChange("engineOpening", v),
+      requireToolUse: true
     }),
     /* @__PURE__ */ React.createElement(EngineSelector, {
       label: "GM logic",
-      hint: "Hidden rules layer: adjudicates actions and updates game state.",
+      hint: "Hidden rules layer: adjudicates actions and updates game state. Tool-use providers only.",
       engine: settings.engineGM,
-      onChange: (v) => onChange("engineGM", v)
+      onChange: (v) => onChange("engineGM", v),
+      requireToolUse: true
     }),
     /* @__PURE__ */ React.createElement(EngineSelector, {
       label: "Narration & discussion",
