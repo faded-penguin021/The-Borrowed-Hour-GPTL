@@ -373,8 +373,24 @@ var parseChatStreamEvent = (rawEvent) => {
     out.error = json.error.message || String(json.error);
   return out;
 };
-var makeChatCompletionsProvider = ({ url, label, jsonSchema }) => ({
-  toolUse: !!jsonSchema,
+var extractChatToolCallArgs = (data) => {
+  const msg = data?.choices?.[0]?.message;
+  if (!msg) return "";
+  const calls = msg.tool_calls;
+  if (Array.isArray(calls) && calls.length > 0) {
+    const args = calls[0]?.function?.arguments;
+    if (typeof args === "string" && args.trim()) return args;
+    if (args && typeof args === "object") return JSON.stringify(args);
+  }
+  if (msg.function_call?.arguments) {
+    const args = msg.function_call.arguments;
+    if (typeof args === "string" && args.trim()) return args;
+    if (args && typeof args === "object") return JSON.stringify(args);
+  }
+  return "";
+};
+var makeChatCompletionsProvider = ({ url, label, jsonSchema, tools: useToolsApi }) => ({
+  toolUse: !!(jsonSchema || useToolsApi),
   retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
   buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
     let system = sys;
@@ -385,7 +401,17 @@ var makeChatCompletionsProvider = ({ url, label, jsonSchema }) => ({
     if (temperature !== undefined)
       body.temperature = temperature;
     if (useTool) {
-      if (jsonSchema) {
+      if (useToolsApi) {
+        body.tools = [{
+          type: "function",
+          function: {
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.input_schema
+          }
+        }];
+        body.tool_choice = { type: "function", function: { name: tool.name } };
+      } else if (jsonSchema) {
         body.response_format = {
           type: "json_schema",
           json_schema: { name: tool.name, schema: tool.input_schema, strict: false }
@@ -425,11 +451,18 @@ Respond ONLY with a single valid JSON object matching this schema (no prose, no 
     return request;
   },
   parseStreamEvent: parseChatStreamEvent,
-  extract(data) {
+  extract(data, useTool) {
+    if (useTool && useToolsApi) {
+      const args = extractChatToolCallArgs(data);
+      if (args) return args;
+    }
     const text = extractChatText(data);
     if (!text) {
       const reason = data.choices?.[0]?.finish_reason || "unknown";
-      throw new BorrowedError("The page came back blank.", `${label} returned an empty response. Finish reason: ${reason}.`);
+      const detail = useTool && useToolsApi
+        ? `${label} returned no tool call. Finish reason: ${reason}.`
+        : `${label} returned an empty response. Finish reason: ${reason}.`;
+      throw new BorrowedError("The page came back blank.", detail);
     }
     return text;
   }
@@ -678,17 +711,17 @@ var PROVIDERS = {
   deepseek: makeChatCompletionsProvider({
     url: "https://api.deepseek.com/chat/completions",
     label: "DeepSeek",
-    jsonSchema: false
+    tools: true
   }),
   qwen: makeChatCompletionsProvider({
     url: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
     label: "Qwen",
-    jsonSchema: true
+    tools: true
   }),
   kimi: makeChatCompletionsProvider({
     url: "https://api.moonshot.cn/v1/chat/completions",
     label: "Kimi",
-    jsonSchema: false
+    tools: true
   }),
   ernie: makeChatCompletionsProvider({
     url: "https://qianfan.baidubce.com/v2/chat/completions",
@@ -698,22 +731,22 @@ var PROVIDERS = {
   mistral: makeChatCompletionsProvider({
     url: "https://api.mistral.ai/v1/chat/completions",
     label: "Mistral",
-    jsonSchema: true
+    tools: true
   }),
   groq: makeChatCompletionsProvider({
     url: "https://api.groq.com/openai/v1/chat/completions",
     label: "Groq",
-    jsonSchema: false
+    tools: true
   }),
   openrouter: makeChatCompletionsProvider({
     url: "https://openrouter.ai/api/v1/chat/completions",
     label: "OpenRouter",
-    jsonSchema: false
+    tools: true
   }),
   cerebras: makeChatCompletionsProvider({
     url: "https://api.cerebras.ai/v1/chat/completions",
     label: "Cerebras",
-    jsonSchema: false
+    tools: true
   }),
   local: makeChatCompletionsProvider({
     url: () => getLocalUrl(),
@@ -944,12 +977,12 @@ var httpStatusHint = (status, providerName = "the API") => {
 };
 var formatError = (e) => {
   if (e instanceof BorrowedError) {
-    return { message: e.message, detail: e.detail };
+    return { message: e.message, detail: e.detail, raw: e.raw || null };
   }
   if (e && typeof e === "object" && typeof e.message === "string") {
-    return { message: e.message, detail: null };
+    return { message: e.message, detail: null, raw: e.raw || null };
   }
-  return { message: String(e), detail: null };
+  return { message: String(e), detail: null, raw: null };
 };
 var GM_TOOL = {
   name: "narrate_and_update_state",
@@ -1258,6 +1291,15 @@ You may now reference any of this openly — including any 'GM-only notes' captu
 
 LANGUAGE: Write all your responses to the player in ${languageNameFor(language)}. The chronicle was played in that language; continue in it. Speak fluently and naturally, as a native speaker — this is conversation, not translation.`;
 var VALID_ENDINGS = new Set(["good", "bittersweet", "pyrrhic", "ambiguous", "bad"]);
+function firstString(...candidates) {
+  for (const c of candidates) {
+    if (typeof c === "string") {
+      const trimmed = c.trim();
+      if (trimmed) return trimmed;
+    }
+  }
+  return "";
+}
 function tryParseJSON(text) {
   try {
     return JSON.parse(text);
@@ -1308,6 +1350,24 @@ function repairJSON(text) {
   }
   return out;
 }
+function buildParseDiagnostic(rawText, parsed, reasonGuess) {
+  const raw = rawText || "";
+  const len = raw.length;
+  const head = raw.slice(0, 200).replace(/\s+/g, " ");
+  const tail = raw.slice(-200).replace(/\s+/g, " ");
+  const endsCleanly = /[}\]]\s*$/.test(raw);
+  const startsAsJson = /^\s*[{\[]/.test(raw);
+  let reason = reasonGuess;
+  if (!reason) {
+    if (len === 0) reason = "Raw payload was empty.";
+    else if (!parsed) reason = endsCleanly
+      ? "JSON parse failed despite a clean ending — likely a structural error inside the payload."
+      : "JSON parse failed and the payload does not end cleanly — likely truncated by max_tokens.";
+    else if (typeof parsed !== "object") reason = "Parsed value was not an object.";
+    else reason = "Parsed object was missing required fields.";
+  }
+  return `${reason} Length: ${len}. Starts with JSON: ${startsAsJson ? "yes" : "no"}. Ends cleanly: ${endsCleanly ? "yes" : "no"}. Head: «${head}»${len > 400 ? " … " : " "}Tail: «${tail}».`;
+}
 function parseGMLogicResponse(rawText) {
   let text = (rawText || "").trim();
   text = text.replace(/^\s*[`~]{3}[ \t]*[a-zA-Z]*[ \t]*\r?\n?/, "");
@@ -1331,21 +1391,21 @@ function parseGMLogicResponse(rawText) {
   }
 
   if (!parsed || typeof parsed !== "object") {
-    return { narrator_brief: "", state: null, ending: null, malformed: true, diagnostic: "Malformed GM logic response." };
+    return { narrator_brief: "", state: null, ending: null, raw: rawText, malformed: true, diagnostic: buildParseDiagnostic(rawText, parsed, "Malformed GM logic response — could not parse JSON.") };
   }
 
-  const narratorBrief = typeof parsed.narrator_brief === "string" && parsed.narrator_brief.trim()
-    ? parsed.narrator_brief.trim()
-    : typeof parsed.narration === "string" && parsed.narration.trim()
-      ? parsed.narration.trim()
-      : "";
+  const narratorBrief = firstString(parsed.narrator_brief, parsed.narration, parsed.brief, parsed.text);
+  const stateOk = parsed.state && typeof parsed.state === "object";
 
-  if (!narratorBrief || !parsed.state || typeof parsed.state !== "object") {
-    return { narrator_brief: "", state: null, ending: null, malformed: true, diagnostic: "GM logic response missing narrator_brief/state." };
+  if (!narratorBrief || !stateOk) {
+    const missing = [];
+    if (!narratorBrief) missing.push("narrator_brief (also tried: narration, brief, text)");
+    if (!stateOk) missing.push("state");
+    return { narrator_brief: "", state: null, ending: null, raw: rawText, malformed: true, diagnostic: buildParseDiagnostic(rawText, parsed, `GM logic response missing required field(s): ${missing.join(", ")}.`) };
   }
 
   const ending = typeof parsed.ending === "string" && parsed.ending.trim() ? parsed.ending.trim() : null;
-  return { narrator_brief: narratorBrief, state: parsed.state, ending, malformed: false };
+  return { narrator_brief: narratorBrief, state: parsed.state, ending, raw: rawText, malformed: false };
 }
 
 function parseGMResponse(rawText) {
@@ -1375,37 +1435,25 @@ function parseGMResponse(rawText) {
       console.warn("[borrowed] GM response recovered via JSON repair pass");
     }
   }
-  if (!parsed || typeof parsed !== "object" || typeof parsed.narration !== "string" || !parsed.narration.trim()) {
+  const narration = parsed && typeof parsed === "object"
+    ? firstString(parsed.narration, parsed.narrator_brief, parsed.brief, parsed.text)
+    : "";
+  if (!parsed || typeof parsed !== "object" || !narration) {
     if (typeof console !== "undefined" && console.warn) {
       console.warn("[borrowed] Malformed GM response", { raw: rawText });
     }
-    const raw = rawText || "";
-    const len = raw.length;
-    const head = raw.slice(0, 80).replace(/\s+/g, " ");
-    const tail = raw.slice(-80).replace(/\s+/g, " ");
-    const endsCleanly = /[}\]]\s*$/.test(raw);
-    const startsAsJson = /^\s*[{\[]/.test(raw);
-    let reasonGuess;
-    if (len === 0) {
-      reasonGuess = "Raw payload was empty.";
-    } else if (!parsed) {
-      reasonGuess = endsCleanly ? "JSON parse failed despite a clean ending — likely a structural error inside the payload." : "JSON parse failed and the payload does not end cleanly — likely truncated.";
-    } else if (typeof parsed !== "object") {
-      reasonGuess = "Parsed value was not an object.";
-    } else {
-      reasonGuess = "Parsed object had no usable 'narration' field.";
-    }
-    const diagnostic = `${reasonGuess} ` + `Length: ${len}. ` + `Starts with JSON: ${startsAsJson ? "yes" : "no"}. ` + `Ends cleanly: ${endsCleanly ? "yes" : "no"}. ` + `Head: «${head}»${len > 160 ? " … " : " "}Tail: «${tail}».`;
+    const reasonGuess = parsed && typeof parsed === "object" && !narration
+      ? "Parsed object had no usable narration field (tried: narration, narrator_brief, brief, text)."
+      : null;
     return {
       narration: "",
       state: null,
       ending: null,
       raw: rawText,
       malformed: true,
-      diagnostic
+      diagnostic: buildParseDiagnostic(rawText, parsed, reasonGuess)
     };
   }
-  const narration = parsed.narration.trim();
   const s = parsed.state && typeof parsed.state === "object" ? parsed.state : {};
   const state = {
     scene: typeof s.scene === "string" ? s.scene : "",
@@ -2532,20 +2580,30 @@ function App() {
     try {
       const sys = buildSystem(chosen, language);
       const msgs = [{ role: "user", content: "Begin." }];
-      const firstRaw = await callAPI(sys, msgs, true, settings.engineOpening, 4500, 0.85, controller.signal);
+      const firstRaw = await callAPI(sys, msgs, true, settings.engineOpening, 4500, 0.7, controller.signal);
       if (controller.signal.aborted)
         return;
       let openingRaw = firstRaw;
       let parsed = parseGMResponse(openingRaw);
       if (parsed.malformed) {
-        const retryRaw = await callAPI(sys, msgs, true, settings.engineOpening, 6200, 0.8, controller.signal);
+        const priorAssistant = (openingRaw && openingRaw.trim()) ? openingRaw : "(empty response)";
+        const correctiveMsgs = [
+          ...msgs,
+          { role: "assistant", content: priorAssistant },
+          { role: "user", content: `Your previous response could not be parsed. Reason: ${parsed.diagnostic || "missing required fields"}.
+
+Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_scratchpad (string, keep it brief — under 120 words), narration (string, non-empty, the prose the player reads), state (object with: scene, time, inventory, npcs, clues, summary, hidden_state). Output ONLY the tool call / JSON object — no prose, no markdown fences.` }
+        ];
+        const retryRaw = await callAPI(sys, correctiveMsgs, true, settings.engineOpening, 7500, 0.4, controller.signal);
         if (controller.signal.aborted)
           return;
         openingRaw = retryRaw;
         parsed = parseGMResponse(openingRaw);
       }
       if (parsed.malformed) {
-        throw new BorrowedError("The hour stumbles in opening. Try once more.", parsed.diagnostic || "Tool response was malformed (likely truncated by max_tokens or missing required fields).");
+        const err = new BorrowedError("The hour stumbles in opening. Try once more.", parsed.diagnostic || "Tool response was malformed (likely truncated by max_tokens or missing required fields).");
+        if (parsed.raw) err.raw = parsed.raw;
+        throw err;
       }
       setHistory([...msgs, { role: "assistant", content: openingRaw }]);
       setEntries([{ type: "narration", text: parsed.narration, fullyRevealed: false }]);
@@ -2802,12 +2860,30 @@ ${text}`);
     abortRef.current = { controller, rollback };
     try {
       const gmSys = buildSystem(premise, language);
-      const gmReply = await callAPI(gmSys, apiHistory, true, settings.engineGM, 2600, 0.35, controller.signal, GM_LOGIC_TOOL);
+      const firstGmReply = await callAPI(gmSys, apiHistory, true, settings.engineGM, 2600, 0.35, controller.signal, GM_LOGIC_TOOL);
       if (controller.signal.aborted)
         return;
-      const gmParsed = parseGMLogicResponse(gmReply);
+      let gmReply = firstGmReply;
+      let gmParsed = parseGMLogicResponse(gmReply);
       if (gmParsed.malformed) {
-        throw new BorrowedError("The hour stumbles. Try once more.", gmParsed.diagnostic || "GM logic response was malformed.");
+        const priorAssistant = (gmReply && gmReply.trim()) ? gmReply : "(empty response)";
+        const correctiveHistory = [
+          ...apiHistory,
+          { role: "assistant", content: priorAssistant },
+          { role: "user", content: `Your previous response could not be parsed. Reason: ${gmParsed.diagnostic || "missing required fields"}.
+
+Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (string, keep it brief — under 120 words), narrator_brief (string, non-empty, the compressed brief for the narrator), state (object with: scene, time, inventory, npcs, clues, summary, hidden_state). Optional: ending. Output ONLY the tool call / JSON object — no prose, no markdown fences.` }
+        ];
+        const retryGmReply = await callAPI(gmSys, correctiveHistory, true, settings.engineGM, 3600, 0.25, controller.signal, GM_LOGIC_TOOL);
+        if (controller.signal.aborted)
+          return;
+        gmReply = retryGmReply;
+        gmParsed = parseGMLogicResponse(gmReply);
+      }
+      if (gmParsed.malformed) {
+        const err = new BorrowedError("The hour stumbles. Try once more.", gmParsed.diagnostic || "GM logic response was malformed.");
+        if (gmParsed.raw) err.raw = gmParsed.raw;
+        throw err;
       }
       const narratorSys = buildNarratorSystem(premise, language);
       const recentNarration = entries.filter((e) => e.type === "narration").slice(-4).map((e) => e.text).join("\n\n");
@@ -3308,6 +3384,53 @@ ${text}`);
     onClose: () => setExportFallbackText(null)
   })));
 }
+function ErrorRawDetail({ raw }) {
+  const [copied, setCopied] = useState(false);
+  if (!raw || typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const truncated = trimmed.length > 500;
+  const preview = truncated
+    ? trimmed.slice(0, 200) + "\n… (" + (trimmed.length - 400) + " chars elided) …\n" + trimmed.slice(-200)
+    : trimmed;
+  const handleCopy = (e) => {
+    e.stopPropagation();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(trimmed).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+      }).catch(() => {});
+    }
+  };
+  return /* @__PURE__ */ React.createElement("div", {
+    className: "mt-2",
+    style: { textAlign: "left", opacity: 0.75 }
+  }, /* @__PURE__ */ React.createElement("div", {
+    style: {
+      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      fontSize: "11px",
+      lineHeight: 1.4,
+      whiteSpace: "pre-wrap",
+      wordBreak: "break-word",
+      maxHeight: "200px",
+      overflowY: "auto",
+      padding: "8px 10px",
+      border: "1px solid rgba(217,122,122,0.35)",
+      borderRadius: "4px",
+      background: "rgba(0,0,0,0.18)"
+    }
+  }, preview), /* @__PURE__ */ React.createElement("button", {
+    onClick: handleCopy,
+    className: "icon-btn",
+    style: {
+      marginTop: "6px",
+      fontSize: "10px",
+      letterSpacing: "0.18em",
+      padding: "4px 10px"
+    },
+    title: "Copy the full raw model response to the clipboard"
+  }, copied ? "COPIED" : "COPY RAW RESPONSE"));
+}
 function TitleScreen({ onChoose, onOpenSaves, onOpenCustom, onOpenSettings, language, onChangeLanguage, loading, error }) {
   return /* @__PURE__ */ React.createElement("div", {
     className: "relative min-h-screen flex flex-col items-center justify-center px-6 py-16"
@@ -3420,7 +3543,7 @@ function TitleScreen({ onChoose, onOpenSaves, onOpenCustom, onOpenSettings, lang
       fontStyle: "italic",
       letterSpacing: "0.01em"
     }
-  }, error.detail)), /* @__PURE__ */ React.createElement("div", {
+  }, error.detail), /* @__PURE__ */ React.createElement(ErrorRawDetail, { raw: error.raw })), /* @__PURE__ */ React.createElement("div", {
     className: "mt-16 text-center max-w-xl fade-in",
     style: { animationDelay: "1.1s" }
   }, /* @__PURE__ */ React.createElement("div", {
@@ -3749,7 +3872,7 @@ function GameScreen({
       opacity: 0.6,
       fontStyle: "italic"
     }
-  }, error.detail)), recovery && !loading && /* @__PURE__ */ React.createElement("div", {
+  }, error.detail), /* @__PURE__ */ React.createElement(ErrorRawDetail, { raw: error.raw })), recovery && !loading && /* @__PURE__ */ React.createElement("div", {
     className: "mt-3 fade-in"
   }, /* @__PURE__ */ React.createElement("button", {
     onClick: (e) => {
