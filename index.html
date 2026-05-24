@@ -1404,6 +1404,27 @@ function normalizeGameState(s) {
     hidden_state: typeof safe.hidden_state === "string" ? safe.hidden_state : ""
   };
 }
+function findBalancedJSONEnd(text, start) {
+  let depth = 0;
+  let inStr = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) { escaped = false; continue; }
+    if (inStr) {
+      if (ch === "\\") { escaped = true; continue; }
+      if (ch === '"') { inStr = false; }
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
 function parseGMLogicResponse(rawText) {
   let text = (rawText || "").trim();
   text = text.replace(/^\s*[`~]{3}[ \t]*[a-zA-Z]*[ \t]*\r?\n?/, "");
@@ -1413,16 +1434,28 @@ function parseGMLogicResponse(rawText) {
   let parsed = tryParseJSON(text);
   if (!parsed) {
     const first = text.indexOf("{");
-    const last = text.lastIndexOf("}");
-    if (first >= 0 && last > first) parsed = tryParseJSON(text.slice(first, last + 1));
+    if (first >= 0) {
+      const end = findBalancedJSONEnd(text, first);
+      if (end > first) parsed = tryParseJSON(text.slice(first, end + 1));
+      if (!parsed) {
+        const last = text.lastIndexOf("}");
+        if (last > first) parsed = tryParseJSON(text.slice(first, last + 1));
+      }
+    }
   }
   if (!parsed) {
     const repaired = repairJSON(text);
     parsed = tryParseJSON(repaired);
     if (!parsed) {
       const first = repaired.indexOf("{");
-      const last = repaired.lastIndexOf("}");
-      if (first >= 0 && last > first) parsed = tryParseJSON(repaired.slice(first, last + 1));
+      if (first >= 0) {
+        const end = findBalancedJSONEnd(repaired, first);
+        if (end > first) parsed = tryParseJSON(repaired.slice(first, end + 1));
+        if (!parsed) {
+          const last = repaired.lastIndexOf("}");
+          if (last > first) parsed = tryParseJSON(repaired.slice(first, last + 1));
+        }
+      }
     }
   }
 
