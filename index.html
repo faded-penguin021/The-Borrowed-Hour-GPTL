@@ -71,6 +71,22 @@ var scrubSecrets = (s) => {
     return s;
   return s.replace(/(sk-[A-Za-z0-9_-]{16,})|(AIza[A-Za-z0-9_-]{20,})/g, "[REDACTED]");
 };
+var extractApiErrorMessage = (snippet) => {
+  if (!snippet || typeof snippet !== "string")
+    return "";
+  try {
+    const parsed = JSON.parse(snippet);
+    const err = parsed?.error;
+    if (typeof err === "string" && err.trim()) return err.trim();
+    if (err && typeof err === "object") {
+      if (typeof err.message === "string" && err.message.trim()) return err.message.trim();
+      if (typeof err.msg === "string" && err.msg.trim()) return err.msg.trim();
+    }
+    if (typeof parsed?.message === "string" && parsed.message.trim()) return parsed.message.trim();
+    if (typeof parsed?.detail === "string" && parsed.detail.trim()) return parsed.detail.trim();
+  } catch {}
+  return snippet.trim();
+};
 var PROVIDER_META = {
   gemini: {
     name: "Gemini",
@@ -2533,9 +2549,11 @@ function App() {
           continue;
         }
         const hint = httpStatusHint(res.status, meta.name);
+        const apiMsg = extractApiErrorMessage(lastBodySnippet);
+        const detailedHint = apiMsg ? `${hint} ${meta.name} said: ${apiMsg}` : hint;
         if (!RETRYABLE.has(res.status))
-          throw new BorrowedError("The hour falters.", hint);
-        lastErr = new BorrowedError("The hour falters.", attempt < MAX_RETRIES ? `${hint} Retrying…` : `${hint} Retried ${MAX_RETRIES} times without success.`);
+          throw new BorrowedError("The hour falters.", detailedHint);
+        lastErr = new BorrowedError("The hour falters.", attempt < MAX_RETRIES ? `${detailedHint} Retrying…` : `${detailedHint} Retried ${MAX_RETRIES} times without success.`);
         res = null;
       } catch (e) {
         if (e && e.name === "AbortError" || signal && signal.aborted) {
@@ -2643,9 +2661,11 @@ function App() {
           continue;
         }
         const hint = httpStatusHint(res.status, meta.name);
+        const apiMsg = extractApiErrorMessage(bodySnippet);
+        const detailedHint = apiMsg ? `${hint} ${meta.name} said: ${apiMsg}` : hint;
         if (!RETRYABLE.has(res.status))
-          throw new BorrowedError("The hour falters.", hint);
-        lastErr = new BorrowedError("The hour falters.", attempt < MAX_RETRIES ? `${hint} Retrying…` : `${hint} Retried ${MAX_RETRIES} times without success.`);
+          throw new BorrowedError("The hour falters.", detailedHint);
+        lastErr = new BorrowedError("The hour falters.", attempt < MAX_RETRIES ? `${detailedHint} Retrying…` : `${detailedHint} Retried ${MAX_RETRIES} times without success.`);
         continue;
       }
       if (!res.body) {
