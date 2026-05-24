@@ -71,6 +71,22 @@ var scrubSecrets = (s) => {
     return s;
   return s.replace(/(sk-[A-Za-z0-9_-]{16,})|(AIza[A-Za-z0-9_-]{20,})/g, "[REDACTED]");
 };
+var extractApiErrorMessage = (snippet) => {
+  if (!snippet || typeof snippet !== "string")
+    return "";
+  try {
+    const parsed = JSON.parse(snippet);
+    const err = parsed?.error;
+    if (typeof err === "string" && err.trim()) return err.trim();
+    if (err && typeof err === "object") {
+      if (typeof err.message === "string" && err.message.trim()) return err.message.trim();
+      if (typeof err.msg === "string" && err.msg.trim()) return err.msg.trim();
+    }
+    if (typeof parsed?.message === "string" && parsed.message.trim()) return parsed.message.trim();
+    if (typeof parsed?.detail === "string" && parsed.detail.trim()) return parsed.detail.trim();
+  } catch {}
+  return snippet.trim();
+};
 var PROVIDER_META = {
   gemini: {
     name: "Gemini",
@@ -389,7 +405,7 @@ var extractChatToolCallArgs = (data) => {
   }
   return "";
 };
-var makeChatCompletionsProvider = ({ url, label, jsonSchema, tools: useToolsApi }) => ({
+var makeChatCompletionsProvider = ({ url, label, jsonSchema, tools: useToolsApi, extraBody }) => ({
   toolUse: !!(jsonSchema || useToolsApi),
   retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
   buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
@@ -424,6 +440,8 @@ Respond ONLY with a single valid JSON object matching this schema (no prose, no 
       }
     }
     body.messages = normalizeChatMessages(system, msgs);
+    if (extraBody && typeof extraBody === "object")
+      Object.assign(body, extraBody);
     const resolvedUrl = typeof url === "function" ? url() : url;
     const headers = { "Content-Type": "application/json" };
     if (apiKey)
@@ -711,7 +729,10 @@ var PROVIDERS = {
   deepseek: makeChatCompletionsProvider({
     url: "https://api.deepseek.com/chat/completions",
     label: "DeepSeek",
-    tools: true
+    tools: true,
+    // DeepSeek V4 enables thinking by default, which rejects forced
+    // tool_choice. Disable thinking so we can pin the model to the schema.
+    extraBody: { thinking: { type: "disabled" } }
   }),
   qwen: makeChatCompletionsProvider({
     url: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
@@ -1383,6 +1404,27 @@ function normalizeGameState(s) {
     hidden_state: typeof safe.hidden_state === "string" ? safe.hidden_state : ""
   };
 }
+function findBalancedJSONEnd(text, start) {
+  let depth = 0;
+  let inStr = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) { escaped = false; continue; }
+    if (inStr) {
+      if (ch === "\\") { escaped = true; continue; }
+      if (ch === '"') { inStr = false; }
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
 function parseGMLogicResponse(rawText) {
   let text = (rawText || "").trim();
   text = text.replace(/^\s*[`~]{3}[ \t]*[a-zA-Z]*[ \t]*\r?\n?/, "");
@@ -1392,16 +1434,28 @@ function parseGMLogicResponse(rawText) {
   let parsed = tryParseJSON(text);
   if (!parsed) {
     const first = text.indexOf("{");
-    const last = text.lastIndexOf("}");
-    if (first >= 0 && last > first) parsed = tryParseJSON(text.slice(first, last + 1));
+    if (first >= 0) {
+      const end = findBalancedJSONEnd(text, first);
+      if (end > first) parsed = tryParseJSON(text.slice(first, end + 1));
+      if (!parsed) {
+        const last = text.lastIndexOf("}");
+        if (last > first) parsed = tryParseJSON(text.slice(first, last + 1));
+      }
+    }
   }
   if (!parsed) {
     const repaired = repairJSON(text);
     parsed = tryParseJSON(repaired);
     if (!parsed) {
       const first = repaired.indexOf("{");
-      const last = repaired.lastIndexOf("}");
-      if (first >= 0 && last > first) parsed = tryParseJSON(repaired.slice(first, last + 1));
+      if (first >= 0) {
+        const end = findBalancedJSONEnd(repaired, first);
+        if (end > first) parsed = tryParseJSON(repaired.slice(first, end + 1));
+        if (!parsed) {
+          const last = repaired.lastIndexOf("}");
+          if (last > first) parsed = tryParseJSON(repaired.slice(first, last + 1));
+        }
+      }
     }
   }
 
@@ -2533,9 +2587,11 @@ function App() {
           continue;
         }
         const hint = httpStatusHint(res.status, meta.name);
+        const apiMsg = extractApiErrorMessage(lastBodySnippet);
+        const detailedHint = apiMsg ? `${hint} ${meta.name} said: ${apiMsg}` : hint;
         if (!RETRYABLE.has(res.status))
-          throw new BorrowedError("The hour falters.", hint);
-        lastErr = new BorrowedError("The hour falters.", attempt < MAX_RETRIES ? `${hint} Retrying…` : `${hint} Retried ${MAX_RETRIES} times without success.`);
+          throw new BorrowedError("The hour falters.", detailedHint);
+        lastErr = new BorrowedError("The hour falters.", attempt < MAX_RETRIES ? `${detailedHint} Retrying…` : `${detailedHint} Retried ${MAX_RETRIES} times without success.`);
         res = null;
       } catch (e) {
         if (e && e.name === "AbortError" || signal && signal.aborted) {
@@ -2643,9 +2699,11 @@ function App() {
           continue;
         }
         const hint = httpStatusHint(res.status, meta.name);
+        const apiMsg = extractApiErrorMessage(bodySnippet);
+        const detailedHint = apiMsg ? `${hint} ${meta.name} said: ${apiMsg}` : hint;
         if (!RETRYABLE.has(res.status))
-          throw new BorrowedError("The hour falters.", hint);
-        lastErr = new BorrowedError("The hour falters.", attempt < MAX_RETRIES ? `${hint} Retrying…` : `${hint} Retried ${MAX_RETRIES} times without success.`);
+          throw new BorrowedError("The hour falters.", detailedHint);
+        lastErr = new BorrowedError("The hour falters.", attempt < MAX_RETRIES ? `${detailedHint} Retrying…` : `${detailedHint} Retried ${MAX_RETRIES} times without success.`);
         continue;
       }
       if (!res.body) {
