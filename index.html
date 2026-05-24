@@ -405,7 +405,7 @@ var extractChatToolCallArgs = (data) => {
   }
   return "";
 };
-var makeChatCompletionsProvider = ({ url, label, jsonSchema, tools: useToolsApi, toolChoiceMode }) => ({
+var makeChatCompletionsProvider = ({ url, label, jsonSchema, tools: useToolsApi, extraBody }) => ({
   toolUse: !!(jsonSchema || useToolsApi),
   retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
   buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
@@ -426,9 +426,7 @@ var makeChatCompletionsProvider = ({ url, label, jsonSchema, tools: useToolsApi,
             parameters: tool.input_schema
           }
         }];
-        body.tool_choice = toolChoiceMode === "required"
-          ? "required"
-          : { type: "function", function: { name: tool.name } };
+        body.tool_choice = { type: "function", function: { name: tool.name } };
       } else if (jsonSchema) {
         body.response_format = {
           type: "json_schema",
@@ -442,6 +440,8 @@ Respond ONLY with a single valid JSON object matching this schema (no prose, no 
       }
     }
     body.messages = normalizeChatMessages(system, msgs);
+    if (extraBody && typeof extraBody === "object")
+      Object.assign(body, extraBody);
     const resolvedUrl = typeof url === "function" ? url() : url;
     const headers = { "Content-Type": "application/json" };
     if (apiKey)
@@ -730,7 +730,9 @@ var PROVIDERS = {
     url: "https://api.deepseek.com/chat/completions",
     label: "DeepSeek",
     tools: true,
-    toolChoiceMode: "required"
+    // DeepSeek V4 enables thinking by default, which rejects forced
+    // tool_choice. Disable thinking so we can pin the model to the schema.
+    extraBody: { thinking: { type: "disabled" } }
   }),
   qwen: makeChatCompletionsProvider({
     url: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
