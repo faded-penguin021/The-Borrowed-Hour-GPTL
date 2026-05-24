@@ -1368,6 +1368,21 @@ function buildParseDiagnostic(rawText, parsed, reasonGuess) {
   }
   return `${reason} Length: ${len}. Starts with JSON: ${startsAsJson ? "yes" : "no"}. Ends cleanly: ${endsCleanly ? "yes" : "no"}. Head: «${head}»${len > 400 ? " … " : " "}Tail: «${tail}».`;
 }
+function normalizeGameState(s) {
+  const safe = s && typeof s === "object" ? s : {};
+  return {
+    scene: typeof safe.scene === "string" ? safe.scene : "",
+    time: typeof safe.time === "string" ? safe.time : "",
+    inventory: Array.isArray(safe.inventory) ? safe.inventory.filter((x) => typeof x === "string") : [],
+    npcs: Array.isArray(safe.npcs) ? safe.npcs.filter((x) => x && typeof x === "object").map((x) => ({
+      name: typeof x.name === "string" ? x.name : "",
+      note: typeof x.note === "string" ? x.note : ""
+    })).filter((x) => x.name) : [],
+    clues: Array.isArray(safe.clues) ? safe.clues.filter((x) => typeof x === "string") : [],
+    summary: typeof safe.summary === "string" ? safe.summary : "",
+    hidden_state: typeof safe.hidden_state === "string" ? safe.hidden_state : ""
+  };
+}
 function parseGMLogicResponse(rawText) {
   let text = (rawText || "").trim();
   text = text.replace(/^\s*[`~]{3}[ \t]*[a-zA-Z]*[ \t]*\r?\n?/, "");
@@ -1405,7 +1420,8 @@ function parseGMLogicResponse(rawText) {
   }
 
   const ending = typeof parsed.ending === "string" && parsed.ending.trim() ? parsed.ending.trim() : null;
-  return { narrator_brief: narratorBrief, state: parsed.state, ending, raw: rawText, malformed: false };
+  // Normalize so non-string scene/time/summary or malformed npc entries cannot crash the Ledger render.
+  return { narrator_brief: narratorBrief, state: normalizeGameState(parsed.state), ending, raw: rawText, malformed: false };
 }
 
 function parseGMResponse(rawText) {
@@ -1454,19 +1470,7 @@ function parseGMResponse(rawText) {
       diagnostic: buildParseDiagnostic(rawText, parsed, reasonGuess)
     };
   }
-  const s = parsed.state && typeof parsed.state === "object" ? parsed.state : {};
-  const state = {
-    scene: typeof s.scene === "string" ? s.scene : "",
-    time: typeof s.time === "string" ? s.time : "",
-    inventory: Array.isArray(s.inventory) ? s.inventory.filter((x) => typeof x === "string") : [],
-    npcs: Array.isArray(s.npcs) ? s.npcs.filter((x) => x && typeof x === "object").map((x) => ({
-      name: typeof x.name === "string" ? x.name : "",
-      note: typeof x.note === "string" ? x.note : ""
-    })).filter((x) => x.name) : [],
-    clues: Array.isArray(s.clues) ? s.clues.filter((x) => typeof x === "string") : [],
-    summary: typeof s.summary === "string" ? s.summary : "",
-    hidden_state: typeof s.hidden_state === "string" ? s.hidden_state : ""
-  };
+  const state = normalizeGameState(parsed.state);
   const ending = VALID_ENDINGS.has(parsed.ending) ? parsed.ending : null;
   return { narration, state, ending, raw: rawText, malformed: false };
 }
@@ -1873,6 +1877,7 @@ var STYLES = `
   inset: 0;
   background: rgba(5, 3, 9, 0.85);
   backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 50;
   display: flex;
   align-items: center;
@@ -1889,6 +1894,24 @@ var STYLES = `
   max-height: 85vh;
   display: flex;
   flex-direction: column;
+  /* min-height: 0 lets the inner overflow-y-auto child actually scroll inside
+   * a flex column on mobile (otherwise content can spill out / vanish off
+   * the bottom on small viewports). overflow: hidden keeps gradient borders
+   * crisp on Fennec, which is happy to paint slightly outside otherwise. */
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The blurred backdrop is expensive enough on Firefox-Android (Fennec) to
+ * stall the compositor when a modal opens — the Ledger button being the
+ * obvious offender since gameState renders can be large. Drop the blur on
+ * mobile and lean the background opacity up a touch to compensate. */
+@media (max-width: 720px) {
+  .modal-backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(5, 3, 9, 0.94);
+  }
 }
 
 .save-row {
@@ -2183,6 +2206,100 @@ button:focus-visible, textarea:focus-visible {
   }
 }
 `;
+// Catches uncaught render errors anywhere in the tree. Without this, a single
+// bad render (e.g. an LLM returning a non-string for a state field that slipped
+// through normalization) unmounts the whole React tree and the user sees a
+// blank white page — historically the Fennec "white screen on Ledger" symptom.
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    try {
+      if (typeof console !== "undefined" && console.error) {
+        console.error("[borrowed] render error caught by boundary", error, info);
+      }
+    } catch {}
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    const msg = (this.state.error && this.state.error.message) || String(this.state.error || "Unknown error");
+    const reset = () => this.setState({ error: null });
+    const reload = () => { try { window.location.reload(); } catch {} };
+    return React.createElement("div", {
+      style: {
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px",
+        background: "#0a0814",
+        color: "#e8dec5",
+        fontFamily: "'Cormorant Garamond', serif"
+      }
+    },
+      React.createElement("div", { style: { maxWidth: 520, textAlign: "center" } },
+        React.createElement("div", {
+          style: { fontFamily: "'Cinzel', serif", letterSpacing: "0.4em", fontSize: 10, color: "#9a8d7a", marginBottom: 10 }
+        }, "❦ THE PAGE FALTERED ❦"),
+        React.createElement("h2", {
+          style: { fontFamily: "'Cinzel', serif", fontSize: 22, color: "#f4ecd8", letterSpacing: "0.04em", marginBottom: 14 }
+        }, "Something in the chronicle broke mid-stroke."),
+        React.createElement("p", {
+          style: { fontStyle: "italic", lineHeight: 1.6, color: "#9a8d7a", marginBottom: 18 }
+        }, "Your saved hours are kept. You can try to recover the page in place, or reload to start fresh. If this keeps happening, the model may be returning state in an unexpected shape — try a different engine."),
+        React.createElement("pre", {
+          style: {
+            fontSize: 11,
+            textAlign: "left",
+            background: "rgba(0,0,0,0.3)",
+            border: "1px solid rgba(217,122,122,0.35)",
+            padding: "8px 10px",
+            borderRadius: 4,
+            color: "#d97a7a",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            maxHeight: 140,
+            overflow: "auto",
+            marginBottom: 18
+          }
+        }, msg),
+        React.createElement("div", { style: { display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" } },
+          React.createElement("button", {
+            onClick: reset,
+            style: {
+              background: "transparent",
+              border: "1px solid rgba(212,165,116,0.5)",
+              color: "#f4ecd8",
+              padding: "8px 18px",
+              fontFamily: "'Cinzel', serif",
+              fontSize: 10,
+              letterSpacing: "0.25em",
+              cursor: "pointer"
+            }
+          }, "↻ TRY AGAIN"),
+          React.createElement("button", {
+            onClick: reload,
+            style: {
+              background: "transparent",
+              border: "1px solid rgba(232,222,197,0.3)",
+              color: "#9a8d7a",
+              padding: "8px 18px",
+              fontFamily: "'Cinzel', serif",
+              fontSize: 10,
+              letterSpacing: "0.25em",
+              cursor: "pointer"
+            }
+          }, "⟲ RELOAD")
+        )
+      )
+    );
+  }
+}
 function App() {
   const [phase, setPhase] = useState("title");
   const [premise, setPremise] = useState(null);
@@ -2283,25 +2400,39 @@ function App() {
   const textareaRef = useRef(null);
   const abortRef = useRef(null);
   useEffect(() => {
-    const setVH = () => {
+    // The visualViewport "scroll" event fires constantly while a mobile user
+    // scrolls (URL-bar reveal/hide). Without throttling and without a
+    // change-check, we re-set --app-vh on every event, thrashing layout on
+    // long-session screens. rAF-batch + no-op-on-same-height fixes that.
+    let lastH = -1;
+    let rafId = 0;
+    const apply = () => {
+      rafId = 0;
       const h = window.visualViewport?.height ?? window.innerHeight;
+      if (h === lastH) return;
+      lastH = h;
       document.documentElement.style.setProperty("--app-vh", `${h}px`);
     };
-    setVH();
+    const schedule = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(apply);
+    };
+    apply();
     const vv = window.visualViewport;
     if (vv) {
-      vv.addEventListener("resize", setVH);
-      vv.addEventListener("scroll", setVH);
+      vv.addEventListener("resize", schedule);
+      vv.addEventListener("scroll", schedule);
     }
-    window.addEventListener("resize", setVH);
-    window.addEventListener("orientationchange", setVH);
+    window.addEventListener("resize", schedule);
+    window.addEventListener("orientationchange", schedule);
     return () => {
+      if (rafId) cancelAnimationFrame(rafId);
       if (vv) {
-        vv.removeEventListener("resize", setVH);
-        vv.removeEventListener("scroll", setVH);
+        vv.removeEventListener("resize", schedule);
+        vv.removeEventListener("scroll", schedule);
       }
-      window.removeEventListener("resize", setVH);
-      window.removeEventListener("orientationchange", setVH);
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("orientationchange", schedule);
     };
   }, []);
   useEffect(() => {
@@ -2313,6 +2444,26 @@ function App() {
       }
     }
   }, [entries, loading, metaMessages]);
+  useEffect(() => {
+    // When a mobile browser suspends a backgrounded tab mid-request, the
+    // underlying fetch/stream can land in a zombie state — UI shows
+    // loading=true, but reader.read() never resolves. The stream watchdog
+    // catches this after 60s, but if the request itself has been in flight
+    // far longer than any realistic round-trip when the tab returns, abort
+    // immediately so the player isn't staring at a frozen page.
+    const STALE_AFTER_MS = 90000;
+    const onVisibility = () => {
+      if (document.hidden) return;
+      const ref = abortRef.current;
+      if (!ref) return;
+      const age = Date.now() - (ref.startedAt || 0);
+      if (age > STALE_AFTER_MS) {
+        try { ref.controller.abort(); } catch {}
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
   useEffect(() => {
     if (!saveBanner)
       return;
@@ -2505,6 +2656,23 @@ function App() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder;
       let buffer = "";
+      // Stall watchdog: if no chunk arrives for STALL_MS, cancel the reader so
+      // the UI can recover. Without this, a mobile browser that suspends a
+      // backgrounded tab can leave reader.read() hanging forever when the
+      // underlying connection has died, freezing every action button.
+      const STALL_MS = 60000;
+      let stalled = false;
+      let stallTimer = null;
+      const armStall = () => {
+        if (stallTimer) clearTimeout(stallTimer);
+        stallTimer = setTimeout(() => {
+          stalled = true;
+          try { reader.cancel("stream stalled"); } catch {}
+        }, STALL_MS);
+      };
+      const clearStall = () => {
+        if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; }
+      };
       const handleEvent = (rawEvent) => {
         if (!rawEvent.trim())
           return;
@@ -2520,9 +2688,11 @@ function App() {
           onDelta(parsed.text);
         }
       };
+      armStall();
       try {
         while (true) {
           const { done, value } = await reader.read();
+          armStall();
           if (done)
             break;
           buffer += decoder.decode(value, { stream: true }).replace(/\r/g, "");
@@ -2540,6 +2710,12 @@ function App() {
         try {
           reader.cancel();
         } catch {}
+        if (stalled) {
+          const err = new BorrowedError("The hour falters.", `The ${meta.name} narration stream went silent for ${Math.round(STALL_MS/1000)}s — likely the connection was dropped while the tab was in the background. Try again.`);
+          if (full)
+            err.partial = full;
+          throw err;
+        }
         if (e && e.name === "AbortError" || signal && signal.aborted) {
           throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
         }
@@ -2547,6 +2723,8 @@ function App() {
         if (full)
           err.partial = full;
         throw err;
+      } finally {
+        clearStall();
       }
       if (usage && (usage.input || usage.output)) {
         sessionTokensRef.current = {
@@ -2576,7 +2754,7 @@ function App() {
       setPhase("title");
       setPremise(null);
     };
-    abortRef.current = { controller, rollback };
+    abortRef.current = { controller, rollback, startedAt: Date.now() };
     try {
       const sys = buildSystem(chosen, language);
       const msgs = [{ role: "user", content: "Begin." }];
@@ -2651,7 +2829,7 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
       finalizeNarration(rec.partial, rec.gmParsed, rec.baseEntries, rec.baseHistory, true);
       setRecovery(rec);
     };
-    abortRef.current = { controller, rollback };
+    abortRef.current = { controller, rollback, startedAt: Date.now() };
     const continuePrompt = `${rec.narratorPrompt}
 
 [Partial narration already shown to the player]
@@ -2722,7 +2900,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
         setInputHistory(previousInputHistory);
         setInputHistoryIndex(previousInputHistoryIndex);
       };
-      abortRef.current = { controller: controller2, rollback: rollback2 };
+      abortRef.current = { controller: controller2, rollback: rollback2, startedAt: Date.now() };
       try {
         const sys = buildMetaSystem(premise, language);
         const chronicleParts = [];
@@ -2857,7 +3035,7 @@ ${text}`);
       setInputHistory(previousInputHistory);
       setInputHistoryIndex(previousInputHistoryIndex);
     };
-    abortRef.current = { controller, rollback };
+    abortRef.current = { controller, rollback, startedAt: Date.now() };
     try {
       const gmSys = buildSystem(premise, language);
       const firstGmReply = await callAPI(gmSys, apiHistory, true, settings.engineGM, 2600, 0.35, controller.signal, GM_LOGIC_TOOL);
@@ -4776,7 +4954,11 @@ function CustomModal({ onClose, onBegin, disabled }) {
     }
   }, "✷ BEGIN THIS HOUR"))));
 }
-ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ React.createElement(App, null));
+ReactDOM.createRoot(document.getElementById("root")).render(
+  /* @__PURE__ */ React.createElement(ErrorBoundary, null,
+    /* @__PURE__ */ React.createElement(App, null)
+  )
+);
 
   </script>
 </body>
