@@ -129,13 +129,15 @@ Browsers block cross-origin requests unless the server explicitly allows them. M
 
 ## Provider adapters
 
-`index.html` keeps a small `PROVIDERS` registry. Each provider supplies a request builder, a usage logger, and a response extractor:
+`index.html` keeps a small `PROVIDERS` registry. Each provider supplies a request builder, a usage logger, and a response extractor. For the opener and GM-logic roles the app forces the model to return structured output; the mechanism varies by provider:
 
-- **OpenAI** — Responses API with structured JSON output for in-fiction turns. Prompt caching is automatic and prefix-based.
+- **Claude** — Anthropic Messages API; the GM schema is sent as a tool with `tool_choice` set to force the exact tool call on in-fiction turns.
 - **Gemini** — `generateContent` with `responseMimeType: "application/json"` and `responseJsonSchema` for in-fiction turns.
-- **Claude** — Anthropic Messages API; the GM schema is sent as a tool with `tool_choice` forcing the tool call on in-fiction turns.
-- **Qwen / Mistral** — OpenAI-compatible `chat/completions` with `response_format: json_schema` (full schema supported).
-- **DeepSeek / Kimi / ERNIE / Groq / OpenRouter / Cerebras / Local LLM** — OpenAI-compatible `chat/completions` with `response_format: json_object` and inline schema injection for in-fiction turns.
+- **OpenAI** — Responses API with `text.format.type = json_schema` for in-fiction turns.
+- **Mistral / Qwen / DeepSeek / Kimi / Groq / OpenRouter / Cerebras** — OpenAI-compatible `chat/completions` with native function calling (`tools` + `tool_choice`) for in-fiction turns, which gives the same hard enforcement as the Anthropic path.
+- **ERNIE / Local LLM** — OpenAI-compatible `chat/completions` with `response_format: json_object` and inline schema injection. These providers are available for the Narration role but not for opener or GM logic.
+
+If a structured response cannot be parsed, the app automatically retries once with a corrective prompt quoting the exact required fields and a higher token budget. When both attempts fail the error screen shows the model name, a diagnostic, and the first/last 200 characters of the raw response alongside a **Copy raw response** button.
 
 The Local LLM endpoint URL is configurable per-session in Settings; no API key is required unless the local server demands one.
 
