@@ -946,7 +946,9 @@ const GM_LOGIC_TOOL = {
           warmth:   { type: "number", minimum: 0, maximum: 1, description: "low/dark (0) to warm/bright (1)" },
           density:  { type: "number", minimum: 0, maximum: 1, description: "sparse/airy (0) to thick/close (1)" },
           motion:   { type: "number", minimum: 0, maximum: 1, description: "still (0) to restless/turbulent (1)" },
-          presence: { type: "number", minimum: 0, maximum: 1, description: "recede (0) to foreground (1); 0 silences this turn" }
+          presence: { type: "number", minimum: 0, maximum: 1, description: "recede (0) to foreground (1); 0 silences this turn" },
+          register: { type: "number", minimum: 0, maximum: 1, description: "low/grounded (0) to high/elevated (1) — the vertical seat of the room. Stone basement low; rooftop or open sky high." },
+          unease:   { type: "number", minimum: 0, maximum: 1, description: "consonant/right (0) to inharmonic/wrong (1) — when the air itself feels off-key. Reserve for scenes that should read as uncanny." }
         }
       }
     },
@@ -982,12 +984,13 @@ var pickPhrase = (pool) => pool[Math.floor(Math.random() * pool.length)];
  */
 var AMBIENCE_INTENSITY_GAIN = { off: 0, subtle: 0.08, present: 0.18 };
 var AMBIENCE_HARD_CEILING = 0.22;
+var AMBIENCE_FIELDS = ["warmth", "density", "motion", "presence", "register", "unease"];
 var sanitizeAmbienceVector = (raw) => {
   if (raw === null) return null;
   if (!raw || typeof raw !== "object") return undefined;
   const out = {};
   let any = false;
-  for (const k of ["warmth", "density", "motion", "presence"]) {
+  for (const k of AMBIENCE_FIELDS) {
     const v = raw[k];
     if (typeof v === "number" && !Number.isNaN(v)) {
       out[k] = Math.max(0, Math.min(1, v));
@@ -1004,7 +1007,7 @@ class AmbienceEngine {
     this.intensity = "off";
     this.muted = false;
     this.destroyed = false;
-    this.target = { warmth: 0.5, density: 0.45, motion: 0.25, presence: 0.55 };
+    this.target = { warmth: 0.5, density: 0.45, motion: 0.25, presence: 0.55, register: 0.5, unease: 0 };
     this.startTime = this.ctx.currentTime;
     this.comfortGain = 1.0;
 
@@ -1012,7 +1015,7 @@ class AmbienceEngine {
     this.master.gain.value = 0;
     this.master.connect(this.ctx.destination);
 
-    this.drone = this._buildDrone();
+    this.drone = this._buildDrone(this._registerToBase(this.target.register));
     this.bed = this._buildNoiseBed();
     this.texture = this._buildTexture();
 
@@ -1022,7 +1025,12 @@ class AmbienceEngine {
     this.comfortInterval = setInterval(() => this._updateComfort(), 30000);
     this.textureLoopArmed = false;
   }
-  _buildDrone() {
+  _registerToBase(register) {
+    const r = typeof register === "number" ? Math.max(0, Math.min(1, register)) : 0.5;
+    // Quadratic curve so the low end stays grounded: r=0 → ~45 Hz, r=0.5 → ~80 Hz, r=1 → ~150 Hz.
+    return 42 + 38 * r + 70 * r * r;
+  }
+  _buildDrone(initialBase) {
     const ctx = this.ctx;
     const out = ctx.createGain();
     out.gain.value = 0.0001;
@@ -1037,7 +1045,7 @@ class AmbienceEngine {
     hpf.frequency.value = 35;
     hpf.Q.value = 0.5;
 
-    const base = 55 + Math.random() * 55;
+    const base = initialBase;
     const osc1 = ctx.createOscillator();
     osc1.type = "sawtooth";
     osc1.frequency.value = base;
@@ -1046,6 +1054,16 @@ class AmbienceEngine {
     osc2.type = "triangle";
     osc2.frequency.value = base * 1.5;
     osc2.detune.value = 5;
+
+    // Inharmonic partial — silent until `unease` lifts its gain. The ratio
+    // 1.414 (≈√2) places it between a perfect fifth and a tritone, so the
+    // room can read as off-key without becoming dissonant in the musical sense.
+    const oscUnease = ctx.createOscillator();
+    oscUnease.type = "sawtooth";
+    oscUnease.frequency.value = base * 1.414;
+    oscUnease.detune.value = 11;
+    const uneaseGain = ctx.createGain();
+    uneaseGain.gain.value = 0;
 
     const lfo = ctx.createOscillator();
     lfo.type = "sine";
@@ -1059,6 +1077,8 @@ class AmbienceEngine {
     oscMix.gain.value = 0.45;
     osc1.connect(oscMix);
     osc2.connect(oscMix);
+    oscUnease.connect(uneaseGain);
+    uneaseGain.connect(oscMix);
     oscMix.connect(lpf);
     lpf.connect(hpf);
     hpf.connect(out);
@@ -1066,8 +1086,9 @@ class AmbienceEngine {
 
     osc1.start();
     osc2.start();
+    oscUnease.start();
     lfo.start();
-    return { out, lpf, hpf, osc1, osc2, lfo, lfoGain, baseFreq: base };
+    return { out, lpf, hpf, osc1, osc2, oscUnease, uneaseGain, lfo, lfoGain };
   }
   _buildNoiseBed() {
     const ctx = this.ctx;
@@ -1118,7 +1139,11 @@ class AmbienceEngine {
     if (this.destroyed) return;
     if (!this.texture) return;
     const motion = this.target.motion ?? 0;
-    if (motion < 0.4 || this.intensity === "off" || this.muted) {
+    const presence = this.target.presence ?? 0;
+    // Skip bursts whenever the bed is fading toward silence — a burst landing
+    // inside a held breath (verdict, revelation) would break the spell even
+    // though the master fade would mute it eventually.
+    if (motion < 0.4 || this.intensity === "off" || this.muted || presence < 0.12) {
       this.texture.scheduled = setTimeout(() => this._scheduleNextTextureBurst(), 4000);
       return;
     }
@@ -1132,6 +1157,7 @@ class AmbienceEngine {
   _fireTextureBurst() {
     if (this.destroyed) return;
     if (!this.ctx || this.ctx.state !== "running") return;
+    if ((this.target.presence ?? 0) < 0.12) return;
     const ctx = this.ctx;
     const now = ctx.currentTime;
     const duration = 0.45 + Math.random() * 1.2;
@@ -1171,7 +1197,8 @@ class AmbienceEngine {
     const centerLow = 380 + motion * 250;
     const centerHigh = 1500 + motion * 1700;
     const currentCenter = this.bed.bpf.frequency.value;
-    const drift = (Math.random() - 0.5) * 220 * Math.max(0.25, motion);
+    // Floor lets a truly still scene stop drifting; only a whisper remains.
+    const drift = (Math.random() - 0.5) * 220 * Math.max(0.05, motion);
     const nextCenter = Math.max(centerLow, Math.min(centerHigh, currentCenter + drift));
     this.bed.bpf.frequency.setTargetAtTime(nextCenter, t, TC);
   }
@@ -1204,12 +1231,26 @@ class AmbienceEngine {
     const warmth = this.target.warmth ?? 0.5;
     const density = this.target.density ?? 0.5;
     const motion = this.target.motion ?? 0;
+    const unease = this.target.unease ?? 0;
+    const register = this.target.register ?? 0.5;
+
+    const base = this._registerToBase(register);
+    this.drone.osc1.frequency.setTargetAtTime(base, t, TC);
+    this.drone.osc2.frequency.setTargetAtTime(base * 1.5, t, TC);
+    this.drone.oscUnease.frequency.setTargetAtTime(base * 1.414, t, TC);
 
     const lpfCutoff = 300 + warmth * 1100;
     const hpfCutoff = 25 + warmth * 30;
     this.drone.lpf.frequency.setTargetAtTime(lpfCutoff, t, TC);
     this.drone.hpf.frequency.setTargetAtTime(hpfCutoff, t, TC);
     this.drone.out.gain.setTargetAtTime(0.55 + density * 0.4, t, TC);
+
+    // Unease lifts the inharmonic partial under a soft threshold so that
+    // values near zero stay clean. At unease=1 it's still well below the
+    // fundamental's level — a colouring, not a competing voice.
+    const uneaseAudible = unease > 0.05 ? unease : 0;
+    const uneaseGainTarget = uneaseAudible > 0 ? 0.05 + uneaseAudible * 0.32 : 0;
+    this.drone.uneaseGain.gain.setTargetAtTime(uneaseGainTarget, t, TC);
 
     const bedGain = 0.15 + density * 0.75;
     this.bed.out.gain.setTargetAtTime(bedGain, t, TC);
@@ -1254,7 +1295,7 @@ class AmbienceEngine {
       return;
     }
     if (typeof vector !== "object") return;
-    for (const k of ["warmth", "density", "motion", "presence"]) {
+    for (const k of AMBIENCE_FIELDS) {
       const v = vector[k];
       if (typeof v === "number" && !Number.isNaN(v)) {
         this.target[k] = Math.max(0, Math.min(1, v));
@@ -1399,7 +1440,9 @@ These two checks are the scratchpad's job; do them here, in writing, every turn.
           warmth:   { type: "number", minimum: 0, maximum: 1, description: "low/dark (0) to warm/bright (1)" },
           density:  { type: "number", minimum: 0, maximum: 1, description: "sparse/airy (0) to thick/close (1)" },
           motion:   { type: "number", minimum: 0, maximum: 1, description: "still (0) to restless/turbulent (1)" },
-          presence: { type: "number", minimum: 0, maximum: 1, description: "recede (0) to foreground (1); 0 silences this turn" }
+          presence: { type: "number", minimum: 0, maximum: 1, description: "recede (0) to foreground (1); 0 silences this turn" },
+          register: { type: "number", minimum: 0, maximum: 1, description: "low/grounded (0) to high/elevated (1) — the vertical seat of the room. Stone basement low; rooftop or open sky high." },
+          unease:   { type: "number", minimum: 0, maximum: 1, description: "consonant/right (0) to inharmonic/wrong (1) — when the air itself feels off-key. Reserve for scenes that should read as uncanny." }
         }
       }
     },
@@ -1508,13 +1551,17 @@ The hidden_state field is where ALL of the above belong. Items there stay there.
 AMBIENCE — OPTIONAL SCENE TEXTURE:
 You may optionally emit an \`ambience\` vector describing the scene's texture — not its sound effects. Think of it as the difference between a stone vault (low warmth, high density, low motion) and a windy clifftop at dusk (mid warmth, low density, high motion). Omit fields you do not want to change. Set \`presence: 0\` when the moment calls for silence — a revelation, a held breath, a verdict.
 
-The four fields are all numbers in [0, 1]:
+The six fields are all numbers in [0, 1]:
 - warmth: low/dark (0) to warm/bright (1). Think filter colour: stone, iron, basement at one end; afternoon kitchen, lamplit room at the other.
 - density: sparse/airy (0) to thick/close (1). Think how much air is in the room; an empty platform versus a packed festival tent.
 - motion: still (0) to restless/turbulent (1). Think air movement, crowd movement, weather; a sealed library versus a wind-scoured ridge.
 - presence: recede (0) to foreground (1). The mix level of the texture in the player's ear. Drop it for stillness; lift it briefly when the world itself is loud.
+- register: low/grounded (0) to high/elevated (1). The vertical seat of the room — where the sound sits. A cellar, a buried tunnel, a deep nave sit low; a rooftop, a clifftop, an open sky sit high. Use this to LIFT or DROP between scenes that share other qualities.
+- unease: right/consonant (0) to wrong/inharmonic (1). This is the axis for the UNCANNY — when the air itself feels off-key. Reserve it for scenes that should read as strange rather than merely loud or close. A normal kitchen is 0. A carnival big top where a dream is leaking is 0.5 or higher. Use it sparingly; it loses meaning if every scene is 0.6.
 
-This is texture, not sound design. Do NOT name instruments or sounds ("low drone," "violin pad," "footsteps"). Reason about the scene — what the air is doing, how the space holds — and pick four numbers. Omit the field entirely if you don't want any change this turn.
+This is texture, not sound design. Do NOT name instruments or sounds ("low drone," "violin pad," "footsteps"). Reason about the scene — what the air is doing, how the space holds, where it sits, whether it feels right — and pick numbers. Omit the field entirely if you don't want any change this turn.
+
+SILENCE is genuine. \`presence: 0\` is not a softer version of "quiet"; it's an instruction to fade the bed to nothing. Use it for the held breath before a revelation, the moment a verdict lands, the second a confession is heard. The chronicle's most weighted beats deserve real silence, not a thinner room tone.
 
 ENDING THE CHRONICLE:
 The chronicle is a single hour, not an open-ended series. It is MEANT to end when its arc completes. You must actively recognize and commit to that completion rather than writing past it.
