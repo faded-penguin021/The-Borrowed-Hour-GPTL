@@ -982,8 +982,8 @@ var pickPhrase = (pool) => pool[Math.floor(Math.random() * pool.length)];
  * rather than stepping. Hard ceiling on master gain (0.22). No samples,
  * no network, no dependencies.
  */
-var AMBIENCE_INTENSITY_GAIN = { off: 0, subtle: 0.08, present: 0.18 };
-var AMBIENCE_HARD_CEILING = 0.22;
+var AMBIENCE_INTENSITY_GAIN = { off: 0, subtle: 0.045, present: 0.11 };
+var AMBIENCE_HARD_CEILING = 0.16;
 var AMBIENCE_FIELDS = ["warmth", "density", "motion", "presence", "register", "unease"];
 var sanitizeAmbienceVector = (raw) => {
   if (raw === null) return null;
@@ -1007,7 +1007,7 @@ class AmbienceEngine {
     this.intensity = "off";
     this.muted = false;
     this.destroyed = false;
-    this.target = { warmth: 0.5, density: 0.45, motion: 0.25, presence: 0.55, register: 0.5, unease: 0 };
+    this.target = { warmth: 0.5, density: 0.4, motion: 0.2, presence: 0.3, register: 0.5, unease: 0 };
     this.startTime = this.ctx.currentTime;
     this.comfortGain = 1.0;
 
@@ -1021,7 +1021,7 @@ class AmbienceEngine {
 
     this._applyVector(this.target, 0.05);
 
-    this.walkInterval = setInterval(() => this._doRandomWalk(), 4500);
+    this.walkInterval = setInterval(() => this._doRandomWalk(), 11000);
     this.comfortInterval = setInterval(() => this._updateComfort(), 30000);
     this.textureLoopArmed = false;
   }
@@ -1045,9 +1045,12 @@ class AmbienceEngine {
     hpf.frequency.value = 35;
     hpf.Q.value = 0.5;
 
+    // Triangle waves only on the harmonic pair — sawtooth was too harmonic-rich
+    // for phone speakers, where the inaudible fundamental gets stripped and the
+    // remaining upper harmonics read as a tinny buzz rather than a felt low.
     const base = initialBase;
     const osc1 = ctx.createOscillator();
-    osc1.type = "sawtooth";
+    osc1.type = "triangle";
     osc1.frequency.value = base;
     osc1.detune.value = -3;
     const osc2 = ctx.createOscillator();
@@ -1059,7 +1062,7 @@ class AmbienceEngine {
     // 1.414 (≈√2) places it between a perfect fifth and a tritone, so the
     // room can read as off-key without becoming dissonant in the musical sense.
     const oscUnease = ctx.createOscillator();
-    oscUnease.type = "sawtooth";
+    oscUnease.type = "triangle";
     oscUnease.frequency.value = base * 1.414;
     oscUnease.detune.value = 11;
     const uneaseGain = ctx.createGain();
@@ -1067,9 +1070,12 @@ class AmbienceEngine {
 
     const lfo = ctx.createOscillator();
     lfo.type = "sine";
-    lfo.frequency.value = 0.05 + Math.random() * 0.1;
+    lfo.frequency.value = 0.04 + Math.random() * 0.06;
     const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 14;
+    // Shallow LFO depth — at 14 cents the pitch wobble was audible on phone
+    // speakers as the only "music" in the bed. 4 cents is below the threshold
+    // where the ear locks onto it as a pitch change.
+    lfoGain.gain.value = 4;
     lfo.connect(lfoGain);
     lfoGain.connect(osc2.detune);
 
@@ -1173,7 +1179,7 @@ class AmbienceEngine {
     bp.frequency.value = 250 + Math.random() * 1600;
     bp.Q.value = 5 + Math.random() * 5;
     const g = ctx.createGain();
-    const peak = 0.06 + Math.random() * 0.05;
+    const peak = 0.025 + Math.random() * 0.025;
     g.gain.setValueAtTime(0, now);
     g.gain.linearRampToValueAtTime(peak, now + duration * 0.3);
     g.gain.linearRampToValueAtTime(0, now + duration);
@@ -1187,18 +1193,20 @@ class AmbienceEngine {
   _doRandomWalk() {
     if (this.destroyed || !this.ctx) return;
     const t = this.ctx.currentTime;
-    const TC = 4.0;
+    // 8s reach keeps the drift well below the ear's "what changed?" threshold.
+    const TC = 8.0;
     const motion = this.target.motion ?? 0;
 
     const lfoCurrent = this.drone.lfo.frequency.value;
-    const lfoNext = Math.max(0.04, Math.min(0.16, lfoCurrent + (Math.random() - 0.5) * 0.02));
+    const lfoNext = Math.max(0.03, Math.min(0.12, lfoCurrent + (Math.random() - 0.5) * 0.012));
     this.drone.lfo.frequency.setTargetAtTime(lfoNext, t, TC);
 
     const centerLow = 380 + motion * 250;
     const centerHigh = 1500 + motion * 1700;
     const currentCenter = this.bed.bpf.frequency.value;
-    // Floor lets a truly still scene stop drifting; only a whisper remains.
-    const drift = (Math.random() - 0.5) * 220 * Math.max(0.05, motion);
+    // Drift is small and motion-scaled. At motion=0 the bed essentially holds;
+    // at motion=1 it breathes about ±80 Hz around the slow target.
+    const drift = (Math.random() - 0.5) * 80 * Math.max(0.05, motion);
     const nextCenter = Math.max(centerLow, Math.min(centerHigh, currentCenter + drift));
     this.bed.bpf.frequency.setTargetAtTime(nextCenter, t, TC);
   }
@@ -1240,24 +1248,27 @@ class AmbienceEngine {
     this.drone.oscUnease.frequency.setTargetAtTime(base * 1.414, t, TC);
 
     const lpfCutoff = 300 + warmth * 1100;
-    const hpfCutoff = 25 + warmth * 30;
+    const hpfCutoff = 35 + warmth * 35;
     this.drone.lpf.frequency.setTargetAtTime(lpfCutoff, t, TC);
     this.drone.hpf.frequency.setTargetAtTime(hpfCutoff, t, TC);
-    this.drone.out.gain.setTargetAtTime(0.55 + density * 0.4, t, TC);
+    // Drone is secondary — the felt body, not the heard voice. Noise bed is
+    // the primary "air." Previous gain of 0.55–0.95 made the drone the
+    // dominant element on phone speakers, where the upper harmonics carry.
+    this.drone.out.gain.setTargetAtTime(0.08 + density * 0.18, t, TC);
 
     // Unease lifts the inharmonic partial under a soft threshold so that
     // values near zero stay clean. At unease=1 it's still well below the
     // fundamental's level — a colouring, not a competing voice.
     const uneaseAudible = unease > 0.05 ? unease : 0;
-    const uneaseGainTarget = uneaseAudible > 0 ? 0.05 + uneaseAudible * 0.32 : 0;
+    const uneaseGainTarget = uneaseAudible > 0 ? 0.03 + uneaseAudible * 0.18 : 0;
     this.drone.uneaseGain.gain.setTargetAtTime(uneaseGainTarget, t, TC);
 
-    const bedGain = 0.15 + density * 0.75;
+    const bedGain = 0.10 + density * 0.55;
     this.bed.out.gain.setTargetAtTime(bedGain, t, TC);
     const Q = 6.5 - density * 5.2;
     this.bed.bpf.Q.setTargetAtTime(Math.max(0.5, Q), t, TC);
 
-    const textureGain = motion > 0.4 ? 0.35 + (motion - 0.4) * 0.65 : 0;
+    const textureGain = motion > 0.4 ? 0.25 + (motion - 0.4) * 0.45 : 0;
     this.texture.out.gain.setTargetAtTime(textureGain, t, TC);
 
     this._applyMaster();
