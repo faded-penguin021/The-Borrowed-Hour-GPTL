@@ -939,7 +939,19 @@ const GM_LOGIC_TOOL = {
       gm_scratchpad: { type: "string" },
       narrator_brief: { type: "string" },
       state: { type: "object" },
-      ending: { type: "string" }
+      ending: { type: "string" },
+      ambience: {
+        type: "object",
+        description: "Optional scene-texture vector for the procedural ambient bed. Omit any field to hold its previous value; set presence to 0 (or omit the field entirely and emit nothing) when the moment calls for silence.",
+        properties: {
+          warmth:   { type: "number", minimum: 0, maximum: 1, description: "low/dark (0) to warm/bright (1)" },
+          density:  { type: "number", minimum: 0, maximum: 1, description: "sparse/airy (0) to thick/close (1)" },
+          motion:   { type: "number", minimum: 0, maximum: 1, description: "still (0) to restless/turbulent (1)" },
+          presence: { type: "number", minimum: 0, maximum: 1, description: "recede (0) to foreground (1); 0 silences this turn" },
+          register: { type: "number", minimum: 0, maximum: 1, description: "low/grounded (0) to high/elevated (1) — the vertical seat of the room. Stone basement low; rooftop or open sky high." },
+          unease:   { type: "number", minimum: 0, maximum: 1, description: "consonant/right (0) to inharmonic/wrong (1) — when the air itself feels off-key. Reserve for scenes that should read as uncanny." }
+        }
+      }
     },
     required: ["gm_scratchpad", "narrator_brief", "state"]
   }
@@ -961,6 +973,352 @@ var OPENING_LOADING_PHRASES = [
   "the chronicle wakes"
 ];
 var pickPhrase = (pool) => pool[Math.floor(Math.random() * pool.length)];
+
+/*
+ * AmbienceEngine — pure Web Audio API procedural ambient bed.
+ *
+ * Three layered voices feed a master gain that obeys the Subtle/Present
+ * intensity setting and a slow comfort gate. Parameter changes use
+ * setTargetAtTime with a ~2.5s reach so the bed breathes between turns
+ * rather than stepping. Hard ceiling on master gain (0.22). No samples,
+ * no network, no dependencies.
+ */
+var AMBIENCE_INTENSITY_GAIN = { off: 0, subtle: 0.08, present: 0.18 };
+var AMBIENCE_HARD_CEILING = 0.22;
+var AMBIENCE_FIELDS = ["warmth", "density", "motion", "presence", "register", "unease"];
+var sanitizeAmbienceVector = (raw) => {
+  if (raw === null) return null;
+  if (!raw || typeof raw !== "object") return undefined;
+  const out = {};
+  let any = false;
+  for (const k of AMBIENCE_FIELDS) {
+    const v = raw[k];
+    if (typeof v === "number" && !Number.isNaN(v)) {
+      out[k] = Math.max(0, Math.min(1, v));
+      any = true;
+    }
+  }
+  return any ? out : undefined;
+};
+class AmbienceEngine {
+  constructor() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) throw new Error("Web Audio API unavailable");
+    this.ctx = new AC();
+    this.intensity = "off";
+    this.muted = false;
+    this.destroyed = false;
+    this.target = { warmth: 0.5, density: 0.45, motion: 0.25, presence: 0.55, register: 0.5, unease: 0 };
+    this.startTime = this.ctx.currentTime;
+    this.comfortGain = 1.0;
+
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0;
+    this.master.connect(this.ctx.destination);
+
+    this.drone = this._buildDrone(this._registerToBase(this.target.register));
+    this.bed = this._buildNoiseBed();
+    this.texture = this._buildTexture();
+
+    this._applyVector(this.target, 0.05);
+
+    this.walkInterval = setInterval(() => this._doRandomWalk(), 4500);
+    this.comfortInterval = setInterval(() => this._updateComfort(), 30000);
+    this.textureLoopArmed = false;
+  }
+  _registerToBase(register) {
+    const r = typeof register === "number" ? Math.max(0, Math.min(1, register)) : 0.5;
+    // Quadratic curve so the low end stays grounded: r=0 → ~45 Hz, r=0.5 → ~80 Hz, r=1 → ~150 Hz.
+    return 42 + 38 * r + 70 * r * r;
+  }
+  _buildDrone(initialBase) {
+    const ctx = this.ctx;
+    const out = ctx.createGain();
+    out.gain.value = 0.0001;
+
+    const lpf = ctx.createBiquadFilter();
+    lpf.type = "lowpass";
+    lpf.frequency.value = 700;
+    lpf.Q.value = 0.7;
+
+    const hpf = ctx.createBiquadFilter();
+    hpf.type = "highpass";
+    hpf.frequency.value = 35;
+    hpf.Q.value = 0.5;
+
+    const base = initialBase;
+    const osc1 = ctx.createOscillator();
+    osc1.type = "sawtooth";
+    osc1.frequency.value = base;
+    osc1.detune.value = -3;
+    const osc2 = ctx.createOscillator();
+    osc2.type = "triangle";
+    osc2.frequency.value = base * 1.5;
+    osc2.detune.value = 5;
+
+    // Inharmonic partial — silent until `unease` lifts its gain. The ratio
+    // 1.414 (≈√2) places it between a perfect fifth and a tritone, so the
+    // room can read as off-key without becoming dissonant in the musical sense.
+    const oscUnease = ctx.createOscillator();
+    oscUnease.type = "sawtooth";
+    oscUnease.frequency.value = base * 1.414;
+    oscUnease.detune.value = 11;
+    const uneaseGain = ctx.createGain();
+    uneaseGain.gain.value = 0;
+
+    const lfo = ctx.createOscillator();
+    lfo.type = "sine";
+    lfo.frequency.value = 0.05 + Math.random() * 0.1;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 14;
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc2.detune);
+
+    const oscMix = ctx.createGain();
+    oscMix.gain.value = 0.45;
+    osc1.connect(oscMix);
+    osc2.connect(oscMix);
+    oscUnease.connect(uneaseGain);
+    uneaseGain.connect(oscMix);
+    oscMix.connect(lpf);
+    lpf.connect(hpf);
+    hpf.connect(out);
+    out.connect(this.master);
+
+    osc1.start();
+    osc2.start();
+    oscUnease.start();
+    lfo.start();
+    return { out, lpf, hpf, osc1, osc2, oscUnease, uneaseGain, lfo, lfoGain };
+  }
+  _buildNoiseBed() {
+    const ctx = this.ctx;
+    const out = ctx.createGain();
+    out.gain.value = 0.0001;
+
+    const seconds = 28;
+    const bufferSize = Math.floor(ctx.sampleRate * seconds);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+    for (let i = 0; i < bufferSize; i++) {
+      const w = Math.random() * 2 - 1;
+      b0 = 0.99886 * b0 + w * 0.0555179;
+      b1 = 0.99332 * b1 + w * 0.0750759;
+      b2 = 0.96900 * b2 + w * 0.1538520;
+      b3 = 0.86650 * b3 + w * 0.3104856;
+      b4 = 0.55000 * b4 + w * 0.5329522;
+      b5 = -0.7616 * b5 - w * 0.0168980;
+      const sample = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+      data[i] = sample > 1 ? 1 : sample < -1 ? -1 : sample;
+      b6 = w * 0.115926;
+    }
+
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.loop = true;
+
+    const bpf = ctx.createBiquadFilter();
+    bpf.type = "bandpass";
+    bpf.frequency.value = 900;
+    bpf.Q.value = 1.5;
+
+    src.connect(bpf);
+    bpf.connect(out);
+    out.connect(this.master);
+    src.start();
+    return { out, bpf, src };
+  }
+  _buildTexture() {
+    const ctx = this.ctx;
+    const out = ctx.createGain();
+    out.gain.value = 0;
+    out.connect(this.master);
+    return { out, scheduled: 0 };
+  }
+  _scheduleNextTextureBurst() {
+    if (this.destroyed) return;
+    if (!this.texture) return;
+    const motion = this.target.motion ?? 0;
+    const presence = this.target.presence ?? 0;
+    // Skip bursts whenever the bed is fading toward silence — a burst landing
+    // inside a held breath (verdict, revelation) would break the spell even
+    // though the master fade would mute it eventually.
+    if (motion < 0.4 || this.intensity === "off" || this.muted || presence < 0.12) {
+      this.texture.scheduled = setTimeout(() => this._scheduleNextTextureBurst(), 4000);
+      return;
+    }
+    const meanInterval = Math.max(0.9, 9 - (motion - 0.4) * 11);
+    const wait = -Math.log(1 - Math.random() * 0.99) * meanInterval;
+    this.texture.scheduled = setTimeout(() => {
+      this._fireTextureBurst();
+      this._scheduleNextTextureBurst();
+    }, Math.min(20000, wait * 1000));
+  }
+  _fireTextureBurst() {
+    if (this.destroyed) return;
+    if (!this.ctx || this.ctx.state !== "running") return;
+    if ((this.target.presence ?? 0) < 0.12) return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const duration = 0.45 + Math.random() * 1.2;
+    const bufSize = Math.floor(ctx.sampleRate * duration);
+    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * 0.35;
+
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 250 + Math.random() * 1600;
+    bp.Q.value = 5 + Math.random() * 5;
+    const g = ctx.createGain();
+    const peak = 0.06 + Math.random() * 0.05;
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(peak, now + duration * 0.3);
+    g.gain.linearRampToValueAtTime(0, now + duration);
+
+    src.connect(bp);
+    bp.connect(g);
+    g.connect(this.texture.out);
+    src.start(now);
+    src.stop(now + duration + 0.05);
+  }
+  _doRandomWalk() {
+    if (this.destroyed || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const TC = 4.0;
+    const motion = this.target.motion ?? 0;
+
+    const lfoCurrent = this.drone.lfo.frequency.value;
+    const lfoNext = Math.max(0.04, Math.min(0.16, lfoCurrent + (Math.random() - 0.5) * 0.02));
+    this.drone.lfo.frequency.setTargetAtTime(lfoNext, t, TC);
+
+    const centerLow = 380 + motion * 250;
+    const centerHigh = 1500 + motion * 1700;
+    const currentCenter = this.bed.bpf.frequency.value;
+    // Floor lets a truly still scene stop drifting; only a whisper remains.
+    const drift = (Math.random() - 0.5) * 220 * Math.max(0.05, motion);
+    const nextCenter = Math.max(centerLow, Math.min(centerHigh, currentCenter + drift));
+    this.bed.bpf.frequency.setTargetAtTime(nextCenter, t, TC);
+  }
+  _updateComfort() {
+    if (this.destroyed || !this.ctx) return;
+    const elapsed = this.ctx.currentTime - this.startTime;
+    let target = 1.0;
+    if (elapsed > 480) target = 0.85;
+    if (elapsed > 1200) target = 0.75;
+    if (Math.abs(target - this.comfortGain) > 0.001) {
+      this.comfortGain = target;
+      this._applyMaster();
+    }
+  }
+  _applyMaster(fastCut) {
+    if (this.destroyed || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const ceiling = AMBIENCE_INTENSITY_GAIN[this.intensity] || 0;
+    const presence = this.target.presence ?? 0;
+    const raw = ceiling * presence * this.comfortGain;
+    const target = (this.muted || this.intensity === "off") ? 0 : Math.min(AMBIENCE_HARD_CEILING, raw);
+    this.master.gain.setTargetAtTime(target, t, fastCut ? 0.04 : 0.83);
+  }
+  _applyVector(vector, timeConstant) {
+    if (this.destroyed || !this.ctx) return;
+    if (!vector) return;
+    const t = this.ctx.currentTime;
+    const TC = typeof timeConstant === "number" ? timeConstant : 0.83;
+
+    const warmth = this.target.warmth ?? 0.5;
+    const density = this.target.density ?? 0.5;
+    const motion = this.target.motion ?? 0;
+    const unease = this.target.unease ?? 0;
+    const register = this.target.register ?? 0.5;
+
+    const base = this._registerToBase(register);
+    this.drone.osc1.frequency.setTargetAtTime(base, t, TC);
+    this.drone.osc2.frequency.setTargetAtTime(base * 1.5, t, TC);
+    this.drone.oscUnease.frequency.setTargetAtTime(base * 1.414, t, TC);
+
+    const lpfCutoff = 300 + warmth * 1100;
+    const hpfCutoff = 25 + warmth * 30;
+    this.drone.lpf.frequency.setTargetAtTime(lpfCutoff, t, TC);
+    this.drone.hpf.frequency.setTargetAtTime(hpfCutoff, t, TC);
+    this.drone.out.gain.setTargetAtTime(0.55 + density * 0.4, t, TC);
+
+    // Unease lifts the inharmonic partial under a soft threshold so that
+    // values near zero stay clean. At unease=1 it's still well below the
+    // fundamental's level — a colouring, not a competing voice.
+    const uneaseAudible = unease > 0.05 ? unease : 0;
+    const uneaseGainTarget = uneaseAudible > 0 ? 0.05 + uneaseAudible * 0.32 : 0;
+    this.drone.uneaseGain.gain.setTargetAtTime(uneaseGainTarget, t, TC);
+
+    const bedGain = 0.15 + density * 0.75;
+    this.bed.out.gain.setTargetAtTime(bedGain, t, TC);
+    const Q = 6.5 - density * 5.2;
+    this.bed.bpf.Q.setTargetAtTime(Math.max(0.5, Q), t, TC);
+
+    const textureGain = motion > 0.4 ? 0.35 + (motion - 0.4) * 0.65 : 0;
+    this.texture.out.gain.setTargetAtTime(textureGain, t, TC);
+
+    this._applyMaster();
+  }
+  setIntensity(level) {
+    if (this.destroyed) return;
+    const prev = this.intensity;
+    this.intensity = (level === "subtle" || level === "present") ? level : "off";
+    if (this.intensity === "off") {
+      this._applyMaster();
+      setTimeout(() => {
+        if (this.destroyed) return;
+        if (this.intensity === "off" && this.ctx && this.ctx.state === "running") {
+          this.ctx.suspend().catch(() => {});
+        }
+      }, 3200);
+    } else {
+      if (this.ctx && this.ctx.state === "suspended") {
+        this.ctx.resume().catch(() => {});
+      }
+      if (!this.textureLoopArmed) {
+        this.textureLoopArmed = true;
+        this._scheduleNextTextureBurst();
+      }
+      if (prev === "off") this.startTime = this.ctx.currentTime;
+      this._applyMaster();
+    }
+  }
+  applyAmbience(vector) {
+    if (this.destroyed) return;
+    if (vector === undefined) return;
+    if (vector === null) {
+      this.target.presence = 0;
+      this._applyMaster();
+      return;
+    }
+    if (typeof vector !== "object") return;
+    for (const k of AMBIENCE_FIELDS) {
+      const v = vector[k];
+      if (typeof v === "number" && !Number.isNaN(v)) {
+        this.target[k] = Math.max(0, Math.min(1, v));
+      }
+    }
+    this._applyVector(this.target);
+  }
+  mute(bool) {
+    if (this.destroyed) return;
+    this.muted = !!bool;
+    this._applyMaster(true);
+  }
+  destroy() {
+    this.destroyed = true;
+    clearInterval(this.walkInterval);
+    clearInterval(this.comfortInterval);
+    if (this.texture && this.texture.scheduled) clearTimeout(this.texture.scheduled);
+    if (this.ctx) {
+      try { this.ctx.close(); } catch {}
+    }
+  }
+}
 
 class BorrowedError extends Error {
   constructor(message, detail) {
@@ -1075,6 +1433,18 @@ These two checks are the scratchpad's job; do them here, in writing, every turn.
         type: "string",
         enum: ["good", "bittersweet", "pyrrhic", "ambiguous", "bad"],
         description: "Set only when the chronicle has reached a true ending per the genre-specific guidance. Otherwise omit. The five types are NOT a softer middle — each is a definite commitment. GOOD: the objective is achieved cleanly. BITTERSWEET: achieved at a cost the player will carry. PYRRHIC: achieved in a way that hollowed out the achievement or the achiever. AMBIGUOUS: the resolution genuinely refuses closure (reserve for stories that earned this; do NOT use to dodge a clean ending). BAD: the player dies, fails irrevocably, or severs the way back. If the genre's named ending condition is met, you must commit — set this field. See the system prompt's ENDING THE CHRONICLE section."
+      },
+      ambience: {
+        type: "object",
+        description: "Optional scene-texture vector for the procedural ambient bed. Omit any field to hold its previous value; set presence to 0 when the moment calls for silence.",
+        properties: {
+          warmth:   { type: "number", minimum: 0, maximum: 1, description: "low/dark (0) to warm/bright (1)" },
+          density:  { type: "number", minimum: 0, maximum: 1, description: "sparse/airy (0) to thick/close (1)" },
+          motion:   { type: "number", minimum: 0, maximum: 1, description: "still (0) to restless/turbulent (1)" },
+          presence: { type: "number", minimum: 0, maximum: 1, description: "recede (0) to foreground (1); 0 silences this turn" },
+          register: { type: "number", minimum: 0, maximum: 1, description: "low/grounded (0) to high/elevated (1) — the vertical seat of the room. Stone basement low; rooftop or open sky high." },
+          unease:   { type: "number", minimum: 0, maximum: 1, description: "consonant/right (0) to inharmonic/wrong (1) — when the air itself feels off-key. Reserve for scenes that should read as uncanny." }
+        }
       }
     },
     required: ["gm_scratchpad", "narration", "state"]
@@ -1178,6 +1548,21 @@ OTHER COMMON LEAKS to avoid:
 - Future-tense or directive language. The summary is a chronicle of what HAS happened, never what should or must happen next. "The player must brief Maret on the day's discoveries" is a to-do list; rewrite as "After Aldenmoor, Maret was waiting in the cloister." Past tense only.
 
 The hidden_state field is where ALL of the above belong. Items there stay there. Promote a hidden_state item to public state ONLY when the narration has, in the intervening turns, actually shown or told the player. The act of fictional revelation is what licenses public-state recording — not the GM's awareness, not the scratchpad's reasoning, not the next-turn plan.
+
+AMBIENCE — OPTIONAL SCENE TEXTURE:
+You may optionally emit an \`ambience\` vector describing the scene's texture — not its sound effects. Think of it as the difference between a stone vault (low warmth, high density, low motion) and a windy clifftop at dusk (mid warmth, low density, high motion). Omit fields you do not want to change. Set \`presence: 0\` when the moment calls for silence — a revelation, a held breath, a verdict.
+
+The six fields are all numbers in [0, 1]:
+- warmth: low/dark (0) to warm/bright (1). Think filter colour: stone, iron, basement at one end; afternoon kitchen, lamplit room at the other.
+- density: sparse/airy (0) to thick/close (1). Think how much air is in the room; an empty platform versus a packed festival tent.
+- motion: still (0) to restless/turbulent (1). Think air movement, crowd movement, weather; a sealed library versus a wind-scoured ridge.
+- presence: recede (0) to foreground (1). The mix level of the texture in the player's ear. Drop it for stillness; lift it briefly when the world itself is loud.
+- register: low/grounded (0) to high/elevated (1). The vertical seat of the room — where the sound sits. A cellar, a buried tunnel, a deep nave sit low; a rooftop, a clifftop, an open sky sit high. Use this to LIFT or DROP between scenes that share other qualities.
+- unease: right/consonant (0) to wrong/inharmonic (1). This is the axis for the UNCANNY — when the air itself feels off-key. Reserve it for scenes that should read as strange rather than merely loud or close. A normal kitchen is 0. A carnival big top where a dream is leaking is 0.5 or higher. Use it sparingly; it loses meaning if every scene is 0.6.
+
+This is texture, not sound design. Do NOT name instruments or sounds ("low drone," "violin pad," "footsteps"). Reason about the scene — what the air is doing, how the space holds, where it sits, whether it feels right — and pick numbers. Omit the field entirely if you don't want any change this turn.
+
+SILENCE is genuine. \`presence: 0\` is not a softer version of "quiet"; it's an instruction to fade the bed to nothing. Use it for the held breath before a revelation, the moment a verdict lands, the second a confession is heard. The chronicle's most weighted beats deserve real silence, not a thinner room tone.
 
 ENDING THE CHRONICLE:
 The chronicle is a single hour, not an open-ended series. It is MEANT to end when its arc completes. You must actively recognize and commit to that completion rather than writing past it.
@@ -1475,8 +1860,10 @@ function parseGMLogicResponse(rawText) {
   }
 
   const ending = typeof parsed.ending === "string" && parsed.ending.trim() ? parsed.ending.trim() : null;
+  const ambience = "ambience" in parsed ? sanitizeAmbienceVector(parsed.ambience) : undefined;
+  const ambienceExplicitNull = parsed.ambience === null;
   // Normalize so non-string scene/time/summary or malformed npc entries cannot crash the Ledger render.
-  return { narrator_brief: narratorBrief, state: normalizeGameState(parsed.state), ending, raw: rawText, malformed: false };
+  return { narrator_brief: narratorBrief, state: normalizeGameState(parsed.state), ending, ambience: ambienceExplicitNull ? null : ambience, raw: rawText, malformed: false };
 }
 
 function parseGMResponse(rawText) {
@@ -1527,7 +1914,9 @@ function parseGMResponse(rawText) {
   }
   const state = normalizeGameState(parsed.state);
   const ending = VALID_ENDINGS.has(parsed.ending) ? parsed.ending : null;
-  return { narration, state, ending, raw: rawText, malformed: false };
+  const ambience = "ambience" in parsed ? sanitizeAmbienceVector(parsed.ambience) : undefined;
+  const ambienceExplicitNull = parsed.ambience === null;
+  return { narration, state, ending, ambience: ambienceExplicitNull ? null : ambience, raw: rawText, malformed: false };
 }
 function isStateEmpty(s) {
   if (!s)
@@ -2450,6 +2839,68 @@ function App() {
     };
   }, []);
   const instantReveal = settings.disableTypewriter || osReducedMotion;
+  const [ambienceLevel, setAmbienceLevel] = useState("off");
+  const [ambienceMuted, setAmbienceMuted] = useState(false);
+  const [ambienceUnavailable, setAmbienceUnavailable] = useState(false);
+  const ambienceLoadedRef = useRef(false);
+  const ambienceRef = useRef(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await window.storage.get("borrowed:ambience:v1");
+        if (r?.value) {
+          const parsed = JSON.parse(r.value);
+          if (parsed && typeof parsed === "object") {
+            if (parsed.level === "subtle" || parsed.level === "present" || parsed.level === "off")
+              setAmbienceLevel(parsed.level);
+            if (typeof parsed.muted === "boolean")
+              setAmbienceMuted(parsed.muted);
+          }
+        }
+      } catch {} finally {
+        ambienceLoadedRef.current = true;
+      }
+    })();
+  }, []);
+  useEffect(() => {
+    if (!ambienceLoadedRef.current) return;
+    (async () => {
+      try {
+        await window.storage.set("borrowed:ambience:v1", JSON.stringify({
+          level: ambienceLevel,
+          muted: ambienceMuted
+        }));
+      } catch {}
+    })();
+  }, [ambienceLevel, ambienceMuted]);
+  const ensureAmbienceEngine = () => {
+    if (ambienceLevel === "off") return null;
+    if (ambienceUnavailable) return null;
+    if (!ambienceRef.current) {
+      try {
+        ambienceRef.current = new AmbienceEngine();
+      } catch (e) {
+        setAmbienceUnavailable(true);
+        if (typeof console !== "undefined" && console.warn)
+          console.warn("[borrowed] Ambience unavailable:", e);
+        return null;
+      }
+    }
+    const eng = ambienceRef.current;
+    if (eng.intensity !== ambienceLevel) eng.setIntensity(ambienceLevel);
+    if (eng.muted !== ambienceMuted) eng.mute(ambienceMuted);
+    return eng;
+  };
+  useEffect(() => {
+    const eng = ambienceRef.current;
+    if (!eng) return;
+    if (eng.intensity !== ambienceLevel) eng.setIntensity(ambienceLevel);
+  }, [ambienceLevel]);
+  useEffect(() => {
+    const eng = ambienceRef.current;
+    if (!eng) return;
+    if (eng.muted !== ambienceMuted) eng.mute(ambienceMuted);
+  }, [ambienceMuted]);
   const [savesTotalBytes, setSavesTotalBytes] = useState(0);
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
@@ -2808,6 +3259,7 @@ function App() {
     setLoading(true);
     setError(null);
     setRecovery(null);
+    ensureAmbienceEngine();
     const controller = new AbortController;
     const rollback = () => {
       setPhase("title");
@@ -2848,6 +3300,8 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
         setGameState(parsed.state);
       if (parsed.ending)
         setEnded(true);
+      if (ambienceRef.current && parsed.ambience !== undefined)
+        ambienceRef.current.applyAmbience(parsed.ambience);
     } catch (e) {
       if (controller.signal.aborted)
         return;
@@ -2934,6 +3388,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
       return;
     skipReveal();
     setRecovery(null);
+    if (!metaMode) ensureAmbienceEngine();
     const previousInput = input;
     const previousInputHistory = inputHistory;
     const previousInputHistoryIndex = inputHistoryIndex;
@@ -3122,6 +3577,8 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
         if (gmParsed.raw) err.raw = gmParsed.raw;
         throw err;
       }
+      if (ambienceRef.current && gmParsed.ambience !== undefined)
+        ambienceRef.current.applyAmbience(gmParsed.ambience);
       const narratorSys = buildNarratorSystem(premise, language);
       const recentNarration = entries.filter((e) => e.type === "narration").slice(-4).map((e) => e.text).join("\n\n");
       const narratorPrompt = `[State]\n${serializeStatePublic(gmParsed.state)}\n\n[Narrator brief]\n${gmParsed.narrator_brief}\n\n[Recent narration]\n${recentNarration}`;
@@ -3308,6 +3765,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setInputHistoryIndex(-1);
     setMetaMode(false);
     setMetaMessages([]);
+    if (ambienceRef.current) ambienceRef.current.applyAmbience({ presence: 0 });
   };
   const loadSaveList = async () => {
     setSaveListLoading(true);
@@ -3590,7 +4048,10 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     saveBanner,
     sessionTokens,
     scrollRef,
-    textareaRef
+    textareaRef,
+    ambienceEnabled: ambienceLevel !== "off" && !ambienceUnavailable,
+    ambienceMuted,
+    onToggleAmbienceMute: () => setAmbienceMuted((m) => !m)
   }), showSaves && /* @__PURE__ */ React.createElement(SavesModal, {
     saves: saveList,
     totalBytes: savesTotalBytes,
@@ -3604,7 +4065,10 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     settings,
     onChange: updateSetting,
     onClose: () => setShowSettings(false),
-    osReducedMotion
+    osReducedMotion,
+    ambienceLevel,
+    ambienceUnavailable,
+    onChangeAmbience: setAmbienceLevel
   }), showLedger && premise && /* @__PURE__ */ React.createElement(LedgerModal, {
     premise,
     gameState,
@@ -3841,7 +4305,10 @@ function GameScreen({
   saveBanner,
   sessionTokens,
   scrollRef,
-  textareaRef
+  textareaRef,
+  ambienceEnabled,
+  ambienceMuted,
+  onToggleAmbienceMute
 }) {
   const lastEntry = entries[entries.length - 1];
   const showResolution = ended && lastEntry && lastEntry.type === "narration" && lastEntry.fullyRevealed && !metaMode;
@@ -3927,7 +4394,17 @@ function GameScreen({
     "aria-hidden": "true"
   }, "⚙"), /* @__PURE__ */ React.createElement("span", {
     className: "btn-label"
-  }, " READING")), /* @__PURE__ */ React.createElement("button", {
+  }, " READING")), ambienceEnabled && /* @__PURE__ */ React.createElement("button", {
+    onClick: onToggleAmbienceMute,
+    className: "icon-btn",
+    title: ambienceMuted ? "Unmute the ambience bed" : "Mute the ambience bed",
+    "aria-label": ambienceMuted ? "Unmute ambience" : "Mute ambience",
+    "aria-pressed": ambienceMuted ? "true" : "false"
+  }, /* @__PURE__ */ React.createElement("span", {
+    "aria-hidden": "true"
+  }, ambienceMuted ? "♪̸" : "♪"), /* @__PURE__ */ React.createElement("span", {
+    className: "btn-label"
+  }, ambienceMuted ? " MUTED" : " AMBIENT")), /* @__PURE__ */ React.createElement("button", {
     onClick: onRestart,
     className: "icon-btn icon-btn-danger",
     title: "Begin a new hour",
@@ -4676,7 +5153,7 @@ function EngineSection({ settings, onChange }) {
     onChange: handleFreeSelection
   }));
 }
-function SettingsModal({ settings, onChange, onClose, osReducedMotion }) {
+function SettingsModal({ settings, onChange, onClose, osReducedMotion, ambienceLevel, ambienceUnavailable, onChangeAmbience }) {
   return /* @__PURE__ */ React.createElement("div", {
     className: "modal-backdrop",
     onClick: onClose
@@ -4723,6 +5200,10 @@ function SettingsModal({ settings, onChange, onClose, osReducedMotion }) {
     description: "Let narration arrive word by word as the narrator writes it, instead of waiting for the whole passage. The opening scene always arrives whole.",
     value: settings.streamNarration,
     onChange: (v) => onChange("streamNarration", v)
+  }), /* @__PURE__ */ React.createElement(AmbienceRow, {
+    level: ambienceLevel,
+    unavailable: ambienceUnavailable,
+    onChange: onChangeAmbience
   }), /* @__PURE__ */ React.createElement("div", {
     className: "settings-toggle",
     style: { cursor: "default", opacity: 0.85 }
@@ -4755,6 +5236,54 @@ function SettingsModal({ settings, onChange, onClose, osReducedMotion }) {
     className: "icon-btn",
     style: { padding: "8px 18px" }
   }, "✕ DONE"))));
+}
+function AmbienceRow({ level, unavailable, onChange }) {
+  const options = [
+    { id: "off", label: "Off", hint: "Silence." },
+    { id: "subtle", label: "Subtle", hint: "Barely there." },
+    { id: "present", label: "Present", hint: "A felt room." }
+  ];
+  const description = unavailable
+    ? "Your browser would not open an audio context. The bed is unavailable."
+    : "A synthesised room tone — drone, noise, and texture — that thickens or thins with the scene. Default silence. Starts on your next move, never on page load.";
+  return /* @__PURE__ */ React.createElement("div", {
+    className: "settings-toggle",
+    style: { cursor: "default", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font",
+    style: {
+      color: "var(--cream-bright)",
+      letterSpacing: "0.18em",
+      fontSize: 11,
+      textTransform: "uppercase"
+    }
+  }, "Atmospheric audio"), /* @__PURE__ */ React.createElement("div", {
+    className: "body-font italic",
+    style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4 }
+  }, description)), /* @__PURE__ */ React.createElement("div", {
+    role: "radiogroup",
+    "aria-label": "Atmospheric audio intensity",
+    style: { display: "flex", gap: 6, flexShrink: 0 }
+  }, options.map((opt) => /* @__PURE__ */ React.createElement("button", {
+    key: opt.id,
+    type: "button",
+    role: "radio",
+    "aria-checked": level === opt.id ? "true" : "false",
+    disabled: unavailable && opt.id !== "off",
+    onClick: () => onChange(opt.id),
+    className: "icon-btn",
+    title: opt.hint,
+    style: {
+      padding: "6px 12px",
+      fontSize: 10,
+      letterSpacing: "0.2em",
+      borderColor: level === opt.id ? "rgba(212, 165, 116, 0.55)" : "rgba(232, 222, 197, 0.2)",
+      color: level === opt.id ? "var(--cream-bright)" : "var(--cream-dim)",
+      background: level === opt.id ? "rgba(212, 165, 116, 0.08)" : "transparent"
+    }
+  }, opt.label.toUpperCase()))));
 }
 function SettingsToggleRow({ id, label, description, value, onChange }) {
   return /* @__PURE__ */ React.createElement("button", {
