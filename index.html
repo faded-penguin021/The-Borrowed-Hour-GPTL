@@ -645,7 +645,7 @@ var PROVIDERS = {
       const body = {
         model,
         max_tokens: maxTokens,
-        system: sys,
+        system: [{ type: "text", text: sys, cache_control: { type: "ephemeral", ttl: "1h" } }],
         messages: normalizeClaudeMessages(msgs)
       };
       if (temperature !== undefined)
@@ -659,7 +659,8 @@ var PROVIDERS = {
         headers: {
           "Content-Type": "application/json",
           "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01"
+          "anthropic-version": "2023-06-01",
+          "anthropic-beta": "extended-cache-ttl-2025-04-11"
         },
         body
       };
