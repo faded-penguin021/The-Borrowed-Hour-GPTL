@@ -948,7 +948,8 @@ const GM_LOGIC_TOOL = {
           motion:   { type: "number", minimum: 0, maximum: 1, description: "still (0) to restless/turbulent (1)" },
           presence: { type: "number", minimum: 0, maximum: 1, description: "recede (0) to foreground (1); 0 silences this turn" },
           register: { type: "number", minimum: 0, maximum: 1, description: "low/grounded (0) to high/elevated (1) — the vertical seat of the room. Stone basement low; rooftop or open sky high." },
-          unease:   { type: "number", minimum: 0, maximum: 1, description: "consonant/right (0) to inharmonic/wrong (1) — when the air itself feels off-key. Reserve for scenes that should read as uncanny." }
+          unease:   { type: "number", minimum: 0, maximum: 1, description: "consonant/right (0) to inharmonic/wrong (1) — when the air itself feels off-key. Reserve for scenes that should read as uncanny." },
+          glimmer:  { type: "number", minimum: 0, maximum: 1, description: "still air (0) to pinged with small digital tones and glitches (1) — sparse 8-bit-like notes pitched to the room's harmonics. Suggests electronics, half-heard radios, things humming half-awake. Glitches and stutters appear when unease is also high. Reserve for scenes with electrical, mechanical, or dream-tech presence; keep it low or zero for natural rooms." }
         }
       }
     },
@@ -984,7 +985,7 @@ var pickPhrase = (pool) => pool[Math.floor(Math.random() * pool.length)];
  */
 var AMBIENCE_INTENSITY_GAIN = { off: 0, subtle: 0.045, present: 0.11 };
 var AMBIENCE_HARD_CEILING = 0.16;
-var AMBIENCE_FIELDS = ["warmth", "density", "motion", "presence", "register", "unease"];
+var AMBIENCE_FIELDS = ["warmth", "density", "motion", "presence", "register", "unease", "glimmer"];
 var sanitizeAmbienceVector = (raw) => {
   if (raw === null) return null;
   if (!raw || typeof raw !== "object") return undefined;
@@ -1007,7 +1008,7 @@ class AmbienceEngine {
     this.intensity = "off";
     this.muted = false;
     this.destroyed = false;
-    this.target = { warmth: 0.5, density: 0.4, motion: 0.2, presence: 0.3, register: 0.5, unease: 0 };
+    this.target = { warmth: 0.5, density: 0.4, motion: 0.2, presence: 0.3, register: 0.5, unease: 0, glimmer: 0 };
     this.startTime = this.ctx.currentTime;
     this.comfortGain = 1.0;
 
@@ -1018,6 +1019,7 @@ class AmbienceEngine {
     this.drone = this._buildDrone(this._registerToBase(this.target.register));
     this.bed = this._buildNoiseBed();
     this.texture = this._buildTexture();
+    this.glimmer = this._buildGlimmer();
 
     this._applyVector(this.target, 0.05);
 
@@ -1190,6 +1192,82 @@ class AmbienceEngine {
     src.start(now);
     src.stop(now + duration + 0.05);
   }
+  _buildGlimmer() {
+    const ctx = this.ctx;
+    const out = ctx.createGain();
+    out.gain.value = 0;
+    // Lowpass softens the square wave's harshness — without it, on phone
+    // speakers the pings would read as harsh clicks rather than tones.
+    const lpf = ctx.createBiquadFilter();
+    lpf.type = "lowpass";
+    lpf.frequency.value = 2400;
+    lpf.Q.value = 0.6;
+    lpf.connect(out);
+    out.connect(this.master);
+    return { out, lpf, scheduled: 0 };
+  }
+  _scheduleNextGlimmer() {
+    if (this.destroyed) return;
+    if (!this.glimmer) return;
+    const glimmer = this.target.glimmer ?? 0;
+    const presence = this.target.presence ?? 0;
+    if (glimmer < 0.1 || this.intensity === "off" || this.muted || presence < 0.12) {
+      this.glimmer.scheduled = setTimeout(() => this._scheduleNextGlimmer(), 6000);
+      return;
+    }
+    // Mean interval: ~13s at glimmer=0.1, ~2s at glimmer=1.0.
+    const meanInterval = Math.max(2, 14 - glimmer * 12);
+    const wait = -Math.log(1 - Math.random() * 0.99) * meanInterval;
+    this.glimmer.scheduled = setTimeout(() => {
+      this._fireGlimmer();
+      this._scheduleNextGlimmer();
+    }, Math.min(30000, wait * 1000));
+  }
+  _fireGlimmer() {
+    if (this.destroyed) return;
+    if (!this.ctx || this.ctx.state !== "running") return;
+    if ((this.target.presence ?? 0) < 0.12) return;
+    const base = this._registerToBase(this.target.register ?? 0.5);
+    // Harmonically related intervals — these sit above the drone without
+    // clashing. 3×, 4×, 6×, 8× are octaves and fifths; 5× and 12× lean
+    // toward major-third territory.
+    const intervals = [3, 4, 5, 6, 8, 12];
+    const interval = intervals[Math.floor(Math.random() * intervals.length)];
+    const unease = this.target.unease ?? 0;
+    // When unease is high, occasionally detune the ping a small amount so
+    // the harmonic relation feels slightly wrong — a half-step on the
+    // log scale equals 2^(1/24) ≈ 1.029, so this stays under that.
+    const detune = unease > 0.3 && Math.random() < unease ? (Math.random() - 0.5) * 0.03 : 0;
+    const freq = base * interval * (1 + detune);
+    // Glitch: occasionally retrigger 2–3 short stutters at the same pitch.
+    // Probability scales with unease; even at unease=0 there's a small chance.
+    const glitchProb = 0.05 + unease * 0.35;
+    const glitch = Math.random() < glitchProb;
+    const retriggers = glitch ? 2 + Math.floor(Math.random() * 2) : 1;
+    const releaseLong = 0.22 + Math.random() * 0.18;
+    const releaseShort = 0.06 + Math.random() * 0.04;
+    const now = this.ctx.currentTime;
+    for (let i = 0; i < retriggers; i++) {
+      const startAt = now + i * (0.04 + Math.random() * 0.03);
+      const release = glitch ? releaseShort : releaseLong;
+      this._playGlimmerNote(freq, startAt, release, glitch);
+    }
+  }
+  _playGlimmerNote(freq, startAt, release, glitch) {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    osc.type = "square";
+    osc.frequency.value = freq;
+    const g = ctx.createGain();
+    const peak = glitch ? 0.05 : 0.035 + Math.random() * 0.02;
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(peak, startAt + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0008, startAt + release);
+    osc.connect(g);
+    g.connect(this.glimmer.lpf);
+    osc.start(startAt);
+    osc.stop(startAt + release + 0.05);
+  }
   _doRandomWalk() {
     if (this.destroyed || !this.ctx) return;
     const t = this.ctx.currentTime;
@@ -1271,6 +1349,10 @@ class AmbienceEngine {
     const textureGain = motion > 0.4 ? 0.25 + (motion - 0.4) * 0.45 : 0;
     this.texture.out.gain.setTargetAtTime(textureGain, t, TC);
 
+    const glimmer = this.target.glimmer ?? 0;
+    const glimmerOutGain = glimmer > 0.05 ? 0.4 + glimmer * 0.5 : 0;
+    this.glimmer.out.gain.setTargetAtTime(glimmerOutGain, t, TC);
+
     this._applyMaster();
   }
   setIntensity(level) {
@@ -1292,6 +1374,10 @@ class AmbienceEngine {
       if (!this.textureLoopArmed) {
         this.textureLoopArmed = true;
         this._scheduleNextTextureBurst();
+      }
+      if (!this.glimmerLoopArmed) {
+        this.glimmerLoopArmed = true;
+        this._scheduleNextGlimmer();
       }
       if (prev === "off") this.startTime = this.ctx.currentTime;
       this._applyMaster();
@@ -1324,6 +1410,7 @@ class AmbienceEngine {
     clearInterval(this.walkInterval);
     clearInterval(this.comfortInterval);
     if (this.texture && this.texture.scheduled) clearTimeout(this.texture.scheduled);
+    if (this.glimmer && this.glimmer.scheduled) clearTimeout(this.glimmer.scheduled);
     if (this.ctx) {
       try { this.ctx.close(); } catch {}
     }
@@ -1453,7 +1540,8 @@ These two checks are the scratchpad's job; do them here, in writing, every turn.
           motion:   { type: "number", minimum: 0, maximum: 1, description: "still (0) to restless/turbulent (1)" },
           presence: { type: "number", minimum: 0, maximum: 1, description: "recede (0) to foreground (1); 0 silences this turn" },
           register: { type: "number", minimum: 0, maximum: 1, description: "low/grounded (0) to high/elevated (1) — the vertical seat of the room. Stone basement low; rooftop or open sky high." },
-          unease:   { type: "number", minimum: 0, maximum: 1, description: "consonant/right (0) to inharmonic/wrong (1) — when the air itself feels off-key. Reserve for scenes that should read as uncanny." }
+          unease:   { type: "number", minimum: 0, maximum: 1, description: "consonant/right (0) to inharmonic/wrong (1) — when the air itself feels off-key. Reserve for scenes that should read as uncanny." },
+          glimmer:  { type: "number", minimum: 0, maximum: 1, description: "still air (0) to pinged with small digital tones and glitches (1) — sparse 8-bit-like notes pitched to the room's harmonics. Suggests electronics, half-heard radios, things humming half-awake. Glitches and stutters appear when unease is also high. Reserve for scenes with electrical, mechanical, or dream-tech presence; keep it low or zero for natural rooms." }
         }
       }
     },
@@ -1562,13 +1650,14 @@ The hidden_state field is where ALL of the above belong. Items there stay there.
 AMBIENCE — OPTIONAL SCENE TEXTURE:
 You may optionally emit an \`ambience\` vector describing the scene's texture — not its sound effects. Think of it as the difference between a stone vault (low warmth, high density, low motion) and a windy clifftop at dusk (mid warmth, low density, high motion). Omit fields you do not want to change. Set \`presence: 0\` when the moment calls for silence — a revelation, a held breath, a verdict.
 
-The six fields are all numbers in [0, 1]:
+The seven fields are all numbers in [0, 1]:
 - warmth: low/dark (0) to warm/bright (1). Think filter colour: stone, iron, basement at one end; afternoon kitchen, lamplit room at the other.
 - density: sparse/airy (0) to thick/close (1). Think how much air is in the room; an empty platform versus a packed festival tent.
 - motion: still (0) to restless/turbulent (1). Think air movement, crowd movement, weather; a sealed library versus a wind-scoured ridge.
 - presence: recede (0) to foreground (1). The mix level of the texture in the player's ear. Drop it for stillness; lift it briefly when the world itself is loud.
 - register: low/grounded (0) to high/elevated (1). The vertical seat of the room — where the sound sits. A cellar, a buried tunnel, a deep nave sit low; a rooftop, a clifftop, an open sky sit high. Use this to LIFT or DROP between scenes that share other qualities.
 - unease: right/consonant (0) to wrong/inharmonic (1). This is the axis for the UNCANNY — when the air itself feels off-key. Reserve it for scenes that should read as strange rather than merely loud or close. A normal kitchen is 0. A carnival big top where a dream is leaking is 0.5 or higher. Use it sparingly; it loses meaning if every scene is 0.6.
+- glimmer: still air (0) to pinged with small digital tones (1). Sparse, 8-bit-flavoured notes that suggest electronics, distant radios, things humming half-awake. Glitches and stutters appear automatically when both glimmer and unease are raised. This axis is for scenes where ELECTRICITY OR MECHANISM is part of the texture: the 8:11's PA system, the Vermillion Thread's elevator panel, a flickering streetlamp, a coin-op carousel half-broken. Most natural settings (a forest, a feast hall, a kitchen) should be at 0. Don't reach for it just to add interest — only when the fiction actually has something humming.
 
 This is texture, not sound design. Do NOT name instruments or sounds ("low drone," "violin pad," "footsteps"). Reason about the scene — what the air is doing, how the space holds, where it sits, whether it feels right — and pick numbers. Omit the field entirely if you don't want any change this turn.
 
