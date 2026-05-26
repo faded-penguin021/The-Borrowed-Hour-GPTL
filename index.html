@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>The Borrowed Hour</title>
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com https://js.puter.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.openai.com https://generativelanguage.googleapis.com https://api.anthropic.com https://api.deepseek.com https://dashscope.aliyuncs.com https://api.moonshot.cn https://qianfan.baidubce.com https://api.mistral.ai https://api.groq.com https://openrouter.ai https://api.cerebras.ai https://texttospeech.googleapis.com https://*.tts.speech.microsoft.com https://api.elevenlabs.io https://*.puter.com http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:*; img-src 'self' data:; media-src 'self' blob: data: https://*.puter.com; base-uri 'self'; form-action 'none'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com https://js.puter.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.openai.com https://generativelanguage.googleapis.com https://api.anthropic.com https://api.deepseek.com https://dashscope.aliyuncs.com https://api.moonshot.cn https://qianfan.baidubce.com https://api.mistral.ai https://api.groq.com https://openrouter.ai https://api.cerebras.ai https://api.elevenlabs.io https://*.puter.com http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:*; img-src 'self' data:; media-src 'self' blob: data: https://*.puter.com; base-uri 'self'; form-action 'none'" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin="anonymous" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
   <script crossorigin="anonymous" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
@@ -778,490 +778,6 @@ var PROVIDERS = {
 };
 var providerSupportsToolUse = (id) => !!PROVIDERS[id]?.toolUse;
 var TOOL_USE_PROVIDER_ORDER = PROVIDER_ORDER.filter(providerSupportsToolUse);
-
-// ---- Text-to-Speech ----------------------------------------------------
-//
-// Narration providers. Each has a `synthesize(text, opts)` returning a
-// player object with { play(), stop(), onended, onerror, isPlaying() }.
-// The browser fallback uses the Web Speech API (no key). Puter.js needs a
-// one-time Puter sign-in but is otherwise free. Google/Azure/ElevenLabs/
-// OpenAI use the same key-storage scheme as the LLM providers.
-
-var PUTER_VOICES = [
-  { id: "Joanna",  label: "Joanna · English (US), female",       lang: "en-US" },
-  { id: "Matthew", label: "Matthew · English (US), male",        lang: "en-US" },
-  { id: "Salli",   label: "Salli · English (US), female",        lang: "en-US" },
-  { id: "Kevin",   label: "Kevin · English (US), male",          lang: "en-US" },
-  { id: "Amy",     label: "Amy · English (UK), female",          lang: "en-GB" },
-  { id: "Emma",    label: "Emma · English (UK), female",         lang: "en-GB" },
-  { id: "Brian",   label: "Brian · English (UK), male",          lang: "en-GB" },
-  { id: "Lupe",    label: "Lupe · Spanish (US), female",         lang: "es-US" },
-  { id: "Lucia",   label: "Lucía · Spanish (Spain), female",     lang: "es-ES" },
-  { id: "Celine",  label: "Céline · French, female",             lang: "fr-FR" },
-  { id: "Mathieu", label: "Mathieu · French, male",              lang: "fr-FR" },
-  { id: "Vicki",   label: "Vicki · German, female",              lang: "de-DE" },
-  { id: "Hans",    label: "Hans · German, male",                 lang: "de-DE" },
-  { id: "Carla",   label: "Carla · Italian, female",             lang: "it-IT" },
-  { id: "Giorgio", label: "Giorgio · Italian, male",             lang: "it-IT" },
-  { id: "Camila",  label: "Camila · Portuguese (BR), female",    lang: "pt-BR" },
-  { id: "Ricardo", label: "Ricardo · Portuguese (BR), male",     lang: "pt-BR" },
-  { id: "Lotte",   label: "Lotte · Dutch, female",               lang: "nl-NL" },
-  { id: "Ewa",     label: "Ewa · Polish, female",                lang: "pl-PL" },
-  { id: "Jacek",   label: "Jacek · Polish, male",                lang: "pl-PL" },
-  { id: "Tatyana", label: "Tatyana · Russian, female",           lang: "ru-RU" },
-  { id: "Maxim",   label: "Maxim · Russian, male",               lang: "ru-RU" },
-  { id: "Mizuki",  label: "Mizuki · Japanese, female",           lang: "ja-JP" },
-  { id: "Takumi",  label: "Takumi · Japanese, male",             lang: "ja-JP" },
-  { id: "Seoyeon", label: "Seoyeon · Korean, female",            lang: "ko-KR" },
-  { id: "Zhiyu",   label: "Zhiyu · Chinese (Mandarin), female",  lang: "cmn-CN" }
-];
-
-var GOOGLE_TTS_VOICES = [
-  { id: "en-US-Neural2-C", label: "Neural2 · English (US), female (C)",   lang: "en-US" },
-  { id: "en-US-Neural2-D", label: "Neural2 · English (US), male (D)",     lang: "en-US" },
-  { id: "en-US-Neural2-F", label: "Neural2 · English (US), female (F)",   lang: "en-US" },
-  { id: "en-US-Neural2-J", label: "Neural2 · English (US), male (J)",     lang: "en-US" },
-  { id: "en-GB-Neural2-A", label: "Neural2 · English (UK), female (A)",   lang: "en-GB" },
-  { id: "en-GB-Neural2-B", label: "Neural2 · English (UK), male (B)",     lang: "en-GB" },
-  { id: "en-GB-Neural2-F", label: "Neural2 · English (UK), female (F)",   lang: "en-GB" },
-  { id: "es-ES-Neural2-A", label: "Neural2 · Spanish (Spain), female",    lang: "es-ES" },
-  { id: "es-ES-Neural2-B", label: "Neural2 · Spanish (Spain), male",      lang: "es-ES" },
-  { id: "fr-FR-Neural2-A", label: "Neural2 · French, female",             lang: "fr-FR" },
-  { id: "fr-FR-Neural2-B", label: "Neural2 · French, male",               lang: "fr-FR" },
-  { id: "de-DE-Neural2-A", label: "Neural2 · German, female",             lang: "de-DE" },
-  { id: "de-DE-Neural2-B", label: "Neural2 · German, male",               lang: "de-DE" },
-  { id: "it-IT-Neural2-A", label: "Neural2 · Italian, female",            lang: "it-IT" },
-  { id: "it-IT-Neural2-C", label: "Neural2 · Italian, male",              lang: "it-IT" },
-  { id: "pt-BR-Neural2-A", label: "Neural2 · Portuguese (BR), female",    lang: "pt-BR" },
-  { id: "pt-BR-Neural2-B", label: "Neural2 · Portuguese (BR), male",      lang: "pt-BR" },
-  { id: "nl-NL-Wavenet-B", label: "Wavenet · Dutch, male",                lang: "nl-NL" },
-  { id: "nl-NL-Wavenet-D", label: "Wavenet · Dutch, female",              lang: "nl-NL" },
-  { id: "pl-PL-Wavenet-A", label: "Wavenet · Polish, female",             lang: "pl-PL" },
-  { id: "pl-PL-Wavenet-B", label: "Wavenet · Polish, male",               lang: "pl-PL" },
-  { id: "ru-RU-Wavenet-A", label: "Wavenet · Russian, female",            lang: "ru-RU" },
-  { id: "ru-RU-Wavenet-D", label: "Wavenet · Russian, male",              lang: "ru-RU" },
-  { id: "ja-JP-Neural2-B", label: "Neural2 · Japanese, female",           lang: "ja-JP" },
-  { id: "ja-JP-Neural2-C", label: "Neural2 · Japanese, male (C)",         lang: "ja-JP" },
-  { id: "ja-JP-Neural2-D", label: "Neural2 · Japanese, male (D)",         lang: "ja-JP" },
-  { id: "ko-KR-Neural2-A", label: "Neural2 · Korean, female",             lang: "ko-KR" },
-  { id: "ko-KR-Neural2-C", label: "Neural2 · Korean, male",               lang: "ko-KR" },
-  { id: "cmn-CN-Wavenet-A",label: "Wavenet · Mandarin, female",           lang: "cmn-CN" },
-  { id: "cmn-CN-Wavenet-B",label: "Wavenet · Mandarin, male",             lang: "cmn-CN" }
-];
-
-var AZURE_TTS_VOICES = [
-  { id: "en-US-JennyNeural",     label: "Jenny · English (US), female",      lang: "en-US" },
-  { id: "en-US-AriaNeural",      label: "Aria · English (US), female",       lang: "en-US" },
-  { id: "en-US-GuyNeural",       label: "Guy · English (US), male",          lang: "en-US" },
-  { id: "en-US-DavisNeural",     label: "Davis · English (US), male",        lang: "en-US" },
-  { id: "en-US-AmberNeural",     label: "Amber · English (US), female",      lang: "en-US" },
-  { id: "en-GB-LibbyNeural",     label: "Libby · English (UK), female",      lang: "en-GB" },
-  { id: "en-GB-RyanNeural",      label: "Ryan · English (UK), male",         lang: "en-GB" },
-  { id: "en-GB-SoniaNeural",     label: "Sonia · English (UK), female",      lang: "en-GB" },
-  { id: "es-ES-ElviraNeural",    label: "Elvira · Spanish (Spain), female",  lang: "es-ES" },
-  { id: "es-ES-AlvaroNeural",    label: "Álvaro · Spanish (Spain), male",    lang: "es-ES" },
-  { id: "fr-FR-DeniseNeural",    label: "Denise · French, female",           lang: "fr-FR" },
-  { id: "fr-FR-HenriNeural",     label: "Henri · French, male",              lang: "fr-FR" },
-  { id: "de-DE-KatjaNeural",     label: "Katja · German, female",            lang: "de-DE" },
-  { id: "de-DE-ConradNeural",    label: "Conrad · German, male",             lang: "de-DE" },
-  { id: "it-IT-ElsaNeural",      label: "Elsa · Italian, female",            lang: "it-IT" },
-  { id: "it-IT-DiegoNeural",     label: "Diego · Italian, male",             lang: "it-IT" },
-  { id: "pt-BR-FranciscaNeural", label: "Francisca · Portuguese (BR), female",lang: "pt-BR" },
-  { id: "pt-BR-AntonioNeural",   label: "Antonio · Portuguese (BR), male",   lang: "pt-BR" },
-  { id: "nl-NL-ColetteNeural",   label: "Colette · Dutch, female",           lang: "nl-NL" },
-  { id: "nl-NL-MaartenNeural",   label: "Maarten · Dutch, male",             lang: "nl-NL" },
-  { id: "pl-PL-ZofiaNeural",     label: "Zofia · Polish, female",            lang: "pl-PL" },
-  { id: "pl-PL-MarekNeural",     label: "Marek · Polish, male",              lang: "pl-PL" },
-  { id: "ru-RU-SvetlanaNeural",  label: "Svetlana · Russian, female",        lang: "ru-RU" },
-  { id: "ru-RU-DmitryNeural",    label: "Dmitry · Russian, male",            lang: "ru-RU" },
-  { id: "ja-JP-NanamiNeural",    label: "Nanami · Japanese, female",         lang: "ja-JP" },
-  { id: "ja-JP-KeitaNeural",     label: "Keita · Japanese, male",            lang: "ja-JP" },
-  { id: "ko-KR-SunHiNeural",     label: "Sun-Hi · Korean, female",           lang: "ko-KR" },
-  { id: "ko-KR-InJoonNeural",    label: "InJoon · Korean, male",             lang: "ko-KR" },
-  { id: "zh-CN-XiaoxiaoNeural",  label: "Xiaoxiao · Mandarin, female",       lang: "zh-CN" },
-  { id: "zh-CN-YunxiNeural",     label: "Yunxi · Mandarin, male",            lang: "zh-CN" }
-];
-
-var ELEVENLABS_VOICES = [
-  { id: "21m00Tcm4TlvDq8ikWAM", label: "Rachel · calm narrator, female",   lang: "en" },
-  { id: "AZnzlk1XvdvUeBnXmlld", label: "Domi · strong narrator, female",   lang: "en" },
-  { id: "EXAVITQu4vr4xnSDxMaL", label: "Sarah · soft narrator, female",    lang: "en" },
-  { id: "ErXwobaYiN019PkySvjV", label: "Antoni · well-rounded, male",      lang: "en" },
-  { id: "MF3mGyEYCl7XYWbV9V6O", label: "Elli · emotional, female",         lang: "en" },
-  { id: "TxGEqnHWrfWFTfGW9XjX", label: "Josh · deep narrator, male",       lang: "en" },
-  { id: "VR6AewLTigWG4xSOukaG", label: "Arnold · crisp narrator, male",    lang: "en" },
-  { id: "pNInz6obpgDQGcFmaJgB", label: "Adam · deep narrator, male",       lang: "en" },
-  { id: "yoZ06aMxZJJ28mfd3POQ", label: "Sam · raspy, male",                lang: "en" }
-];
-
-var OPENAI_TTS_VOICES = [
-  { id: "alloy",   label: "Alloy · neutral",         lang: "" },
-  { id: "ash",     label: "Ash · warm male",         lang: "" },
-  { id: "ballad",  label: "Ballad · soft male",      lang: "" },
-  { id: "coral",   label: "Coral · friendly female", lang: "" },
-  { id: "echo",    label: "Echo · clear male",       lang: "" },
-  { id: "fable",   label: "Fable · expressive",      lang: "" },
-  { id: "nova",    label: "Nova · bright female",    lang: "" },
-  { id: "onyx",    label: "Onyx · deep male",        lang: "" },
-  { id: "sage",    label: "Sage · calm female",      lang: "" },
-  { id: "shimmer", label: "Shimmer · gentle female", lang: "" }
-];
-
-var TTS_PROVIDER_META = {
-  browser: {
-    name: "Browser (Web Speech)",
-    blurb: "Uses your operating system's voices. Free and offline; quality varies by platform.",
-    needsKey: false,
-    needsRegion: false,
-    voices: () => browserVoiceList()
-  },
-  puter: {
-    name: "Puter.js",
-    blurb: "Free hosted neural voices via Puter. The first play opens a one-time Puter sign-in; after that, narration plays without a key.",
-    needsKey: false,
-    needsRegion: false,
-    voices: () => PUTER_VOICES
-  },
-  google: {
-    name: "Google Cloud TTS",
-    blurb: "Most generous free tier: ~1M characters/month Neural2 voices and 4M characters/month Standard voices. Get a key at console.cloud.google.com (enable the Text-to-Speech API).",
-    needsKey: true,
-    needsRegion: false,
-    keyStorage: "borrowed:googletts_api_key:v1",
-    windowKey: "GOOGLE_TTS_API_KEY",
-    metaName: "google-tts-api-key",
-    voices: () => GOOGLE_TTS_VOICES
-  },
-  azure: {
-    name: "Microsoft Azure",
-    blurb: "500K characters/month free Neural voices for the first year of a free Azure account. Needs both a key and the region you created the Speech resource in (e.g. eastus).",
-    needsKey: true,
-    needsRegion: true,
-    keyStorage: "borrowed:azuretts_api_key:v1",
-    regionStorage: "borrowed:azuretts_region:v1",
-    windowKey: "AZURE_TTS_API_KEY",
-    metaName: "azure-tts-api-key",
-    defaultRegion: "eastus",
-    voices: () => AZURE_TTS_VOICES
-  },
-  elevenlabs: {
-    name: "ElevenLabs",
-    blurb: "Highest naturalness but a tight 10K characters/month free tier. Get a key at elevenlabs.io.",
-    needsKey: true,
-    needsRegion: false,
-    keyStorage: "borrowed:elevenlabs_api_key:v1",
-    windowKey: "ELEVENLABS_API_KEY",
-    metaName: "elevenlabs-api-key",
-    voices: () => ELEVENLABS_VOICES
-  },
-  openai: {
-    name: "OpenAI TTS",
-    blurb: "Paid only (about $0.015 per 1K characters with tts-1). Reuses your saved OpenAI API key.",
-    needsKey: true,
-    needsRegion: false,
-    keyStorage: PROVIDER_META.openai.keyStorage,
-    windowKey: PROVIDER_META.openai.windowKey,
-    metaName: PROVIDER_META.openai.metaName,
-    voices: () => OPENAI_TTS_VOICES
-  }
-};
-
-var TTS_PROVIDER_ORDER = ["browser", "puter", "google", "azure", "elevenlabs", "openai"];
-
-var DEFAULT_VOICE_BY_PROVIDER = {
-  browser: "",
-  puter: "Joanna",
-  google: "en-US-Neural2-C",
-  azure: "en-US-JennyNeural",
-  elevenlabs: "21m00Tcm4TlvDq8ikWAM",
-  openai: "alloy"
-};
-
-function browserVoiceList() {
-  if (typeof window === "undefined" || !window.speechSynthesis) return [];
-  const voices = window.speechSynthesis.getVoices() || [];
-  return voices.map((v) => ({
-    id: `${v.name}::${v.lang}`,
-    label: `${v.name} · ${v.lang}${v.default ? " · default" : ""}`,
-    lang: v.lang
-  }));
-}
-
-function escapeXML(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;"
-  }[c]));
-}
-
-async function getTTSKey(providerId) {
-  const meta = TTS_PROVIDER_META[providerId];
-  if (!meta || !meta.needsKey) return "";
-  const injected = window[meta.windowKey] || document.querySelector(`meta[name="${meta.metaName}"]`)?.content;
-  if (injected) return injected.trim();
-  const stored = localStorage.getItem(meta.keyStorage);
-  if (!stored)
-    throw new BorrowedError("The narrator falls silent.", `No ${meta.name} API key is saved. Open ⚙ Reading → API keys and paste your narration key there.`);
-  if (!stored.startsWith(ENC_PREFIX)) return stored.trim();
-  if (!window.__sessionPassphrase)
-    window.__sessionPassphrase = prompt("Enter your session passphrase to unlock API keys:");
-  if (!window.__sessionPassphrase)
-    throw new BorrowedError("The narrator falls silent.", "A session passphrase is required to unlock your API key.");
-  try {
-    return (await decryptSecret(stored, window.__sessionPassphrase)).trim();
-  } catch {
-    window.__sessionPassphrase = null;
-    throw new BorrowedError("The narrator falls silent.", "Could not unlock the API key — wrong passphrase.");
-  }
-}
-
-function getTTSRegion(providerId) {
-  const meta = TTS_PROVIDER_META[providerId];
-  if (!meta?.needsRegion) return "";
-  return (localStorage.getItem(meta.regionStorage) || meta.defaultRegion || "").trim();
-}
-
-function setTTSRegion(providerId, region) {
-  const meta = TTS_PROVIDER_META[providerId];
-  if (!meta?.needsRegion) return;
-  const trimmed = (region || "").trim();
-  if (trimmed) localStorage.setItem(meta.regionStorage, trimmed);
-  else localStorage.removeItem(meta.regionStorage);
-}
-
-// Common player wrapping an HTMLAudioElement plus optional blob URL revocation.
-class AudioElementPlayer {
-  constructor(audio, { objectURL = null } = {}) {
-    this.audio = audio instanceof HTMLMediaElement ? audio : new Audio(audio);
-    this.objectURL = objectURL;
-    this.onended = null;
-    this.onerror = null;
-    this._cleaned = false;
-    this.audio.addEventListener("ended", () => {
-      this._cleanup();
-      this.onended?.();
-    });
-    this.audio.addEventListener("error", (e) => {
-      this._cleanup();
-      this.onerror?.(e);
-    });
-  }
-  _cleanup() {
-    if (this._cleaned) return;
-    this._cleaned = true;
-    if (this.objectURL) {
-      try { URL.revokeObjectURL(this.objectURL); } catch {}
-    }
-  }
-  async play() {
-    try { await this.audio.play(); } catch (e) {
-      this._cleanup();
-      throw e;
-    }
-  }
-  stop() {
-    try { this.audio.pause(); } catch {}
-    try { this.audio.currentTime = 0; } catch {}
-    this._cleanup();
-  }
-  isPlaying() { return this.audio && !this.audio.paused && !this.audio.ended; }
-}
-
-class BrowserTTSPlayer {
-  constructor(text, voiceId, rate) {
-    this.utter = new SpeechSynthesisUtterance(text);
-    if (typeof rate === "number" && rate > 0) this.utter.rate = rate;
-    if (voiceId) {
-      const [name, lang] = String(voiceId).split("::");
-      const voices = window.speechSynthesis?.getVoices() || [];
-      const exact = voices.find((v) => v.name === name && v.lang === lang);
-      const byName = exact || voices.find((v) => v.name === name);
-      if (byName) this.utter.voice = byName;
-      else if (lang) this.utter.lang = lang;
-    }
-    this.onended = null;
-    this.onerror = null;
-    this._stopped = false;
-    this.utter.addEventListener("end", () => { if (!this._stopped) this.onended?.(); });
-    this.utter.addEventListener("error", (e) => { if (!this._stopped) this.onerror?.(e); });
-  }
-  async play() {
-    if (!window.speechSynthesis) throw new Error("Web Speech API unavailable");
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(this.utter);
-  }
-  stop() {
-    this._stopped = true;
-    try { window.speechSynthesis.cancel(); } catch {}
-  }
-  isPlaying() { return !this._stopped && !!window.speechSynthesis?.speaking; }
-}
-
-var __puterPromise = null;
-function loadPuter() {
-  if (typeof window === "undefined") return Promise.reject(new Error("No window"));
-  if (window.puter) return Promise.resolve(window.puter);
-  if (__puterPromise) return __puterPromise;
-  __puterPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-puter="1"]');
-    if (existing) {
-      existing.addEventListener("load", () => window.puter ? resolve(window.puter) : reject(new Error("Puter.js loaded but window.puter missing.")));
-      existing.addEventListener("error", () => reject(new Error("Failed to load Puter.js")));
-      return;
-    }
-    const s = document.createElement("script");
-    s.src = "https://js.puter.com/v2/";
-    s.async = true;
-    s.dataset.puter = "1";
-    s.onload = () => window.puter ? resolve(window.puter) : reject(new Error("Puter.js loaded but window.puter missing."));
-    s.onerror = () => { __puterPromise = null; reject(new Error("Failed to load Puter.js — check your network or CSP.")); };
-    document.head.appendChild(s);
-  });
-  return __puterPromise;
-}
-
-var TTS_PROVIDERS = {
-  browser: {
-    async synthesize(text, opts) {
-      if (!window.speechSynthesis)
-        throw new BorrowedError("The narrator falls silent.", "This browser has no Web Speech API.");
-      return new BrowserTTSPlayer(text, opts.voice, opts.rate || 1);
-    }
-  },
-  puter: {
-    async synthesize(text, opts) {
-      let puter;
-      try { puter = await loadPuter(); } catch (e) {
-        throw new BorrowedError("The narrator falls silent.", e?.message || "Could not load Puter.js.");
-      }
-      if (!puter?.ai?.txt2speech)
-        throw new BorrowedError("The narrator falls silent.", "Puter.js loaded but txt2speech is unavailable.");
-      const voice = opts.voice || "Joanna";
-      let audio;
-      try {
-        audio = await puter.ai.txt2speech(text, { voice, engine: "neural" });
-      } catch (e) {
-        // Some accounts/voices fail neural; fall back to standard.
-        try {
-          audio = await puter.ai.txt2speech(text, { voice });
-        } catch (e2) {
-          throw new BorrowedError("The narrator falls silent.", `Puter TTS error: ${e2?.message || e?.message || "unknown"}`);
-        }
-      }
-      if (!audio || typeof audio.play !== "function")
-        throw new BorrowedError("The narrator falls silent.", "Puter TTS returned no playable audio.");
-      return new AudioElementPlayer(audio);
-    }
-  },
-  google: {
-    async synthesize(text, opts) {
-      const apiKey = await getTTSKey("google");
-      const voice = opts.voice || DEFAULT_VOICE_BY_PROVIDER.google;
-      const langCode = voice.split("-").slice(0, 2).join("-");
-      const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(apiKey)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: opts.signal,
-        body: JSON.stringify({
-          input: { text },
-          voice: { languageCode: langCode, name: voice },
-          audioConfig: { audioEncoding: "MP3", speakingRate: opts.rate || 1.0 }
-        })
-      });
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        const msg = extractApiErrorMessage(body) || `HTTP ${res.status}`;
-        throw new BorrowedError("The narrator falls silent.", `Google TTS error: ${msg}`);
-      }
-      const data = await res.json();
-      if (!data.audioContent)
-        throw new BorrowedError("The narrator falls silent.", "Google TTS returned no audio content.");
-      const bin = atob(data.audioContent);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      const blob = new Blob([bytes], { type: "audio/mpeg" });
-      const url = URL.createObjectURL(blob);
-      return new AudioElementPlayer(url, { objectURL: url });
-    }
-  },
-  azure: {
-    async synthesize(text, opts) {
-      const apiKey = await getTTSKey("azure");
-      const region = getTTSRegion("azure") || "eastus";
-      const voice = opts.voice || DEFAULT_VOICE_BY_PROVIDER.azure;
-      const langCode = voice.split("-").slice(0, 2).join("-");
-      const ssml = `<speak version="1.0" xml:lang="${langCode}"><voice name="${voice}"><prosody rate="${(opts.rate || 1).toFixed(2)}">${escapeXML(text)}</prosody></voice></speak>`;
-      const res = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
-        method: "POST",
-        headers: {
-          "Ocp-Apim-Subscription-Key": apiKey,
-          "Content-Type": "application/ssml+xml",
-          "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3"
-        },
-        signal: opts.signal,
-        body: ssml
-      });
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        const msg = extractApiErrorMessage(body) || `HTTP ${res.status}`;
-        throw new BorrowedError("The narrator falls silent.", `Azure TTS error: ${msg}`);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      return new AudioElementPlayer(url, { objectURL: url });
-    }
-  },
-  elevenlabs: {
-    async synthesize(text, opts) {
-      const apiKey = await getTTSKey("elevenlabs");
-      const voiceId = opts.voice || DEFAULT_VOICE_BY_PROVIDER.elevenlabs;
-      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "xi-api-key": apiKey, "Accept": "audio/mpeg" },
-        signal: opts.signal,
-        body: JSON.stringify({
-          text,
-          model_id: "eleven_multilingual_v2",
-          voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-        })
-      });
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        const msg = extractApiErrorMessage(body) || `HTTP ${res.status}`;
-        throw new BorrowedError("The narrator falls silent.", `ElevenLabs error: ${msg}`);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      return new AudioElementPlayer(url, { objectURL: url });
-    }
-  },
-  openai: {
-    async synthesize(text, opts) {
-      const apiKey = await getTTSKey("openai");
-      const voice = opts.voice || DEFAULT_VOICE_BY_PROVIDER.openai;
-      const res = await fetch("https://api.openai.com/v1/audio/speech", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        signal: opts.signal,
-        body: JSON.stringify({
-          model: "tts-1",
-          voice,
-          input: text,
-          speed: opts.rate || 1
-        })
-      });
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        const msg = extractApiErrorMessage(body) || `HTTP ${res.status}`;
-        throw new BorrowedError("The narrator falls silent.", `OpenAI TTS error: ${msg}`);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      return new AudioElementPlayer(url, { objectURL: url });
-    }
-  }
-};
-
-// ---- /Text-to-Speech ---------------------------------------------------
 var buildCustomPremise = (description) => ({
   id: "custom-" + Date.now().toString(36),
   realm: "wild",
@@ -1597,6 +1113,10 @@ class AmbienceEngine {
     this.melodyArmed = false;
     this.pulseArmed = false;
     this.chordArmed = false;
+    // TTS coupling state
+    this.speechGate = false;
+    this.speechActive = false;
+    this.boosted = false;
   }
   _makeGain(initial) {
     const g = this.ctx.createGain();
@@ -1886,10 +1406,13 @@ class AmbienceEngine {
   _applyMaster(fastCut) {
     if (this.destroyed || !this.ctx) return;
     const t = this.ctx.currentTime;
-    const ceiling = AMBIENCE_INTENSITY_GAIN[this.intensity] || 0;
+    const BOOST_MAP = { off: "off", subtle: "present", present: "present" };
+    const effectiveIntensity = this.boosted ? BOOST_MAP[this.intensity] : this.intensity;
+    const ceiling = AMBIENCE_INTENSITY_GAIN[effectiveIntensity] || 0;
     const raw = ceiling * this.comfortGain;
-    const target = (this.muted || this.intensity === "off") ? 0 : Math.min(AMBIENCE_HARD_CEILING, raw);
-    this.master.gain.setTargetAtTime(target, t, fastCut ? 0.04 : 0.83);
+    let target = (this.muted || this.intensity === "off") ? 0 : Math.min(AMBIENCE_HARD_CEILING, raw);
+    if (this.speechGate && !this.speechActive) target = 0;
+    this.master.gain.setTargetAtTime(target, t, fastCut ? 0.04 : 0.5);
   }
   // ── Public API ────────────────────────────────────────────────────
   setIntensity(level) {
@@ -1960,6 +1483,25 @@ class AmbienceEngine {
     if (this.destroyed) return;
     this.muted = !!bool;
     this._applyMaster(true);
+  }
+  setSpeechGate(on) {
+    this.speechGate = !!on;
+    if (!on) this.speechActive = false;
+    this._applyMaster(false);
+  }
+  setBoost(on) {
+    this.boosted = !!on;
+    this._applyMaster(false);
+  }
+  notifySpeechStart() {
+    if (!this.speechGate) return;
+    this.speechActive = true;
+    this._applyMaster(false);
+  }
+  notifySpeechEnd() {
+    if (!this.speechGate) return;
+    this.speechActive = false;
+    this._applyMaster(false);
   }
   destroy() {
     this.destroyed = true;
@@ -2532,6 +2074,377 @@ var AMBIENCE_EVENT_RECIPES = {
   }
 };
 
+/*
+ * TTS (text-to-speech narration) — multi-provider architecture.
+ *
+ * TTS_PROVIDER_META catalogues five providers. Each has an adapter class
+ * that implements synthesize(text, signal) → handle { play, stop, set onended }.
+ * TTSController owns the active adapter and exposes a stable API to React.
+ * Cloud adapters share the existing LLM API key where possible (OpenAI, Mistral).
+ * Only ElevenLabs needs its own key entry. Browser and Puter need no key.
+ */
+
+// ── Browser adapter (Web Speech API) ────────────────────────────────────
+class BrowserTTSAdapter {
+  constructor({ voiceId, rate }) {
+    this.synth = (typeof window !== "undefined" && "speechSynthesis" in window) ? window.speechSynthesis : null;
+    this.voiceId = voiceId || null;
+    this.rate = rate || 1.0;
+  }
+  async synthesize(text, signal) {
+    if (!this.synth) throw new Error("Web Speech API unavailable");
+    if (signal?.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
+    const synth = this.synth;
+    let utt;
+    try { utt = new SpeechSynthesisUtterance(text.trim()); } catch (e) { throw e; }
+    const voices = synth.getVoices() || [];
+    if (this.voiceId) utt.voice = voices.find((v) => v.name === this.voiceId) || null;
+    utt.rate = Math.max(0.5, Math.min(2.0, this.rate));
+    let _onended = null;
+    const clear = () => { if (_onended) _onended(); };
+    utt.onend = clear;
+    utt.onerror = clear;
+    const handle = {
+      play: () => { try { synth.speak(utt); } catch (_) { clear(); } },
+      pause: () => { try { synth.pause(); } catch (_) {} },
+      resume: () => { try { synth.resume(); } catch (_) {} },
+      stop: () => { try { synth.cancel(); } catch (_) {} },
+      set onended(cb) { _onended = cb; }
+    };
+    signal?.addEventListener("abort", handle.stop);
+    return handle;
+  }
+  destroy() {}
+}
+
+// ── Puter adapter (free, one-time sign-in) ───────────────────────────────
+let _puterReady = null;
+function _loadPuter() {
+  if (_puterReady) return _puterReady;
+  _puterReady = new Promise((resolve, reject) => {
+    if (typeof window !== "undefined" && window.puter) return resolve(window.puter);
+    const s = document.createElement("script");
+    s.src = "https://js.puter.com/v2/";
+    s.async = true;
+    s.onload = () => { if (window.puter) resolve(window.puter); else reject(new Error("Puter SDK loaded but window.puter missing")); };
+    s.onerror = () => reject(new Error("Puter SDK failed to load"));
+    document.head.appendChild(s);
+  });
+  return _puterReady;
+}
+class PuterTTSAdapter {
+  constructor({ voiceId, rate, engine }) {
+    this.voiceId = voiceId || "Joanna";
+    this.rate = rate || 1.0;
+    this.engine = engine || "neural";
+  }
+  async synthesize(text, signal) {
+    if (signal?.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
+    const puter = await _loadPuter();
+    if (signal?.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
+    // Puter.js v2 expects an options object as the second arg.
+    const audio = await puter.ai.txt2speech(text.trim(), { voice: this.voiceId, engine: this.engine });
+    if (signal?.aborted) { try { audio.pause(); } catch (_) {} throw Object.assign(new Error("Aborted"), { name: "AbortError" }); }
+    let _onended = null;
+    audio.onended = () => { if (_onended) _onended(); };
+    const handle = {
+      play: () => { try { audio.play(); } catch (_) {} },
+      pause: () => { try { audio.pause(); } catch (_) {} },
+      resume: () => { try { audio.play(); } catch (_) {} },
+      stop: () => { try { audio.pause(); audio.currentTime = 0; } catch (_) {} },
+      set onended(cb) { _onended = cb; audio.onended = () => { if (_onended) _onended(); }; }
+    };
+    signal?.addEventListener("abort", handle.stop);
+    return handle;
+  }
+  destroy() {}
+}
+
+// ── Shared cloud adapter helpers (fetch → blob → Audio element) ──────────
+async function _fetchAudioBlob(url, init, signal) {
+  const resp = await fetch(url, { ...init, signal });
+  if (!resp.ok) {
+    let detail = "";
+    try { const txt = await resp.text(); detail = txt.slice(0, 200); } catch (_) {}
+    throw new BorrowedError(`TTS request failed (HTTP ${resp.status})`, detail);
+  }
+  return resp.blob();
+}
+function _blobHandle(blob, signal) {
+  const url = URL.createObjectURL(blob);
+  const audio = new Audio(url);
+  let _onended = null;
+  const cleanup = () => { try { URL.revokeObjectURL(url); } catch (_) {} };
+  audio.onended = () => { cleanup(); if (_onended) _onended(); };
+  const handle = {
+    play: () => { try { audio.play(); } catch (_) {} },
+    pause: () => { try { audio.pause(); } catch (_) {} },
+    resume: () => { try { audio.play(); } catch (_) {} },
+    stop: () => { try { audio.pause(); audio.currentTime = 0; } catch (_) {} cleanup(); },
+    set onended(cb) { _onended = cb; }
+  };
+  signal?.addEventListener("abort", handle.stop);
+  return handle;
+}
+
+// ── OpenAI TTS adapter ───────────────────────────────────────────────────
+class OpenAITTSAdapter {
+  constructor({ voiceId, rate, key, model }) {
+    this.voiceId = voiceId || "alloy";
+    this.rate = rate || 1.0;
+    this.key = key || "";
+    this.model = model || "gpt-4o-mini-tts";
+  }
+  async synthesize(text, signal) {
+    const blob = await _fetchAudioBlob(
+      "https://api.openai.com/v1/audio/speech",
+      { method: "POST", headers: { "Authorization": `Bearer ${this.key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: this.model, voice: this.voiceId, input: text.trim(), response_format: "mp3", speed: Math.max(0.25, Math.min(4.0, this.rate)) }) },
+      signal
+    );
+    return _blobHandle(blob, signal);
+  }
+  destroy() {}
+}
+
+// ── Voxtral (Mistral TTS) adapter ───────────────────────────────────────
+// Uses Mistral's OpenAI-compatible /v1/audio/speech endpoint with model
+// voxtral-mini-tts-2603. Body uses voice_id (NOT voice), distinguishing
+// it from OpenAI's schema. Supports 20 preset voices + zero-shot cloning.
+class VoxtralTTSAdapter {
+  constructor({ voiceId, rate, key, model }) {
+    this.voiceId = voiceId || "jane_confident";
+    this.rate = rate || 1.0;
+    this.key = key || "";
+    this.model = model || "voxtral-mini-tts-2603";
+  }
+  async synthesize(text, signal) {
+    const blob = await _fetchAudioBlob(
+      "https://api.mistral.ai/v1/audio/speech",
+      { method: "POST", headers: { "Authorization": `Bearer ${this.key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: this.model, voice_id: this.voiceId, input: text.trim(), response_format: "mp3" }) },
+      signal
+    );
+    return _blobHandle(blob, signal);
+  }
+  destroy() {}
+}
+
+// ── ElevenLabs adapter ───────────────────────────────────────────────────
+class ElevenLabsTTSAdapter {
+  constructor({ voiceId, rate, key, model }) {
+    this.voiceId = voiceId || "21m00Tcm4TlvDq8ikWAM";
+    this.rate = rate || 1.0;
+    this.key = key || "";
+    this.model = model || "eleven_turbo_v2_5";
+  }
+  async synthesize(text, signal) {
+    const blob = await _fetchAudioBlob(
+      `https://api.elevenlabs.io/v1/text-to-speech/${this.voiceId}?output_format=mp3_44100_128`,
+      { method: "POST", headers: { "xi-api-key": this.key, "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text.trim(), model_id: this.model, voice_settings: { stability: 0.4, similarity_boost: 0.75 } }) },
+      signal
+    );
+    return _blobHandle(blob, signal);
+  }
+  destroy() {}
+}
+
+// ── Provider catalogue ───────────────────────────────────────────────────
+var TTS_PROVIDER_META = {
+  browser: {
+    id: "browser", name: "Browser", requiresKey: false, reusesLLMKey: null,
+    voices: [], // populated from speechSynthesis at runtime
+    adapter: BrowserTTSAdapter
+  },
+  puter: {
+    id: "puter", name: "Puter", requiresKey: false, reusesLLMKey: null,
+    voices: [
+      { id: "Joanna",   label: "Joanna — US (neutral)" },
+      { id: "Matthew",  label: "Matthew — US (warm)" },
+      { id: "Salli",    label: "Salli — US (bright)" },
+      { id: "Kimberly", label: "Kimberly — US (smooth)" },
+      { id: "Kendra",   label: "Kendra — US (steady)" },
+      { id: "Joey",     label: "Joey — US (casual)" },
+      { id: "Justin",   label: "Justin — US (youthful)" },
+      { id: "Ivy",      label: "Ivy — US child" },
+      { id: "Brian",    label: "Brian — UK (steady)" },
+      { id: "Amy",      label: "Amy — UK (lyrical)" },
+      { id: "Emma",     label: "Emma — UK (composed)" },
+      { id: "Olivia",   label: "Olivia — AU (cool)" },
+      { id: "Aria",     label: "Aria — generative" },
+      { id: "Ruth",     label: "Ruth — generative" }
+    ],
+    adapter: PuterTTSAdapter
+  },
+  openai: {
+    id: "openai", name: "OpenAI", requiresKey: true, reusesLLMKey: "openai",
+    voices: [
+      { id: "alloy",   label: "Alloy — neutral" },
+      { id: "ash",     label: "Ash — gentle" },
+      { id: "ballad",  label: "Ballad — narrative" },
+      { id: "coral",   label: "Coral — bright" },
+      { id: "echo",    label: "Echo — measured" },
+      { id: "fable",   label: "Fable — storyteller" },
+      { id: "nova",    label: "Nova — warm" },
+      { id: "onyx",    label: "Onyx — deep" },
+      { id: "sage",    label: "Sage — calm" },
+      { id: "shimmer", label: "Shimmer — clear" },
+      { id: "verse",   label: "Verse — expressive" }
+    ],
+    model: "gpt-4o-mini-tts",
+    adapter: OpenAITTSAdapter
+  },
+  voxtral: {
+    id: "voxtral", name: "Voxtral", requiresKey: true, reusesLLMKey: "mistral",
+    voices: [
+      { id: "jane_confident",  label: "Jane — confident (EN)" },
+      { id: "casual_male",     label: "Casual male (EN)" },
+      { id: "casual_female",   label: "Casual female (EN)" },
+      { id: "vivian",          label: "Vivian (EN)" }
+    ],
+    model: "voxtral-mini-tts-2603",
+    adapter: VoxtralTTSAdapter,
+    allowCustomVoiceId: true
+  },
+  elevenlabs: {
+    id: "elevenlabs", name: "ElevenLabs", requiresKey: true, reusesLLMKey: null,
+    allowCustomVoiceId: true,
+    keyStorage: "borrowed:tts_elevenlabs_key:v1",
+    voices: [
+      { id: "21m00Tcm4TlvDq8ikWAM", label: "Rachel — calm" },
+      { id: "AZnzlk1XvdvUeBnXmlld", label: "Domi — confident" },
+      { id: "EXAVITQu4vr4xnSDxMaL", label: "Bella — soft" },
+      { id: "ErXwobaYiN019PkySvjV",  label: "Antoni — warm" },
+      { id: "TxGEqnHWrfWFTfGW9XjX",  label: "Josh — deep" }
+    ],
+    model: "eleven_turbo_v2_5",
+    adapter: ElevenLabsTTSAdapter
+  }
+};
+// Quality-first order; first "ready" provider wins on auto-select.
+var TTS_PROVIDER_ORDER = ["openai", "elevenlabs", "voxtral", "puter", "browser"];
+
+// ── ElevenLabs key helpers ───────────────────────────────────────────────
+async function getTtsElevenLabsKey() {
+  const stored = localStorage.getItem("borrowed:tts_elevenlabs_key:v1");
+  if (!stored) return null;
+  if (!stored.startsWith(ENC_PREFIX)) return stored.trim();
+  if (!window.__sessionPassphrase)
+    window.__sessionPassphrase = prompt("Enter your session passphrase to unlock API keys:");
+  if (!window.__sessionPassphrase) return null;
+  try { return (await decryptSecret(stored, window.__sessionPassphrase)).trim(); }
+  catch { window.__sessionPassphrase = null; return null; }
+}
+async function saveTtsElevenLabsKey(plain) {
+  if (!plain) { localStorage.removeItem("borrowed:tts_elevenlabs_key:v1"); return; }
+  if (window.__sessionPassphrase) {
+    localStorage.setItem("borrowed:tts_elevenlabs_key:v1", await encryptSecret(plain.trim(), window.__sessionPassphrase));
+  } else {
+    localStorage.setItem("borrowed:tts_elevenlabs_key:v1", plain.trim());
+  }
+}
+
+// ── TTSController ────────────────────────────────────────────────────────
+class TTSController {
+  constructor() {
+    this.providerId = "browser";
+    this.adapter = null;
+    this.voiceId = null;
+    this.rate = 1.0;
+    this.key = null;
+    this.enabled = false;
+    this.muted = false;
+    this.activeHandle = null;
+    this.activeAbort = null;
+    this.activeTurnId = null;
+    this.paused = false;
+    this._onSpeakStart = new Set();
+    this._onSpeakEnd = new Set();
+    this._onStateChange = new Set();
+  }
+  setProvider(id, { voiceId, key } = {}) {
+    if (this.providerId === id && this.adapter && this.key === key && this.voiceId === voiceId) return;
+    this.stop();
+    this.providerId = id;
+    if (voiceId != null) this.voiceId = voiceId;
+    this.key = key != null ? key : null;
+    this.adapter = null;
+  }
+  setVoice(id) { this.voiceId = id || null; this.adapter = null; }
+  setRate(r) { this.rate = Math.max(0.5, Math.min(2.0, +r || 1)); this.adapter = null; }
+  setKey(k) { this.key = k || null; this.adapter = null; }
+  setEnabled(on) { this.enabled = !!on; if (!on) this.stop(); }
+  setMuted(m) { this.muted = !!m; if (m) this.stop(); }
+  onSpeakStart(cb) { this._onSpeakStart.add(cb); return () => this._onSpeakStart.delete(cb); }
+  onSpeakEnd(cb)   { this._onSpeakEnd.add(cb);   return () => this._onSpeakEnd.delete(cb); }
+  onStateChange(cb) { this._onStateChange.add(cb); return () => this._onStateChange.delete(cb); }
+  isSpeaking() { return !!this.activeHandle && !this.paused; }
+  isPaused()   { return !!this.activeHandle && this.paused; }
+  pause() {
+    if (!this.activeHandle || this.paused) return;
+    try { this.activeHandle.pause?.(); } catch (_) {}
+    this.paused = true;
+    this._notifyState();
+  }
+  resume() {
+    if (!this.activeHandle || !this.paused) return;
+    try { this.activeHandle.resume?.(); } catch (_) {}
+    this.paused = false;
+    this._notifyState();
+  }
+  async speak(text, { turnId } = {}) {
+    if (!this.enabled || this.muted) return;
+    if (!text || !text.trim()) return;
+    this.stop();
+    const meta = TTS_PROVIDER_META[this.providerId];
+    if (!meta) return;
+    if (!this.adapter) {
+      this.adapter = new meta.adapter({ voiceId: this.voiceId, rate: this.rate, key: this.key, model: meta.model });
+    }
+    const abort = new AbortController();
+    this.activeAbort = abort;
+    this.activeTurnId = turnId != null ? turnId : null;
+    try {
+      const handle = await this.adapter.synthesize(text.trim(), abort.signal);
+      if (abort.signal.aborted) { try { handle.stop(); } catch (_) {} return; }
+      this.activeHandle = handle;
+      this.paused = false;
+      handle.onended = () => this._endSpeak(turnId);
+      this._startSpeak(turnId);
+      handle.play();
+      this._notifyState();
+    } catch (e) {
+      if (e?.name === "AbortError") return;
+      this._endSpeak(turnId);
+      if (typeof console !== "undefined") console.warn("[tts] synthesis failed:", e?.message || e);
+    }
+  }
+  stop() {
+    if (this.activeAbort) { try { this.activeAbort.abort(); } catch (_) {} this.activeAbort = null; }
+    if (this.activeHandle) { try { this.activeHandle.stop(); } catch (_) {} this.activeHandle = null; }
+    if (this.activeTurnId !== null) { this._endSpeak(this.activeTurnId); this.activeTurnId = null; }
+    this.paused = false;
+    this._notifyState();
+  }
+  _startSpeak(t) { this._onSpeakStart.forEach((cb) => { try { cb(t); } catch (_) {} }); }
+  _endSpeak(t)   {
+    this.activeHandle = null;
+    this.paused = false;
+    this._onSpeakEnd.forEach((cb) => { try { cb(t); } catch (_) {} });
+    this._notifyState();
+  }
+  _notifyState() { this._onStateChange.forEach((cb) => { try { cb(); } catch (_) {} }); }
+  destroy() {
+    this.stop();
+    try { this.adapter?.destroy?.(); } catch (_) {}
+    this.adapter = null;
+    this._onSpeakStart.clear();
+    this._onSpeakEnd.clear();
+    this._onStateChange.clear();
+  }
+}
+
 class BorrowedError extends Error {
   constructor(message, detail) {
     super(message);
@@ -2838,13 +2751,6 @@ var formatTokens = (t) => {
 var DEFAULT_ENGINE_OPENING = { provider: "mistral", model: "mistral-large-latest" };
 var DEFAULT_ENGINE_GM = { provider: "mistral", model: "mistral-medium-latest" };
 var DEFAULT_ENGINE_NARRATOR = { provider: "mistral", model: "mistral-medium-latest" };
-var DEFAULT_TTS = {
-  enabled: false,
-  provider: "browser",
-  voice: "",
-  autoplay: false,
-  rate: 1.0
-};
 var DEFAULT_SETTINGS = {
   highContrast: false,
   disableTypewriter: false,
@@ -2853,8 +2759,7 @@ var DEFAULT_SETTINGS = {
   freeModelSelection: false,
   engineOpening: DEFAULT_ENGINE_OPENING,
   engineGM: DEFAULT_ENGINE_GM,
-  engineNarrator: DEFAULT_ENGINE_NARRATOR,
-  tts: DEFAULT_TTS
+  engineNarrator: DEFAULT_ENGINE_NARRATOR
 };
 var LANGUAGES = [
   { code: "en", label: "English", name: "English" },
@@ -4003,7 +3908,6 @@ function App() {
         if (r?.value) {
           const parsed = JSON.parse(r.value);
           const merged = { ...DEFAULT_SETTINGS, ...parsed };
-          merged.tts = { ...DEFAULT_TTS, ...(parsed.tts || {}) };
           for (const role of ["engineOpening", "engineGM", "engineNarrator"]) {
             const eng = merged[role];
             if (eng?.provider === "gemini" && (eng.model === "gemini-3.1-flash-lite" || eng.model === "gemini-flash-lite-latest"))
@@ -4065,6 +3969,8 @@ function App() {
   const [ambienceLevel, setAmbienceLevel] = useState("off");
   const [ambienceMuted, setAmbienceMuted] = useState(false);
   const [ambienceUnavailable, setAmbienceUnavailable] = useState(false);
+  const [ambienceDuringNarrationOnly, setAmbienceDuringNarrationOnly] = useState(false);
+  const [ambienceBoostWithTTS, setAmbienceBoostWithTTS] = useState(false);
   const ambienceLoadedRef = useRef(false);
   const ambienceRef = useRef(null);
   useEffect(() => {
@@ -4078,6 +3984,10 @@ function App() {
               setAmbienceLevel(parsed.level);
             if (typeof parsed.muted === "boolean")
               setAmbienceMuted(parsed.muted);
+            if (typeof parsed.duringNarrationOnly === "boolean")
+              setAmbienceDuringNarrationOnly(parsed.duringNarrationOnly);
+            if (typeof parsed.boostWithTTS === "boolean")
+              setAmbienceBoostWithTTS(parsed.boostWithTTS);
           }
         }
       } catch {} finally {
@@ -4091,11 +4001,13 @@ function App() {
       try {
         await window.storage.set("borrowed:ambience:v1", JSON.stringify({
           level: ambienceLevel,
-          muted: ambienceMuted
+          muted: ambienceMuted,
+          duringNarrationOnly: ambienceDuringNarrationOnly,
+          boostWithTTS: ambienceBoostWithTTS
         }));
       } catch {}
     })();
-  }, [ambienceLevel, ambienceMuted]);
+  }, [ambienceLevel, ambienceMuted, ambienceDuringNarrationOnly, ambienceBoostWithTTS]);
   const ensureAmbienceEngine = () => {
     if (ambienceLevel === "off") return null;
     if (ambienceUnavailable) return null;
@@ -4124,96 +4036,177 @@ function App() {
     if (!eng) return;
     if (eng.muted !== ambienceMuted) eng.mute(ambienceMuted);
   }, [ambienceMuted]);
-  const ttsConfig = settings.tts || DEFAULT_TTS;
-  const [speakingId, setSpeakingId] = useState(null);
-  const speakingIdRef = useRef(null);
-  const ttsPlayerRef = useRef(null);
-  const lastSpokenTextRef = useRef("");
-  const [browserVoiceTick, setBrowserVoiceTick] = useState(0);
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    const refresh = () => setBrowserVoiceTick((n) => n + 1);
-    try { window.speechSynthesis.getVoices(); } catch {}
-    window.speechSynthesis.addEventListener?.("voiceschanged", refresh);
-    return () => window.speechSynthesis.removeEventListener?.("voiceschanged", refresh);
-  }, []);
-  const stopSpeaking = () => {
-    speakingIdRef.current = null;
-    if (ttsPlayerRef.current) {
-      try { ttsPlayerRef.current.stop(); } catch {}
-      ttsPlayerRef.current = null;
+
+  // ── TTS (text-to-speech narration) ──────────────────────────────
+  const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [ttsMuted, setTtsMuted] = useState(false);
+  const [ttsProviderId, setTtsProviderId] = useState(null); // null → auto-pick on first use
+  const [ttsVoiceId, setTtsVoiceId] = useState(null);
+  const [ttsRate, setTtsRate] = useState(1.0);
+  const [ttsElevenKey, setTtsElevenKey] = useState(""); // plaintext; only used for the inline key field
+  const [ttsBrowserVoices, setTtsBrowserVoices] = useState([]);
+  const [ttsProviderReady, setTtsProviderReady] = useState({ browser: true, puter: true });
+  const [ttsPlayback, setTtsPlayback] = useState({ speaking: false, paused: false });
+  const ttsLoadedRef = useRef(false);
+  const ttsRef = useRef(null);
+  // Monotonic cursor: index of the next entry to speak. Reset on chronicle
+  // restart (→ 0) and on save load (→ entries.length). Never re-speaks history.
+  const ttsNextRef = useRef(0);
+
+  const detectTtsProviderReady = async () => {
+    const out = {
+      browser: typeof window !== "undefined" && "speechSynthesis" in window,
+      puter: true
+    };
+    for (const id of ["openai", "voxtral"]) {
+      const meta = TTS_PROVIDER_META[id];
+      try { const k = await getProviderKey(meta.reusesLLMKey); out[id] = !!k; }
+      catch { out[id] = false; }
     }
-    setSpeakingId(null);
+    out.elevenlabs = !!(ttsElevenKey || await getTtsElevenLabsKey());
+    setTtsProviderReady(out);
+    return out;
   };
-  const speakEntry = async (id, text) => {
-    if (!text || !text.trim()) return;
-    stopSpeaking();
-    const cfg = settings.tts || DEFAULT_TTS;
-    const provider = TTS_PROVIDERS[cfg.provider];
-    if (!provider) {
-      setSaveBanner({ kind: "err", text: `Unknown TTS provider "${cfg.provider}".` });
-      return;
+
+  const pickBestReadyProvider = (ready) =>
+    TTS_PROVIDER_ORDER.find((id) => ready[id]) || "browser";
+
+  // Load persisted TTS prefs.
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await window.storage.get("borrowed:tts:v1");
+        if (r?.value) {
+          const p = JSON.parse(r.value);
+          if (p && typeof p === "object") {
+            if (typeof p.enabled === "boolean") setTtsEnabled(p.enabled);
+            if (typeof p.muted === "boolean") setTtsMuted(p.muted);
+            if (typeof p.providerId === "string" && TTS_PROVIDER_META[p.providerId]) setTtsProviderId(p.providerId);
+            if (typeof p.voiceId === "string") setTtsVoiceId(p.voiceId);
+            if (typeof p.rate === "number") setTtsRate(p.rate);
+          }
+        }
+      } catch {} finally {
+        ttsLoadedRef.current = true;
+      }
+    })();
+    detectTtsProviderReady();
+    // Load ElevenLabs key (plaintext if not encrypted, or empty)
+    (async () => {
+      const k = await getTtsElevenLabsKey().catch(() => null);
+      if (k) setTtsElevenKey(k);
+    })();
+  }, []);
+
+  // Persist prefs whenever they change.
+  useEffect(() => {
+    if (!ttsLoadedRef.current) return;
+    (async () => {
+      try {
+        await window.storage.set("borrowed:tts:v1", JSON.stringify({
+          enabled: ttsEnabled, muted: ttsMuted,
+          providerId: ttsProviderId, voiceId: ttsVoiceId, rate: ttsRate
+        }));
+      } catch {}
+    })();
+  }, [ttsEnabled, ttsMuted, ttsProviderId, ttsVoiceId, ttsRate]);
+
+  const ensureTTSController = () => {
+    if (!ttsRef.current) {
+      const ctrl = new TTSController();
+      ctrl.onStateChange(() => setTtsPlayback({ speaking: ctrl.isSpeaking(), paused: ctrl.isPaused() }));
+      ttsRef.current = ctrl;
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        const reload = () => setTtsBrowserVoices(window.speechSynthesis.getVoices().slice());
+        reload();
+        window.speechSynthesis.onvoiceschanged = reload;
+      }
     }
-    speakingIdRef.current = id;
-    setSpeakingId(id);
-    try {
-      const player = await provider.synthesize(text, {
-        voice: cfg.voice,
-        rate: typeof cfg.rate === "number" ? cfg.rate : 1
-      });
-      if (speakingIdRef.current !== id) {
-        try { player.stop(); } catch {}
+    return ttsRef.current;
+  };
+
+  // Play/pause/replay handler for the HUD button.
+  const togglePlayPause = () => {
+    const ctrl = ensureTTSController();
+    if (ctrl.isPaused()) { ctrl.resume(); return; }
+    if (ctrl.isSpeaking()) { ctrl.pause(); return; }
+    // Nothing active — replay the last fully-revealed narration entry.
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const e = entries[i];
+      if (e?.type === "narration" && e.fullyRevealed && typeof e.text === "string" && e.text.trim()) {
+        ctrl.speak(e.text, { turnId: i });
         return;
       }
-      ttsPlayerRef.current = player;
-      player.onended = () => {
-        if (speakingIdRef.current === id) {
-          speakingIdRef.current = null;
-          ttsPlayerRef.current = null;
-          setSpeakingId(null);
-        }
-      };
-      player.onerror = (e) => {
-        if (typeof console !== "undefined" && console.warn)
-          console.warn("[borrowed] TTS playback error", e);
-        if (speakingIdRef.current === id) {
-          speakingIdRef.current = null;
-          ttsPlayerRef.current = null;
-          setSpeakingId(null);
-        }
-      };
-      await player.play();
-    } catch (e) {
-      if (speakingIdRef.current === id) {
-        speakingIdRef.current = null;
-        ttsPlayerRef.current = null;
-        setSpeakingId(null);
-      }
-      const msg = e instanceof BorrowedError
-        ? `${e.message} ${e.detail || ""}`.trim()
-        : (e?.message || "Narration could not play.");
-      setSaveBanner({ kind: "err", text: msg });
     }
   };
-  useEffect(() => () => stopSpeaking(), []);
+
+  // Sync enabled/muted/rate/voice to controller.
+  useEffect(() => { ttsRef.current?.setEnabled(ttsEnabled); }, [ttsEnabled]);
+  useEffect(() => { ttsRef.current?.setMuted(ttsMuted); }, [ttsMuted]);
+  useEffect(() => { ttsRef.current?.setRate(ttsRate); }, [ttsRate]);
+  useEffect(() => { ttsRef.current?.setVoice(ttsVoiceId); }, [ttsVoiceId]);
+
+  // When provider/key changes, resolve the key and update the controller.
   useEffect(() => {
-    if (!ttsConfig.enabled || !ttsConfig.autoplay) return;
-    if (!entries.length) return;
-    const idx = entries.length - 1;
-    const e = entries[idx];
-    if (!e || e.type !== "narration" || e.streaming) return;
-    if (!e.text || lastSpokenTextRef.current === e.text) return;
-    lastSpokenTextRef.current = e.text;
-    speakEntry(`entry-${idx}`, e.text);
-  }, [entries, ttsConfig.enabled, ttsConfig.autoplay]);
+    if (!ttsProviderId) return;
+    (async () => {
+      const ctrl = ensureTTSController();
+      const meta = TTS_PROVIDER_META[ttsProviderId];
+      if (!meta) return;
+      let key = null;
+      if (meta.reusesLLMKey) { try { key = await getProviderKey(meta.reusesLLMKey); } catch {} }
+      else if (ttsProviderId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => null));
+      ctrl.setProvider(ttsProviderId, { voiceId: ttsVoiceId, key });
+    })();
+  }, [ttsProviderId, ttsVoiceId, ttsElevenKey]);
+
+  // Re-check provider readiness when settings panel opens.
+  useEffect(() => { if (showSettings) detectTtsProviderReady(); }, [showSettings]);
+
+  // Ambience↔TTS coupling — gate: ambience only during narration.
   useEffect(() => {
-    if (!ttsConfig.enabled || !ttsConfig.autoplay) return;
-    const lastMeta = metaMessages[metaMessages.length - 1];
-    if (!lastMeta || lastMeta.role !== "assistant" || lastMeta.streaming) return;
-    if (!lastMeta.text || lastSpokenTextRef.current === lastMeta.text) return;
-    lastSpokenTextRef.current = lastMeta.text;
-    speakEntry(`meta-${metaMessages.length - 1}`, lastMeta.text);
-  }, [metaMessages, ttsConfig.enabled, ttsConfig.autoplay]);
+    ambienceRef.current?.setSpeechGate(ambienceDuringNarrationOnly && ttsEnabled);
+  }, [ambienceDuringNarrationOnly, ttsEnabled]);
+  // Ambience↔TTS coupling — boost: lift ambience one notch while TTS is on.
+  useEffect(() => {
+    ambienceRef.current?.setBoost(ambienceBoostWithTTS && ttsEnabled);
+  }, [ambienceBoostWithTTS, ttsEnabled]);
+
+  // Bridge: subscribe ambience engine to TTS controller speak events.
+  useEffect(() => {
+    const ctrl = ttsRef.current;
+    const eng = ambienceRef.current;
+    if (!ctrl || !eng) return;
+    const u1 = ctrl.onSpeakStart(() => eng.notifySpeechStart());
+    const u2 = ctrl.onSpeakEnd(()   => eng.notifySpeechEnd());
+    return () => { u1(); u2(); };
+  }, [ttsEnabled, ambienceLevel]);
+
+  // Walk entries. When a narration entry is fully revealed, speak it.
+  // ttsNextRef advances monotonically — toggling TTS on doesn't replay history.
+  useEffect(() => {
+    if (!ttsEnabled || ttsMuted) {
+      ttsNextRef.current = entries.length;
+      return;
+    }
+    // Auto-pick a provider if not yet chosen.
+    if (!ttsProviderId) {
+      detectTtsProviderReady().then((ready) => setTtsProviderId(pickBestReadyProvider(ready)));
+      return;
+    }
+    const ctrl = ensureTTSController();
+    while (ttsNextRef.current < entries.length) {
+      const i = ttsNextRef.current;
+      const e = entries[i];
+      if (!e) break;
+      if (e.type !== "narration") { ttsNextRef.current++; continue; }
+      if (!e.fullyRevealed) break;
+      if (typeof e.text === "string" && e.text.trim()) ctrl.speak(e.text, { turnId: i });
+      ttsNextRef.current++;
+      break; // one utterance per render
+    }
+  }, [entries, ttsEnabled, ttsMuted, ttsProviderId]);
+
   const [savesTotalBytes, setSavesTotalBytes] = useState(0);
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
@@ -4809,7 +4802,7 @@ ${finalState}`
     const newEntries = [...entries, { type: "action", text, fullyRevealed: true }];
     setEntries(newEntries);
     // Cut off any in-flight narration; the player has moved on.
-    stopSpeaking();
+    if (ttsRef.current) ttsRef.current.stop();
     const { publicBlock, privateBlock } = formatStateForPrompt(gameState);
     const parts = [];
     if (publicBlock)
@@ -5080,9 +5073,9 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setInputHistoryIndex(-1);
     setMetaMode(false);
     setMetaMessages([]);
-    stopSpeaking();
-    lastSpokenTextRef.current = "";
     if (ambienceRef.current) ambienceRef.current.applyAmbience(null);
+    if (ttsRef.current) ttsRef.current.stop();
+    ttsNextRef.current = 0;
   };
   const loadSaveList = async () => {
     setSaveListLoading(true);
@@ -5197,13 +5190,9 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setPhase("playing");
     setShowSaves(false);
     setSaveBanner({ kind: "ok", text: "The hour resumes." });
-    // Don't narrate loaded history aloud — silence anything in flight and
-    // mark the most recent narration/meta as already spoken so the autoplay
-    // effect ignores it.
-    stopSpeaking();
-    const lastNarration = [...(save.entries || [])].reverse().find((e) => e?.type === "narration" && typeof e.text === "string" && e.text.trim());
-    const lastMeta = [...(save.metaMessages || [])].reverse().find((m) => m?.role === "assistant" && typeof m.text === "string" && m.text.trim());
-    lastSpokenTextRef.current = (lastMeta?.text || lastNarration?.text || "");
+    // Don't narrate loaded history aloud — advance the TTS cursor past it.
+    if (ttsRef.current) ttsRef.current.stop();
+    ttsNextRef.current = (save.entries || []).length;
   };
   const deleteSave = async (key, e) => {
     e.stopPropagation();
@@ -5376,10 +5365,11 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     ambienceEnabled: ambienceLevel !== "off" && !ambienceUnavailable,
     ambienceMuted,
     onToggleAmbienceMute: () => setAmbienceMuted((m) => !m),
-    ttsEnabled: !!ttsConfig.enabled,
-    speakingId,
-    onSpeak: speakEntry,
-    onStopSpeak: stopSpeaking
+    ttsEnabled,
+    ttsMuted,
+    ttsPlayback,
+    onToggleTtsMute: () => setTtsMuted((m) => !m),
+    onTogglePlayPause: togglePlayPause
   }), showSaves && /* @__PURE__ */ React.createElement(SavesModal, {
     saves: saveList,
     totalBytes: savesTotalBytes,
@@ -5396,11 +5386,27 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     osReducedMotion,
     ambienceLevel,
     ambienceUnavailable,
+    ambienceDuringNarrationOnly,
+    ambienceBoostWithTTS,
     onChangeAmbience: setAmbienceLevel,
-    browserVoiceTick,
-    onPreviewVoice: (text) => speakEntry("preview", text),
-    onStopPreview: stopSpeaking,
-    speakingId
+    onChangeAmbienceDuringNarrationOnly: setAmbienceDuringNarrationOnly,
+    onChangeAmbienceBoostWithTTS: setAmbienceBoostWithTTS,
+    ttsEnabled,
+    ttsProviderId,
+    ttsProviderReady,
+    ttsVoiceId,
+    ttsBrowserVoices,
+    ttsRate,
+    ttsElevenKey,
+    onChangeTtsEnabled: setTtsEnabled,
+    onChangeTtsProvider: setTtsProviderId,
+    onChangeTtsVoice: setTtsVoiceId,
+    onChangeTtsRate: setTtsRate,
+    onChangeTtsElevenKey: async (k) => {
+      setTtsElevenKey(k);
+      await saveTtsElevenLabsKey(k);
+      detectTtsProviderReady();
+    }
   }), showLedger && premise && /* @__PURE__ */ React.createElement(LedgerModal, {
     premise,
     gameState,
@@ -5603,36 +5609,6 @@ function realmGlyph(realm) {
       return "·";
   }
 }
-function SpeakControl({ speaking, onSpeak, onStop }) {
-  const baseStyle = {
-    marginTop: 10,
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    padding: "3px 9px",
-    fontSize: 10,
-    letterSpacing: "0.2em",
-    textTransform: "uppercase",
-    fontFamily: "'Cinzel', serif",
-    background: "transparent",
-    border: "1px solid rgba(232, 222, 197, 0.18)",
-    borderRadius: 4,
-    color: speaking ? "var(--rose-gold)" : "var(--cream-faint)",
-    cursor: "pointer",
-    transition: "color 0.2s, border-color 0.2s, opacity 0.2s",
-    opacity: speaking ? 0.95 : 0.5
-  };
-  return /* @__PURE__ */ React.createElement("button", {
-    type: "button",
-    onClick: speaking ? onStop : onSpeak,
-    title: speaking ? "Stop the narrator" : "Hear this aloud",
-    "aria-label": speaking ? "Stop the narrator" : "Hear this aloud",
-    "aria-pressed": speaking ? "true" : "false",
-    onMouseEnter: (e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.borderColor = "rgba(212, 165, 116, 0.45)"; },
-    onMouseLeave: (e) => { e.currentTarget.style.opacity = speaking ? "0.95" : "0.5"; e.currentTarget.style.borderColor = "rgba(232, 222, 197, 0.18)"; },
-    style: baseStyle
-  }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true" }, speaking ? "■" : "♪"), /* @__PURE__ */ React.createElement("span", null, speaking ? "Hush" : "Hear"));
-}
 function GameScreen({
   premise,
   entries,
@@ -5672,9 +5648,10 @@ function GameScreen({
   ambienceMuted,
   onToggleAmbienceMute,
   ttsEnabled,
-  speakingId,
-  onSpeak,
-  onStopSpeak
+  ttsMuted,
+  ttsPlayback,
+  onToggleTtsMute,
+  onTogglePlayPause
 }) {
   const lastEntry = entries[entries.length - 1];
   const showResolution = ended && lastEntry && lastEntry.type === "narration" && lastEntry.fullyRevealed && !metaMode;
@@ -5760,16 +5737,7 @@ function GameScreen({
     "aria-hidden": "true"
   }, "⚙"), /* @__PURE__ */ React.createElement("span", {
     className: "btn-label"
-  }, " READING")), ttsEnabled && speakingId && /* @__PURE__ */ React.createElement("button", {
-    onClick: onStopSpeak,
-    className: "icon-btn",
-    title: "Stop the narrator",
-    "aria-label": "Stop the narrator"
-  }, /* @__PURE__ */ React.createElement("span", {
-    "aria-hidden": "true"
-  }, "■"), /* @__PURE__ */ React.createElement("span", {
-    className: "btn-label"
-  }, " HUSH")), ambienceEnabled && /* @__PURE__ */ React.createElement("button", {
+  }, " READING")), ambienceEnabled && /* @__PURE__ */ React.createElement("button", {
     onClick: onToggleAmbienceMute,
     className: "icon-btn",
     title: ambienceMuted ? "Unmute the ambience bed" : "Mute the ambience bed",
@@ -5789,7 +5757,19 @@ function GameScreen({
     "aria-hidden": "true"
   }, ttsMuted ? "▷̸" : "▷"), /* @__PURE__ */ React.createElement("span", {
     className: "btn-label"
-  }, ttsMuted ? " SILENT" : " VOICE")), /* @__PURE__ */ React.createElement("button", {
+  }, ttsMuted ? " SILENT" : " VOICE")),
+  ttsEnabled && !ttsMuted && /* @__PURE__ */ React.createElement("button", {
+    onClick: onTogglePlayPause,
+    className: "icon-btn",
+    title: ttsPlayback?.paused ? "Resume narration" : (ttsPlayback?.speaking ? "Pause narration" : "Play the latest narration aloud"),
+    "aria-label": ttsPlayback?.paused ? "Resume narration" : (ttsPlayback?.speaking ? "Pause narration" : "Play latest narration"),
+    "aria-pressed": ttsPlayback?.paused ? "true" : "false"
+  }, /* @__PURE__ */ React.createElement("span", {
+    "aria-hidden": "true"
+  }, ttsPlayback?.speaking ? "❙❙" : "▶"), /* @__PURE__ */ React.createElement("span", {
+    className: "btn-label"
+  }, ttsPlayback?.paused ? " RESUME" : (ttsPlayback?.speaking ? " PAUSE" : " PLAY"))),
+  /* @__PURE__ */ React.createElement("button", {
     onClick: onRestart,
     className: "icon-btn icon-btn-danger",
     title: "Begin a new hour",
@@ -5840,8 +5820,6 @@ function GameScreen({
     title: "Stop this request"
   }, "STOP")), entries.map((entry, i) => {
     if (entry.type === "narration") {
-      const entryId = `entry-${i}`;
-      const isThisSpeaking = speakingId === entryId;
       return /* @__PURE__ */ React.createElement("div", {
         key: i,
         className: "narration-text body-font text-lg fade-in",
@@ -5852,10 +5830,6 @@ function GameScreen({
         skipSignal: skipNonce,
         onDone: () => onEntryDone(i),
         scrollRef
-      }), ttsEnabled && !entry.streaming && entry.text && /* @__PURE__ */ React.createElement(SpeakControl, {
-        speaking: isThisSpeaking,
-        onSpeak: (e) => { e.stopPropagation(); onSpeak(entryId, entry.text); },
-        onStop: (e) => { e.stopPropagation(); onStopSpeak(); }
       }));
     }
     return /* @__PURE__ */ React.createElement("div", {
@@ -5938,8 +5912,6 @@ function GameScreen({
         }
       }, m.text);
     }
-    const metaId = `meta-${i}`;
-    const isThisSpeaking = speakingId === metaId;
     return /* @__PURE__ */ React.createElement("div", {
       key: i,
       className: "body-font text-base fade-in",
@@ -5955,10 +5927,6 @@ function GameScreen({
       onDone: () => onMetaDone(i),
       scrollRef,
       fastMode: true
-    }), ttsEnabled && !m.streaming && m.text && /* @__PURE__ */ React.createElement(SpeakControl, {
-      speaking: isThisSpeaking,
-      onSpeak: (e) => { e.stopPropagation(); onSpeak(metaId, m.text); },
-      onStop: (e) => { e.stopPropagation(); onStopSpeak(); }
     }));
   }))), loading && entries.length > 0 && !lastEntry?.streaming && /* @__PURE__ */ React.createElement("div", {
     className: "italic body-font slow-fade-in",
@@ -6383,97 +6351,7 @@ function ApiKeysSection() {
       style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4, lineHeight: 1.6 }
     }, "Keys are stored only in this browser’s localStorage and are never sent anywhere except the provider’s own API."),
     PROVIDER_ORDER.filter((id) => id !== "local").map((id) => /* @__PURE__ */ React.createElement(ApiKeyRow, { key: id, providerId: id })),
-    /* @__PURE__ */ React.createElement(LocalLLMRow, null),
-    /* @__PURE__ */ React.createElement("div", {
-      className: "display-font",
-      style: { color: "var(--cream-bright)", letterSpacing: "0.18em", fontSize: 11, textTransform: "uppercase", marginTop: 18 }
-    }, "Narration keys (optional)"),
-    /* @__PURE__ */ React.createElement("div", {
-      className: "body-font italic",
-      style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4, lineHeight: 1.6 }
-    }, "Only needed if you pick one of these as the narrator under Read Aloud."),
-    /* @__PURE__ */ React.createElement(TtsApiKeyRow, { providerId: "google" }),
-    /* @__PURE__ */ React.createElement(TtsApiKeyRow, { providerId: "azure" }),
-    /* @__PURE__ */ React.createElement(TtsApiKeyRow, { providerId: "elevenlabs" })
-  );
-}
-function TtsApiKeyRow({ providerId }) {
-  const meta = TTS_PROVIDER_META[providerId];
-  const [stored, setStored] = React.useState(() => !!localStorage.getItem(meta.keyStorage));
-  const [editing, setEditing] = React.useState(false);
-  const [value, setValue] = React.useState("");
-  const fieldStyle = {
-    flex: 1,
-    padding: "7px 9px",
-    fontSize: 12,
-    borderRadius: 6,
-    border: "1px solid rgba(232,222,197,0.22)",
-    background: "rgba(22,18,21,0.9)",
-    color: "var(--cream-bright)",
-    fontFamily: "monospace",
-    minWidth: 0
-  };
-  const btnStyle = {
-    padding: "7px 11px",
-    fontSize: 11,
-    borderRadius: 6,
-    border: "1px solid rgba(232,222,197,0.22)",
-    background: "rgba(22,18,21,0.9)",
-    color: "var(--cream-dim)",
-    cursor: "pointer",
-    letterSpacing: "0.14em",
-    whiteSpace: "nowrap"
-  };
-  const saveKey = async () => {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    let passphrase = window.__sessionPassphrase;
-    if (!passphrase) {
-      passphrase = prompt("Set a session passphrase to encrypt your API keys:");
-      if (!passphrase) return;
-      window.__sessionPassphrase = passphrase;
-    }
-    localStorage.setItem(meta.keyStorage, await encryptSecret(trimmed, passphrase));
-    setValue("");
-    setEditing(false);
-    setStored(true);
-  };
-  const forgetKey = () => {
-    localStorage.removeItem(meta.keyStorage);
-    setStored(false);
-    setEditing(false);
-    setValue("");
-  };
-  return /* @__PURE__ */ React.createElement("div", { style: { marginTop: 12 } },
-    /* @__PURE__ */ React.createElement("div", {
-      className: "display-font",
-      style: { color: "var(--cream-dim)", letterSpacing: "0.14em", fontSize: 10, textTransform: "uppercase", marginBottom: 5 }
-    }, meta.name),
-    stored && !editing
-      ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center" } },
-          /* @__PURE__ */ React.createElement("span", {
-            className: "body-font italic",
-            style: { color: "var(--cream-faint)", fontSize: 11, flex: 1 }
-          }, "Key stored"),
-          /* @__PURE__ */ React.createElement("button", { style: btnStyle, onClick: () => setEditing(true) }, "REPLACE"),
-          /* @__PURE__ */ React.createElement("button", { style: { ...btnStyle, color: "rgba(200,100,100,0.8)" }, onClick: forgetKey }, "FORGET"))
-      : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } },
-          /* @__PURE__ */ React.createElement("input", {
-            type: "password",
-            value,
-            onChange: (e) => setValue(e.target.value),
-            onKeyDown: (e) => { if (e.key === "Enter") saveKey(); if (e.key === "Escape") { setEditing(false); setValue(""); } },
-            placeholder: `Paste ${meta.name} API key…`,
-            "aria-label": `${meta.name} API key`,
-            style: fieldStyle,
-            autoComplete: "off"
-          }),
-          /* @__PURE__ */ React.createElement("button", {
-            style: { ...btnStyle, opacity: value.trim() ? 1 : 0.45, cursor: value.trim() ? "pointer" : "default" },
-            onClick: saveKey,
-            disabled: !value.trim()
-          }, "SAVE"),
-          stored && /* @__PURE__ */ React.createElement("button", { style: btnStyle, onClick: () => { setEditing(false); setValue(""); } }, "CANCEL"))
+    /* @__PURE__ */ React.createElement(LocalLLMRow, null)
   );
 }
 function EngineSelector({ label, hint, engine, onChange, requireToolUse = false }) {
@@ -6640,7 +6518,11 @@ function EngineSection({ settings, onChange }) {
     onChange: handleFreeSelection
   }));
 }
-function SettingsModal({ settings, onChange, onClose, osReducedMotion, ambienceLevel, ambienceUnavailable, onChangeAmbience, browserVoiceTick, onPreviewVoice, onStopPreview, speakingId }) {
+function SettingsModal({ settings, onChange, onClose, osReducedMotion,
+  ambienceLevel, ambienceUnavailable, ambienceDuringNarrationOnly, ambienceBoostWithTTS,
+  onChangeAmbience, onChangeAmbienceDuringNarrationOnly, onChangeAmbienceBoostWithTTS,
+  ttsEnabled, ttsProviderId, ttsProviderReady, ttsVoiceId, ttsBrowserVoices, ttsRate, ttsElevenKey,
+  onChangeTtsEnabled, onChangeTtsProvider, onChangeTtsVoice, onChangeTtsRate, onChangeTtsElevenKey }) {
   return /* @__PURE__ */ React.createElement("div", {
     className: "modal-backdrop",
     onClick: onClose
@@ -6690,14 +6572,25 @@ function SettingsModal({ settings, onChange, onClose, osReducedMotion, ambienceL
   }), /* @__PURE__ */ React.createElement(AmbienceRow, {
     level: ambienceLevel,
     unavailable: ambienceUnavailable,
-    onChange: onChangeAmbience
-  }), /* @__PURE__ */ React.createElement(TtsSection, {
-    settings,
-    onChange,
-    browserVoiceTick,
-    onPreviewVoice,
-    onStopPreview,
-    speakingId
+    onChange: onChangeAmbience,
+    ttsEnabled,
+    duringNarrationOnly: ambienceDuringNarrationOnly,
+    boostWithTTS: ambienceBoostWithTTS,
+    onChangeDuringNarrationOnly: onChangeAmbienceDuringNarrationOnly,
+    onChangeBoostWithTTS: onChangeAmbienceBoostWithTTS
+  }), /* @__PURE__ */ React.createElement(TTSRow, {
+    enabled: ttsEnabled,
+    providerId: ttsProviderId,
+    providerReady: ttsProviderReady,
+    voiceId: ttsVoiceId,
+    browserVoices: ttsBrowserVoices,
+    rate: ttsRate,
+    elevenKey: ttsElevenKey,
+    onChangeEnabled: onChangeTtsEnabled,
+    onChangeProvider: onChangeTtsProvider,
+    onChangeVoice: onChangeTtsVoice,
+    onChangeRate: onChangeTtsRate,
+    onChangeElevenKey: onChangeTtsElevenKey
   }), /* @__PURE__ */ React.createElement("div", {
     className: "settings-toggle",
     style: { cursor: "default", opacity: 0.85 }
@@ -6731,7 +6624,7 @@ function SettingsModal({ settings, onChange, onClose, osReducedMotion, ambienceL
     style: { padding: "8px 18px" }
   }, "✕ DONE"))));
 }
-function AmbienceRow({ level, unavailable, onChange }) {
+function AmbienceRow({ level, unavailable, onChange, ttsEnabled, duringNarrationOnly, boostWithTTS, onChangeDuringNarrationOnly, onChangeBoostWithTTS }) {
   const options = [
     { id: "off", label: "Off", hint: "Silence." },
     { id: "subtle", label: "Subtle", hint: "Barely there." },
@@ -6740,6 +6633,7 @@ function AmbienceRow({ level, unavailable, onChange }) {
   const description = unavailable
     ? "Your browser would not open an audio context. The bed is unavailable."
     : "A synthesised room tone — drone, noise, and texture — that thickens or thins with the scene. Default silence. Starts on your next move, never on page load.";
+  const showCoupling = !unavailable && level !== "off" && ttsEnabled;
   return /* @__PURE__ */ React.createElement("div", {
     className: "settings-toggle",
     style: { cursor: "default", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }
@@ -6747,16 +6641,35 @@ function AmbienceRow({ level, unavailable, onChange }) {
     className: "flex-1 min-w-0"
   }, /* @__PURE__ */ React.createElement("div", {
     className: "display-font",
-    style: {
-      color: "var(--cream-bright)",
-      letterSpacing: "0.18em",
-      fontSize: 11,
-      textTransform: "uppercase"
-    }
+    style: { color: "var(--cream-bright)", letterSpacing: "0.18em", fontSize: 11, textTransform: "uppercase" }
   }, "Atmospheric audio"), /* @__PURE__ */ React.createElement("div", {
     className: "body-font italic",
     style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4 }
-  }, description)), /* @__PURE__ */ React.createElement("div", {
+  }, description),
+  showCoupling && /* @__PURE__ */ React.createElement("div", {
+    style: { marginTop: 10, paddingLeft: 10, borderLeft: "1px solid rgba(232,222,197,0.15)", display: "flex", flexDirection: "column", gap: 8 }
+  },
+    /* @__PURE__ */ React.createElement("label", {
+      style: { display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer" }
+    }, /* @__PURE__ */ React.createElement("input", {
+      type: "checkbox", checked: !!duringNarrationOnly,
+      onChange: (e) => onChangeDuringNarrationOnly(e.target.checked),
+      style: { accentColor: "var(--rose-gold)", marginTop: 2, flexShrink: 0 }
+    }), /* @__PURE__ */ React.createElement("span", {
+      className: "body-font italic",
+      style: { fontSize: 12, color: "var(--cream-dim)", lineHeight: 1.5 }
+    }, "Only during narration — fades in while a turn is read aloud, out to silence between turns.")),
+    /* @__PURE__ */ React.createElement("label", {
+      style: { display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer" }
+    }, /* @__PURE__ */ React.createElement("input", {
+      type: "checkbox", checked: !!boostWithTTS,
+      onChange: (e) => onChangeBoostWithTTS(e.target.checked),
+      style: { accentColor: "var(--rose-gold)", marginTop: 2, flexShrink: 0 }
+    }), /* @__PURE__ */ React.createElement("span", {
+      className: "body-font italic",
+      style: { fontSize: 12, color: "var(--cream-dim)", lineHeight: 1.5 }
+    }, "Boost with voice — lift ambience one notch so it isn't buried under speech."))
+  )), /* @__PURE__ */ React.createElement("div", {
     role: "radiogroup",
     "aria-label": "Atmospheric audio intensity",
     style: { display: "flex", gap: 6, flexShrink: 0 }
@@ -6779,157 +6692,136 @@ function AmbienceRow({ level, unavailable, onChange }) {
     }
   }, opt.label.toUpperCase()))));
 }
-function TtsSection({ settings, onChange, browserVoiceTick, onPreviewVoice, onStopPreview, speakingId }) {
-  const tts = settings.tts || DEFAULT_TTS;
-  const meta = TTS_PROVIDER_META[tts.provider] || TTS_PROVIDER_META.browser;
-  const voicesRef = React.useMemo(() => meta.voices() || [], [tts.provider, browserVoiceTick]);
-  const fieldStyle = {
-    width: "100%",
-    marginTop: 6,
-    padding: "7px 9px",
-    fontSize: 12,
-    borderRadius: 6,
-    border: "1px solid rgba(232,222,197,0.22)",
-    background: "rgba(22,18,21,0.9)",
-    color: "var(--cream-bright)"
-  };
-  const labelStyle = {
-    color: "var(--cream-dim)",
-    letterSpacing: "0.16em",
-    fontSize: 10,
-    textTransform: "uppercase",
-    marginTop: 14
-  };
-  const hintStyle = {
-    color: "var(--cream-faint)",
-    fontSize: 11,
-    marginTop: 2,
-    lineHeight: 1.5
-  };
-  const setTts = (patch) => onChange("tts", { ...tts, ...patch });
-  const setProvider = (p) => {
-    setTts({ provider: p, voice: DEFAULT_VOICE_BY_PROVIDER[p] ?? "" });
-  };
-  const updateVoice = (v) => setTts({ voice: v });
-  const previewText = "The room held its breath, and someone's glass touched the table with a sound like a small confession.";
-  const previewing = speakingId === "preview";
-  const showRegionField = !!meta.needsRegion;
-  const [region, setRegion] = React.useState(() => getTTSRegion(tts.provider));
-  React.useEffect(() => { setRegion(getTTSRegion(tts.provider)); }, [tts.provider]);
-  const onRegionBlur = (v) => {
-    setTTSRegion(tts.provider, v);
-    setRegion(getTTSRegion(tts.provider));
-  };
+function TTSRow({ enabled, providerId, providerReady, voiceId, browserVoices, rate, elevenKey, onChangeEnabled, onChangeProvider, onChangeVoice, onChangeRate, onChangeElevenKey }) {
+  const [elevenInput, setElevenInput] = React.useState(elevenKey || "");
+  const [elevenSaved, setElevenSaved] = React.useState(false);
+  const providers = TTS_PROVIDER_ORDER.map((id) => TTS_PROVIDER_META[id]);
+  const ready = providerReady || {};
+  const activeMeta = TTS_PROVIDER_META[providerId] || null;
+  const voices = providerId === "browser"
+    ? (browserVoices || []).map((v) => ({ id: v.name, label: `${v.name} — ${v.lang}` }))
+    : activeMeta?.voices || [];
+  const allowCustomVoiceId = !!activeMeta?.allowCustomVoiceId;
   return /* @__PURE__ */ React.createElement("div", {
     className: "settings-toggle",
-    style: { cursor: "default", display: "block" }
+    style: { cursor: "default", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "flex-1 min-w-0", style: { width: "100%" }
   },
     /* @__PURE__ */ React.createElement("div", {
       className: "display-font",
       style: { color: "var(--cream-bright)", letterSpacing: "0.18em", fontSize: 11, textTransform: "uppercase" }
-    }, "Read aloud (text-to-speech)"),
+    }, "Narration aloud"),
     /* @__PURE__ */ React.createElement("div", {
       className: "body-font italic",
-      style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4, lineHeight: 1.6 }
-    }, "Have the narration read to you. The browser engine is free and built in; Puter.js is free via a one-time sign-in; Google, Azure and ElevenLabs need their own API key (each has a free monthly tier). A small ♪ button will appear under every passage."),
-    /* @__PURE__ */ React.createElement(SettingsToggleRow, {
-      id: "setting-tts-enabled",
-      label: "Enable narrator",
-      description: "Show a Hear button under each passage and allow auto-play.",
-      value: !!tts.enabled,
-      onChange: (v) => setTts({ enabled: v })
-    }),
-    tts.enabled && /* @__PURE__ */ React.createElement(React.Fragment, null,
-      /* @__PURE__ */ React.createElement("div", {
-        className: "display-font",
-        style: labelStyle
-      }, "Voice provider"),
-      /* @__PURE__ */ React.createElement("select", {
-        value: tts.provider,
-        "aria-label": "Narrator provider",
-        onChange: (e) => setProvider(e.target.value),
-        style: fieldStyle
-      }, TTS_PROVIDER_ORDER.map((id) => /* @__PURE__ */ React.createElement("option", { key: id, value: id }, TTS_PROVIDER_META[id].name))),
-      /* @__PURE__ */ React.createElement("div", {
-        className: "body-font italic",
-        style: hintStyle
-      }, meta.blurb),
-      showRegionField && /* @__PURE__ */ React.createElement(React.Fragment, null,
-        /* @__PURE__ */ React.createElement("div", {
-          className: "display-font",
-          style: labelStyle
-        }, "Azure region"),
-        /* @__PURE__ */ React.createElement("input", {
-          type: "text",
-          value: region,
-          placeholder: meta.defaultRegion || "eastus",
-          "aria-label": "Azure Speech resource region",
-          onChange: (e) => setRegion(e.target.value),
-          onBlur: (e) => onRegionBlur(e.target.value),
-          style: fieldStyle,
-          autoComplete: "off",
-          spellCheck: false
-        }),
-        /* @__PURE__ */ React.createElement("div", {
-          className: "body-font italic",
-          style: hintStyle
-        }, "The Azure region you created your Speech resource in — e.g. eastus, westeurope, japaneast.")
-      ),
-      /* @__PURE__ */ React.createElement("div", {
-        className: "display-font",
-        style: labelStyle
-      }, "Voice"),
-      tts.provider === "browser" && voicesRef.length === 0
-        ? /* @__PURE__ */ React.createElement("div", {
-            className: "body-font italic",
-            style: { ...hintStyle, marginTop: 8 }
-          }, "Your browser has not exposed any voices yet. Try opening a passage and clicking ♪ once — most browsers populate voices after the first play.")
-        : /* @__PURE__ */ React.createElement("select", {
-            value: tts.voice || "",
-            "aria-label": "Narrator voice",
-            onChange: (e) => updateVoice(e.target.value),
-            style: fieldStyle
-          }, [
-            /* @__PURE__ */ React.createElement("option", { key: "__default__", value: "" }, "Default voice"),
-            ...voicesRef.map((v) => /* @__PURE__ */ React.createElement("option", { key: v.id, value: v.id }, v.label))
-          ]),
-      /* @__PURE__ */ React.createElement("div", {
-        className: "display-font",
-        style: labelStyle
-      }, `Reading rate · ${(tts.rate || 1).toFixed(2)}x`),
-      /* @__PURE__ */ React.createElement("input", {
-        type: "range",
-        min: "0.6",
-        max: "1.5",
-        step: "0.05",
-        value: tts.rate || 1,
-        "aria-label": "Reading rate",
-        onChange: (e) => setTts({ rate: parseFloat(e.target.value) }),
-        style: { width: "100%", marginTop: 6 }
-      }),
-      /* @__PURE__ */ React.createElement(SettingsToggleRow, {
-        id: "setting-tts-autoplay",
-        label: "Read each new passage automatically",
-        description: "Start reading aloud as soon as a new narration arrives. You can stop at any time from the HUSH button in the header.",
-        value: !!tts.autoplay,
-        onChange: (v) => setTts({ autoplay: v })
-      }),
-      /* @__PURE__ */ React.createElement("div", {
-        style: { marginTop: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }
-      },
-        /* @__PURE__ */ React.createElement("button", {
-          type: "button",
-          onClick: () => previewing ? onStopPreview?.() : onPreviewVoice?.(previewText),
-          className: "icon-btn",
-          style: { padding: "7px 14px", fontSize: 11 }
-        }, previewing ? "■ Stop preview" : "♪ Preview voice"),
-        /* @__PURE__ */ React.createElement("span", {
-          className: "body-font italic",
-          style: { color: "var(--cream-faint)", fontSize: 11 }
-        }, previewing ? "speaking…" : "a one-sentence sample of the current voice")
-      )
-    )
-  );
+      style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4, marginBottom: 10 }
+    }, "Read each turn's narration aloud. Providers marked Ready use a key you've already set."),
+    /* Enable toggle */
+    /* @__PURE__ */ React.createElement("label", {
+      style: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer", marginBottom: 10 }
+    }, /* @__PURE__ */ React.createElement("input", {
+      type: "checkbox", checked: !!enabled,
+      onChange: (e) => onChangeEnabled(e.target.checked),
+      style: { accentColor: "var(--rose-gold)" }
+    }), /* @__PURE__ */ React.createElement("span", {
+      className: "display-font",
+      style: { fontSize: 11, letterSpacing: "0.2em", color: "var(--cream-bright)" }
+    }, enabled ? "READING ALOUD" : "SILENT")),
+    /* Provider picker */
+    /* @__PURE__ */ React.createElement("div", {
+      style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: enabled ? 10 : 0 }
+    }, providers.map((p) => {
+      const isReady = !p.requiresKey || ready[p.id];
+      const isActive = providerId === p.id;
+      return /* @__PURE__ */ React.createElement("button", {
+        key: p.id,
+        type: "button",
+        onClick: () => onChangeProvider(p.id),
+        className: "icon-btn",
+        title: p.requiresKey && !isReady
+          ? (p.reusesLLMKey ? `Set the ${p.reusesLLMKey === "openai" ? "OpenAI" : p.reusesLLMKey === "mistral" ? "Mistral" : p.reusesLLMKey} key in Settings → API keys` : "Enter your ElevenLabs key below")
+          : p.name,
+        style: {
+          padding: "5px 10px",
+          fontSize: 10,
+          letterSpacing: "0.15em",
+          display: "flex",
+          alignItems: "center",
+          gap: 5,
+          borderColor: isActive ? "rgba(212, 165, 116, 0.55)" : "rgba(232, 222, 197, 0.2)",
+          color: isActive ? "var(--cream-bright)" : "var(--cream-dim)",
+          background: isActive ? "rgba(212, 165, 116, 0.08)" : "transparent"
+        }
+      }, p.name.toUpperCase(), /* @__PURE__ */ React.createElement("span", {
+        style: {
+          fontSize: 8,
+          letterSpacing: "0.2em",
+          padding: "1px 4px",
+          borderRadius: 2,
+          background: isReady ? "rgba(212,165,116,0.15)" : "rgba(232,222,197,0.06)",
+          color: isReady ? "var(--rose-gold)" : "var(--cream-faint)"
+        }
+      }, isReady ? "READY" : "NEEDS KEY"));
+    })),
+    /* ElevenLabs inline key field */
+    providerId === "elevenlabs" && /* @__PURE__ */ React.createElement("div", {
+      style: { display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }
+    }, /* @__PURE__ */ React.createElement("input", {
+      type: "password",
+      value: elevenInput,
+      onChange: (e) => { setElevenInput(e.target.value); setElevenSaved(false); },
+      placeholder: "ElevenLabs API key…",
+      className: "body-font",
+      style: { flex: 1, background: "rgba(0,0,0,0.3)", color: "var(--cream-bright)", border: "1px solid rgba(232,222,197,0.2)", padding: "5px 8px", fontSize: 12 }
+    }), /* @__PURE__ */ React.createElement("button", {
+      className: "icon-btn",
+      style: { padding: "5px 10px", fontSize: 10, letterSpacing: "0.15em" },
+      onClick: async () => { await onChangeElevenKey(elevenInput); setElevenSaved(true); }
+    }, elevenSaved ? "SAVED ✓" : "SAVE")),
+    /* Voice picker */
+    enabled && voices.length > 0 && /* @__PURE__ */ React.createElement("label", {
+      style: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }
+    }, /* @__PURE__ */ React.createElement("span", {
+      className: "display-font",
+      style: { fontSize: 10, letterSpacing: "0.2em", color: "var(--cream-dim)" }
+    }, "VOICE"), /* @__PURE__ */ React.createElement("select", {
+      value: voices.some((v) => v.id === voiceId) ? voiceId : "",
+      onChange: (e) => onChangeVoice(e.target.value || null),
+      className: "body-font",
+      style: { background: "rgba(0,0,0,0.3)", color: "var(--cream-bright)", border: "1px solid rgba(232,222,197,0.2)", padding: "6px 10px", fontSize: 13, maxWidth: "100%" }
+    }, providerId === "browser" && /* @__PURE__ */ React.createElement("option", { value: "" }, "Automatic"),
+       allowCustomVoiceId && voiceId && !voices.some((v) => v.id === voiceId) && /* @__PURE__ */ React.createElement("option", { value: voiceId }, `Custom — ${voiceId.slice(0, 16)}…`),
+       voices.map((v) => /* @__PURE__ */ React.createElement("option", { key: v.id, value: v.id }, v.label)))),
+    /* Custom voice ID — for cloned voices (ElevenLabs) or extra Voxtral presets */
+    enabled && allowCustomVoiceId && /* @__PURE__ */ React.createElement("label", {
+      style: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }
+    }, /* @__PURE__ */ React.createElement("span", {
+      className: "display-font",
+      style: { fontSize: 10, letterSpacing: "0.2em", color: "var(--cream-dim)" }
+    }, "CUSTOM VOICE ID"), /* @__PURE__ */ React.createElement("input", {
+      type: "text",
+      value: voiceId || "",
+      onChange: (e) => onChangeVoice(e.target.value.trim() || null),
+      placeholder: providerId === "voxtral"
+        ? "Paste any Voxtral preset (e.g. casual_male) or cloned voice id"
+        : "Paste any ElevenLabs voice ID (e.g. cloned voice)",
+      className: "body-font",
+      autoComplete: "off",
+      spellCheck: false,
+      style: { background: "rgba(0,0,0,0.3)", color: "var(--cream-bright)", border: "1px solid rgba(232,222,197,0.2)", padding: "5px 8px", fontSize: 12, fontFamily: "monospace" }
+    })),
+    /* Rate slider */
+    enabled && /* @__PURE__ */ React.createElement("label", {
+      style: { display: "flex", flexDirection: "column", gap: 4 }
+    }, /* @__PURE__ */ React.createElement("span", {
+      className: "display-font",
+      style: { fontSize: 10, letterSpacing: "0.2em", color: "var(--cream-dim)" }
+    }, `READING PACE — ${(rate || 1).toFixed(2)}×`), /* @__PURE__ */ React.createElement("input", {
+      type: "range", min: "0.5", max: "2.0", step: "0.05", value: rate,
+      onChange: (e) => onChangeRate(parseFloat(e.target.value)),
+      style: { accentColor: "var(--rose-gold)" }
+    }))
+  ));
 }
 function SettingsToggleRow({ id, label, description, value, onChange }) {
   return /* @__PURE__ */ React.createElement("button", {
