@@ -2080,7 +2080,7 @@ var AMBIENCE_EVENT_RECIPES = {
  * TTS_PROVIDER_META catalogues five providers. Each has an adapter class
  * that implements synthesize(text, signal) → handle { play, stop, set onended }.
  * TTSController owns the active adapter and exposes a stable API to React.
- * Cloud adapters share the existing LLM API key where possible (OpenAI).
+ * Cloud adapters share the existing LLM API key where possible (OpenAI, Mistral).
  * Only ElevenLabs needs its own key entry. Browser and Puter need no key.
  */
 
@@ -2207,6 +2207,29 @@ class OpenAITTSAdapter {
   destroy() {}
 }
 
+// ── Voxtral (Mistral TTS) adapter ───────────────────────────────────────
+// Uses Mistral's OpenAI-compatible /v1/audio/speech endpoint with model
+// voxtral-mini-tts-2603. Body uses voice_id (NOT voice), distinguishing
+// it from OpenAI's schema. Supports 20 preset voices + zero-shot cloning.
+class VoxtralTTSAdapter {
+  constructor({ voiceId, rate, key, model }) {
+    this.voiceId = voiceId || "jane_confident";
+    this.rate = rate || 1.0;
+    this.key = key || "";
+    this.model = model || "voxtral-mini-tts-2603";
+  }
+  async synthesize(text, signal) {
+    const blob = await _fetchAudioBlob(
+      "https://api.mistral.ai/v1/audio/speech",
+      { method: "POST", headers: { "Authorization": `Bearer ${this.key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: this.model, voice_id: this.voiceId, input: text.trim(), response_format: "mp3" }) },
+      signal
+    );
+    return _blobHandle(blob, signal);
+  }
+  destroy() {}
+}
+
 // ── ElevenLabs adapter ───────────────────────────────────────────────────
 class ElevenLabsTTSAdapter {
   constructor({ voiceId, rate, key, model }) {
@@ -2272,8 +2295,21 @@ var TTS_PROVIDER_META = {
     model: "gpt-4o-mini-tts",
     adapter: OpenAITTSAdapter
   },
+  voxtral: {
+    id: "voxtral", name: "Voxtral", requiresKey: true, reusesLLMKey: "mistral",
+    voices: [
+      { id: "jane_confident",  label: "Jane — confident (EN)" },
+      { id: "casual_male",     label: "Casual male (EN)" },
+      { id: "casual_female",   label: "Casual female (EN)" },
+      { id: "vivian",          label: "Vivian (EN)" }
+    ],
+    model: "voxtral-mini-tts-2603",
+    adapter: VoxtralTTSAdapter,
+    allowCustomVoiceId: true
+  },
   elevenlabs: {
     id: "elevenlabs", name: "ElevenLabs", requiresKey: true, reusesLLMKey: null,
+    allowCustomVoiceId: true,
     keyStorage: "borrowed:tts_elevenlabs_key:v1",
     voices: [
       { id: "21m00Tcm4TlvDq8ikWAM", label: "Rachel — calm" },
@@ -2287,7 +2323,7 @@ var TTS_PROVIDER_META = {
   }
 };
 // Quality-first order; first "ready" provider wins on auto-select.
-var TTS_PROVIDER_ORDER = ["openai", "elevenlabs", "puter", "browser"];
+var TTS_PROVIDER_ORDER = ["openai", "elevenlabs", "voxtral", "puter", "browser"];
 
 // ── ElevenLabs key helpers ───────────────────────────────────────────────
 async function getTtsElevenLabsKey() {
@@ -4022,7 +4058,7 @@ function App() {
       browser: typeof window !== "undefined" && "speechSynthesis" in window,
       puter: true
     };
-    for (const id of ["openai"]) {
+    for (const id of ["openai", "voxtral"]) {
       const meta = TTS_PROVIDER_META[id];
       try { const k = await getProviderKey(meta.reusesLLMKey); out[id] = !!k; }
       catch { out[id] = false; }
@@ -6665,6 +6701,7 @@ function TTSRow({ enabled, providerId, providerReady, voiceId, browserVoices, ra
   const voices = providerId === "browser"
     ? (browserVoices || []).map((v) => ({ id: v.name, label: `${v.name} — ${v.lang}` }))
     : activeMeta?.voices || [];
+  const allowCustomVoiceId = !!activeMeta?.allowCustomVoiceId;
   return /* @__PURE__ */ React.createElement("div", {
     className: "settings-toggle",
     style: { cursor: "default", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }
@@ -6702,7 +6739,7 @@ function TTSRow({ enabled, providerId, providerReady, voiceId, browserVoices, ra
         onClick: () => onChangeProvider(p.id),
         className: "icon-btn",
         title: p.requiresKey && !isReady
-          ? (p.reusesLLMKey ? `Set the ${p.reusesLLMKey === "openai" ? "OpenAI" : p.reusesLLMKey} key in Settings → API keys` : "Enter your ElevenLabs key below")
+          ? (p.reusesLLMKey ? `Set the ${p.reusesLLMKey === "openai" ? "OpenAI" : p.reusesLLMKey === "mistral" ? "Mistral" : p.reusesLLMKey} key in Settings → API keys` : "Enter your ElevenLabs key below")
           : p.name,
         style: {
           padding: "5px 10px",
@@ -6753,10 +6790,10 @@ function TTSRow({ enabled, providerId, providerReady, voiceId, browserVoices, ra
       className: "body-font",
       style: { background: "rgba(0,0,0,0.3)", color: "var(--cream-bright)", border: "1px solid rgba(232,222,197,0.2)", padding: "6px 10px", fontSize: 13, maxWidth: "100%" }
     }, providerId === "browser" && /* @__PURE__ */ React.createElement("option", { value: "" }, "Automatic"),
-       providerId === "elevenlabs" && voiceId && !voices.some((v) => v.id === voiceId) && /* @__PURE__ */ React.createElement("option", { value: voiceId }, `Custom — ${voiceId.slice(0, 12)}…`),
+       allowCustomVoiceId && voiceId && !voices.some((v) => v.id === voiceId) && /* @__PURE__ */ React.createElement("option", { value: voiceId }, `Custom — ${voiceId.slice(0, 16)}…`),
        voices.map((v) => /* @__PURE__ */ React.createElement("option", { key: v.id, value: v.id }, v.label)))),
-    /* ElevenLabs custom voice ID — for cloned or library voices */
-    enabled && providerId === "elevenlabs" && /* @__PURE__ */ React.createElement("label", {
+    /* Custom voice ID — for cloned voices (ElevenLabs) or extra Voxtral presets */
+    enabled && allowCustomVoiceId && /* @__PURE__ */ React.createElement("label", {
       style: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }
     }, /* @__PURE__ */ React.createElement("span", {
       className: "display-font",
@@ -6765,7 +6802,9 @@ function TTSRow({ enabled, providerId, providerReady, voiceId, browserVoices, ra
       type: "text",
       value: voiceId || "",
       onChange: (e) => onChangeVoice(e.target.value.trim() || null),
-      placeholder: "Paste any ElevenLabs voice ID (e.g. cloned voice)",
+      placeholder: providerId === "voxtral"
+        ? "Paste any Voxtral preset (e.g. casual_male) or cloned voice id"
+        : "Paste any ElevenLabs voice ID (e.g. cloned voice)",
       className: "body-font",
       autoComplete: "off",
       spellCheck: false,
