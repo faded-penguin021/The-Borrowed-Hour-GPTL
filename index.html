@@ -942,16 +942,12 @@ const GM_LOGIC_TOOL = {
       ending: { type: "string" },
       ambience: {
         type: "object",
-        description: "Optional scene-texture vector for the procedural ambient bed. Omit any field to hold its previous value; set presence to 0 (or omit the field entirely and emit nothing) when the moment calls for silence.",
+        description: "Optional scene audio. Omit any field to hold its previous value. Pass null for space, population, or mood to fade that lane to silence.",
         properties: {
-          warmth:   { type: "number", minimum: 0, maximum: 1, description: "low/dark (0) to warm/bright (1)" },
-          density:  { type: "number", minimum: 0, maximum: 1, description: "sparse/airy (0) to thick/close (1)" },
-          motion:   { type: "number", minimum: 0, maximum: 1, description: "still (0) to restless/turbulent (1)" },
-          presence: { type: "number", minimum: 0, maximum: 1, description: "recede (0) to foreground (1); 0 silences this turn" },
-          register: { type: "number", minimum: 0, maximum: 1, description: "low/grounded (0) to high/elevated (1) — the vertical seat of the room. Stone basement low; rooftop or open sky high." },
-          unease:   { type: "number", minimum: 0, maximum: 1, description: "consonant/right (0) to inharmonic/wrong (1) — when the air itself feels off-key. Reserve for scenes that should read as uncanny." },
-          glimmer:  { type: "number", minimum: 0, maximum: 1, description: "still air (0) to pinged with small digital tones and glitches (1) — sparse 8-bit-like notes pitched to the room's harmonics. Suggests electronics, half-heard radios, things humming half-awake. Glitches and stutters appear when unease is also high. Reserve for scenes with electrical, mechanical, or dream-tech presence; keep it low or zero for natural rooms." },
-          melody:   { type: "number", minimum: 0, maximum: 1, description: "no melodic line (0) to a slow, audible drift of pad-like notes (1). Soft triangle-wave notes walking a pentatonic minor scale rooted in the room's register. This is contemplative ambient texture, not a tune — keep it sparse. Lift it for scenes that want a sense of melodic memory (a music box, an old radio carrying a half-tune, the player remembering a song); drop to 0 for action, silence, or scenes where pure room tone is right." }
+          space:      { type: "string", enum: ["intimate","chamber","hall","cavern","street","field","forest","vehicle","void"], description: "Acoustic environment — the kind of place the player is in. intimate=small sealed room; chamber=medium room; hall=large interior; cavern=huge resonant interior; street=outdoor hard surfaces; field=outdoor open; forest=outdoor organic; vehicle=confined moving; void=abstract/unreal." },
+          population: { type: "string", enum: ["solitary","sparse_voices","crowd","machinery","nature","ceremony","creature","wild"], description: "Optional — what fills the space sonically. solitary=only the speaker; sparse_voices=a few voices nearby; crowd=many voices/bustle; machinery=mechanical/industrial; nature=wind/water/birds; ceremony=ritual/procession; creature=non-human animal; wild=untamed elements (storm, fire, surf). Omit for just-the-room." },
+          mood:       { type: "string", enum: ["calm","tender","tense","ominous","joyous","melancholy","urgent","mysterious"], description: "Optional — emotional weather. Drives the music layer (scale, chord, pulse). Omit for no music at all." },
+          events:     { type: "array", items: { type: "string", enum: ["bell_toll","bell_distant","clock_chime","door_close","door_creak","footsteps_close","footsteps_recede","wind_gust","distant_thunder","paper_rustle","chair_scrape","glass_set_down","coin_drop","crowd_hush","cough_distant","breath_held","metal_clang","whisper_close"] }, description: "Optional — up to 2 one-shot diegetic sounds for this turn. Only when the literal sound carries narrative weight." }
         }
       }
     },
@@ -977,30 +973,111 @@ var OPENING_LOADING_PHRASES = [
 var pickPhrase = (pool) => pool[Math.floor(Math.random() * pool.length)];
 
 /*
- * AmbienceEngine — pure Web Audio API procedural ambient bed.
+ * AmbienceEngine — adaptive scene-driven audio, pure Web Audio API.
  *
- * Three layered voices feed a master gain that obeys the Subtle/Present
- * intensity setting and a slow comfort gate. Parameter changes use
- * setTargetAtTime with a ~2.5s reach so the bed breathes between turns
- * rather than stepping. Hard ceiling on master gain (0.22). No samples,
- * no network, no dependencies.
+ * Two diegetic synth lanes (one for the GM's `space`, one for the
+ * optional `population`) plus three music synth lanes (chord pad,
+ * mood-keyed melody, slow pulse) plus event one-shots. No samples, no
+ * network, no dependencies. Scene recipes — wind, ocean, fire, drone
+ * pad, space drone, crickets, birds, stream, thunder — are adapted
+ * from Hermes Agent Music by jlaiii (MIT,
+ * https://github.com/jlaiii/hermes-agent-music). Mood-driven music
+ * voices, event one-shots, and the four-field schema (space /
+ * population / mood / events) are this project's own design.
+ *
+ * Public surface: setIntensity(level), mute(bool), applyAmbience(input),
+ * destroy(). Instance properties: intensity ("off"|"subtle"|"present"),
+ * muted (bool). React side calls these; do not rename.
  */
-var AMBIENCE_INTENSITY_GAIN = { off: 0, subtle: 0.045, present: 0.11 };
-var AMBIENCE_HARD_CEILING = 0.16;
-var AMBIENCE_FIELDS = ["warmth", "density", "motion", "presence", "register", "unease", "glimmer", "melody"];
-var sanitizeAmbienceVector = (raw) => {
+var AMBIENCE_INTENSITY_GAIN = { off: 0, subtle: 0.10, present: 0.22 };
+var AMBIENCE_HARD_CEILING = 0.30;
+
+var AMBIENCE_SPACES = new Set(["intimate","chamber","hall","cavern","street","field","forest","vehicle","void"]);
+var AMBIENCE_POPULATIONS = new Set(["solitary","sparse_voices","crowd","machinery","nature","ceremony","creature","wild"]);
+var AMBIENCE_MOODS = new Set(["calm","tender","tense","ominous","joyous","melancholy","urgent","mysterious"]);
+var AMBIENCE_EVENTS = new Set(["bell_toll","bell_distant","clock_chime","door_close","door_creak","footsteps_close","footsteps_recede","wind_gust","distant_thunder","paper_rustle","chair_scrape","glass_set_down","coin_drop","crowd_hush","cough_distant","breath_held","metal_clang","whisper_close"]);
+
+// Per-scene loudness trims — relative voice gains feeding the master.
+// Tuned by ear; samples are no longer involved.
+var AMBIENCE_SPACE_TRIM = {
+  intimate: 0.45, chamber: 0.50, hall: 0.55, cavern: 0.65,
+  street:   0.60, field:   0.55, forest:   0.55,
+  vehicle:  0.65, void:    0.55
+};
+var AMBIENCE_POPULATION_TRIM = {
+  solitary: 0.30, sparse_voices: 0.40, crowd:    0.50, machinery: 0.55,
+  nature:   0.45, ceremony:      0.45, creature: 0.50, wild:      0.60
+};
+
+// Mood → musical voicing tables.
+// Scales: degrees in semitones over two octaves; melody walks them.
+var AMBIENCE_MOOD_SCALE = {
+  calm:        [0,2,4,7,9,12,14,16,19,21],   // pentatonic major
+  tender:      [0,2,4,7,9,12,14,16,19,21],   // pentatonic major
+  joyous:      [0,2,4,5,7,9,11,12,14,16],    // ionian (major)
+  melancholy:  [0,3,5,7,10,12,15,17,19,22],  // pentatonic minor
+  ominous:     [0,3,5,7,10,12,15,17,19,22],  // pentatonic minor
+  tense:       [0,1,3,5,7,8,10,12,13,15],    // phrygian
+  urgent:      [0,1,3,5,7,8,10,12,13,15],    // phrygian
+  mysterious:  [0,2,3,5,7,9,10,12,14,15]     // dorian
+};
+// Mean inter-note interval in seconds.
+var AMBIENCE_MOOD_MELODY_TEMPO = {
+  calm: 6.0, tender: 5.0, melancholy: 7.0, joyous: 3.0,
+  tense: 2.0, urgent: 1.2, ominous: 8.0, mysterious: 9.0
+};
+// Triads as (root_semitone_offset, quality). Each mood has 4 chords cycled.
+// "maj" = [r, r+4, r+7]; "min" = [r, r+3, r+7].
+var AMBIENCE_MOOD_PROGRESSION = {
+  calm:       [[0,"maj"],[9,"min"],[5,"maj"],[7,"maj"]],
+  tender:     [[0,"maj"],[5,"maj"],[2,"min"],[7,"maj"]],
+  joyous:     [[0,"maj"],[7,"maj"],[5,"maj"],[4,"min"]],
+  melancholy: [[0,"min"],[8,"maj"],[3,"maj"],[10,"maj"]],
+  ominous:    [[0,"min"],[8,"maj"],[1,"maj"],[3,"maj"]],
+  tense:      [[0,"min"],[1,"maj"],[7,"maj"],[0,"min"]],
+  urgent:     [[0,"min"],[5,"min"],[7,"min"],[0,"min"]],
+  mysterious: [[0,"min"],[2,"min"],[10,"maj"],[5,"min"]]
+};
+// Pulse tempo (BPM). null disables pulse for the mood.
+var AMBIENCE_MOOD_PULSE_BPM = {
+  calm: 40, tender: null, melancholy: 48, joyous: 62,
+  tense: 70, urgent: 90, ominous: 50, mysterious: null
+};
+// Per-voice gain weights at peak; multiplied by master.
+var AMBIENCE_MOOD_MUSIC_GAIN = {
+  calm:       { chord: 0.18, melody: 0.30, pulse: 0.04 },
+  tender:     { chord: 0.22, melody: 0.32, pulse: 0.00 },
+  joyous:     { chord: 0.18, melody: 0.35, pulse: 0.04 },
+  melancholy: { chord: 0.25, melody: 0.30, pulse: 0.03 },
+  ominous:    { chord: 0.30, melody: 0.25, pulse: 0.04 },
+  tense:      { chord: 0.20, melody: 0.28, pulse: 0.05 },
+  urgent:     { chord: 0.18, melody: 0.30, pulse: 0.05 },
+  mysterious: { chord: 0.28, melody: 0.32, pulse: 0.00 }
+};
+
+var sanitizeAmbience = (raw) => {
   if (raw === null) return null;
   if (!raw || typeof raw !== "object") return undefined;
   const out = {};
-  let any = false;
-  for (const k of AMBIENCE_FIELDS) {
-    const v = raw[k];
-    if (typeof v === "number" && !Number.isNaN(v)) {
-      out[k] = Math.max(0, Math.min(1, v));
-      any = true;
-    }
+  if ("space" in raw) {
+    if (raw.space === null) out.space = null;
+    else if (typeof raw.space === "string" && AMBIENCE_SPACES.has(raw.space)) out.space = raw.space;
   }
-  return any ? out : undefined;
+  if ("population" in raw) {
+    if (raw.population === null) out.population = null;
+    else if (typeof raw.population === "string" && AMBIENCE_POPULATIONS.has(raw.population)) out.population = raw.population;
+  }
+  if ("mood" in raw) {
+    if (raw.mood === null) out.mood = null;
+    else if (typeof raw.mood === "string" && AMBIENCE_MOODS.has(raw.mood)) out.mood = raw.mood;
+  }
+  if (Array.isArray(raw.events)) {
+    const evts = raw.events
+      .filter((e) => typeof e === "string" && AMBIENCE_EVENTS.has(e))
+      .slice(0, 4);
+    if (evts.length) out.events = evts;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 };
 class AmbienceEngine {
   constructor() {
@@ -1010,7 +1087,6 @@ class AmbienceEngine {
     this.intensity = "off";
     this.muted = false;
     this.destroyed = false;
-    this.target = { warmth: 0.5, density: 0.4, motion: 0.2, presence: 0.3, register: 0.5, unease: 0, glimmer: 0, melody: 0.3 };
     this.startTime = this.ctx.currentTime;
     this.comfortGain = 1.0;
 
@@ -1018,365 +1094,300 @@ class AmbienceEngine {
     this.master.gain.value = 0;
     this.master.connect(this.ctx.destination);
 
-    this.drone = this._buildDrone(this._registerToBase(this.target.register));
-    this.bed = this._buildNoiseBed();
-    this.texture = this._buildTexture();
-    this.glimmer = this._buildGlimmer();
-    this.melody = this._buildMelody();
+    // Diegetic synth lanes — each holds a scene voice built from one of
+    // the recipes in AMBIENCE_SPACE_RECIPES / AMBIENCE_POPULATION_RECIPES.
+    this.scene = {
+      space:      { gain: this._makeGain(0), voice: null, name: null, targetGain: 0 },
+      population: { gain: this._makeGain(0), voice: null, name: null, targetGain: 0 }
+    };
 
-    this._applyVector(this.target, 0.05);
+    // Music lanes (synth).
+    this.chordPad = this._buildChordPad();
+    this.melodyVoice = this._buildMelody();
+    this.pulse = this._buildPulse();
 
-    this.walkInterval = setInterval(() => this._doRandomWalk(), 11000);
+    // Currently held GM input — fields stay until re-emitted.
+    this.current = { space: null, population: null, mood: null };
+
     this.comfortInterval = setInterval(() => this._updateComfort(), 30000);
-    this.textureLoopArmed = false;
+    this.melodyArmed = false;
+    this.pulseArmed = false;
+    this.chordArmed = false;
   }
-  _registerToBase(register) {
-    const r = typeof register === "number" ? Math.max(0, Math.min(1, register)) : 0.5;
-    // Quadratic curve so the low end stays grounded: r=0 → ~45 Hz, r=0.5 → ~80 Hz, r=1 → ~150 Hz.
-    return 42 + 38 * r + 70 * r * r;
+  _makeGain(initial) {
+    const g = this.ctx.createGain();
+    g.gain.value = initial;
+    g.connect(this.master);
+    return g;
   }
-  _buildDrone(initialBase) {
+  // ── Noise buffer helper (lifted from Hermes Agent Music, MIT) ─────
+  _noiseBuffer(sec, type) {
     const ctx = this.ctx;
-    const out = ctx.createGain();
-    out.gain.value = 0.0001;
-
-    const lpf = ctx.createBiquadFilter();
-    lpf.type = "lowpass";
-    lpf.frequency.value = 700;
-    lpf.Q.value = 0.7;
-
-    const hpf = ctx.createBiquadFilter();
-    hpf.type = "highpass";
-    hpf.frequency.value = 35;
-    hpf.Q.value = 0.5;
-
-    // Triangle waves only on the harmonic pair — sawtooth was too harmonic-rich
-    // for phone speakers, where the inaudible fundamental gets stripped and the
-    // remaining upper harmonics read as a tinny buzz rather than a felt low.
-    const base = initialBase;
-    const osc1 = ctx.createOscillator();
-    osc1.type = "triangle";
-    osc1.frequency.value = base;
-    osc1.detune.value = -3;
-    const osc2 = ctx.createOscillator();
-    osc2.type = "triangle";
-    osc2.frequency.value = base * 1.5;
-    osc2.detune.value = 5;
-
-    // Inharmonic partial — silent until `unease` lifts its gain. The ratio
-    // 1.414 (≈√2) places it between a perfect fifth and a tritone, so the
-    // room can read as off-key without becoming dissonant in the musical sense.
-    const oscUnease = ctx.createOscillator();
-    oscUnease.type = "triangle";
-    oscUnease.frequency.value = base * 1.414;
-    oscUnease.detune.value = 11;
-    const uneaseGain = ctx.createGain();
-    uneaseGain.gain.value = 0;
-
-    const lfo = ctx.createOscillator();
-    lfo.type = "sine";
-    lfo.frequency.value = 0.04 + Math.random() * 0.06;
-    const lfoGain = ctx.createGain();
-    // Shallow LFO depth — at 14 cents the pitch wobble was audible on phone
-    // speakers as the only "music" in the bed. 4 cents is below the threshold
-    // where the ear locks onto it as a pitch change.
-    lfoGain.gain.value = 4;
-    lfo.connect(lfoGain);
-    lfoGain.connect(osc2.detune);
-
-    const oscMix = ctx.createGain();
-    oscMix.gain.value = 0.45;
-    osc1.connect(oscMix);
-    osc2.connect(oscMix);
-    oscUnease.connect(uneaseGain);
-    uneaseGain.connect(oscMix);
-    oscMix.connect(lpf);
-    lpf.connect(hpf);
-    hpf.connect(out);
-    out.connect(this.master);
-
-    osc1.start();
-    osc2.start();
-    oscUnease.start();
-    lfo.start();
-    return { out, lpf, hpf, osc1, osc2, oscUnease, uneaseGain, lfo, lfoGain };
-  }
-  _buildNoiseBed() {
-    const ctx = this.ctx;
-    const out = ctx.createGain();
-    out.gain.value = 0.0001;
-
-    const seconds = 28;
-    const bufferSize = Math.floor(ctx.sampleRate * seconds);
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
-    for (let i = 0; i < bufferSize; i++) {
-      const w = Math.random() * 2 - 1;
-      b0 = 0.99886 * b0 + w * 0.0555179;
-      b1 = 0.99332 * b1 + w * 0.0750759;
-      b2 = 0.96900 * b2 + w * 0.1538520;
-      b3 = 0.86650 * b3 + w * 0.3104856;
-      b4 = 0.55000 * b4 + w * 0.5329522;
-      b5 = -0.7616 * b5 - w * 0.0168980;
-      const sample = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
-      data[i] = sample > 1 ? 1 : sample < -1 ? -1 : sample;
-      b6 = w * 0.115926;
+    const rate = ctx.sampleRate;
+    const len = Math.max(1, Math.floor(rate * sec));
+    const b = ctx.createBuffer(1, len, rate);
+    const d = b.getChannelData(0);
+    if (type === "pink") {
+      let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+      for (let i = 0; i < len; i++) {
+        const w = Math.random()*2-1;
+        b0 = 0.99886*b0 + w*0.0555179;
+        b1 = 0.99332*b1 + w*0.0750759;
+        b2 = 0.96900*b2 + w*0.1538520;
+        b3 = 0.86650*b3 + w*0.3104856;
+        b4 = 0.55000*b4 + w*0.5329522;
+        b5 = -0.7616*b5 - w*0.0168980;
+        d[i] = (b0+b1+b2+b3+b4+b5+b6+w*0.5362)*0.11;
+        b6 = w*0.115926;
+      }
+    } else if (type === "brown") {
+      let last = 0;
+      for (let i = 0; i < len; i++) {
+        const w = Math.random()*2-1;
+        last = (last + 0.02*w) / 1.02;
+        d[i] = last * 3.5;
+      }
+    } else {
+      for (let i = 0; i < len; i++) d[i] = Math.random()*2-1;
     }
-
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-    src.loop = true;
-
-    const bpf = ctx.createBiquadFilter();
-    bpf.type = "bandpass";
-    bpf.frequency.value = 900;
-    bpf.Q.value = 1.5;
-
-    src.connect(bpf);
-    bpf.connect(out);
-    out.connect(this.master);
-    src.start();
-    return { out, bpf, src };
+    return b;
   }
-  _buildTexture() {
-    const ctx = this.ctx;
-    const out = ctx.createGain();
-    out.gain.value = 0;
-    out.connect(this.master);
-    return { out, scheduled: 0 };
-  }
-  _scheduleNextTextureBurst() {
+  // ── Scene lanes (space, population) ───────────────────────────────
+  _setSceneLane(lane, category, name, trimTable) {
     if (this.destroyed) return;
-    if (!this.texture) return;
-    const motion = this.target.motion ?? 0;
-    const presence = this.target.presence ?? 0;
-    // Skip bursts whenever the bed is fading toward silence — a burst landing
-    // inside a held breath (verdict, revelation) would break the spell even
-    // though the master fade would mute it eventually.
-    if (motion < 0.4 || this.intensity === "off" || this.muted || presence < 0.12) {
-      this.texture.scheduled = setTimeout(() => this._scheduleNextTextureBurst(), 4000);
+    const ctx = this.ctx;
+    const fadeTime = 2.5;
+    const TC = fadeTime / 3;
+
+    if (lane.voice) {
+      const old = lane.voice;
+      lane.gain.gain.cancelScheduledValues(ctx.currentTime);
+      lane.gain.gain.setTargetAtTime(0, ctx.currentTime, TC);
+      setTimeout(() => this._disposeSceneVoice(old), (fadeTime + 0.5) * 1000);
+      lane.voice = null;
+    }
+    lane.name = name;
+    if (!name) {
+      lane.targetGain = 0;
       return;
     }
-    const meanInterval = Math.max(0.9, 9 - (motion - 0.4) * 11);
-    const wait = -Math.log(1 - Math.random() * 0.99) * meanInterval;
-    this.texture.scheduled = setTimeout(() => {
-      this._fireTextureBurst();
-      this._scheduleNextTextureBurst();
-    }, Math.min(20000, wait * 1000));
+    const recipes = (category === "space") ? AMBIENCE_SPACE_RECIPES : AMBIENCE_POPULATION_RECIPES;
+    const builder = recipes[name];
+    if (!builder) { lane.targetGain = 0; return; }
+    lane.voice = builder(this, lane.gain);
+    lane.targetGain = (trimTable[name] != null) ? trimTable[name] : 0.5;
+    lane.gain.gain.cancelScheduledValues(ctx.currentTime);
+    lane.gain.gain.setValueAtTime(0, ctx.currentTime);
+    lane.gain.gain.setTargetAtTime(lane.targetGain, ctx.currentTime, TC);
   }
-  _fireTextureBurst() {
+  _disposeSceneVoice(voice) {
+    if (!voice) return;
+    if (voice.timers) voice.timers.forEach((t) => {
+      try { clearTimeout(t); } catch (_) {}
+      try { clearInterval(t); } catch (_) {}
+    });
+    if (voice.nodes) voice.nodes.forEach((n) => {
+      try { if (typeof n.stop === "function") n.stop(); } catch (_) {}
+      try { n.disconnect(); } catch (_) {}
+    });
+  }
+  // ── Event one-shots (synthesised) ─────────────────────────────────
+  _fireEvent(name) {
     if (this.destroyed) return;
-    if (!this.ctx || this.ctx.state !== "running") return;
-    if ((this.target.presence ?? 0) < 0.12) return;
-    const ctx = this.ctx;
-    const now = ctx.currentTime;
-    const duration = 0.45 + Math.random() * 1.2;
-    const bufSize = Math.floor(ctx.sampleRate * duration);
-    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * 0.35;
-
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    const bp = ctx.createBiquadFilter();
-    bp.type = "bandpass";
-    bp.frequency.value = 250 + Math.random() * 1600;
-    bp.Q.value = 5 + Math.random() * 5;
-    const g = ctx.createGain();
-    const peak = 0.025 + Math.random() * 0.025;
-    g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(peak, now + duration * 0.3);
-    g.gain.linearRampToValueAtTime(0, now + duration);
-
-    src.connect(bp);
-    bp.connect(g);
-    g.connect(this.texture.out);
-    src.start(now);
-    src.stop(now + duration + 0.05);
+    if (this.muted || this.intensity === "off") return;
+    const recipe = AMBIENCE_EVENT_RECIPES[name];
+    if (!recipe) return;
+    const startAt = this.ctx.currentTime + 0.05 + Math.random() * 0.25;
+    try { recipe(this, startAt); } catch (e) {
+      if (typeof console !== "undefined" && console.warn) {
+        console.warn(`[ambience] event "${name}" failed:`, e);
+      }
+    }
   }
-  _buildGlimmer() {
+  // ── ChordPad ──────────────────────────────────────────────────────
+  _buildChordPad() {
     const ctx = this.ctx;
     const out = ctx.createGain();
     out.gain.value = 0;
-    // Lowpass softens the square wave's harshness — without it, on phone
-    // speakers the pings would read as harsh clicks rather than tones.
     const lpf = ctx.createBiquadFilter();
     lpf.type = "lowpass";
-    lpf.frequency.value = 2400;
-    lpf.Q.value = 0.6;
+    lpf.frequency.value = 1200;
+    lpf.Q.value = 0.5;
     lpf.connect(out);
     out.connect(this.master);
-    return { out, lpf, scheduled: 0 };
+    // Three voice slots; each holds a {sine, tri, gain} group whose
+    // frequency glides to the target chord tone on mood change.
+    const baseHz = 110; // A2 — fixed root; pad lives near here.
+    const voices = [];
+    for (let i = 0; i < 3; i++) {
+      const sine = ctx.createOscillator(); sine.type = "sine"; sine.frequency.value = baseHz;
+      const tri  = ctx.createOscillator(); tri.type  = "triangle"; tri.frequency.value = baseHz;
+      tri.detune.value = 4;
+      const g = ctx.createGain(); g.gain.value = 0.16;
+      sine.connect(g); tri.connect(g); g.connect(lpf);
+      sine.start(); tri.start();
+      voices.push({ sine, tri, gain: g });
+    }
+    return { out, lpf, voices, baseHz, progressionIdx: 0, scheduled: 0 };
   }
-  _scheduleNextGlimmer() {
+  _setChord(triadOffsets, glideSeconds) {
     if (this.destroyed) return;
-    if (!this.glimmer) return;
-    const glimmer = this.target.glimmer ?? 0;
-    const presence = this.target.presence ?? 0;
-    if (glimmer < 0.1 || this.intensity === "off" || this.muted || presence < 0.12) {
-      this.glimmer.scheduled = setTimeout(() => this._scheduleNextGlimmer(), 6000);
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const TC = (glideSeconds || 4) / 3;
+    triadOffsets.forEach((semitones, i) => {
+      const voice = this.chordPad.voices[i];
+      if (!voice) return;
+      const freq = this.chordPad.baseHz * Math.pow(2, semitones / 12);
+      voice.sine.frequency.setTargetAtTime(freq, t, TC);
+      voice.tri.frequency.setTargetAtTime(freq, t, TC);
+    });
+  }
+  _scheduleNextChord() {
+    if (this.destroyed) return;
+    const mood = this.current.mood;
+    if (!mood || this.intensity === "off" || this.muted) {
+      this.chordPad.scheduled = setTimeout(() => this._scheduleNextChord(), 5000);
       return;
     }
-    // Mean interval: ~13s at glimmer=0.1, ~2s at glimmer=1.0.
-    const meanInterval = Math.max(2, 14 - glimmer * 12);
-    const wait = -Math.log(1 - Math.random() * 0.99) * meanInterval;
-    this.glimmer.scheduled = setTimeout(() => {
-      this._fireGlimmer();
-      this._scheduleNextGlimmer();
-    }, Math.min(30000, wait * 1000));
-  }
-  _fireGlimmer() {
-    if (this.destroyed) return;
-    if (!this.ctx || this.ctx.state !== "running") return;
-    if ((this.target.presence ?? 0) < 0.12) return;
-    const base = this._registerToBase(this.target.register ?? 0.5);
-    // Harmonically related intervals — these sit above the drone without
-    // clashing. 3×, 4×, 6×, 8× are octaves and fifths; 5× and 12× lean
-    // toward major-third territory.
-    const intervals = [3, 4, 5, 6, 8, 12];
-    const interval = intervals[Math.floor(Math.random() * intervals.length)];
-    const unease = this.target.unease ?? 0;
-    // When unease is high, occasionally detune the ping a small amount so
-    // the harmonic relation feels slightly wrong — a half-step on the
-    // log scale equals 2^(1/24) ≈ 1.029, so this stays under that.
-    const detune = unease > 0.3 && Math.random() < unease ? (Math.random() - 0.5) * 0.03 : 0;
-    const freq = base * interval * (1 + detune);
-    // Glitch: occasionally retrigger 2–3 short stutters at the same pitch.
-    // Probability scales with unease; even at unease=0 there's a small chance.
-    const glitchProb = 0.05 + unease * 0.35;
-    const glitch = Math.random() < glitchProb;
-    const retriggers = glitch ? 2 + Math.floor(Math.random() * 2) : 1;
-    const releaseLong = 0.22 + Math.random() * 0.18;
-    const releaseShort = 0.06 + Math.random() * 0.04;
-    const now = this.ctx.currentTime;
-    for (let i = 0; i < retriggers; i++) {
-      const startAt = now + i * (0.04 + Math.random() * 0.03);
-      const release = glitch ? releaseShort : releaseLong;
-      this._playGlimmerNote(freq, startAt, release, glitch);
+    const prog = AMBIENCE_MOOD_PROGRESSION[mood];
+    if (!prog) {
+      this.chordPad.scheduled = setTimeout(() => this._scheduleNextChord(), 5000);
+      return;
     }
+    const [root, quality] = prog[this.chordPad.progressionIdx % prog.length];
+    const third = quality === "min" ? root + 3 : root + 4;
+    this._setChord([root, third, root + 7], 4);
+    this.chordPad.progressionIdx = (this.chordPad.progressionIdx + 1) % prog.length;
+    const wait = 16000 + Math.random() * 8000;
+    this.chordPad.scheduled = setTimeout(() => this._scheduleNextChord(), wait);
   }
-  _playGlimmerNote(freq, startAt, release, glitch) {
-    const ctx = this.ctx;
-    const osc = ctx.createOscillator();
-    osc.type = "square";
-    osc.frequency.value = freq;
-    const g = ctx.createGain();
-    const peak = glitch ? 0.05 : 0.035 + Math.random() * 0.02;
-    g.gain.setValueAtTime(0, startAt);
-    g.gain.linearRampToValueAtTime(peak, startAt + 0.004);
-    g.gain.exponentialRampToValueAtTime(0.0008, startAt + release);
-    osc.connect(g);
-    g.connect(this.glimmer.lpf);
-    osc.start(startAt);
-    osc.stop(startAt + release + 0.05);
-  }
+  // ── MelodyVoice ───────────────────────────────────────────────────
   _buildMelody() {
     const ctx = this.ctx;
     const out = ctx.createGain();
     out.gain.value = 0;
-    // Gentle lowpass so triangle harmonics never reach "music box" sharpness.
     const lpf = ctx.createBiquadFilter();
     lpf.type = "lowpass";
     lpf.frequency.value = 1900;
     lpf.Q.value = 0.5;
     lpf.connect(out);
     out.connect(this.master);
-    // Pentatonic minor over two octaves, in semitones from the local root.
-    // Five notes per octave: 1, b3, 4, 5, b7. The mode is contemplative
-    // and forgiving — random walks across it always sound related.
-    const scale = [0, 3, 5, 7, 10, 12, 15, 17, 19, 22];
-    return { out, lpf, scale, scaleDegree: 3, scheduled: 0 };
+    return { out, lpf, scaleDegree: 3, scheduled: 0 };
+  }
+  _melodyStep() {
+    const r = Math.random();
+    if (r < 0.10) return 0;
+    if (r < 0.55) return Math.random() < 0.5 ? -1 : 1;
+    if (r < 0.85) return Math.random() < 0.5 ? -2 : 2;
+    return Math.random() < 0.5 ? -3 : 3;
   }
   _scheduleNextMelodyNote() {
     if (this.destroyed) return;
-    if (!this.melody) return;
-    const melody = this.target.melody ?? 0;
-    const presence = this.target.presence ?? 0;
-    if (melody < 0.05 || this.intensity === "off" || this.muted || presence < 0.12) {
-      this.melody.scheduled = setTimeout(() => this._scheduleNextMelodyNote(), 5000);
+    const mood = this.current.mood;
+    if (!mood || this.intensity === "off" || this.muted) {
+      this.melodyVoice.scheduled = setTimeout(() => this._scheduleNextMelodyNote(), 4000);
       return;
     }
-    // Mean interval: ~10s at melody=0.05, ~3s at melody=1.
-    const meanInterval = Math.max(2.6, 10.5 - melody * 7.8);
+    const meanInterval = AMBIENCE_MOOD_MELODY_TEMPO[mood] || 5;
     const wait = -Math.log(1 - Math.random() * 0.99) * meanInterval;
-    this.melody.scheduled = setTimeout(() => {
+    this.melodyVoice.scheduled = setTimeout(() => {
       this._fireMelodyNote();
       this._scheduleNextMelodyNote();
     }, Math.min(22000, wait * 1000));
   }
-  _melodyStep() {
-    // Mostly small intervals so the line feels stepwise. Occasional repeats
-    // and rare larger jumps keep it from feeling like a scale exercise.
-    const r = Math.random();
-    if (r < 0.10) return 0;                              // repeat the note
-    if (r < 0.55) return Math.random() < 0.5 ? -1 : 1;  // step
-    if (r < 0.85) return Math.random() < 0.5 ? -2 : 2;  // skip
-    return Math.random() < 0.5 ? -3 : 3;                 // leap (rare)
-  }
   _fireMelodyNote() {
-    if (this.destroyed) return;
-    if (!this.ctx || this.ctx.state !== "running") return;
-    if ((this.target.presence ?? 0) < 0.12) return;
-    const scale = this.melody.scale;
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const mood = this.current.mood;
+    if (!mood) return;
+    const scale = AMBIENCE_MOOD_SCALE[mood] || AMBIENCE_MOOD_SCALE.calm;
     const len = scale.length;
-    let next = (this.melody.scaleDegree ?? 3) + this._melodyStep();
-    // Bounce off the edges instead of clamping, so the line keeps moving.
+    let next = (this.melodyVoice.scaleDegree ?? 3) + this._melodyStep();
     if (next < 0) next = -next;
     if (next >= len) next = 2 * (len - 1) - next;
     next = Math.max(0, Math.min(len - 1, next));
-    this.melody.scaleDegree = next;
-
-    const base = this._registerToBase(this.target.register ?? 0.5);
-    const root = base * 4;
+    this.melodyVoice.scaleDegree = next;
+    const root = 220; // A3 — melody sits an octave above the pad.
     const freq = root * Math.pow(2, scale[next] / 12);
-    const unease = this.target.unease ?? 0;
-    // When the room is uncanny, drift the note off true by up to a third
-    // of a semitone — enough to read as "not quite right" without breaking
-    // the mode entirely.
-    const detune = unease > 0.4 ? (Math.random() - 0.5) * 32 * unease : 0;
-
     const release = 1.3 + Math.random() * 1.6;
     const peak = 0.08 + Math.random() * 0.03;
-    this._playMelodyNote(freq, detune, release, peak);
-  }
-  _playMelodyNote(freq, detune, release, peak) {
     const ctx = this.ctx;
     const osc = ctx.createOscillator();
     osc.type = "triangle";
     osc.frequency.value = freq;
-    osc.detune.value = detune;
     const g = ctx.createGain();
     const now = ctx.currentTime;
-    // Slow attack so notes emerge rather than punch in.
     g.gain.setValueAtTime(0, now);
     g.gain.linearRampToValueAtTime(peak, now + 0.25);
     g.gain.exponentialRampToValueAtTime(0.0005, now + release);
     osc.connect(g);
-    g.connect(this.melody.lpf);
+    g.connect(this.melodyVoice.lpf);
     osc.start(now);
     osc.stop(now + release + 0.1);
   }
-  _doRandomWalk() {
-    if (this.destroyed || !this.ctx) return;
-    const t = this.ctx.currentTime;
-    // 8s reach keeps the drift well below the ear's "what changed?" threshold.
-    const TC = 8.0;
-    const motion = this.target.motion ?? 0;
-
-    const lfoCurrent = this.drone.lfo.frequency.value;
-    const lfoNext = Math.max(0.03, Math.min(0.12, lfoCurrent + (Math.random() - 0.5) * 0.012));
-    this.drone.lfo.frequency.setTargetAtTime(lfoNext, t, TC);
-
-    const centerLow = 380 + motion * 250;
-    const centerHigh = 1500 + motion * 1700;
-    const currentCenter = this.bed.bpf.frequency.value;
-    // Drift is small and motion-scaled. At motion=0 the bed essentially holds;
-    // at motion=1 it breathes about ±80 Hz around the slow target.
-    const drift = (Math.random() - 0.5) * 80 * Math.max(0.05, motion);
-    const nextCenter = Math.max(centerLow, Math.min(centerHigh, currentCenter + drift));
-    this.bed.bpf.frequency.setTargetAtTime(nextCenter, t, TC);
+  // ── Pulse ─────────────────────────────────────────────────────────
+  _buildPulse() {
+    const ctx = this.ctx;
+    const out = ctx.createGain();
+    out.gain.value = 0;
+    out.connect(this.master);
+    return { out, scheduled: 0 };
   }
+  _schedulePulse() {
+    if (this.destroyed) return;
+    const mood = this.current.mood;
+    const bpm = mood ? AMBIENCE_MOOD_PULSE_BPM[mood] : null;
+    if (!bpm || this.intensity === "off" || this.muted) {
+      this.pulse.scheduled = setTimeout(() => this._schedulePulse(), 4000);
+      return;
+    }
+    this._firePulse();
+    const interval = 60000 / bpm;
+    this.pulse.scheduled = setTimeout(() => this._schedulePulse(), interval);
+  }
+  _firePulse() {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = 55;
+    const g = ctx.createGain();
+    const now = ctx.currentTime;
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(1.0, now + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    osc.connect(g);
+    g.connect(this.pulse.out);
+    osc.start(now);
+    osc.stop(now + 0.25);
+  }
+  // ── Mood application ──────────────────────────────────────────────
+  _applyMood(mood) {
+    if (this.destroyed) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const TC = 0.83;
+    if (!mood) {
+      this.chordPad.out.gain.setTargetAtTime(0, t, TC);
+      this.melodyVoice.out.gain.setTargetAtTime(0, t, TC);
+      this.pulse.out.gain.setTargetAtTime(0, t, TC);
+      return;
+    }
+    const weights = AMBIENCE_MOOD_MUSIC_GAIN[mood] || AMBIENCE_MOOD_MUSIC_GAIN.calm;
+    this.chordPad.out.gain.setTargetAtTime(weights.chord, t, TC);
+    this.melodyVoice.out.gain.setTargetAtTime(weights.melody, t, TC);
+    this.pulse.out.gain.setTargetAtTime(weights.pulse, t, TC);
+    // Snap chord progression to a fresh starting voicing on mood change.
+    this.chordPad.progressionIdx = 0;
+    const prog = AMBIENCE_MOOD_PROGRESSION[mood];
+    if (prog && prog[0]) {
+      const [root, quality] = prog[0];
+      const third = quality === "min" ? root + 3 : root + 4;
+      this._setChord([root, third, root + 7], 2);
+      this.chordPad.progressionIdx = 1;
+    }
+  }
+  // ── Comfort / master gain ─────────────────────────────────────────
   _updateComfort() {
     if (this.destroyed || !this.ctx) return;
     const elapsed = this.ctx.currentTime - this.startTime;
@@ -1392,62 +1403,11 @@ class AmbienceEngine {
     if (this.destroyed || !this.ctx) return;
     const t = this.ctx.currentTime;
     const ceiling = AMBIENCE_INTENSITY_GAIN[this.intensity] || 0;
-    const presence = this.target.presence ?? 0;
-    const raw = ceiling * presence * this.comfortGain;
+    const raw = ceiling * this.comfortGain;
     const target = (this.muted || this.intensity === "off") ? 0 : Math.min(AMBIENCE_HARD_CEILING, raw);
     this.master.gain.setTargetAtTime(target, t, fastCut ? 0.04 : 0.83);
   }
-  _applyVector(vector, timeConstant) {
-    if (this.destroyed || !this.ctx) return;
-    if (!vector) return;
-    const t = this.ctx.currentTime;
-    const TC = typeof timeConstant === "number" ? timeConstant : 0.83;
-
-    const warmth = this.target.warmth ?? 0.5;
-    const density = this.target.density ?? 0.5;
-    const motion = this.target.motion ?? 0;
-    const unease = this.target.unease ?? 0;
-    const register = this.target.register ?? 0.5;
-
-    const base = this._registerToBase(register);
-    this.drone.osc1.frequency.setTargetAtTime(base, t, TC);
-    this.drone.osc2.frequency.setTargetAtTime(base * 1.5, t, TC);
-    this.drone.oscUnease.frequency.setTargetAtTime(base * 1.414, t, TC);
-
-    const lpfCutoff = 300 + warmth * 1100;
-    const hpfCutoff = 35 + warmth * 35;
-    this.drone.lpf.frequency.setTargetAtTime(lpfCutoff, t, TC);
-    this.drone.hpf.frequency.setTargetAtTime(hpfCutoff, t, TC);
-    // Drone is secondary — the felt body, not the heard voice. Noise bed is
-    // the primary "air." Previous gain of 0.55–0.95 made the drone the
-    // dominant element on phone speakers, where the upper harmonics carry.
-    this.drone.out.gain.setTargetAtTime(0.08 + density * 0.18, t, TC);
-
-    // Unease lifts the inharmonic partial under a soft threshold so that
-    // values near zero stay clean. At unease=1 it's still well below the
-    // fundamental's level — a colouring, not a competing voice.
-    const uneaseAudible = unease > 0.05 ? unease : 0;
-    const uneaseGainTarget = uneaseAudible > 0 ? 0.03 + uneaseAudible * 0.18 : 0;
-    this.drone.uneaseGain.gain.setTargetAtTime(uneaseGainTarget, t, TC);
-
-    const bedGain = 0.10 + density * 0.55;
-    this.bed.out.gain.setTargetAtTime(bedGain, t, TC);
-    const Q = 6.5 - density * 5.2;
-    this.bed.bpf.Q.setTargetAtTime(Math.max(0.5, Q), t, TC);
-
-    const textureGain = motion > 0.4 ? 0.25 + (motion - 0.4) * 0.45 : 0;
-    this.texture.out.gain.setTargetAtTime(textureGain, t, TC);
-
-    const glimmer = this.target.glimmer ?? 0;
-    const glimmerOutGain = glimmer > 0.05 ? 0.4 + glimmer * 0.5 : 0;
-    this.glimmer.out.gain.setTargetAtTime(glimmerOutGain, t, TC);
-
-    const melody = this.target.melody ?? 0;
-    const melodyOutGain = melody > 0.04 ? 0.4 + melody * 0.55 : 0;
-    this.melody.out.gain.setTargetAtTime(melodyOutGain, t, TC);
-
-    this._applyMaster();
-  }
+  // ── Public API ────────────────────────────────────────────────────
   setIntensity(level) {
     if (this.destroyed) return;
     const prev = this.intensity;
@@ -1464,38 +1424,53 @@ class AmbienceEngine {
       if (this.ctx && this.ctx.state === "suspended") {
         this.ctx.resume().catch(() => {});
       }
-      if (!this.textureLoopArmed) {
-        this.textureLoopArmed = true;
-        this._scheduleNextTextureBurst();
-      }
-      if (!this.glimmerLoopArmed) {
-        this.glimmerLoopArmed = true;
-        this._scheduleNextGlimmer();
-      }
-      if (!this.melodyLoopArmed) {
-        this.melodyLoopArmed = true;
-        this._scheduleNextMelodyNote();
-      }
+      if (!this.melodyArmed) { this.melodyArmed = true; this._scheduleNextMelodyNote(); }
+      if (!this.pulseArmed)  { this.pulseArmed  = true; this._schedulePulse(); }
+      if (!this.chordArmed)  { this.chordArmed  = true; this._scheduleNextChord(); }
       if (prev === "off") this.startTime = this.ctx.currentTime;
       this._applyMaster();
     }
   }
-  applyAmbience(vector) {
+  applyAmbience(input) {
     if (this.destroyed) return;
-    if (vector === undefined) return;
-    if (vector === null) {
-      this.target.presence = 0;
-      this._applyMaster();
+    if (input === undefined) return;
+    if (input === null) {
+      // Total silence: fade all lanes.
+      this._setSceneLane(this.scene.space, "space", null, AMBIENCE_SPACE_TRIM);
+      this._setSceneLane(this.scene.population, "population", null, AMBIENCE_POPULATION_TRIM);
+      this.current.space = null;
+      this.current.population = null;
+      this.current.mood = null;
+      this._applyMood(null);
       return;
     }
-    if (typeof vector !== "object") return;
-    for (const k of AMBIENCE_FIELDS) {
-      const v = vector[k];
-      if (typeof v === "number" && !Number.isNaN(v)) {
-        this.target[k] = Math.max(0, Math.min(1, v));
+    if (typeof input !== "object") return;
+    const sanitized = sanitizeAmbience(input);
+    if (!sanitized) return;
+    if ("space" in sanitized) {
+      const next = sanitized.space; // string or null
+      if (this.current.space !== next) {
+        this.current.space = next;
+        this._setSceneLane(this.scene.space, "space", next, AMBIENCE_SPACE_TRIM);
       }
     }
-    this._applyVector(this.target);
+    if ("population" in sanitized) {
+      const next = sanitized.population; // string or null
+      if (this.current.population !== next) {
+        this.current.population = next;
+        this._setSceneLane(this.scene.population, "population", next, AMBIENCE_POPULATION_TRIM);
+      }
+    }
+    if ("mood" in sanitized) {
+      const next = sanitized.mood; // string or null
+      if (this.current.mood !== next) {
+        this.current.mood = next;
+        this._applyMood(next);
+      }
+    }
+    if (sanitized.events) {
+      sanitized.events.forEach((name) => this._fireEvent(name));
+    }
   }
   mute(bool) {
     if (this.destroyed) return;
@@ -1504,14 +1479,698 @@ class AmbienceEngine {
   }
   destroy() {
     this.destroyed = true;
-    clearInterval(this.walkInterval);
     clearInterval(this.comfortInterval);
-    if (this.texture && this.texture.scheduled) clearTimeout(this.texture.scheduled);
-    if (this.glimmer && this.glimmer.scheduled) clearTimeout(this.glimmer.scheduled);
-    if (this.melody && this.melody.scheduled) clearTimeout(this.melody.scheduled);
-    if (this.ctx) {
-      try { this.ctx.close(); } catch {}
+    if (this.melodyVoice && this.melodyVoice.scheduled) clearTimeout(this.melodyVoice.scheduled);
+    if (this.pulse && this.pulse.scheduled) clearTimeout(this.pulse.scheduled);
+    if (this.chordPad && this.chordPad.scheduled) clearTimeout(this.chordPad.scheduled);
+    if (this.scene) {
+      [this.scene.space, this.scene.population].forEach((lane) => {
+        if (lane && lane.voice) this._disposeSceneVoice(lane.voice);
+      });
     }
+    if (this.ctx) {
+      try { this.ctx.close(); } catch (_) {}
+    }
+  }
+}
+
+/*
+ * Scene and event recipe tables — small synth builders, called by
+ * AmbienceEngine. Each space/population builder takes (engine, dest)
+ * and returns { nodes, timers } so the engine can later tear it down.
+ * Each event builder takes (engine, startAt) and schedules a one-shot
+ * into engine.master. Recipes for rain/thunder/wind/ocean/fire/crickets/
+ * birds/stream/drone/space are adapted from Hermes Agent Music by jlaiii
+ * (MIT, https://github.com/jlaiii/hermes-agent-music). Other recipes
+ * are this project's own work.
+ */
+var AMBIENCE_SPACE_RECIPES = {
+  intimate: (eng, dest) => {
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "brown"); src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 400;
+    const g = ctx.createGain(); g.gain.value = 0.35;
+    src.connect(f).connect(g).connect(dest); src.start();
+    return { nodes: [src, f, g], timers: [] };
+  },
+  chamber: (eng, dest) => {
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "brown"); src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 700;
+    const g = ctx.createGain(); g.gain.value = 0.5;
+    src.connect(f).connect(g).connect(dest); src.start();
+    const iv = setInterval(() => {
+      f.frequency.setTargetAtTime(550 + Math.random()*300, ctx.currentTime, 3);
+    }, 5000);
+    return { nodes: [src, f, g], timers: [iv] };
+  },
+  hall: (eng, dest) => {
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 900;
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 80;
+    const g = ctx.createGain(); g.gain.value = 0.5;
+    src.connect(lp).connect(hp).connect(g).connect(dest); src.start();
+    return { nodes: [src, lp, hp, g], timers: [] };
+  },
+  cavern: (eng, dest) => {
+    // Adapted from Hermes "space" drone, dropped an octave.
+    const ctx = eng.ctx;
+    const out = ctx.createGain(); out.gain.value = 0.9; out.connect(dest);
+    const lpf = ctx.createBiquadFilter(); lpf.type = "lowpass"; lpf.frequency.value = 220;
+    lpf.connect(out);
+    const freqs = [44, 46, 54.5, 65.4];
+    const oscs = [];
+    freqs.forEach((f) => {
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f;
+      const og = ctx.createGain(); og.gain.value = 0.18;
+      o.connect(og).connect(lpf); o.start();
+      oscs.push(o, og);
+    });
+    const iv = setInterval(() => {
+      lpf.frequency.setTargetAtTime(120 + Math.random()*200, ctx.currentTime, 4);
+    }, 7000);
+    return { nodes: [out, lpf, ...oscs], timers: [iv] };
+  },
+  street: (eng, dest) => {
+    // Urban "wind" — bandpass pink noise, slow modulation.
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 550; f.Q.value = 0.5;
+    const g = ctx.createGain(); g.gain.value = 0.55;
+    src.connect(f).connect(g).connect(dest); src.start();
+    const iv = setInterval(() => {
+      g.gain.setTargetAtTime(0.4 + Math.random()*0.3, ctx.currentTime, 2);
+      f.frequency.setTargetAtTime(400 + Math.random()*400, ctx.currentTime, 2);
+    }, 3500);
+    return { nodes: [src, f, g], timers: [iv] };
+  },
+  field: (eng, dest) => {
+    // Hermes "wind" recipe.
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 600; f.Q.value = 0.5;
+    const g = ctx.createGain(); g.gain.value = 0.55;
+    src.connect(f).connect(g).connect(dest); src.start();
+    const iv = setInterval(() => {
+      g.gain.setTargetAtTime(0.35 + Math.random()*0.4, ctx.currentTime, 1.5);
+      f.frequency.setTargetAtTime(300 + Math.random()*700, ctx.currentTime, 1.5);
+    }, 2500);
+    return { nodes: [src, f, g], timers: [iv] };
+  },
+  forest: (eng, dest) => {
+    // Soft wind + occasional bird chirps (Hermes "birds").
+    const ctx = eng.ctx;
+    const wind = ctx.createBufferSource(); wind.buffer = eng._noiseBuffer(3, "pink"); wind.loop = true;
+    const wf = ctx.createBiquadFilter(); wf.type = "bandpass"; wf.frequency.value = 700; wf.Q.value = 0.5;
+    const wg = ctx.createGain(); wg.gain.value = 0.4;
+    wind.connect(wf).connect(wg).connect(dest); wind.start();
+    const ivWind = setInterval(() => {
+      wg.gain.setTargetAtTime(0.25 + Math.random()*0.3, ctx.currentTime, 2);
+    }, 3000);
+    const ivBirds = setInterval(() => {
+      if (Math.random() > 0.55) return;
+      const now = ctx.currentTime;
+      const freq = 3000 + Math.random()*4000;
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(freq, now);
+      o.frequency.exponentialRampToValueAtTime(freq * (0.7 + Math.random()*0.5), now + 0.08);
+      const og = ctx.createGain();
+      og.gain.setValueAtTime(0, now);
+      og.gain.linearRampToValueAtTime(0.10, now + 0.02);
+      og.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      o.connect(og).connect(dest);
+      o.start(now); o.stop(now + 0.4);
+    }, 1800);
+    return { nodes: [wind, wf, wg], timers: [ivWind, ivBirds] };
+  },
+  vehicle: (eng, dest) => {
+    // Confined moving — brown noise rumble + low sine, slow vibrato.
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "brown"); src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 280;
+    const g = ctx.createGain(); g.gain.value = 0.55;
+    src.connect(f).connect(g).connect(dest); src.start();
+    const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = 58;
+    const og = ctx.createGain(); og.gain.value = 0.15;
+    o.connect(og).connect(dest); o.start();
+    const iv = setInterval(() => {
+      o.frequency.setTargetAtTime(54 + Math.random()*8, ctx.currentTime, 4);
+    }, 6000);
+    return { nodes: [src, f, g, o, og], timers: [iv] };
+  },
+  void: (eng, dest) => {
+    // Adapted from Hermes "drone" — detuned mid sines, very slow filter sweep.
+    const ctx = eng.ctx;
+    const out = ctx.createGain(); out.gain.value = 0.8; out.connect(dest);
+    const lpf = ctx.createBiquadFilter(); lpf.type = "lowpass"; lpf.frequency.value = 700;
+    lpf.connect(out);
+    const freqs = [110, 112, 164.8, 166.2];
+    const oscs = [];
+    freqs.forEach((f, i) => {
+      const o = ctx.createOscillator(); o.type = i % 2 ? "triangle" : "sine"; o.frequency.value = f;
+      const og = ctx.createGain(); og.gain.value = 0.12;
+      o.connect(og).connect(lpf); o.start();
+      oscs.push(o, og);
+    });
+    const iv = setInterval(() => {
+      lpf.frequency.setTargetAtTime(400 + Math.random()*500, ctx.currentTime, 4);
+    }, 6000);
+    return { nodes: [out, lpf, ...oscs], timers: [iv] };
+  }
+};
+
+var AMBIENCE_POPULATION_RECIPES = {
+  solitary: (eng, dest) => {
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "brown"); src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 350;
+    const g = ctx.createGain(); g.gain.value = 0.40;
+    src.connect(f).connect(g).connect(dest); src.start();
+    const iv = setInterval(() => {
+      g.gain.setTargetAtTime(0.25 + Math.random()*0.25, ctx.currentTime, 3);
+    }, 5000);
+    return { nodes: [src, f, g], timers: [iv] };
+  },
+  sparse_voices: (eng, dest) => {
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 900; f.Q.value = 1.0;
+    const g = ctx.createGain(); g.gain.value = 0.30;
+    src.connect(f).connect(g).connect(dest); src.start();
+    const iv = setInterval(() => {
+      g.gain.setTargetAtTime(0.15 + Math.random()*0.3, ctx.currentTime, 1.5);
+      f.frequency.setTargetAtTime(700 + Math.random()*500, ctx.currentTime, 1.5);
+    }, 2200);
+    return { nodes: [src, f, g], timers: [iv] };
+  },
+  crowd: (eng, dest) => {
+    // Voice-band bandpassed pink with faster modulation than sparse_voices.
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 700; f.Q.value = 1.5;
+    const g = ctx.createGain(); g.gain.value = 0.45;
+    src.connect(f).connect(g).connect(dest); src.start();
+    const iv = setInterval(() => {
+      g.gain.setTargetAtTime(0.3 + Math.random()*0.35, ctx.currentTime, 0.7);
+      f.frequency.setTargetAtTime(500 + Math.random()*700, ctx.currentTime, 0.7);
+    }, 900);
+    return { nodes: [src, f, g], timers: [iv] };
+  },
+  machinery: (eng, dest) => {
+    // Low rumble + low sine + irregular clicks.
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "brown"); src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 450;
+    const g = ctx.createGain(); g.gain.value = 0.5;
+    src.connect(f).connect(g).connect(dest); src.start();
+    const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = 92;
+    const og = ctx.createGain(); og.gain.value = 0.12;
+    o.connect(og).connect(dest); o.start();
+    const iv = setInterval(() => {
+      const now = ctx.currentTime;
+      const click = ctx.createOscillator(); click.type = "square"; click.frequency.value = 1200 + Math.random()*800;
+      const cg = ctx.createGain();
+      cg.gain.setValueAtTime(0, now);
+      cg.gain.linearRampToValueAtTime(0.04, now + 0.005);
+      cg.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+      click.connect(cg).connect(dest);
+      click.start(now); click.stop(now + 0.05);
+    }, 700);
+    return { nodes: [src, f, g, o, og], timers: [iv] };
+  },
+  nature: (eng, dest) => {
+    // Hermes crickets + birds + stream layered.
+    const ctx = eng.ctx;
+    const stream = ctx.createBufferSource(); stream.buffer = eng._noiseBuffer(3, "pink"); stream.loop = true;
+    const sf = ctx.createBiquadFilter(); sf.type = "bandpass"; sf.frequency.value = 1200; sf.Q.value = 2;
+    const sg = ctx.createGain(); sg.gain.value = 0.25;
+    stream.connect(sf).connect(sg).connect(dest); stream.start();
+    const ivStream = setInterval(() => {
+      sg.gain.setTargetAtTime(0.15 + Math.random()*0.2, ctx.currentTime, 0.8);
+      sf.frequency.setTargetAtTime(900 + Math.random()*700, ctx.currentTime, 0.8);
+    }, 900);
+    const ivCrickets = setInterval(() => {
+      const now = ctx.currentTime;
+      const chirp = ctx.createOscillator(); chirp.type = "sine"; chirp.frequency.value = 4200 + Math.random()*800;
+      const cg = ctx.createGain();
+      cg.gain.setValueAtTime(0, now);
+      const pulses = 3 + Math.floor(Math.random()*3);
+      let t = now;
+      for (let p = 0; p < pulses; p++) {
+        cg.gain.linearRampToValueAtTime(0.04 + Math.random()*0.02, t + 0.01);
+        cg.gain.linearRampToValueAtTime(0, t + 0.03);
+        t += 0.05 + Math.random()*0.04;
+      }
+      chirp.connect(cg).connect(dest);
+      chirp.start(now); chirp.stop(t + 0.05);
+    }, 1200);
+    const ivBirds = setInterval(() => {
+      if (Math.random() > 0.5) return;
+      const now = ctx.currentTime;
+      const freq = 3000 + Math.random()*4000;
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(freq, now);
+      o.frequency.exponentialRampToValueAtTime(freq * (0.7 + Math.random()*0.5), now + 0.08);
+      const og = ctx.createGain();
+      og.gain.setValueAtTime(0, now);
+      og.gain.linearRampToValueAtTime(0.08, now + 0.02);
+      og.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      o.connect(og).connect(dest);
+      o.start(now); o.stop(now + 0.4);
+    }, 900);
+    return { nodes: [stream, sf, sg], timers: [ivStream, ivCrickets, ivBirds] };
+  },
+  ceremony: (eng, dest) => {
+    // Low chord drone (root + fifth + octave).
+    const ctx = eng.ctx;
+    const out = ctx.createGain(); out.gain.value = 0.6; out.connect(dest);
+    const lpf = ctx.createBiquadFilter(); lpf.type = "lowpass"; lpf.frequency.value = 500;
+    lpf.connect(out);
+    const freqs = [130, 195, 260];
+    const oscs = [];
+    freqs.forEach((f, i) => {
+      const o = ctx.createOscillator(); o.type = i % 2 ? "triangle" : "sine"; o.frequency.value = f;
+      const og = ctx.createGain(); og.gain.value = 0.10;
+      o.connect(og).connect(lpf); o.start();
+      oscs.push(o, og);
+    });
+    const iv = setInterval(() => {
+      lpf.frequency.setTargetAtTime(350 + Math.random()*400, ctx.currentTime, 4);
+    }, 8000);
+    return { nodes: [out, lpf, ...oscs], timers: [iv] };
+  },
+  creature: (eng, dest) => {
+    // Low brown rumble + ~70Hz growl, slow detune.
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "brown"); src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 220;
+    const g = ctx.createGain(); g.gain.value = 0.4;
+    src.connect(f).connect(g).connect(dest); src.start();
+    const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = 72;
+    const og = ctx.createGain(); og.gain.value = 0.10;
+    o.connect(og).connect(dest); o.start();
+    const iv = setInterval(() => {
+      o.frequency.setTargetAtTime(60 + Math.random()*30, ctx.currentTime, 1.5);
+      g.gain.setTargetAtTime(0.25 + Math.random()*0.3, ctx.currentTime, 1.5);
+    }, 2500);
+    return { nodes: [src, f, g, o, og], timers: [iv] };
+  },
+  wild: (eng, dest) => {
+    // Hermes "ocean" cycle + intermittent distant thunder.
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 400;
+    const g = ctx.createGain(); g.gain.value = 0.4;
+    src.connect(f).connect(g).connect(dest); src.start();
+    const cycle = () => {
+      g.gain.setTargetAtTime(0.6, ctx.currentTime, 1.2);
+      f.frequency.setTargetAtTime(900, ctx.currentTime, 1.2);
+      setTimeout(() => {
+        g.gain.setTargetAtTime(0.2, ctx.currentTime, 2.5);
+        f.frequency.setTargetAtTime(250, ctx.currentTime, 2.5);
+      }, 3500);
+    };
+    cycle();
+    const ivOcean = setInterval(cycle, 7000 + Math.random()*3000);
+    const ivThunder = setInterval(() => {
+      if (Math.random() > 0.45) return;
+      const now = ctx.currentTime;
+      const dur = 2 + Math.random()*2;
+      const t = ctx.createBufferSource(); t.buffer = eng._noiseBuffer(dur, "white");
+      const tf = ctx.createBiquadFilter(); tf.type = "lowpass"; tf.frequency.value = 180;
+      const tg = ctx.createGain();
+      tg.gain.setValueAtTime(0, now);
+      tg.gain.linearRampToValueAtTime(0.5, now + 0.25);
+      tg.gain.exponentialRampToValueAtTime(0.001, now + dur);
+      t.connect(tf).connect(tg).connect(dest);
+      t.start(now); t.stop(now + dur + 0.5);
+    }, 9000);
+    return { nodes: [src, f, g], timers: [ivOcean, ivThunder] };
+  }
+};
+
+var AMBIENCE_EVENT_RECIPES = {
+  bell_toll: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    [[110, 0.50], [220, 0.30], [330, 0.12]].forEach(([f, peak]) => {
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f;
+      const og = ctx.createGain();
+      og.gain.setValueAtTime(0, startAt);
+      og.gain.linearRampToValueAtTime(peak, startAt + 0.005);
+      og.gain.exponentialRampToValueAtTime(0.0005, startAt + 2.5);
+      o.connect(og).connect(dest);
+      o.start(startAt); o.stop(startAt + 2.6);
+    });
+  },
+  bell_distant: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const lpf = ctx.createBiquadFilter(); lpf.type = "lowpass"; lpf.frequency.value = 1200;
+    lpf.connect(dest);
+    [[220, 0.30], [440, 0.15]].forEach(([f, peak]) => {
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f;
+      const og = ctx.createGain();
+      og.gain.setValueAtTime(0, startAt);
+      og.gain.linearRampToValueAtTime(peak, startAt + 0.005);
+      og.gain.exponentialRampToValueAtTime(0.0005, startAt + 1.8);
+      o.connect(og).connect(lpf);
+      o.start(startAt); o.stop(startAt + 1.9);
+    });
+    setTimeout(() => { try { lpf.disconnect(); } catch (_) {} }, 2200);
+  },
+  clock_chime: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    [[523, 0.40], [783, 0.20]].forEach(([f, peak]) => {
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f;
+      const og = ctx.createGain();
+      og.gain.setValueAtTime(0, startAt);
+      og.gain.linearRampToValueAtTime(peak, startAt + 0.005);
+      og.gain.exponentialRampToValueAtTime(0.0005, startAt + 1.3);
+      o.connect(og).connect(dest);
+      o.start(startAt); o.stop(startAt + 1.4);
+    });
+  },
+  door_close: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(0.4, "brown");
+    const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 200;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.65, startAt);
+    g.gain.exponentialRampToValueAtTime(0.001, startAt + 0.4);
+    src.connect(f).connect(g).connect(dest);
+    src.start(startAt); src.stop(startAt + 0.45);
+    const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = 70;
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(0.45, startAt);
+    og.gain.exponentialRampToValueAtTime(0.001, startAt + 0.3);
+    o.connect(og).connect(dest);
+    o.start(startAt); o.stop(startAt + 0.35);
+  },
+  door_creak: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(1.5, "pink");
+    const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.Q.value = 2.5;
+    f.frequency.setValueAtTime(450, startAt);
+    f.frequency.linearRampToValueAtTime(750, startAt + 1.2);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.35, startAt + 0.15);
+    g.gain.setTargetAtTime(0.001, startAt + 0.5, 0.4);
+    src.connect(f).connect(g).connect(dest);
+    src.start(startAt); src.stop(startAt + 1.5);
+  },
+  footsteps_close: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    [0, 0.42].forEach((offset) => {
+      const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(0.18, "brown");
+      const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 260;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.55, startAt + offset);
+      g.gain.exponentialRampToValueAtTime(0.001, startAt + offset + 0.16);
+      src.connect(f).connect(g).connect(dest);
+      src.start(startAt + offset); src.stop(startAt + offset + 0.2);
+    });
+  },
+  footsteps_recede: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    [[0, 0.50], [0.40, 0.30], [0.80, 0.15]].forEach(([offset, peak]) => {
+      const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(0.16, "brown");
+      const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 240;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(peak, startAt + offset);
+      g.gain.exponentialRampToValueAtTime(0.001, startAt + offset + 0.14);
+      src.connect(f).connect(g).connect(dest);
+      src.start(startAt + offset); src.stop(startAt + offset + 0.18);
+    });
+  },
+  wind_gust: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(1.8, "pink");
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 250;
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 700; bp.Q.value = 0.7;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.50, startAt + 0.5);
+    g.gain.linearRampToValueAtTime(0, startAt + 1.7);
+    src.connect(hp).connect(bp).connect(g).connect(dest);
+    src.start(startAt); src.stop(startAt + 1.8);
+  },
+  distant_thunder: (eng, startAt) => {
+    // Adapted from Hermes "thunder".
+    const ctx = eng.ctx, dest = eng.master;
+    const dur = 2.8;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(dur, "white");
+    const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 180;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.6, startAt + 0.3);
+    g.gain.exponentialRampToValueAtTime(0.001, startAt + dur);
+    src.connect(f).connect(g).connect(dest);
+    src.start(startAt); src.stop(startAt + dur + 0.1);
+    const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = 45;
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(0, startAt);
+    og.gain.linearRampToValueAtTime(0.15, startAt + 0.3);
+    og.gain.exponentialRampToValueAtTime(0.001, startAt + dur);
+    o.connect(og).connect(dest);
+    o.start(startAt); o.stop(startAt + dur + 0.1);
+  },
+  paper_rustle: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(0.55, "pink");
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 2000;
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 4500; bp.Q.value = 1;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.40, startAt + 0.02);
+    g.gain.linearRampToValueAtTime(0, startAt + 0.5);
+    src.connect(hp).connect(bp).connect(g).connect(dest);
+    src.start(startAt); src.stop(startAt + 0.55);
+  },
+  chair_scrape: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(0.7, "brown");
+    const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 350; f.Q.value = 3;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.50, startAt + 0.02);
+    g.gain.linearRampToValueAtTime(0, startAt + 0.7);
+    src.connect(f).connect(g).connect(dest);
+    src.start(startAt); src.stop(startAt + 0.75);
+  },
+  glass_set_down: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(0.1, "pink");
+    const tf = ctx.createBiquadFilter(); tf.type = "bandpass"; tf.frequency.value = 1500; tf.Q.value = 2;
+    const tg = ctx.createGain();
+    tg.gain.setValueAtTime(0.55, startAt);
+    tg.gain.exponentialRampToValueAtTime(0.001, startAt + 0.08);
+    src.connect(tf).connect(tg).connect(dest);
+    src.start(startAt); src.stop(startAt + 0.1);
+    const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = 1600;
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(0, startAt);
+    og.gain.linearRampToValueAtTime(0.18, startAt + 0.01);
+    og.gain.exponentialRampToValueAtTime(0.001, startAt + 0.5);
+    o.connect(og).connect(dest);
+    o.start(startAt); o.stop(startAt + 0.55);
+  },
+  coin_drop: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2800; bp.Q.value = 2;
+    bp.connect(dest);
+    [[2400, 0.35], [3600, 0.18]].forEach(([f, peak]) => {
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f;
+      const og = ctx.createGain();
+      og.gain.setValueAtTime(0, startAt);
+      og.gain.linearRampToValueAtTime(peak, startAt + 0.002);
+      og.gain.exponentialRampToValueAtTime(0.0005, startAt + 0.55);
+      o.connect(og).connect(bp);
+      o.start(startAt); o.stop(startAt + 0.6);
+    });
+    setTimeout(() => { try { bp.disconnect(); } catch (_) {} }, 700);
+  },
+  crowd_hush: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(1.2, "pink");
+    const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 600; f.Q.value = 1.2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.45, startAt);
+    g.gain.setValueAtTime(0.45, startAt + 0.4);
+    g.gain.exponentialRampToValueAtTime(0.001, startAt + 1.1);
+    src.connect(f).connect(g).connect(dest);
+    src.start(startAt); src.stop(startAt + 1.2);
+  },
+  cough_distant: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(0.35, "pink");
+    const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 900; f.Q.value = 2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.35, startAt + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, startAt + 0.32);
+    src.connect(f).connect(g).connect(dest);
+    src.start(startAt); src.stop(startAt + 0.35);
+  },
+  breath_held: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(1.5, "pink");
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 300;
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 800; bp.Q.value = 1.5;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.30, startAt + 0.4);
+    g.gain.linearRampToValueAtTime(0, startAt + 1.5);
+    src.connect(hp).connect(bp).connect(g).connect(dest);
+    src.start(startAt); src.stop(startAt + 1.5);
+  },
+  metal_clang: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    [[440, 0.32], [659, 0.25], [880, 0.15]].forEach(([f, peak]) => {
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f;
+      const og = ctx.createGain();
+      og.gain.setValueAtTime(0, startAt);
+      og.gain.linearRampToValueAtTime(peak, startAt + 0.003);
+      og.gain.exponentialRampToValueAtTime(0.0005, startAt + 1.2);
+      o.connect(og).connect(dest);
+      o.start(startAt); o.stop(startAt + 1.3);
+    });
+  },
+  whisper_close: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(1.0, "pink");
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2500; bp.Q.value = 1.5;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.32, startAt + 0.05);
+    g.gain.setValueAtTime(0.32, startAt + 0.7);
+    g.gain.linearRampToValueAtTime(0, startAt + 1.0);
+    src.connect(bp).connect(g).connect(dest);
+    src.start(startAt); src.stop(startAt + 1.0);
+  }
+};
+
+/*
+ * TTSEngine — narration read-aloud via the Web Speech API.
+ *
+ * Uses `speechSynthesis` and `SpeechSynthesisUtterance`, which are
+ * built into every modern browser and require no API key, no network,
+ * and no setup. Voice quality varies by OS (macOS/iOS are best,
+ * Windows decent, Linux/Android variable).
+ *
+ * Public surface: speak(text), stop(), setEnabled(bool),
+ * setVoiceName(string|null), setRate(number), setLanguage(string|null),
+ * setMuted(bool), isAvailable(), getVoices(), onVoicesChanged callback.
+ *
+ * Calling speak() while another utterance is in flight cancels the
+ * previous one and starts the new one. The React side calls speak()
+ * once per fully-revealed narration entry.
+ */
+class TTSEngine {
+  constructor() {
+    this.synth = (typeof window !== "undefined" && "speechSynthesis" in window) ? window.speechSynthesis : null;
+    this.available = !!this.synth;
+    this.enabled = false;
+    this.muted = false;
+    this.rate = 1.0;
+    this.pitch = 1.0;
+    this.volume = 1.0;
+    this.preferredVoiceName = null;
+    this.preferredLang = null;
+    this.voice = null;
+    this.currentUtterance = null;
+    this.speaking = false;
+    this.onVoicesChanged = null;
+    if (this.available) {
+      const reload = () => {
+        this._pickVoice();
+        if (this.onVoicesChanged) this.onVoicesChanged();
+      };
+      reload();
+      // Voices load asynchronously in Chrome/Edge — listen for the event.
+      this.synth.onvoiceschanged = reload;
+    }
+  }
+  isAvailable() { return this.available; }
+  getVoices() {
+    if (!this.synth) return [];
+    try { return this.synth.getVoices() || []; } catch (_) { return []; }
+  }
+  setVoiceName(name) {
+    this.preferredVoiceName = (typeof name === "string" && name) ? name : null;
+    this._pickVoice();
+  }
+  setLanguage(lang) {
+    this.preferredLang = (typeof lang === "string" && lang) ? lang : null;
+    this._pickVoice();
+  }
+  setRate(r) {
+    const v = typeof r === "number" ? r : parseFloat(r);
+    if (!Number.isFinite(v)) return;
+    this.rate = Math.max(0.5, Math.min(2.0, v));
+  }
+  setEnabled(on) {
+    this.enabled = !!on;
+    if (!this.enabled) this.stop();
+  }
+  setMuted(m) {
+    this.muted = !!m;
+    if (this.muted) this.stop();
+  }
+  _pickVoice() {
+    if (!this.synth) { this.voice = null; return; }
+    const voices = this.getVoices();
+    if (!voices.length) { this.voice = null; return; }
+    let picked = null;
+    if (this.preferredVoiceName) {
+      picked = voices.find((v) => v.name === this.preferredVoiceName);
+    }
+    if (!picked && this.preferredLang) {
+      const langLc = this.preferredLang.toLowerCase();
+      picked = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith(langLc));
+    }
+    if (!picked) {
+      picked = voices.find((v) => v.default) || voices[0];
+    }
+    this.voice = picked || null;
+  }
+  speak(text) {
+    if (!this.available || !this.enabled || this.muted) return;
+    if (typeof text !== "string") return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    this.stop();
+    let utt;
+    try {
+      utt = new SpeechSynthesisUtterance(trimmed);
+    } catch (_) { return; }
+    if (this.voice) utt.voice = this.voice;
+    utt.rate = this.rate;
+    utt.pitch = this.pitch;
+    utt.volume = this.volume;
+    const clear = () => {
+      if (this.currentUtterance === utt) {
+        this.currentUtterance = null;
+        this.speaking = false;
+      }
+    };
+    utt.onend = clear;
+    utt.onerror = clear;
+    this.currentUtterance = utt;
+    this.speaking = true;
+    try { this.synth.speak(utt); } catch (_) { clear(); }
+  }
+  stop() {
+    if (!this.available) return;
+    try { this.synth.cancel(); } catch (_) {}
+    this.currentUtterance = null;
+    this.speaking = false;
+  }
+  isSpeaking() { return this.speaking; }
+  destroy() {
+    this.stop();
+    if (this.synth) {
+      try { this.synth.onvoiceschanged = null; } catch (_) {}
+    }
+    this.onVoicesChanged = null;
   }
 }
 
@@ -1631,16 +2290,12 @@ These two checks are the scratchpad's job; do them here, in writing, every turn.
       },
       ambience: {
         type: "object",
-        description: "Optional scene-texture vector for the procedural ambient bed. Omit any field to hold its previous value; set presence to 0 when the moment calls for silence.",
+        description: "Optional scene audio. Omit any field to hold its previous value. Pass null for space, population, or mood to fade that lane to silence.",
         properties: {
-          warmth:   { type: "number", minimum: 0, maximum: 1, description: "low/dark (0) to warm/bright (1)" },
-          density:  { type: "number", minimum: 0, maximum: 1, description: "sparse/airy (0) to thick/close (1)" },
-          motion:   { type: "number", minimum: 0, maximum: 1, description: "still (0) to restless/turbulent (1)" },
-          presence: { type: "number", minimum: 0, maximum: 1, description: "recede (0) to foreground (1); 0 silences this turn" },
-          register: { type: "number", minimum: 0, maximum: 1, description: "low/grounded (0) to high/elevated (1) — the vertical seat of the room. Stone basement low; rooftop or open sky high." },
-          unease:   { type: "number", minimum: 0, maximum: 1, description: "consonant/right (0) to inharmonic/wrong (1) — when the air itself feels off-key. Reserve for scenes that should read as uncanny." },
-          glimmer:  { type: "number", minimum: 0, maximum: 1, description: "still air (0) to pinged with small digital tones and glitches (1) — sparse 8-bit-like notes pitched to the room's harmonics. Suggests electronics, half-heard radios, things humming half-awake. Glitches and stutters appear when unease is also high. Reserve for scenes with electrical, mechanical, or dream-tech presence; keep it low or zero for natural rooms." },
-          melody:   { type: "number", minimum: 0, maximum: 1, description: "no melodic line (0) to a slow, audible drift of pad-like notes (1). Soft triangle-wave notes walking a pentatonic minor scale rooted in the room's register. This is contemplative ambient texture, not a tune — keep it sparse. Lift it for scenes that want a sense of melodic memory (a music box, an old radio carrying a half-tune, the player remembering a song); drop to 0 for action, silence, or scenes where pure room tone is right." }
+          space:      { type: "string", enum: ["intimate","chamber","hall","cavern","street","field","forest","vehicle","void"], description: "Acoustic environment — the kind of place the player is in. intimate=small sealed room; chamber=medium room; hall=large interior; cavern=huge resonant interior; street=outdoor hard surfaces; field=outdoor open; forest=outdoor organic; vehicle=confined moving; void=abstract/unreal." },
+          population: { type: "string", enum: ["solitary","sparse_voices","crowd","machinery","nature","ceremony","creature","wild"], description: "Optional — what fills the space sonically. solitary=only the speaker; sparse_voices=a few voices nearby; crowd=many voices/bustle; machinery=mechanical/industrial; nature=wind/water/birds; ceremony=ritual/procession; creature=non-human animal; wild=untamed elements (storm, fire, surf). Omit for just-the-room." },
+          mood:       { type: "string", enum: ["calm","tender","tense","ominous","joyous","melancholy","urgent","mysterious"], description: "Optional — emotional weather. Drives the music layer (scale, chord, pulse). Omit for no music at all." },
+          events:     { type: "array", items: { type: "string", enum: ["bell_toll","bell_distant","clock_chime","door_close","door_creak","footsteps_close","footsteps_recede","wind_gust","distant_thunder","paper_rustle","chair_scrape","glass_set_down","coin_drop","crowd_hush","cough_distant","breath_held","metal_clang","whisper_close"] }, description: "Optional — up to 2 one-shot diegetic sounds for this turn. Only when the literal sound carries narrative weight." }
         }
       }
     },
@@ -1746,22 +2401,24 @@ OTHER COMMON LEAKS to avoid:
 
 The hidden_state field is where ALL of the above belong. Items there stay there. Promote a hidden_state item to public state ONLY when the narration has, in the intervening turns, actually shown or told the player. The act of fictional revelation is what licenses public-state recording — not the GM's awareness, not the scratchpad's reasoning, not the next-turn plan.
 
-AMBIENCE — OPTIONAL SCENE TEXTURE:
-You may optionally emit an \`ambience\` vector describing the scene's texture — not its sound effects. Think of it as the difference between a stone vault (low warmth, high density, low motion) and a windy clifftop at dusk (mid warmth, low density, high motion). Omit fields you do not want to change. Set \`presence: 0\` when the moment calls for silence — a revelation, a held breath, a verdict.
+AMBIENCE — OPTIONAL SCENE AUDIO:
+You may optionally emit an \`ambience\` object with up to four fields. Each one is held across turns: re-emit a field only when it changes. The four fields:
 
-The eight fields are all numbers in [0, 1]:
-- warmth: low/dark (0) to warm/bright (1). Think filter colour: stone, iron, basement at one end; afternoon kitchen, lamplit room at the other.
-- density: sparse/airy (0) to thick/close (1). Think how much air is in the room; an empty platform versus a packed festival tent.
-- motion: still (0) to restless/turbulent (1). Think air movement, crowd movement, weather; a sealed library versus a wind-scoured ridge.
-- presence: recede (0) to foreground (1). The mix level of the texture in the player's ear. Drop it for stillness; lift it briefly when the world itself is loud.
-- register: low/grounded (0) to high/elevated (1). The vertical seat of the room — where the sound sits. A cellar, a buried tunnel, a deep nave sit low; a rooftop, a clifftop, an open sky sit high. Use this to LIFT or DROP between scenes that share other qualities.
-- unease: right/consonant (0) to wrong/inharmonic (1). This is the axis for the UNCANNY — when the air itself feels off-key. Reserve it for scenes that should read as strange rather than merely loud or close. A normal kitchen is 0. A carnival big top where a dream is leaking is 0.5 or higher. Use it sparingly; it loses meaning if every scene is 0.6.
-- glimmer: still air (0) to pinged with small digital tones (1). Sparse, 8-bit-flavoured notes that suggest electronics, distant radios, things humming half-awake. Glitches and stutters appear automatically when both glimmer and unease are raised. This axis is for scenes where ELECTRICITY OR MECHANISM is part of the texture: the 8:11's PA system, the Vermillion Thread's elevator panel, a flickering streetlamp, a coin-op carousel half-broken. Most natural settings (a forest, a feast hall, a kitchen) should be at 0. Don't reach for it just to add interest — only when the fiction actually has something humming.
-- melody: no melodic line (0) to a slow drifting line of soft pad-like notes (1). Triangle-wave notes walking a pentatonic minor scale over many seconds — not a song, more like the feeling of a melody half-remembered. This is the axis for ambient melodic colour. A neutral baseline of around 0.2–0.35 fits most contemplative scenes; lift it (0.5–0.7) when the scene wants a sense of melodic memory or longing (an old music box, a hummed lullaby, a passage that recalls something the player has lost); drop to 0 for action sequences, raw confrontation, or scenes where pure room tone is more honest. Unlike glimmer this is decorative texture rather than fiction-anchored — it can play softly almost anywhere unless the moment calls for its absence.
+- \`space\` (one of: intimate, chamber, hall, cavern, street, field, forest, vehicle, void) — the acoustic environment. Picks the looped room-tone bed.
+- \`population\` (optional; one of: solitary, sparse_voices, crowd, machinery, nature, ceremony, creature, wild) — what fills the space sonically. Layered over the space. Omit when the scene is just-the-room.
+- \`mood\` (optional; one of: calm, tender, tense, ominous, joyous, melancholy, urgent, mysterious) — drives the music layer (scale, chord, slow pulse). Omit entirely for no music; the bed plays alone.
+- \`events\` (optional; array of strings) — one-shot diegetic sounds for THIS turn only. Available: bell_toll, bell_distant, clock_chime, door_close, door_creak, footsteps_close, footsteps_recede, wind_gust, distant_thunder, paper_rustle, chair_scrape, glass_set_down, coin_drop, crowd_hush, cough_distant, breath_held, metal_clang, whisper_close. Use sparingly: at most 1–2 per turn, only when the literal sound carries narrative weight.
 
-This is texture, not sound design. Do NOT name instruments or sounds ("low drone," "violin pad," "footsteps"). Reason about the scene — what the air is doing, how the space holds, where it sits, whether it feels right — and pick numbers. Omit the field entirely if you don't want any change this turn.
+Pass \`null\` (the literal JSON null) for space, population, or mood to fade that lane to silence. Use this for the held breath before a revelation, the moment a verdict lands, a confession heard in stillness — fade the music with \`"mood": null\`, or kill everything with all three set to null.
 
-SILENCE is genuine. \`presence: 0\` is not a softer version of "quiet"; it's an instruction to fade the bed to nothing. Use it for the held breath before a revelation, the moment a verdict lands, the second a confession is heard. The chronicle's most weighted beats deserve real silence, not a thinner room tone.
+Examples mapped onto the realms:
+- The 8:11 opens: \`{"space": "vehicle", "population": "crowd", "mood": "calm"}\`.
+- A Vermillion verdict beat: \`{"space": "cavern", "population": "ceremony", "mood": "ominous", "events": ["bell_toll"]}\`.
+- A Solstice feast: \`{"space": "hall", "population": "crowd", "mood": "joyous"}\`.
+- A Carnival leak: \`{"space": "void", "mood": "mysterious"}\` (omit population — there is no scene-of-people).
+- A cyberpunk Wild premise on a back street: \`{"space": "street", "population": "machinery", "mood": "tense"}\`.
+
+Reason about the scene — where the player is, who or what is sonically present, what the moment feels like — and pick from the enums. Do NOT invent values outside the lists; unknown values are silently dropped.
 
 ENDING THE CHRONICLE:
 The chronicle is a single hour, not an open-ended series. It is MEANT to end when its arc completes. You must actively recognize and commit to that completion rather than writing past it.
@@ -2059,7 +2716,7 @@ function parseGMLogicResponse(rawText) {
   }
 
   const ending = typeof parsed.ending === "string" && parsed.ending.trim() ? parsed.ending.trim() : null;
-  const ambience = "ambience" in parsed ? sanitizeAmbienceVector(parsed.ambience) : undefined;
+  const ambience = "ambience" in parsed ? sanitizeAmbience(parsed.ambience) : undefined;
   const ambienceExplicitNull = parsed.ambience === null;
   // Normalize so non-string scene/time/summary or malformed npc entries cannot crash the Ledger render.
   return { narrator_brief: narratorBrief, state: normalizeGameState(parsed.state), ending, ambience: ambienceExplicitNull ? null : ambience, raw: rawText, malformed: false };
@@ -2113,7 +2770,7 @@ function parseGMResponse(rawText) {
   }
   const state = normalizeGameState(parsed.state);
   const ending = VALID_ENDINGS.has(parsed.ending) ? parsed.ending : null;
-  const ambience = "ambience" in parsed ? sanitizeAmbienceVector(parsed.ambience) : undefined;
+  const ambience = "ambience" in parsed ? sanitizeAmbience(parsed.ambience) : undefined;
   const ambienceExplicitNull = parsed.ambience === null;
   return { narration, state, ending, ambience: ambienceExplicitNull ? null : ambience, raw: rawText, malformed: false };
 }
@@ -3100,6 +3757,137 @@ function App() {
     if (!eng) return;
     if (eng.muted !== ambienceMuted) eng.mute(ambienceMuted);
   }, [ambienceMuted]);
+
+  // ── TTS (text-to-speech narration) ──────────────────────────────
+  const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [ttsMuted, setTtsMuted] = useState(false);
+  const [ttsVoiceName, setTtsVoiceName] = useState(null);
+  const [ttsRate, setTtsRate] = useState(1.0);
+  const [ttsAvailable, setTtsAvailable] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return "speechSynthesis" in window;
+  });
+  const [ttsVoices, setTtsVoices] = useState([]);
+  const ttsLoadedRef = useRef(false);
+  const ttsRef = useRef(null);
+  // Index of the next narration entry to consider speaking. Advanced
+  // monotonically; reset on chronicle reset or save load so we don't
+  // re-narrate history.
+  const ttsNextRef = useRef(0);
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await window.storage.get("borrowed:tts:v1");
+        if (r?.value) {
+          const parsed = JSON.parse(r.value);
+          if (parsed && typeof parsed === "object") {
+            if (typeof parsed.enabled === "boolean") setTtsEnabled(parsed.enabled);
+            if (typeof parsed.muted === "boolean") setTtsMuted(parsed.muted);
+            if (typeof parsed.voiceName === "string") setTtsVoiceName(parsed.voiceName);
+            if (typeof parsed.rate === "number") setTtsRate(parsed.rate);
+          }
+        }
+      } catch {} finally {
+        ttsLoadedRef.current = true;
+      }
+    })();
+  }, []);
+  useEffect(() => {
+    if (!ttsLoadedRef.current) return;
+    (async () => {
+      try {
+        await window.storage.set("borrowed:tts:v1", JSON.stringify({
+          enabled: ttsEnabled,
+          muted: ttsMuted,
+          voiceName: ttsVoiceName,
+          rate: ttsRate
+        }));
+      } catch {}
+    })();
+  }, [ttsEnabled, ttsMuted, ttsVoiceName, ttsRate]);
+  const ensureTTSEngine = () => {
+    if (!ttsAvailable) return null;
+    if (!ttsRef.current) {
+      try {
+        const eng = new TTSEngine();
+        if (!eng.isAvailable()) { setTtsAvailable(false); return null; }
+        eng.onVoicesChanged = () => setTtsVoices(eng.getVoices().slice());
+        // Sync current React state into the freshly-created engine.
+        eng.setEnabled(ttsEnabled);
+        eng.setMuted(ttsMuted);
+        eng.setLanguage(language);
+        eng.setVoiceName(ttsVoiceName);
+        eng.setRate(ttsRate);
+        setTtsVoices(eng.getVoices().slice());
+        ttsRef.current = eng;
+      } catch (e) {
+        setTtsAvailable(false);
+        if (typeof console !== "undefined" && console.warn)
+          console.warn("[borrowed] TTS unavailable:", e);
+        return null;
+      }
+    }
+    return ttsRef.current;
+  };
+  // Eagerly create the engine on mount so the voice picker has data
+  // even before the first turn (voices load asynchronously in Chrome).
+  useEffect(() => {
+    ensureTTSEngine();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Push state changes into the engine instance whenever they change.
+  useEffect(() => {
+    const eng = ttsRef.current;
+    if (!eng) return;
+    eng.setEnabled(ttsEnabled);
+  }, [ttsEnabled]);
+  useEffect(() => {
+    const eng = ttsRef.current;
+    if (!eng) return;
+    eng.setMuted(ttsMuted);
+  }, [ttsMuted]);
+  useEffect(() => {
+    const eng = ttsRef.current;
+    if (!eng) return;
+    eng.setVoiceName(ttsVoiceName);
+  }, [ttsVoiceName]);
+  useEffect(() => {
+    const eng = ttsRef.current;
+    if (!eng) return;
+    eng.setRate(ttsRate);
+  }, [ttsRate]);
+  // Sync the TTS engine's preferred-language with the chronicle's language.
+  useEffect(() => {
+    const eng = ttsRef.current;
+    if (!eng) return;
+    eng.setLanguage(language);
+  }, [language]);
+  // Walk forward through the `entries` array. When a narration entry is
+  // fully revealed (typewriter finished, or stream finalized), speak it.
+  // ttsNextRef advances monotonically so we never re-narrate prior turns.
+  // Even when TTS is disabled or muted, the cursor advances to the live
+  // tail so toggling on later doesn't replay history — only new entries
+  // after the toggle get spoken. The cursor is reset to 0 on chronicle
+  // restart and to entries.length on save load.
+  useEffect(() => {
+    if (!ttsEnabled || ttsMuted || !ttsAvailable) {
+      ttsNextRef.current = entries.length;
+      return;
+    }
+    const eng = ensureTTSEngine();
+    if (!eng) return;
+    while (ttsNextRef.current < entries.length) {
+      const i = ttsNextRef.current;
+      const e = entries[i];
+      if (!e) break;
+      if (e.type !== "narration") { ttsNextRef.current++; continue; }
+      if (!e.fullyRevealed) break; // wait until typewriter finishes
+      if (typeof e.text === "string" && e.text.trim()) eng.speak(e.text);
+      ttsNextRef.current++;
+      break; // only one new utterance per render — stop chaining
+    }
+  }, [entries, ttsEnabled, ttsMuted, ttsAvailable]);
+
   const [savesTotalBytes, setSavesTotalBytes] = useState(0);
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
@@ -3694,6 +4482,8 @@ ${finalState}`
     const previousHistory = history;
     const newEntries = [...entries, { type: "action", text, fullyRevealed: true }];
     setEntries(newEntries);
+    // Cut off any in-flight narration; the player has moved on.
+    if (ttsRef.current) ttsRef.current.stop();
     const { publicBlock, privateBlock } = formatStateForPrompt(gameState);
     const parts = [];
     if (publicBlock)
@@ -3964,7 +4754,9 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setInputHistoryIndex(-1);
     setMetaMode(false);
     setMetaMessages([]);
-    if (ambienceRef.current) ambienceRef.current.applyAmbience({ presence: 0 });
+    if (ambienceRef.current) ambienceRef.current.applyAmbience(null);
+    if (ttsRef.current) ttsRef.current.stop();
+    ttsNextRef.current = 0;
   };
   const loadSaveList = async () => {
     setSaveListLoading(true);
@@ -4079,6 +4871,9 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setPhase("playing");
     setShowSaves(false);
     setSaveBanner({ kind: "ok", text: "The hour resumes." });
+    // Don't narrate loaded history aloud — advance the TTS cursor past it.
+    if (ttsRef.current) ttsRef.current.stop();
+    ttsNextRef.current = (save.entries || []).length;
   };
   const deleteSave = async (key, e) => {
     e.stopPropagation();
@@ -4250,7 +5045,10 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     textareaRef,
     ambienceEnabled: ambienceLevel !== "off" && !ambienceUnavailable,
     ambienceMuted,
-    onToggleAmbienceMute: () => setAmbienceMuted((m) => !m)
+    onToggleAmbienceMute: () => setAmbienceMuted((m) => !m),
+    ttsEnabled: ttsEnabled && ttsAvailable,
+    ttsMuted,
+    onToggleTtsMute: () => setTtsMuted((m) => !m)
   }), showSaves && /* @__PURE__ */ React.createElement(SavesModal, {
     saves: saveList,
     totalBytes: savesTotalBytes,
@@ -4267,7 +5065,15 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     osReducedMotion,
     ambienceLevel,
     ambienceUnavailable,
-    onChangeAmbience: setAmbienceLevel
+    onChangeAmbience: setAmbienceLevel,
+    ttsEnabled,
+    ttsAvailable,
+    ttsVoiceName,
+    ttsVoices,
+    ttsRate,
+    onChangeTtsEnabled: setTtsEnabled,
+    onChangeTtsVoice: setTtsVoiceName,
+    onChangeTtsRate: setTtsRate
   }), showLedger && premise && /* @__PURE__ */ React.createElement(LedgerModal, {
     premise,
     gameState,
@@ -4507,7 +5313,10 @@ function GameScreen({
   textareaRef,
   ambienceEnabled,
   ambienceMuted,
-  onToggleAmbienceMute
+  onToggleAmbienceMute,
+  ttsEnabled,
+  ttsMuted,
+  onToggleTtsMute
 }) {
   const lastEntry = entries[entries.length - 1];
   const showResolution = ended && lastEntry && lastEntry.type === "narration" && lastEntry.fullyRevealed && !metaMode;
@@ -4603,7 +5412,17 @@ function GameScreen({
     "aria-hidden": "true"
   }, ambienceMuted ? "♪̸" : "♪"), /* @__PURE__ */ React.createElement("span", {
     className: "btn-label"
-  }, ambienceMuted ? " MUTED" : " AMBIENT")), /* @__PURE__ */ React.createElement("button", {
+  }, ambienceMuted ? " MUTED" : " AMBIENT")), ttsEnabled && /* @__PURE__ */ React.createElement("button", {
+    onClick: onToggleTtsMute,
+    className: "icon-btn",
+    title: ttsMuted ? "Resume narration aloud" : "Silence narration aloud",
+    "aria-label": ttsMuted ? "Resume narration aloud" : "Silence narration aloud",
+    "aria-pressed": ttsMuted ? "true" : "false"
+  }, /* @__PURE__ */ React.createElement("span", {
+    "aria-hidden": "true"
+  }, ttsMuted ? "▷̸" : "▷"), /* @__PURE__ */ React.createElement("span", {
+    className: "btn-label"
+  }, ttsMuted ? " SILENT" : " VOICE")), /* @__PURE__ */ React.createElement("button", {
     onClick: onRestart,
     className: "icon-btn icon-btn-danger",
     title: "Begin a new hour",
@@ -5352,7 +6171,7 @@ function EngineSection({ settings, onChange }) {
     onChange: handleFreeSelection
   }));
 }
-function SettingsModal({ settings, onChange, onClose, osReducedMotion, ambienceLevel, ambienceUnavailable, onChangeAmbience }) {
+function SettingsModal({ settings, onChange, onClose, osReducedMotion, ambienceLevel, ambienceUnavailable, onChangeAmbience, ttsEnabled, ttsAvailable, ttsVoiceName, ttsVoices, ttsRate, onChangeTtsEnabled, onChangeTtsVoice, onChangeTtsRate }) {
   return /* @__PURE__ */ React.createElement("div", {
     className: "modal-backdrop",
     onClick: onClose
@@ -5403,6 +6222,15 @@ function SettingsModal({ settings, onChange, onClose, osReducedMotion, ambienceL
     level: ambienceLevel,
     unavailable: ambienceUnavailable,
     onChange: onChangeAmbience
+  }), /* @__PURE__ */ React.createElement(TTSRow, {
+    enabled: ttsEnabled,
+    available: ttsAvailable,
+    voiceName: ttsVoiceName,
+    voices: ttsVoices,
+    rate: ttsRate,
+    onChangeEnabled: onChangeTtsEnabled,
+    onChangeVoice: onChangeTtsVoice,
+    onChangeRate: onChangeTtsRate
   }), /* @__PURE__ */ React.createElement("div", {
     className: "settings-toggle",
     style: { cursor: "default", opacity: 0.85 }
@@ -5483,6 +6311,79 @@ function AmbienceRow({ level, unavailable, onChange }) {
       background: level === opt.id ? "rgba(212, 165, 116, 0.08)" : "transparent"
     }
   }, opt.label.toUpperCase()))));
+}
+function TTSRow({ enabled, available, voiceName, voices, rate, onChangeEnabled, onChangeVoice, onChangeRate }) {
+  const description = !available
+    ? "Your browser does not expose a speech synthesiser. Narration aloud is unavailable."
+    : "Read each turn's narration aloud using your browser's built-in voices. No account, no key, no network — quality varies by your operating system.";
+  const voiceOptions = (voices || []).map((v) => ({ name: v.name, lang: v.lang, label: `${v.name} — ${v.lang}` }));
+  return /* @__PURE__ */ React.createElement("div", {
+    className: "settings-toggle",
+    style: { cursor: "default", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "flex-1 min-w-0",
+    style: { width: "100%" }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font",
+    style: {
+      color: available ? "var(--cream-bright)" : "var(--cream-dim)",
+      letterSpacing: "0.18em",
+      fontSize: 11,
+      textTransform: "uppercase"
+    }
+  }, "Narration aloud"), /* @__PURE__ */ React.createElement("div", {
+    className: "body-font italic",
+    style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4, marginBottom: 10 }
+  }, description), available && /* @__PURE__ */ React.createElement("div", {
+    style: { display: "flex", flexDirection: "column", gap: 10, marginTop: 6 }
+  },
+    /* Enabled toggle */
+    /* @__PURE__ */ React.createElement("label", {
+      style: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }
+    }, /* @__PURE__ */ React.createElement("input", {
+      type: "checkbox",
+      checked: !!enabled,
+      onChange: (e) => onChangeEnabled(e.target.checked),
+      style: { accentColor: "var(--rose-gold)" }
+    }), /* @__PURE__ */ React.createElement("span", {
+      className: "display-font",
+      style: { fontSize: 11, letterSpacing: "0.2em", color: "var(--cream-bright)" }
+    }, enabled ? "READING ALOUD" : "SILENT")),
+    /* Voice picker */
+    enabled && voiceOptions.length > 0 && /* @__PURE__ */ React.createElement("label", {
+      style: { display: "flex", flexDirection: "column", gap: 4 }
+    }, /* @__PURE__ */ React.createElement("span", {
+      className: "display-font",
+      style: { fontSize: 10, letterSpacing: "0.2em", color: "var(--cream-dim)" }
+    }, "VOICE"), /* @__PURE__ */ React.createElement("select", {
+      value: voiceName || "",
+      onChange: (e) => onChangeVoice(e.target.value || null),
+      className: "body-font",
+      style: {
+        background: "rgba(0,0,0,0.3)",
+        color: "var(--cream-bright)",
+        border: "1px solid rgba(232, 222, 197, 0.2)",
+        padding: "6px 10px",
+        fontSize: 13,
+        maxWidth: "100%"
+      }
+    }, /* @__PURE__ */ React.createElement("option", { value: "" }, "Automatic — match the chronicle's language"),
+       voiceOptions.map((o) => /* @__PURE__ */ React.createElement("option", { key: o.name, value: o.name }, o.label)))),
+    /* Rate slider */
+    enabled && /* @__PURE__ */ React.createElement("label", {
+      style: { display: "flex", flexDirection: "column", gap: 4 }
+    }, /* @__PURE__ */ React.createElement("span", {
+      className: "display-font",
+      style: { fontSize: 10, letterSpacing: "0.2em", color: "var(--cream-dim)" }
+    }, `READING PACE — ${rate.toFixed(2)}×`), /* @__PURE__ */ React.createElement("input", {
+      type: "range",
+      min: "0.5",
+      max: "1.5",
+      step: "0.05",
+      value: rate,
+      onChange: (e) => onChangeRate(parseFloat(e.target.value)),
+      style: { accentColor: "var(--rose-gold)" }
+    })))));
 }
 function SettingsToggleRow({ id, label, description, value, onChange }) {
   return /* @__PURE__ */ React.createElement("button", {
