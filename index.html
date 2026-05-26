@@ -2047,6 +2047,132 @@ var AMBIENCE_EVENT_RECIPES = {
   }
 };
 
+/*
+ * TTSEngine — narration read-aloud via the Web Speech API.
+ *
+ * Uses `speechSynthesis` and `SpeechSynthesisUtterance`, which are
+ * built into every modern browser and require no API key, no network,
+ * and no setup. Voice quality varies by OS (macOS/iOS are best,
+ * Windows decent, Linux/Android variable).
+ *
+ * Public surface: speak(text), stop(), setEnabled(bool),
+ * setVoiceName(string|null), setRate(number), setLanguage(string|null),
+ * setMuted(bool), isAvailable(), getVoices(), onVoicesChanged callback.
+ *
+ * Calling speak() while another utterance is in flight cancels the
+ * previous one and starts the new one. The React side calls speak()
+ * once per fully-revealed narration entry.
+ */
+class TTSEngine {
+  constructor() {
+    this.synth = (typeof window !== "undefined" && "speechSynthesis" in window) ? window.speechSynthesis : null;
+    this.available = !!this.synth;
+    this.enabled = false;
+    this.muted = false;
+    this.rate = 1.0;
+    this.pitch = 1.0;
+    this.volume = 1.0;
+    this.preferredVoiceName = null;
+    this.preferredLang = null;
+    this.voice = null;
+    this.currentUtterance = null;
+    this.speaking = false;
+    this.onVoicesChanged = null;
+    if (this.available) {
+      const reload = () => {
+        this._pickVoice();
+        if (this.onVoicesChanged) this.onVoicesChanged();
+      };
+      reload();
+      // Voices load asynchronously in Chrome/Edge — listen for the event.
+      this.synth.onvoiceschanged = reload;
+    }
+  }
+  isAvailable() { return this.available; }
+  getVoices() {
+    if (!this.synth) return [];
+    try { return this.synth.getVoices() || []; } catch (_) { return []; }
+  }
+  setVoiceName(name) {
+    this.preferredVoiceName = (typeof name === "string" && name) ? name : null;
+    this._pickVoice();
+  }
+  setLanguage(lang) {
+    this.preferredLang = (typeof lang === "string" && lang) ? lang : null;
+    this._pickVoice();
+  }
+  setRate(r) {
+    const v = typeof r === "number" ? r : parseFloat(r);
+    if (!Number.isFinite(v)) return;
+    this.rate = Math.max(0.5, Math.min(2.0, v));
+  }
+  setEnabled(on) {
+    this.enabled = !!on;
+    if (!this.enabled) this.stop();
+  }
+  setMuted(m) {
+    this.muted = !!m;
+    if (this.muted) this.stop();
+  }
+  _pickVoice() {
+    if (!this.synth) { this.voice = null; return; }
+    const voices = this.getVoices();
+    if (!voices.length) { this.voice = null; return; }
+    let picked = null;
+    if (this.preferredVoiceName) {
+      picked = voices.find((v) => v.name === this.preferredVoiceName);
+    }
+    if (!picked && this.preferredLang) {
+      const langLc = this.preferredLang.toLowerCase();
+      picked = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith(langLc));
+    }
+    if (!picked) {
+      picked = voices.find((v) => v.default) || voices[0];
+    }
+    this.voice = picked || null;
+  }
+  speak(text) {
+    if (!this.available || !this.enabled || this.muted) return;
+    if (typeof text !== "string") return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    this.stop();
+    let utt;
+    try {
+      utt = new SpeechSynthesisUtterance(trimmed);
+    } catch (_) { return; }
+    if (this.voice) utt.voice = this.voice;
+    utt.rate = this.rate;
+    utt.pitch = this.pitch;
+    utt.volume = this.volume;
+    const clear = () => {
+      if (this.currentUtterance === utt) {
+        this.currentUtterance = null;
+        this.speaking = false;
+      }
+    };
+    utt.onend = clear;
+    utt.onerror = clear;
+    this.currentUtterance = utt;
+    this.speaking = true;
+    try { this.synth.speak(utt); } catch (_) { clear(); }
+  }
+  stop() {
+    if (!this.available) return;
+    try { this.synth.cancel(); } catch (_) {}
+    this.currentUtterance = null;
+    this.speaking = false;
+  }
+  isSpeaking() { return this.speaking; }
+  destroy() {
+    this.stop();
+    if (this.synth) {
+      try { this.synth.onvoiceschanged = null; } catch (_) {}
+    }
+    this.onVoicesChanged = null;
+  }
+}
+
 class BorrowedError extends Error {
   constructor(message, detail) {
     super(message);
@@ -3630,6 +3756,137 @@ function App() {
     if (!eng) return;
     if (eng.muted !== ambienceMuted) eng.mute(ambienceMuted);
   }, [ambienceMuted]);
+
+  // ── TTS (text-to-speech narration) ──────────────────────────────
+  const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [ttsMuted, setTtsMuted] = useState(false);
+  const [ttsVoiceName, setTtsVoiceName] = useState(null);
+  const [ttsRate, setTtsRate] = useState(1.0);
+  const [ttsAvailable, setTtsAvailable] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return "speechSynthesis" in window;
+  });
+  const [ttsVoices, setTtsVoices] = useState([]);
+  const ttsLoadedRef = useRef(false);
+  const ttsRef = useRef(null);
+  // Index of the next narration entry to consider speaking. Advanced
+  // monotonically; reset on chronicle reset or save load so we don't
+  // re-narrate history.
+  const ttsNextRef = useRef(0);
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await window.storage.get("borrowed:tts:v1");
+        if (r?.value) {
+          const parsed = JSON.parse(r.value);
+          if (parsed && typeof parsed === "object") {
+            if (typeof parsed.enabled === "boolean") setTtsEnabled(parsed.enabled);
+            if (typeof parsed.muted === "boolean") setTtsMuted(parsed.muted);
+            if (typeof parsed.voiceName === "string") setTtsVoiceName(parsed.voiceName);
+            if (typeof parsed.rate === "number") setTtsRate(parsed.rate);
+          }
+        }
+      } catch {} finally {
+        ttsLoadedRef.current = true;
+      }
+    })();
+  }, []);
+  useEffect(() => {
+    if (!ttsLoadedRef.current) return;
+    (async () => {
+      try {
+        await window.storage.set("borrowed:tts:v1", JSON.stringify({
+          enabled: ttsEnabled,
+          muted: ttsMuted,
+          voiceName: ttsVoiceName,
+          rate: ttsRate
+        }));
+      } catch {}
+    })();
+  }, [ttsEnabled, ttsMuted, ttsVoiceName, ttsRate]);
+  const ensureTTSEngine = () => {
+    if (!ttsAvailable) return null;
+    if (!ttsRef.current) {
+      try {
+        const eng = new TTSEngine();
+        if (!eng.isAvailable()) { setTtsAvailable(false); return null; }
+        eng.onVoicesChanged = () => setTtsVoices(eng.getVoices().slice());
+        // Sync current React state into the freshly-created engine.
+        eng.setEnabled(ttsEnabled);
+        eng.setMuted(ttsMuted);
+        eng.setLanguage(language);
+        eng.setVoiceName(ttsVoiceName);
+        eng.setRate(ttsRate);
+        setTtsVoices(eng.getVoices().slice());
+        ttsRef.current = eng;
+      } catch (e) {
+        setTtsAvailable(false);
+        if (typeof console !== "undefined" && console.warn)
+          console.warn("[borrowed] TTS unavailable:", e);
+        return null;
+      }
+    }
+    return ttsRef.current;
+  };
+  // Eagerly create the engine on mount so the voice picker has data
+  // even before the first turn (voices load asynchronously in Chrome).
+  useEffect(() => {
+    ensureTTSEngine();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Push state changes into the engine instance whenever they change.
+  useEffect(() => {
+    const eng = ttsRef.current;
+    if (!eng) return;
+    eng.setEnabled(ttsEnabled);
+  }, [ttsEnabled]);
+  useEffect(() => {
+    const eng = ttsRef.current;
+    if (!eng) return;
+    eng.setMuted(ttsMuted);
+  }, [ttsMuted]);
+  useEffect(() => {
+    const eng = ttsRef.current;
+    if (!eng) return;
+    eng.setVoiceName(ttsVoiceName);
+  }, [ttsVoiceName]);
+  useEffect(() => {
+    const eng = ttsRef.current;
+    if (!eng) return;
+    eng.setRate(ttsRate);
+  }, [ttsRate]);
+  // Sync the TTS engine's preferred-language with the chronicle's language.
+  useEffect(() => {
+    const eng = ttsRef.current;
+    if (!eng) return;
+    eng.setLanguage(language);
+  }, [language]);
+  // Walk forward through the `entries` array. When a narration entry is
+  // fully revealed (typewriter finished, or stream finalized), speak it.
+  // ttsNextRef advances monotonically so we never re-narrate prior turns.
+  // Even when TTS is disabled or muted, the cursor advances to the live
+  // tail so toggling on later doesn't replay history — only new entries
+  // after the toggle get spoken. The cursor is reset to 0 on chronicle
+  // restart and to entries.length on save load.
+  useEffect(() => {
+    if (!ttsEnabled || ttsMuted || !ttsAvailable) {
+      ttsNextRef.current = entries.length;
+      return;
+    }
+    const eng = ensureTTSEngine();
+    if (!eng) return;
+    while (ttsNextRef.current < entries.length) {
+      const i = ttsNextRef.current;
+      const e = entries[i];
+      if (!e) break;
+      if (e.type !== "narration") { ttsNextRef.current++; continue; }
+      if (!e.fullyRevealed) break; // wait until typewriter finishes
+      if (typeof e.text === "string" && e.text.trim()) eng.speak(e.text);
+      ttsNextRef.current++;
+      break; // only one new utterance per render — stop chaining
+    }
+  }, [entries, ttsEnabled, ttsMuted, ttsAvailable]);
+
   const [savesTotalBytes, setSavesTotalBytes] = useState(0);
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
@@ -4224,6 +4481,8 @@ ${finalState}`
     const previousHistory = history;
     const newEntries = [...entries, { type: "action", text, fullyRevealed: true }];
     setEntries(newEntries);
+    // Cut off any in-flight narration; the player has moved on.
+    if (ttsRef.current) ttsRef.current.stop();
     const { publicBlock, privateBlock } = formatStateForPrompt(gameState);
     const parts = [];
     if (publicBlock)
@@ -4495,6 +4754,8 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setMetaMode(false);
     setMetaMessages([]);
     if (ambienceRef.current) ambienceRef.current.applyAmbience(null);
+    if (ttsRef.current) ttsRef.current.stop();
+    ttsNextRef.current = 0;
   };
   const loadSaveList = async () => {
     setSaveListLoading(true);
@@ -4609,6 +4870,9 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setPhase("playing");
     setShowSaves(false);
     setSaveBanner({ kind: "ok", text: "The hour resumes." });
+    // Don't narrate loaded history aloud — advance the TTS cursor past it.
+    if (ttsRef.current) ttsRef.current.stop();
+    ttsNextRef.current = (save.entries || []).length;
   };
   const deleteSave = async (key, e) => {
     e.stopPropagation();
@@ -4780,7 +5044,10 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     textareaRef,
     ambienceEnabled: ambienceLevel !== "off" && !ambienceUnavailable,
     ambienceMuted,
-    onToggleAmbienceMute: () => setAmbienceMuted((m) => !m)
+    onToggleAmbienceMute: () => setAmbienceMuted((m) => !m),
+    ttsEnabled: ttsEnabled && ttsAvailable,
+    ttsMuted,
+    onToggleTtsMute: () => setTtsMuted((m) => !m)
   }), showSaves && /* @__PURE__ */ React.createElement(SavesModal, {
     saves: saveList,
     totalBytes: savesTotalBytes,
@@ -4797,7 +5064,15 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     osReducedMotion,
     ambienceLevel,
     ambienceUnavailable,
-    onChangeAmbience: setAmbienceLevel
+    onChangeAmbience: setAmbienceLevel,
+    ttsEnabled,
+    ttsAvailable,
+    ttsVoiceName,
+    ttsVoices,
+    ttsRate,
+    onChangeTtsEnabled: setTtsEnabled,
+    onChangeTtsVoice: setTtsVoiceName,
+    onChangeTtsRate: setTtsRate
   }), showLedger && premise && /* @__PURE__ */ React.createElement(LedgerModal, {
     premise,
     gameState,
@@ -5037,7 +5312,10 @@ function GameScreen({
   textareaRef,
   ambienceEnabled,
   ambienceMuted,
-  onToggleAmbienceMute
+  onToggleAmbienceMute,
+  ttsEnabled,
+  ttsMuted,
+  onToggleTtsMute
 }) {
   const lastEntry = entries[entries.length - 1];
   const showResolution = ended && lastEntry && lastEntry.type === "narration" && lastEntry.fullyRevealed && !metaMode;
@@ -5133,7 +5411,17 @@ function GameScreen({
     "aria-hidden": "true"
   }, ambienceMuted ? "♪̸" : "♪"), /* @__PURE__ */ React.createElement("span", {
     className: "btn-label"
-  }, ambienceMuted ? " MUTED" : " AMBIENT")), /* @__PURE__ */ React.createElement("button", {
+  }, ambienceMuted ? " MUTED" : " AMBIENT")), ttsEnabled && /* @__PURE__ */ React.createElement("button", {
+    onClick: onToggleTtsMute,
+    className: "icon-btn",
+    title: ttsMuted ? "Resume narration aloud" : "Silence narration aloud",
+    "aria-label": ttsMuted ? "Resume narration aloud" : "Silence narration aloud",
+    "aria-pressed": ttsMuted ? "true" : "false"
+  }, /* @__PURE__ */ React.createElement("span", {
+    "aria-hidden": "true"
+  }, ttsMuted ? "▷̸" : "▷"), /* @__PURE__ */ React.createElement("span", {
+    className: "btn-label"
+  }, ttsMuted ? " SILENT" : " VOICE")), /* @__PURE__ */ React.createElement("button", {
     onClick: onRestart,
     className: "icon-btn icon-btn-danger",
     title: "Begin a new hour",
@@ -5882,7 +6170,7 @@ function EngineSection({ settings, onChange }) {
     onChange: handleFreeSelection
   }));
 }
-function SettingsModal({ settings, onChange, onClose, osReducedMotion, ambienceLevel, ambienceUnavailable, onChangeAmbience }) {
+function SettingsModal({ settings, onChange, onClose, osReducedMotion, ambienceLevel, ambienceUnavailable, onChangeAmbience, ttsEnabled, ttsAvailable, ttsVoiceName, ttsVoices, ttsRate, onChangeTtsEnabled, onChangeTtsVoice, onChangeTtsRate }) {
   return /* @__PURE__ */ React.createElement("div", {
     className: "modal-backdrop",
     onClick: onClose
@@ -5933,6 +6221,15 @@ function SettingsModal({ settings, onChange, onClose, osReducedMotion, ambienceL
     level: ambienceLevel,
     unavailable: ambienceUnavailable,
     onChange: onChangeAmbience
+  }), /* @__PURE__ */ React.createElement(TTSRow, {
+    enabled: ttsEnabled,
+    available: ttsAvailable,
+    voiceName: ttsVoiceName,
+    voices: ttsVoices,
+    rate: ttsRate,
+    onChangeEnabled: onChangeTtsEnabled,
+    onChangeVoice: onChangeTtsVoice,
+    onChangeRate: onChangeTtsRate
   }), /* @__PURE__ */ React.createElement("div", {
     className: "settings-toggle",
     style: { cursor: "default", opacity: 0.85 }
@@ -6013,6 +6310,79 @@ function AmbienceRow({ level, unavailable, onChange }) {
       background: level === opt.id ? "rgba(212, 165, 116, 0.08)" : "transparent"
     }
   }, opt.label.toUpperCase()))));
+}
+function TTSRow({ enabled, available, voiceName, voices, rate, onChangeEnabled, onChangeVoice, onChangeRate }) {
+  const description = !available
+    ? "Your browser does not expose a speech synthesiser. Narration aloud is unavailable."
+    : "Read each turn's narration aloud using your browser's built-in voices. No account, no key, no network — quality varies by your operating system.";
+  const voiceOptions = (voices || []).map((v) => ({ name: v.name, lang: v.lang, label: `${v.name} — ${v.lang}` }));
+  return /* @__PURE__ */ React.createElement("div", {
+    className: "settings-toggle",
+    style: { cursor: "default", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "flex-1 min-w-0",
+    style: { width: "100%" }
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font",
+    style: {
+      color: available ? "var(--cream-bright)" : "var(--cream-dim)",
+      letterSpacing: "0.18em",
+      fontSize: 11,
+      textTransform: "uppercase"
+    }
+  }, "Narration aloud"), /* @__PURE__ */ React.createElement("div", {
+    className: "body-font italic",
+    style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4, marginBottom: 10 }
+  }, description), available && /* @__PURE__ */ React.createElement("div", {
+    style: { display: "flex", flexDirection: "column", gap: 10, marginTop: 6 }
+  },
+    /* Enabled toggle */
+    /* @__PURE__ */ React.createElement("label", {
+      style: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }
+    }, /* @__PURE__ */ React.createElement("input", {
+      type: "checkbox",
+      checked: !!enabled,
+      onChange: (e) => onChangeEnabled(e.target.checked),
+      style: { accentColor: "var(--rose-gold)" }
+    }), /* @__PURE__ */ React.createElement("span", {
+      className: "display-font",
+      style: { fontSize: 11, letterSpacing: "0.2em", color: "var(--cream-bright)" }
+    }, enabled ? "READING ALOUD" : "SILENT")),
+    /* Voice picker */
+    enabled && voiceOptions.length > 0 && /* @__PURE__ */ React.createElement("label", {
+      style: { display: "flex", flexDirection: "column", gap: 4 }
+    }, /* @__PURE__ */ React.createElement("span", {
+      className: "display-font",
+      style: { fontSize: 10, letterSpacing: "0.2em", color: "var(--cream-dim)" }
+    }, "VOICE"), /* @__PURE__ */ React.createElement("select", {
+      value: voiceName || "",
+      onChange: (e) => onChangeVoice(e.target.value || null),
+      className: "body-font",
+      style: {
+        background: "rgba(0,0,0,0.3)",
+        color: "var(--cream-bright)",
+        border: "1px solid rgba(232, 222, 197, 0.2)",
+        padding: "6px 10px",
+        fontSize: 13,
+        maxWidth: "100%"
+      }
+    }, /* @__PURE__ */ React.createElement("option", { value: "" }, "Automatic — match the chronicle's language"),
+       voiceOptions.map((o) => /* @__PURE__ */ React.createElement("option", { key: o.name, value: o.name }, o.label)))),
+    /* Rate slider */
+    enabled && /* @__PURE__ */ React.createElement("label", {
+      style: { display: "flex", flexDirection: "column", gap: 4 }
+    }, /* @__PURE__ */ React.createElement("span", {
+      className: "display-font",
+      style: { fontSize: 10, letterSpacing: "0.2em", color: "var(--cream-dim)" }
+    }, `READING PACE — ${rate.toFixed(2)}×`), /* @__PURE__ */ React.createElement("input", {
+      type: "range",
+      min: "0.5",
+      max: "1.5",
+      step: "0.05",
+      value: rate,
+      onChange: (e) => onChangeRate(parseFloat(e.target.value)),
+      style: { accentColor: "var(--rose-gold)" }
+    })))));
 }
 function SettingsToggleRow({ id, label, description, value, onChange }) {
   return /* @__PURE__ */ React.createElement("button", {
