@@ -4126,6 +4126,7 @@ function App() {
   }, [ambienceMuted]);
   const ttsConfig = settings.tts || DEFAULT_TTS;
   const [speakingId, setSpeakingId] = useState(null);
+  const [ttsMuted, setTtsMuted] = useState(false);
   const speakingIdRef = useRef(null);
   const ttsPlayerRef = useRef(null);
   const lastSpokenTextRef = useRef("");
@@ -4146,6 +4147,7 @@ function App() {
     setSpeakingId(null);
   };
   const speakEntry = async (id, text) => {
+    if (ttsMuted) return;
     if (!text || !text.trim()) return;
     stopSpeaking();
     const cfg = settings.tts || DEFAULT_TTS;
@@ -4197,7 +4199,7 @@ function App() {
   };
   useEffect(() => () => stopSpeaking(), []);
   useEffect(() => {
-    if (!ttsConfig.enabled || !ttsConfig.autoplay) return;
+    if (!ttsConfig.enabled || !ttsConfig.autoplay || ttsMuted) return;
     if (!entries.length) return;
     const idx = entries.length - 1;
     const e = entries[idx];
@@ -4205,7 +4207,7 @@ function App() {
     if (!e.text || lastSpokenTextRef.current === e.text) return;
     lastSpokenTextRef.current = e.text;
     speakEntry(`entry-${idx}`, e.text);
-  }, [entries, ttsConfig.enabled, ttsConfig.autoplay]);
+  }, [entries, ttsConfig.enabled, ttsConfig.autoplay, ttsMuted]);
   useEffect(() => {
     if (!ttsConfig.enabled || !ttsConfig.autoplay) return;
     const lastMeta = metaMessages[metaMessages.length - 1];
@@ -5377,6 +5379,15 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     ambienceMuted,
     onToggleAmbienceMute: () => setAmbienceMuted((m) => !m),
     ttsEnabled: !!ttsConfig.enabled,
+    ttsMuted,
+    onToggleTtsMute: () => {
+      setTtsMuted((m) => {
+        const next = !m;
+        if (next)
+          stopSpeaking();
+        return next;
+      });
+    },
     speakingId,
     onSpeak: speakEntry,
     onStopSpeak: stopSpeaking
@@ -5672,6 +5683,8 @@ function GameScreen({
   ambienceMuted,
   onToggleAmbienceMute,
   ttsEnabled,
+  ttsMuted,
+  onToggleTtsMute,
   speakingId,
   onSpeak,
   onStopSpeak
