@@ -65,6 +65,23 @@ Each GM turn sends a large request — system prompt, tool schema, and the rolli
 - **Cerebras**' free tier caps context at 8,192 tokens — too small for a GM turn — so paid tier is required here.
 - **OpenRouter** free models (`deepseek-v4-flash:free`) have tight per-minute caps and are not recommended for repeated calls.
 
+## Read aloud (text-to-speech)
+
+A narration voice can be enabled from **⚙ Reading → Read aloud (text-to-speech)**. When enabled, a small ♪ Hear button appears under every narration passage and (optionally) each new passage auto-plays as it arrives. A **HUSH** button appears in the header while the narrator is speaking.
+
+Six providers are supported:
+
+| Provider | Key required? | Free tier |
+|---|---|---|
+| **Browser (Web Speech)** | No | Free, offline, uses your OS voices |
+| **Puter.js** | No (one-time Puter sign-in) | Free, hosted neural voices via [Puter](https://puter.com) |
+| **Google Cloud TTS** | Yes (API key) | ~1M chars/mo Neural2, ~4M chars/mo Standard |
+| **Microsoft Azure** | Yes (API key + region) | 500K chars/mo Neural for the first year |
+| **ElevenLabs** | Yes (API key) | 10K chars/mo (highest quality) |
+| **OpenAI TTS** | Reuses your OpenAI key | Paid only (~$0.015 / 1K chars) |
+
+Each cloud provider's API key is stored only in this browser's `localStorage`, encrypted with the same session-passphrase scheme used for LLM keys. Set or replace narration keys under **⚙ Reading → API keys → Narration keys (optional)**.
+
 ## API keys
 
 Each cloud provider prompts for its own API key the first time it is used. The key is stored only in the browser's `localStorage`. Use the small **API KEY** button in the lower-right corner to forget stored keys.
