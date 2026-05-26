@@ -1014,7 +1014,12 @@ async function getTTSKey(providerId) {
   if (injected) return injected.trim();
   const stored = localStorage.getItem(meta.keyStorage);
   if (!stored)
-    throw new BorrowedError("The narrator falls silent.", `No ${meta.name} API key is saved. Open ⚙ Reading → API keys and paste your narration key there.`);
+    throw new BorrowedError(
+      "The narrator falls silent.",
+      providerId === "voxtral"
+        ? "No Mistral API key is saved. Voxtral reuses your Mistral key: open ⚙ Settings → API keys and save Mistral, or open ⚙ Reading → API keys and save it under Mistral Voxtral TTS."
+        : `No ${meta.name} API key is saved. Open ⚙ Reading → API keys and paste your narration key there.`
+    );
   if (!stored.startsWith(ENC_PREFIX)) return stored.trim();
   if (!window.__sessionPassphrase)
     window.__sessionPassphrase = prompt("Enter your session passphrase to unlock API keys:");
@@ -6450,7 +6455,8 @@ function ApiKeysSection() {
     /* @__PURE__ */ React.createElement("div", {
       className: "body-font italic",
       style: { color: "var(--cream-dim)", fontSize: 12, marginTop: 4, lineHeight: 1.6 }
-    }, "Only needed if you pick one of these as the narrator under Read Aloud."),
+    }, "Only needed if you pick one of these as the narrator under Read Aloud. Voxtral reuses your Mistral API key from the main list below, but you can also save it here."),
+    /* @__PURE__ */ React.createElement(TtsApiKeyRow, { providerId: "voxtral" }),
     /* @__PURE__ */ React.createElement(TtsApiKeyRow, { providerId: "google" }),
     /* @__PURE__ */ React.createElement(TtsApiKeyRow, { providerId: "azure" }),
     /* @__PURE__ */ React.createElement(TtsApiKeyRow, { providerId: "elevenlabs" })
