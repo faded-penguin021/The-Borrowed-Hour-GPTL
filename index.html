@@ -906,6 +906,9 @@ var OPENAI_TTS_VOICES = [
   { id: "sage",    label: "Sage · calm female",      lang: "" },
   { id: "shimmer", label: "Shimmer · gentle female", lang: "" }
 ];
+var VOXTRAL_TTS_VOICES = [
+  { id: "", label: "Default Voxtral voice", lang: "" }
+];
 
 var TTS_PROVIDER_META = {
   browser: {
@@ -921,6 +924,16 @@ var TTS_PROVIDER_META = {
     needsKey: false,
     needsRegion: false,
     voices: () => PUTER_VOICES
+  },
+  voxtral: {
+    name: "Mistral Voxtral TTS",
+    blurb: "Uses Mistral's Voxtral text-to-speech endpoint. Reuses your Mistral API key. Great for the experiment tier (typically 2 requests/minute).",
+    needsKey: true,
+    needsRegion: false,
+    keyStorage: PROVIDER_META.mistral.keyStorage,
+    windowKey: PROVIDER_META.mistral.windowKey,
+    metaName: PROVIDER_META.mistral.metaName,
+    voices: () => VOXTRAL_TTS_VOICES
   },
   google: {
     name: "Google Cloud TTS",
@@ -966,11 +979,12 @@ var TTS_PROVIDER_META = {
   }
 };
 
-var TTS_PROVIDER_ORDER = ["browser", "puter", "google", "azure", "elevenlabs", "openai"];
+var TTS_PROVIDER_ORDER = ["browser", "puter", "voxtral", "google", "azure", "elevenlabs", "openai"];
 
 var DEFAULT_VOICE_BY_PROVIDER = {
   browser: "",
   puter: "Joanna",
+  voxtral: "",
   google: "en-US-Neural2-C",
   azure: "en-US-JennyNeural",
   elevenlabs: "21m00Tcm4TlvDq8ikWAM",
@@ -1150,6 +1164,38 @@ var TTS_PROVIDERS = {
       if (!audio || typeof audio.play !== "function")
         throw new BorrowedError("The narrator falls silent.", "Puter TTS returned no playable audio.");
       return new AudioElementPlayer(audio);
+    }
+  },
+  voxtral: {
+    async synthesize(text, opts) {
+      const apiKey = await getTTSKey("voxtral");
+      const voiceId = (opts.voice || "").trim();
+      const body = {
+        model: "voxtral-mini-tts-2603",
+        input: text,
+        response_format: "mp3"
+      };
+      if (voiceId) body.voice_id = voiceId;
+      const res = await fetch("https://api.mistral.ai/v1/audio/speech", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        signal: opts.signal,
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const raw = await res.text().catch(() => "");
+        const msg = extractApiErrorMessage(raw) || `HTTP ${res.status}`;
+        throw new BorrowedError("The narrator falls silent.", `Voxtral TTS error: ${msg}`);
+      }
+      const data = await res.json().catch(() => null);
+      if (!data?.audio_data)
+        throw new BorrowedError("The narrator falls silent.", "Voxtral TTS returned no audio data.");
+      const bin = atob(data.audio_data);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "audio/mpeg" });
+      const url = URL.createObjectURL(blob);
+      return new AudioElementPlayer(url, { objectURL: url });
     }
   },
   google: {
