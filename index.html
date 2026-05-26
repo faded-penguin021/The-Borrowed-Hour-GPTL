@@ -3975,14 +3975,6 @@ function App() {
     if (!eng) return;
     if (eng.muted !== ambienceMuted) eng.mute(ambienceMuted);
   }, [ambienceMuted]);
-  // TTS coupling — gate: ambience only during narration.
-  useEffect(() => {
-    ambienceRef.current?.setSpeechGate(ambienceDuringNarrationOnly && ttsEnabled);
-  }, [ambienceDuringNarrationOnly, ttsEnabled]);
-  // TTS coupling — boost: lift ambience one notch while TTS is on.
-  useEffect(() => {
-    ambienceRef.current?.setBoost(ambienceBoostWithTTS && ttsEnabled);
-  }, [ambienceBoostWithTTS, ttsEnabled]);
 
   // ── TTS (text-to-speech narration) ──────────────────────────────
   const [ttsEnabled, setTtsEnabled] = useState(false);
@@ -4091,6 +4083,15 @@ function App() {
 
   // Re-check provider readiness when settings panel opens.
   useEffect(() => { if (showSettings) detectTtsProviderReady(); }, [showSettings]);
+
+  // Ambience↔TTS coupling — gate: ambience only during narration.
+  useEffect(() => {
+    ambienceRef.current?.setSpeechGate(ambienceDuringNarrationOnly && ttsEnabled);
+  }, [ambienceDuringNarrationOnly, ttsEnabled]);
+  // Ambience↔TTS coupling — boost: lift ambience one notch while TTS is on.
+  useEffect(() => {
+    ambienceRef.current?.setBoost(ambienceBoostWithTTS && ttsEnabled);
+  }, [ambienceBoostWithTTS, ttsEnabled]);
 
   // Bridge: subscribe ambience engine to TTS controller speak events.
   useEffect(() => {
