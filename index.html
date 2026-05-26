@@ -906,9 +906,7 @@ var OPENAI_TTS_VOICES = [
   { id: "sage",    label: "Sage · calm female",      lang: "" },
   { id: "shimmer", label: "Shimmer · gentle female", lang: "" }
 ];
-var VOXTRAL_TTS_VOICES = [
-  { id: "", label: "Default Voxtral voice", lang: "" }
-];
+var VOXTRAL_TTS_VOICES = [];
 
 var TTS_PROVIDER_META = {
   browser: {
@@ -927,7 +925,7 @@ var TTS_PROVIDER_META = {
   },
   voxtral: {
     name: "Mistral Voxtral TTS",
-    blurb: "Uses Mistral's Voxtral text-to-speech endpoint. Reuses your Mistral API key. Great for the experiment tier (typically 2 requests/minute).",
+    blurb: "Uses Mistral's Voxtral text-to-speech endpoint. Requires a saved Voxtral voice ID (or ref audio). Reuses your Mistral API key. Great for the experiment tier (typically 2 requests/minute).",
     needsKey: true,
     needsRegion: false,
     keyStorage: PROVIDER_META.mistral.keyStorage,
@@ -1175,12 +1173,18 @@ var TTS_PROVIDERS = {
     async synthesize(text, opts) {
       const apiKey = await getTTSKey("voxtral");
       const voiceId = (opts.voice || "").trim();
+      if (!voiceId) {
+        throw new BorrowedError(
+          "The narrator falls silent.",
+          "Voxtral requires a voice ID. Open ⚙ Reading → Read aloud, choose Mistral Voxtral TTS, and paste a saved Voxtral voice ID in the Voice ID field."
+        );
+      }
       const body = {
         model: "voxtral-mini-tts-2603",
         input: text,
-        response_format: "mp3"
+        response_format: "mp3",
+        voice_id: voiceId
       };
-      if (voiceId) body.voice_id = voiceId;
       const res = await fetch("https://api.mistral.ai/v1/audio/speech", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
@@ -6943,8 +6947,25 @@ function TtsSection({ settings, onChange, browserVoiceTick, onPreviewVoice, onSt
       /* @__PURE__ */ React.createElement("div", {
         className: "display-font",
         style: labelStyle
-      }, "Voice"),
-      tts.provider === "browser" && voicesRef.length === 0
+      }, tts.provider === "voxtral" ? "Voice ID" : "Voice"),
+      tts.provider === "voxtral"
+        ? /* @__PURE__ */ React.createElement(React.Fragment, null,
+            /* @__PURE__ */ React.createElement("input", {
+              type: "text",
+              value: tts.voice || "",
+              "aria-label": "Voxtral voice ID",
+              onChange: (e) => updateVoice(e.target.value),
+              placeholder: "Paste saved Voxtral voice ID…",
+              style: fieldStyle,
+              autoComplete: "off",
+              spellCheck: false
+            }),
+            /* @__PURE__ */ React.createElement("div", {
+              className: "body-font italic",
+              style: hintStyle
+            }, "Voxtral requires either a saved voice ID or ref audio. This app uses saved voice IDs.")
+          )
+        : tts.provider === "browser" && voicesRef.length === 0
         ? /* @__PURE__ */ React.createElement("div", {
             className: "body-font italic",
             style: { ...hintStyle, marginTop: 8 }
