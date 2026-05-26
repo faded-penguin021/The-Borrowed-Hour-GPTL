@@ -2080,7 +2080,7 @@ var AMBIENCE_EVENT_RECIPES = {
  * TTS_PROVIDER_META catalogues five providers. Each has an adapter class
  * that implements synthesize(text, signal) → handle { play, stop, set onended }.
  * TTSController owns the active adapter and exposes a stable API to React.
- * Cloud adapters share the existing LLM API keys where possible (OpenAI, Mistral).
+ * Cloud adapters share the existing LLM API key where possible (OpenAI).
  * Only ElevenLabs needs its own key entry. Browser and Puter need no key.
  */
 
@@ -2106,6 +2106,8 @@ class BrowserTTSAdapter {
     utt.onerror = clear;
     const handle = {
       play: () => { try { synth.speak(utt); } catch (_) { clear(); } },
+      pause: () => { try { synth.pause(); } catch (_) {} },
+      resume: () => { try { synth.resume(); } catch (_) {} },
       stop: () => { try { synth.cancel(); } catch (_) {} },
       set onended(cb) { _onended = cb; }
     };
@@ -2131,20 +2133,24 @@ function _loadPuter() {
   return _puterReady;
 }
 class PuterTTSAdapter {
-  constructor({ voiceId, rate }) {
+  constructor({ voiceId, rate, engine }) {
     this.voiceId = voiceId || "Joanna";
     this.rate = rate || 1.0;
+    this.engine = engine || "neural";
   }
   async synthesize(text, signal) {
     if (signal?.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
     const puter = await _loadPuter();
     if (signal?.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
-    const audio = await puter.ai.txt2speech(text.trim(), this.voiceId);
+    // Puter.js v2 expects an options object as the second arg.
+    const audio = await puter.ai.txt2speech(text.trim(), { voice: this.voiceId, engine: this.engine });
     if (signal?.aborted) { try { audio.pause(); } catch (_) {} throw Object.assign(new Error("Aborted"), { name: "AbortError" }); }
     let _onended = null;
     audio.onended = () => { if (_onended) _onended(); };
     const handle = {
       play: () => { try { audio.play(); } catch (_) {} },
+      pause: () => { try { audio.pause(); } catch (_) {} },
+      resume: () => { try { audio.play(); } catch (_) {} },
       stop: () => { try { audio.pause(); audio.currentTime = 0; } catch (_) {} },
       set onended(cb) { _onended = cb; audio.onended = () => { if (_onended) _onended(); }; }
     };
@@ -2172,6 +2178,8 @@ function _blobHandle(blob, signal) {
   audio.onended = () => { cleanup(); if (_onended) _onended(); };
   const handle = {
     play: () => { try { audio.play(); } catch (_) {} },
+    pause: () => { try { audio.pause(); } catch (_) {} },
+    resume: () => { try { audio.play(); } catch (_) {} },
     stop: () => { try { audio.pause(); audio.currentTime = 0; } catch (_) {} cleanup(); },
     set onended(cb) { _onended = cb; }
   };
@@ -2192,26 +2200,6 @@ class OpenAITTSAdapter {
       "https://api.openai.com/v1/audio/speech",
       { method: "POST", headers: { "Authorization": `Bearer ${this.key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model: this.model, voice: this.voiceId, input: text.trim(), response_format: "mp3", speed: Math.max(0.25, Math.min(4.0, this.rate)) }) },
-      signal
-    );
-    return _blobHandle(blob, signal);
-  }
-  destroy() {}
-}
-
-// ── Voxtral (Mistral audio) adapter ─────────────────────────────────────
-class VoxtralTTSAdapter {
-  constructor({ voiceId, rate, key, model }) {
-    this.voiceId = voiceId || "voxtral-default";
-    this.rate = rate || 1.0;
-    this.key = key || "";
-    this.model = model || "voxtral-mini-latest";
-  }
-  async synthesize(text, signal) {
-    const blob = await _fetchAudioBlob(
-      "https://api.mistral.ai/v1/audio/speech",
-      { method: "POST", headers: { "Authorization": `Bearer ${this.key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: this.model, voice: this.voiceId, input: text.trim() }) },
       signal
     );
     return _blobHandle(blob, signal);
@@ -2249,31 +2237,40 @@ var TTS_PROVIDER_META = {
   puter: {
     id: "puter", name: "Puter", requiresKey: false, reusesLLMKey: null,
     voices: [
-      { id: "Joanna",  label: "Joanna — US (neutral)" },
-      { id: "Matthew", label: "Matthew — US (warm)" },
-      { id: "Brian",   label: "Brian — UK (steady)" },
-      { id: "Amy",     label: "Amy — UK (lyrical)" },
-      { id: "Olivia",  label: "Olivia — AU (cool)" }
+      { id: "Joanna",   label: "Joanna — US (neutral)" },
+      { id: "Matthew",  label: "Matthew — US (warm)" },
+      { id: "Salli",    label: "Salli — US (bright)" },
+      { id: "Kimberly", label: "Kimberly — US (smooth)" },
+      { id: "Kendra",   label: "Kendra — US (steady)" },
+      { id: "Joey",     label: "Joey — US (casual)" },
+      { id: "Justin",   label: "Justin — US (youthful)" },
+      { id: "Ivy",      label: "Ivy — US child" },
+      { id: "Brian",    label: "Brian — UK (steady)" },
+      { id: "Amy",      label: "Amy — UK (lyrical)" },
+      { id: "Emma",     label: "Emma — UK (composed)" },
+      { id: "Olivia",   label: "Olivia — AU (cool)" },
+      { id: "Aria",     label: "Aria — generative" },
+      { id: "Ruth",     label: "Ruth — generative" }
     ],
     adapter: PuterTTSAdapter
   },
   openai: {
     id: "openai", name: "OpenAI", requiresKey: true, reusesLLMKey: "openai",
     voices: [
-      { id: "alloy",  label: "Alloy — neutral" },
-      { id: "ash",    label: "Ash — gentle" },
-      { id: "ballad", label: "Ballad — narrative" },
-      { id: "sage",   label: "Sage — calm" },
-      { id: "verse",  label: "Verse — expressive" }
+      { id: "alloy",   label: "Alloy — neutral" },
+      { id: "ash",     label: "Ash — gentle" },
+      { id: "ballad",  label: "Ballad — narrative" },
+      { id: "coral",   label: "Coral — bright" },
+      { id: "echo",    label: "Echo — measured" },
+      { id: "fable",   label: "Fable — storyteller" },
+      { id: "nova",    label: "Nova — warm" },
+      { id: "onyx",    label: "Onyx — deep" },
+      { id: "sage",    label: "Sage — calm" },
+      { id: "shimmer", label: "Shimmer — clear" },
+      { id: "verse",   label: "Verse — expressive" }
     ],
     model: "gpt-4o-mini-tts",
     adapter: OpenAITTSAdapter
-  },
-  voxtral: {
-    id: "voxtral", name: "Voxtral", requiresKey: true, reusesLLMKey: "mistral",
-    voices: [{ id: "voxtral-default", label: "Voxtral default" }],
-    model: "voxtral-mini-latest",
-    adapter: VoxtralTTSAdapter
   },
   elevenlabs: {
     id: "elevenlabs", name: "ElevenLabs", requiresKey: true, reusesLLMKey: null,
@@ -2290,7 +2287,7 @@ var TTS_PROVIDER_META = {
   }
 };
 // Quality-first order; first "ready" provider wins on auto-select.
-var TTS_PROVIDER_ORDER = ["openai", "elevenlabs", "voxtral", "puter", "browser"];
+var TTS_PROVIDER_ORDER = ["openai", "elevenlabs", "puter", "browser"];
 
 // ── ElevenLabs key helpers ───────────────────────────────────────────────
 async function getTtsElevenLabsKey() {
@@ -2325,8 +2322,10 @@ class TTSController {
     this.activeHandle = null;
     this.activeAbort = null;
     this.activeTurnId = null;
+    this.paused = false;
     this._onSpeakStart = new Set();
     this._onSpeakEnd = new Set();
+    this._onStateChange = new Set();
   }
   setProvider(id, { voiceId, key } = {}) {
     if (this.providerId === id && this.adapter && this.key === key && this.voiceId === voiceId) return;
@@ -2343,6 +2342,21 @@ class TTSController {
   setMuted(m) { this.muted = !!m; if (m) this.stop(); }
   onSpeakStart(cb) { this._onSpeakStart.add(cb); return () => this._onSpeakStart.delete(cb); }
   onSpeakEnd(cb)   { this._onSpeakEnd.add(cb);   return () => this._onSpeakEnd.delete(cb); }
+  onStateChange(cb) { this._onStateChange.add(cb); return () => this._onStateChange.delete(cb); }
+  isSpeaking() { return !!this.activeHandle && !this.paused; }
+  isPaused()   { return !!this.activeHandle && this.paused; }
+  pause() {
+    if (!this.activeHandle || this.paused) return;
+    try { this.activeHandle.pause?.(); } catch (_) {}
+    this.paused = true;
+    this._notifyState();
+  }
+  resume() {
+    if (!this.activeHandle || !this.paused) return;
+    try { this.activeHandle.resume?.(); } catch (_) {}
+    this.paused = false;
+    this._notifyState();
+  }
   async speak(text, { turnId } = {}) {
     if (!this.enabled || this.muted) return;
     if (!text || !text.trim()) return;
@@ -2359,9 +2373,11 @@ class TTSController {
       const handle = await this.adapter.synthesize(text.trim(), abort.signal);
       if (abort.signal.aborted) { try { handle.stop(); } catch (_) {} return; }
       this.activeHandle = handle;
+      this.paused = false;
       handle.onended = () => this._endSpeak(turnId);
       this._startSpeak(turnId);
       handle.play();
+      this._notifyState();
     } catch (e) {
       if (e?.name === "AbortError") return;
       this._endSpeak(turnId);
@@ -2372,15 +2388,24 @@ class TTSController {
     if (this.activeAbort) { try { this.activeAbort.abort(); } catch (_) {} this.activeAbort = null; }
     if (this.activeHandle) { try { this.activeHandle.stop(); } catch (_) {} this.activeHandle = null; }
     if (this.activeTurnId !== null) { this._endSpeak(this.activeTurnId); this.activeTurnId = null; }
+    this.paused = false;
+    this._notifyState();
   }
   _startSpeak(t) { this._onSpeakStart.forEach((cb) => { try { cb(t); } catch (_) {} }); }
-  _endSpeak(t)   { this._onSpeakEnd.forEach((cb)   => { try { cb(t); } catch (_) {} }); }
+  _endSpeak(t)   {
+    this.activeHandle = null;
+    this.paused = false;
+    this._onSpeakEnd.forEach((cb) => { try { cb(t); } catch (_) {} });
+    this._notifyState();
+  }
+  _notifyState() { this._onStateChange.forEach((cb) => { try { cb(); } catch (_) {} }); }
   destroy() {
     this.stop();
     try { this.adapter?.destroy?.(); } catch (_) {}
     this.adapter = null;
     this._onSpeakStart.clear();
     this._onSpeakEnd.clear();
+    this._onStateChange.clear();
   }
 }
 
@@ -3985,6 +4010,7 @@ function App() {
   const [ttsElevenKey, setTtsElevenKey] = useState(""); // plaintext; only used for the inline key field
   const [ttsBrowserVoices, setTtsBrowserVoices] = useState([]);
   const [ttsProviderReady, setTtsProviderReady] = useState({ browser: true, puter: true });
+  const [ttsPlayback, setTtsPlayback] = useState({ speaking: false, paused: false });
   const ttsLoadedRef = useRef(false);
   const ttsRef = useRef(null);
   // Monotonic cursor: index of the next entry to speak. Reset on chronicle
@@ -3996,7 +4022,7 @@ function App() {
       browser: typeof window !== "undefined" && "speechSynthesis" in window,
       puter: true
     };
-    for (const id of ["openai", "voxtral"]) {
+    for (const id of ["openai"]) {
       const meta = TTS_PROVIDER_META[id];
       try { const k = await getProviderKey(meta.reusesLLMKey); out[id] = !!k; }
       catch { out[id] = false; }
@@ -4051,7 +4077,9 @@ function App() {
 
   const ensureTTSController = () => {
     if (!ttsRef.current) {
-      ttsRef.current = new TTSController();
+      const ctrl = new TTSController();
+      ctrl.onStateChange(() => setTtsPlayback({ speaking: ctrl.isSpeaking(), paused: ctrl.isPaused() }));
+      ttsRef.current = ctrl;
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         const reload = () => setTtsBrowserVoices(window.speechSynthesis.getVoices().slice());
         reload();
@@ -4059,6 +4087,21 @@ function App() {
       }
     }
     return ttsRef.current;
+  };
+
+  // Play/pause/replay handler for the HUD button.
+  const togglePlayPause = () => {
+    const ctrl = ensureTTSController();
+    if (ctrl.isPaused()) { ctrl.resume(); return; }
+    if (ctrl.isSpeaking()) { ctrl.pause(); return; }
+    // Nothing active — replay the last fully-revealed narration entry.
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const e = entries[i];
+      if (e?.type === "narration" && e.fullyRevealed && typeof e.text === "string" && e.text.trim()) {
+        ctrl.speak(e.text, { turnId: i });
+        return;
+      }
+    }
   };
 
   // Sync enabled/muted/rate/voice to controller.
@@ -5288,7 +5331,9 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     onToggleAmbienceMute: () => setAmbienceMuted((m) => !m),
     ttsEnabled,
     ttsMuted,
-    onToggleTtsMute: () => setTtsMuted((m) => !m)
+    ttsPlayback,
+    onToggleTtsMute: () => setTtsMuted((m) => !m),
+    onTogglePlayPause: togglePlayPause
   }), showSaves && /* @__PURE__ */ React.createElement(SavesModal, {
     saves: saveList,
     totalBytes: savesTotalBytes,
@@ -5568,7 +5613,9 @@ function GameScreen({
   onToggleAmbienceMute,
   ttsEnabled,
   ttsMuted,
-  onToggleTtsMute
+  ttsPlayback,
+  onToggleTtsMute,
+  onTogglePlayPause
 }) {
   const lastEntry = entries[entries.length - 1];
   const showResolution = ended && lastEntry && lastEntry.type === "narration" && lastEntry.fullyRevealed && !metaMode;
@@ -5674,7 +5721,19 @@ function GameScreen({
     "aria-hidden": "true"
   }, ttsMuted ? "▷̸" : "▷"), /* @__PURE__ */ React.createElement("span", {
     className: "btn-label"
-  }, ttsMuted ? " SILENT" : " VOICE")), /* @__PURE__ */ React.createElement("button", {
+  }, ttsMuted ? " SILENT" : " VOICE")),
+  ttsEnabled && !ttsMuted && /* @__PURE__ */ React.createElement("button", {
+    onClick: onTogglePlayPause,
+    className: "icon-btn",
+    title: ttsPlayback?.paused ? "Resume narration" : (ttsPlayback?.speaking ? "Pause narration" : "Play the latest narration aloud"),
+    "aria-label": ttsPlayback?.paused ? "Resume narration" : (ttsPlayback?.speaking ? "Pause narration" : "Play latest narration"),
+    "aria-pressed": ttsPlayback?.paused ? "true" : "false"
+  }, /* @__PURE__ */ React.createElement("span", {
+    "aria-hidden": "true"
+  }, ttsPlayback?.speaking ? "❙❙" : "▶"), /* @__PURE__ */ React.createElement("span", {
+    className: "btn-label"
+  }, ttsPlayback?.paused ? " RESUME" : (ttsPlayback?.speaking ? " PAUSE" : " PLAY"))),
+  /* @__PURE__ */ React.createElement("button", {
     onClick: onRestart,
     className: "icon-btn icon-btn-danger",
     title: "Begin a new hour",
@@ -6643,7 +6702,7 @@ function TTSRow({ enabled, providerId, providerReady, voiceId, browserVoices, ra
         onClick: () => onChangeProvider(p.id),
         className: "icon-btn",
         title: p.requiresKey && !isReady
-          ? (p.reusesLLMKey ? `Set the ${p.reusesLLMKey === "openai" ? "OpenAI" : "Mistral"} key in Settings → API keys` : "Enter your ElevenLabs key below")
+          ? (p.reusesLLMKey ? `Set the ${p.reusesLLMKey === "openai" ? "OpenAI" : p.reusesLLMKey} key in Settings → API keys` : "Enter your ElevenLabs key below")
           : p.name,
         style: {
           padding: "5px 10px",
@@ -6689,12 +6748,29 @@ function TTSRow({ enabled, providerId, providerReady, voiceId, browserVoices, ra
       className: "display-font",
       style: { fontSize: 10, letterSpacing: "0.2em", color: "var(--cream-dim)" }
     }, "VOICE"), /* @__PURE__ */ React.createElement("select", {
-      value: voiceId || "",
+      value: voices.some((v) => v.id === voiceId) ? voiceId : "",
       onChange: (e) => onChangeVoice(e.target.value || null),
       className: "body-font",
       style: { background: "rgba(0,0,0,0.3)", color: "var(--cream-bright)", border: "1px solid rgba(232,222,197,0.2)", padding: "6px 10px", fontSize: 13, maxWidth: "100%" }
     }, providerId === "browser" && /* @__PURE__ */ React.createElement("option", { value: "" }, "Automatic"),
+       providerId === "elevenlabs" && voiceId && !voices.some((v) => v.id === voiceId) && /* @__PURE__ */ React.createElement("option", { value: voiceId }, `Custom — ${voiceId.slice(0, 12)}…`),
        voices.map((v) => /* @__PURE__ */ React.createElement("option", { key: v.id, value: v.id }, v.label)))),
+    /* ElevenLabs custom voice ID — for cloned or library voices */
+    enabled && providerId === "elevenlabs" && /* @__PURE__ */ React.createElement("label", {
+      style: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }
+    }, /* @__PURE__ */ React.createElement("span", {
+      className: "display-font",
+      style: { fontSize: 10, letterSpacing: "0.2em", color: "var(--cream-dim)" }
+    }, "CUSTOM VOICE ID"), /* @__PURE__ */ React.createElement("input", {
+      type: "text",
+      value: voiceId || "",
+      onChange: (e) => onChangeVoice(e.target.value.trim() || null),
+      placeholder: "Paste any ElevenLabs voice ID (e.g. cloned voice)",
+      className: "body-font",
+      autoComplete: "off",
+      spellCheck: false,
+      style: { background: "rgba(0,0,0,0.3)", color: "var(--cream-bright)", border: "1px solid rgba(232,222,197,0.2)", padding: "5px 8px", fontSize: 12, fontFamily: "monospace" }
+    })),
     /* Rate slider */
     enabled && /* @__PURE__ */ React.createElement("label", {
       style: { display: "flex", flexDirection: "column", gap: 4 }
