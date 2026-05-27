@@ -65,54 +65,75 @@ export function LocalLLMRow() {
     setEditingKey(false);
     setKey("");
   };
-  return /* @__PURE__ */ React.createElement("div", { style: { marginTop: 12 } },
-    /* @__PURE__ */ React.createElement("div", {
-      className: "display-font",
-      style: { color: "var(--cream-dim)", letterSpacing: "0.14em", fontSize: 10, textTransform: "uppercase", marginBottom: 5 }
-    }, "Local LLM"),
-    /* @__PURE__ */ React.createElement("div", {
-      className: "body-font italic",
-      style: { color: "var(--cream-faint)", fontSize: 11, lineHeight: 1.5, marginBottom: 4 }
-    }, "Paste the chat-completions endpoint of your local server (Ollama, LM Studio, llama.cpp). No API key required for most local setups. For Ollama, start it with OLLAMA_ORIGINS=* to allow browser access."),
-    /* @__PURE__ */ React.createElement("input", {
-      type: "text",
-      value: url,
-      placeholder: LOCAL_DEFAULT_URL,
-      "aria-label": "Local LLM endpoint URL",
-      onChange: (e) => setUrl(e.target.value),
-      onBlur: (e) => saveUrl(e.target.value),
-      style: fieldStyle,
-      autoComplete: "off",
-      spellCheck: false
-    }),
-    /* @__PURE__ */ React.createElement("div", {
-      className: "display-font",
-      style: { color: "var(--cream-faint)", letterSpacing: "0.12em", fontSize: 10, textTransform: "uppercase", marginTop: 8, marginBottom: 4 }
-    }, "Bearer token (optional)"),
-    keyStored && !editingKey
-      ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center" } },
-          /* @__PURE__ */ React.createElement("span", {
-            className: "body-font italic",
-            style: { color: "var(--cream-faint)", fontSize: 11, flex: 1 }
-          }, "Token stored"),
-          /* @__PURE__ */ React.createElement("button", { style: btnStyle, onClick: () => setEditingKey(true) }, "REPLACE"),
-          /* @__PURE__ */ React.createElement("button", { style: { ...btnStyle, color: "rgba(200,100,100,0.8)" }, onClick: forgetKey }, "FORGET"))
-      : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } },
-          /* @__PURE__ */ React.createElement("input", {
-            type: "password",
-            value: key,
-            onChange: (e) => setKey(e.target.value),
-            onKeyDown: (e) => { if (e.key === "Enter") saveKey(); if (e.key === "Escape") { setEditingKey(false); setKey(""); } },
-            placeholder: "Bearer token (leave blank if not needed)",
-            "aria-label": "Local LLM bearer token",
-            style: { ...fieldStyle, marginTop: 0 },
-            autoComplete: "off"
-          }),
-          /* @__PURE__ */ React.createElement("button", {
-            style: { ...btnStyle, opacity: key.trim() ? 1 : 0.45, cursor: key.trim() ? "pointer" : "default" },
-            onClick: saveKey,
-            disabled: !key.trim()
-          }, "SAVE"),
-          keyStored && /* @__PURE__ */ React.createElement("button", { style: btnStyle, onClick: () => { setEditingKey(false); setKey(""); } }, "CANCEL"))
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div
+        className="display-font"
+        style={{ color: "var(--cream-dim)", letterSpacing: "0.14em", fontSize: 10, textTransform: "uppercase", marginBottom: 5 }}
+      >
+        Local LLM
+      </div>
+      <div
+        className="body-font italic"
+        style={{ color: "var(--cream-faint)", fontSize: 11, lineHeight: 1.5, marginBottom: 4 }}
+      >
+        Paste the chat-completions endpoint of your local server (Ollama, LM Studio, llama.cpp). No API key required for most local setups. For Ollama, start it with OLLAMA_ORIGINS=* to allow browser access.
+      </div>
+      <input
+        type="text"
+        value={url}
+        placeholder={LOCAL_DEFAULT_URL}
+        aria-label="Local LLM endpoint URL"
+        onChange={(e) => setUrl(e.target.value)}
+        onBlur={(e) => saveUrl(e.target.value)}
+        style={fieldStyle}
+        autoComplete="off"
+        spellCheck={false}
+      />
+      <div
+        className="display-font"
+        style={{ color: "var(--cream-faint)", letterSpacing: "0.12em", fontSize: 10, textTransform: "uppercase", marginTop: 8, marginBottom: 4 }}
+      >
+        Bearer token (optional)
+      </div>
+      {keyStored && !editingKey ? (
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span
+            className="body-font italic"
+            style={{ color: "var(--cream-faint)", fontSize: 11, flex: 1 }}
+          >
+            Token stored
+          </span>
+          <button style={btnStyle} onClick={() => setEditingKey(true)}>REPLACE</button>
+          <button style={{ ...btnStyle, color: "rgba(200,100,100,0.8)" }} onClick={forgetKey}>FORGET</button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 6 }}>
+          <input
+            type="password"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveKey();
+              if (e.key === "Escape") { setEditingKey(false); setKey(""); }
+            }}
+            placeholder="Bearer token (leave blank if not needed)"
+            aria-label="Local LLM bearer token"
+            style={{ ...fieldStyle, marginTop: 0 }}
+            autoComplete="off"
+          />
+          <button
+            style={{ ...btnStyle, opacity: key.trim() ? 1 : 0.45, cursor: key.trim() ? "pointer" : "default" }}
+            onClick={saveKey}
+            disabled={!key.trim()}
+          >
+            SAVE
+          </button>
+          {keyStored && (
+            <button style={btnStyle} onClick={() => { setEditingKey(false); setKey(""); }}>CANCEL</button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

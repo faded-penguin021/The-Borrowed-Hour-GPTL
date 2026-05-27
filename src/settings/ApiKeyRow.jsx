@@ -49,35 +49,52 @@ export function ApiKeyRow({ providerId }) {
     setEditing(false);
     setValue("");
   };
-  return /* @__PURE__ */ React.createElement("div", { style: { marginTop: 12 } },
-    /* @__PURE__ */ React.createElement("div", {
-      className: "display-font",
-      style: { color: "var(--cream-dim)", letterSpacing: "0.14em", fontSize: 10, textTransform: "uppercase", marginBottom: 5 }
-    }, meta.name),
-    stored && !editing
-      ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center" } },
-          /* @__PURE__ */ React.createElement("span", {
-            className: "body-font italic",
-            style: { color: "var(--cream-faint)", fontSize: 11, flex: 1 }
-          }, "Key stored"),
-          /* @__PURE__ */ React.createElement("button", { style: btnStyle, onClick: () => setEditing(true) }, "REPLACE"),
-          /* @__PURE__ */ React.createElement("button", { style: { ...btnStyle, color: "rgba(200,100,100,0.8)" }, onClick: forgetKey }, "FORGET"))
-      : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } },
-          /* @__PURE__ */ React.createElement("input", {
-            type: "password",
-            value,
-            onChange: (e) => setValue(e.target.value),
-            onKeyDown: (e) => { if (e.key === "Enter") saveKey(); if (e.key === "Escape") { setEditing(false); setValue(""); } },
-            placeholder: `Paste ${meta.name} API key…`,
-            "aria-label": `${meta.name} API key`,
-            style: fieldStyle,
-            autoComplete: "off"
-          }),
-          /* @__PURE__ */ React.createElement("button", {
-            style: { ...btnStyle, opacity: value.trim() ? 1 : 0.45, cursor: value.trim() ? "pointer" : "default" },
-            onClick: saveKey,
-            disabled: !value.trim()
-          }, "SAVE"),
-          stored && /* @__PURE__ */ React.createElement("button", { style: btnStyle, onClick: () => { setEditing(false); setValue(""); } }, "CANCEL"))
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div
+        className="display-font"
+        style={{ color: "var(--cream-dim)", letterSpacing: "0.14em", fontSize: 10, textTransform: "uppercase", marginBottom: 5 }}
+      >
+        {meta.name}
+      </div>
+      {stored && !editing ? (
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span
+            className="body-font italic"
+            style={{ color: "var(--cream-faint)", fontSize: 11, flex: 1 }}
+          >
+            Key stored
+          </span>
+          <button style={btnStyle} onClick={() => setEditing(true)}>REPLACE</button>
+          <button style={{ ...btnStyle, color: "rgba(200,100,100,0.8)" }} onClick={forgetKey}>FORGET</button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 6 }}>
+          <input
+            type="password"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveKey();
+              if (e.key === "Escape") { setEditing(false); setValue(""); }
+            }}
+            placeholder={`Paste ${meta.name} API key…`}
+            aria-label={`${meta.name} API key`}
+            style={fieldStyle}
+            autoComplete="off"
+          />
+          <button
+            style={{ ...btnStyle, opacity: value.trim() ? 1 : 0.45, cursor: value.trim() ? "pointer" : "default" }}
+            onClick={saveKey}
+            disabled={!value.trim()}
+          >
+            SAVE
+          </button>
+          {stored && (
+            <button style={btnStyle} onClick={() => { setEditing(false); setValue(""); }}>CANCEL</button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

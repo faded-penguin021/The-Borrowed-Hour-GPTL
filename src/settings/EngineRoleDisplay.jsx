@@ -16,12 +16,18 @@ export function EngineRoleDisplay({ label, engine }) {
     fontFamily: "inherit",
     letterSpacing: "0.02em"
   };
-  return /* @__PURE__ */ React.createElement("div", {
-    style: { marginTop: 14 }
-  }, /* @__PURE__ */ React.createElement("div", {
-    className: "display-font",
-    style: { color: "var(--cream-dim)", letterSpacing: "0.16em", fontSize: 10, textTransform: "uppercase" }
-  }, label), /* @__PURE__ */ React.createElement("div", {
-    style: { ...fieldStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }
-  }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--cream-faint)" } }, providerName), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--cream-dim)" } }, model)));
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div
+        className="display-font"
+        style={{ color: "var(--cream-dim)", letterSpacing: "0.16em", fontSize: 10, textTransform: "uppercase" }}
+      >
+        {label}
+      </div>
+      <div style={{ ...fieldStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ color: "var(--cream-faint)" }}>{providerName}</span>
+        <span style={{ color: "var(--cream-dim)" }}>{model}</span>
+      </div>
+    </div>
+  );
 }

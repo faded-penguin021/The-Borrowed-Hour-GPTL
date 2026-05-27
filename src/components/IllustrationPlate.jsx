@@ -18,43 +18,42 @@ export function IllustrationPlate({ plate, realm }) {
   const frameStyle = { borderColor: realmColor };
 
   if (plate.status === "failed") {
-    return /* @__PURE__ */ React.createElement("figure", {
-      className: "codex-plate",
-      style: frameStyle,
-      "aria-hidden": "true"
-    }, /* @__PURE__ */ React.createElement("div", {
-      className: "codex-plate-frame"
-    }, /* @__PURE__ */ React.createElement("div", {
-      className: "codex-plate-missing"
-    }, "❦ PLATE MISSING ❦")));
+    return (
+      <figure className="codex-plate" style={frameStyle} aria-hidden="true">
+        <div className="codex-plate-frame">
+          <div className="codex-plate-missing">❦ PLATE MISSING ❦</div>
+        </div>
+      </figure>
+    );
   }
 
   if (plate.status === "pending") {
-    return /* @__PURE__ */ React.createElement("figure", {
-      className: "codex-plate",
-      style: frameStyle
-    }, /* @__PURE__ */ React.createElement("div", {
-      className: "codex-plate-frame"
-    }, /* @__PURE__ */ React.createElement("div", {
-      className: "codex-plate-pending",
-      "aria-label": "An illustration is developing"
-    }, "❦ DEVELOPING ❦")));
+    return (
+      <figure className="codex-plate" style={frameStyle}>
+        <div className="codex-plate-frame">
+          <div className="codex-plate-pending" aria-label="An illustration is developing">
+            ❦ DEVELOPING ❦
+          </div>
+        </div>
+      </figure>
+    );
   }
 
-  // ready
-  return /* @__PURE__ */ React.createElement("figure", {
-    className: "codex-plate",
-    style: frameStyle
-  }, /* @__PURE__ */ React.createElement("div", {
-    className: "codex-plate-frame"
-  }, /* @__PURE__ */ React.createElement("img", {
-    src: plate.url,
-    alt: plate.milestoneReason || "illustration plate",
-    className: `codex-plate-img${developed ? " is-developed" : ""}`,
-    onLoad: () => setDeveloped(true),
-    onError: () => setDeveloped(false),
-    draggable: false
-  })), plate.milestoneReason && /* @__PURE__ */ React.createElement("figcaption", {
-    className: "codex-plate-caption"
-  }, plate.milestoneReason));
+  return (
+    <figure className="codex-plate" style={frameStyle}>
+      <div className="codex-plate-frame">
+        <img
+          src={plate.url}
+          alt={plate.milestoneReason || "illustration plate"}
+          className={`codex-plate-img${developed ? " is-developed" : ""}`}
+          onLoad={() => setDeveloped(true)}
+          onError={() => setDeveloped(false)}
+          draggable={false}
+        />
+      </div>
+      {plate.milestoneReason && (
+        <figcaption className="codex-plate-caption">{plate.milestoneReason}</figcaption>
+      )}
+    </figure>
+  );
 }
