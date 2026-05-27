@@ -857,7 +857,7 @@ export function App() {
   // Run the per-turn Art Director and, if warranted, kick off image
   // generation. Attaches the resulting illustration to the entry at
   // `entryIndex`. All errors become a "Missing Plate" — never break the turn.
-  const runArtDirectorTurn = async ({ entryIndexProvider, gmParsed, signal }) => {
+  const runArtDirectorTurn = async ({ entryIndexProvider, gmParsed, signal, opener = false }) => {
     const codex = settings.codex || {};
     if (codex.mode === "off") return;
     const cap = codex.maxPerSession ?? 12;
@@ -894,7 +894,7 @@ export function App() {
     const NEG = /\b(no|not|none|nothing|minor|routine|absent|n\/a|skip)\b/i;
     let sceneClause = (ad.scene_clause || "").trim();
     let wants;
-    if (codex.mode === "always") {
+    if (opener || codex.mode === "always") {
       if (!sceneClause || sceneClause.length < 12) {
         sceneClause = (gmParsed.state?.scene || gmParsed.narrator_brief || "").trim();
       }
@@ -997,6 +997,20 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
         setEnded(true);
       if (ambienceRef.current && parsed.ambience !== undefined)
         ambienceRef.current.applyAmbience(parsed.ambience);
+      // The opening is a real "first reveal" — always a plate-worthy moment
+      // when codex mode is on. Wait for the bootstrap (Style Bible) to land
+      // before kicking image gen, but never block the player on this.
+      if ((settings.codex?.mode || "off") !== "off") {
+        bootstrapPromise.then(() => {
+          if (controller.signal.aborted) return;
+          return runArtDirectorTurn({
+            entryIndexProvider: () => 0,
+            gmParsed: { state: parsed.state, narrator_brief: parsed.narration },
+            signal: controller.signal,
+            opener: true
+          });
+        }).catch(() => {});
+      }
     } catch (e) {
       if (controller.signal.aborted)
         return;
