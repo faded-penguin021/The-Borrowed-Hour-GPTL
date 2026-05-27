@@ -4,6 +4,7 @@ import { EngineSection } from "../../settings/EngineSection.jsx";
 import { AmbienceRow } from "../../settings/AmbienceRow.jsx";
 import { TTSRow } from "../../settings/TTSRow.jsx";
 import { SettingsToggleRow } from "../../settings/SettingsToggleRow.jsx";
+import { CodexSection } from "../../settings/CodexSection.jsx";
 
 export function SettingsModal({ settings, onChange, onClose, osReducedMotion,
   ambienceLevel, ambienceUnavailable, ambienceDuringNarrationOnly, ambienceBoostWithTTS, ambienceMusicLevel,
@@ -82,6 +83,9 @@ export function SettingsModal({ settings, onChange, onClose, osReducedMotion,
     onChangeVoice: onChangeTtsVoice,
     onChangeRate: onChangeTtsRate,
     onChangeElevenKey: onChangeTtsElevenKey
+  }), /* @__PURE__ */ React.createElement(CodexSection, {
+    settings,
+    onChange
   }), /* @__PURE__ */ React.createElement("div", {
     className: "settings-toggle",
     style: { cursor: "default", opacity: 0.85 }

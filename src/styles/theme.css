@@ -570,3 +570,98 @@ button:focus-visible, textarea:focus-visible {
     transition: none !important;
   }
 }
+
+/* ── Prestige Codex — illustration plates ────────────────────────── */
+.codex-plate {
+  margin: 18px 0 8px;
+  padding: 10px;
+  background: rgba(5, 3, 9, 0.55);
+  border: 1px solid rgba(232, 222, 197, 0.12);
+  border-radius: 2px;
+  position: relative;
+}
+.codex-plate-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at center, rgba(20, 16, 30, 0.9) 0%, rgba(5, 3, 9, 1) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.codex-plate-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  /* the "darkroom developing" reveal */
+  filter: blur(24px) saturate(0.45) contrast(0.85);
+  opacity: 0;
+  transition: filter 1.6s ease-out, opacity 1.6s ease-out;
+}
+.codex-plate-img.is-developed {
+  filter: blur(0) saturate(1) contrast(1);
+  opacity: 1;
+}
+.codex-plate-pending {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.35em;
+  color: var(--cream-faint);
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(80, 60, 40, 0.08) 0px,
+      rgba(80, 60, 40, 0.08) 2px,
+      transparent 2px,
+      transparent 8px
+    ),
+    radial-gradient(ellipse at center, rgba(40, 30, 20, 0.4) 0%, rgba(5, 3, 9, 0.85) 100%);
+  pointer-events: none;
+  animation: codex-pending-pulse 2.8s ease-in-out infinite;
+}
+@keyframes codex-pending-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.85; }
+}
+.codex-plate-missing {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 0.4em;
+  color: rgba(154, 141, 122, 0.55);
+  border: 1px dashed rgba(154, 141, 122, 0.18);
+  animation: codex-missing-fade 4.5s ease-out forwards;
+}
+@keyframes codex-missing-fade {
+  0%   { opacity: 0; }
+  20%  { opacity: 0.85; }
+  70%  { opacity: 0.5; }
+  100% { opacity: 0; }
+}
+.codex-plate-caption {
+  margin-top: 8px;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  color: var(--cream-faint);
+  text-transform: uppercase;
+  text-align: center;
+  font-style: normal;
+}
+@media (prefers-reduced-motion: reduce) {
+  .codex-plate-img { transition: opacity 0.2s ease-out, filter 0.2s ease-out; }
+  .codex-plate-pending { animation: none; }
+  .codex-plate-missing { animation: none; opacity: 0.4; }
+}
