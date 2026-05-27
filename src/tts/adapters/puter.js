@@ -22,7 +22,8 @@ export class PuterTTSAdapter {
     this.rate = rate || 1.0;
     this.engine = engine || "neural";
   }
-  async synthesize(text, signal) {
+  async synthesize(text, signal, onError) {
+    const report = (m) => { try { onError?.(m); } catch (_) {} };
     if (signal?.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
     const puter = await _loadPuter();
     if (signal?.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
@@ -33,18 +34,26 @@ export class PuterTTSAdapter {
     const finish = () => { if (_onended) _onended(); };
     audio.onended = finish;
     audio.onerror = () => {
-      if (typeof console !== "undefined") console.warn("[tts] puter audio error:", audio.error?.code, audio.error?.message);
+      const code = audio.error?.code, msg = audio.error?.message;
+      const codeName = ({ 1: "ABORTED", 2: "NETWORK", 3: "DECODE", 4: "SRC_NOT_SUPPORTED" })[code] || `code=${code}`;
+      const info = `puter audio ${codeName}${msg ? ` — ${msg}` : ""}`;
+      if (typeof console !== "undefined") console.warn("[tts]", info);
+      report(info);
       finish();
     };
     const tryPlay = () => {
       let p;
       try { p = audio.play(); } catch (e) {
-        if (typeof console !== "undefined") console.warn("[tts] puter audio.play() threw:", e?.message || e);
+        const info = `puter play() threw: ${e?.message || e}`;
+        if (typeof console !== "undefined") console.warn("[tts]", info);
+        report(info);
         return;
       }
       if (p && typeof p.catch === "function") {
         p.catch((e) => {
-          if (typeof console !== "undefined") console.warn("[tts] puter audio.play() rejected:", e?.name || "", e?.message || e);
+          const info = `puter play() rejected: ${e?.name || ""}${e?.message ? ` — ${e.message}` : ""}`;
+          if (typeof console !== "undefined") console.warn("[tts]", info);
+          report(info);
           finish();
         });
       }

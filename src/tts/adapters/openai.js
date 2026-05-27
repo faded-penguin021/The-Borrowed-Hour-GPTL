@@ -9,14 +9,14 @@ export class OpenAITTSAdapter {
     this.key = key || "";
     this.model = model || "gpt-4o-mini-tts";
   }
-  async synthesize(text, signal) {
+  async synthesize(text, signal, onError) {
     const blob = await _fetchAudioBlob(
       "https://api.openai.com/v1/audio/speech",
       { method: "POST", headers: { "Authorization": `Bearer ${this.key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model: this.model, voice: this.voiceId, input: text.trim(), response_format: "mp3", speed: Math.max(0.25, Math.min(4.0, this.rate)) }) },
       signal
     );
-    return _blobHandle(blob, signal);
+    return _blobHandle(blob, signal, onError);
   }
   destroy() {}
 }

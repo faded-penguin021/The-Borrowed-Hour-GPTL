@@ -9,14 +9,14 @@ export class ElevenLabsTTSAdapter {
     this.key = key || "";
     this.model = model || "eleven_turbo_v2_5";
   }
-  async synthesize(text, signal) {
+  async synthesize(text, signal, onError) {
     const blob = await _fetchAudioBlob(
       `https://api.elevenlabs.io/v1/text-to-speech/${this.voiceId}?output_format=mp3_44100_128`,
       { method: "POST", headers: { "xi-api-key": this.key, "Content-Type": "application/json" },
         body: JSON.stringify({ text: text.trim(), model_id: this.model, voice_settings: { stability: 0.4, similarity_boost: 0.75 } }) },
       signal
     );
-    return _blobHandle(blob, signal);
+    return _blobHandle(blob, signal, onError);
   }
   destroy() {}
 }

@@ -18,6 +18,8 @@ export class TTSController {
     this.paused = false;
     this.loading = false;
     this.loadingTurnId = null;
+    this.lastError = null;
+    this.lastErrorTurnId = null;
     this._onSpeakStart = new Set();
     this._onSpeakEnd = new Set();
     this._onStateChange = new Set();
@@ -42,6 +44,17 @@ export class TTSController {
   isPaused()   { return !!this.activeHandle && this.paused; }
   isLoading()  { return !!this.loading; }
   loadingFor() { return this.loading ? this.loadingTurnId : null; }
+  reportError(msg) {
+    this.lastError = String(msg || "").slice(0, 200);
+    this.lastErrorTurnId = this.activeTurnId;
+    this._notifyState();
+  }
+  clearError() {
+    if (!this.lastError) return;
+    this.lastError = null;
+    this.lastErrorTurnId = null;
+    this._notifyState();
+  }
   pause() {
     if (!this.activeHandle || this.paused) return;
     try { this.activeHandle.pause?.(); } catch (_) {}
@@ -68,9 +81,11 @@ export class TTSController {
     this.activeTurnId = turnId != null ? turnId : null;
     this.loading = true;
     this.loadingTurnId = turnId != null ? turnId : null;
+    this.lastError = null;
+    this.lastErrorTurnId = null;
     this._notifyState();
     try {
-      const handle = await this.adapter.synthesize(text.trim(), abort.signal);
+      const handle = await this.adapter.synthesize(text.trim(), abort.signal, (msg) => this.reportError(msg));
       this.loading = false;
       this.loadingTurnId = null;
       if (abort.signal.aborted) { try { handle.stop(); } catch (_) {} this._notifyState(); return; }
@@ -84,8 +99,12 @@ export class TTSController {
       this.loading = false;
       this.loadingTurnId = null;
       if (e?.name === "AbortError") { this._notifyState(); return; }
+      const msg = e?.message || String(e);
+      const detail = e?.detail ? ` — ${e.detail}` : "";
+      this.lastError = `synthesis: ${msg}${detail}`.slice(0, 200);
+      this.lastErrorTurnId = turnId != null ? turnId : null;
       this._endSpeak(turnId);
-      if (typeof console !== "undefined") console.warn("[tts] synthesis failed:", e?.message || e);
+      if (typeof console !== "undefined") console.warn("[tts] synthesis failed:", msg, detail);
     }
   }
   stop() {

@@ -12,14 +12,14 @@ export class VoxtralTTSAdapter {
     this.key = key || "";
     this.model = model || "voxtral-mini-tts-2603";
   }
-  async synthesize(text, signal) {
+  async synthesize(text, signal, onError) {
     const blob = await _fetchAudioBlob(
       "https://api.mistral.ai/v1/audio/speech",
       { method: "POST", headers: { "Authorization": `Bearer ${this.key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model: this.model, voice_id: this.voiceId, input: text.trim(), response_format: "mp3" }) },
       signal
     );
-    return _blobHandle(blob, signal);
+    return _blobHandle(blob, signal, onError);
   }
   destroy() {}
 }
