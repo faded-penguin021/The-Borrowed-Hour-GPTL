@@ -16,6 +16,8 @@ export class TTSController {
     this.activeAbort = null;
     this.activeTurnId = null;
     this.paused = false;
+    this.loading = false;
+    this.loadingTurnId = null;
     this._onSpeakStart = new Set();
     this._onSpeakEnd = new Set();
     this._onStateChange = new Set();
@@ -38,6 +40,8 @@ export class TTSController {
   onStateChange(cb) { this._onStateChange.add(cb); return () => this._onStateChange.delete(cb); }
   isSpeaking() { return !!this.activeHandle && !this.paused; }
   isPaused()   { return !!this.activeHandle && this.paused; }
+  isLoading()  { return !!this.loading; }
+  loadingFor() { return this.loading ? this.loadingTurnId : null; }
   pause() {
     if (!this.activeHandle || this.paused) return;
     try { this.activeHandle.pause?.(); } catch (_) {}
@@ -62,9 +66,14 @@ export class TTSController {
     const abort = new AbortController();
     this.activeAbort = abort;
     this.activeTurnId = turnId != null ? turnId : null;
+    this.loading = true;
+    this.loadingTurnId = turnId != null ? turnId : null;
+    this._notifyState();
     try {
       const handle = await this.adapter.synthesize(text.trim(), abort.signal);
-      if (abort.signal.aborted) { try { handle.stop(); } catch (_) {} return; }
+      this.loading = false;
+      this.loadingTurnId = null;
+      if (abort.signal.aborted) { try { handle.stop(); } catch (_) {} this._notifyState(); return; }
       this.activeHandle = handle;
       this.paused = false;
       handle.onended = () => this._endSpeak(turnId);
@@ -72,7 +81,9 @@ export class TTSController {
       handle.play();
       this._notifyState();
     } catch (e) {
-      if (e?.name === "AbortError") return;
+      this.loading = false;
+      this.loadingTurnId = null;
+      if (e?.name === "AbortError") { this._notifyState(); return; }
       this._endSpeak(turnId);
       if (typeof console !== "undefined") console.warn("[tts] synthesis failed:", e?.message || e);
     }
@@ -82,6 +93,8 @@ export class TTSController {
     if (this.activeHandle) { try { this.activeHandle.stop(); } catch (_) {} this.activeHandle = null; }
     if (this.activeTurnId !== null) { this._endSpeak(this.activeTurnId); this.activeTurnId = null; }
     this.paused = false;
+    this.loading = false;
+    this.loadingTurnId = null;
     this._notifyState();
   }
   _startSpeak(t) { this._onSpeakStart.forEach((cb) => { try { cb(t); } catch (_) {} }); }

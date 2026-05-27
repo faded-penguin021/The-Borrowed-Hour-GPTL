@@ -192,6 +192,15 @@
   40% { opacity: 1; }
 }
 
+.tts-spin {
+  display: inline-block;
+  animation: tts-spin 1.1s linear infinite;
+}
+@keyframes tts-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 /* The inline STOP button next to the loading phrase. Quiet by default —
  * doesn't compete with the loading texture — but readable enough that a
  * player who wants to cancel can find it. Danger-tinted on hover to make
