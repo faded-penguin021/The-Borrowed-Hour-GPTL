@@ -12,7 +12,7 @@ import { getProviderKey } from "./providers.js";
 
 export const POLLINATIONS_DEFAULT_MODEL = "flux";
 export const REPLICATE_DEFAULT_MODEL = "black-forest-labs/flux-schnell";
-export const OPENAI_IMAGE_DEFAULT_MODEL = "gpt-image-1";
+export const OPENAI_IMAGE_DEFAULT_MODEL = "gpt-image-1-mini";
 export const LOCAL_IMAGE_DEFAULT_URL = "http://localhost:7860/sdapi/v1/txt2img";
 
 export const IMAGE_PROVIDER_META = {
@@ -134,7 +134,29 @@ const adapters = {
   async openai({ prompt, providerConfig, signal }) {
     const apiKey = await getProviderKey("openai");
     const model = providerConfig?.model || OPENAI_IMAGE_DEFAULT_MODEL;
+    // Param shapes diverge by model family:
+    //   gpt-image-1-mini (default): cheapest current OpenAI tier — quality
+    //     "medium" 1024×1024 is ~$0.01/image and has noticeably better
+    //     coherence than "low" (~$0.005). Always returns b64_json; the
+    //     response_format param is rejected.
+    //   gpt-image-1 (full): same param shape; quality "low" pinned by
+    //     default since "auto"/"high" can run >$0.05/image. Requires OpenAI
+    //     organization verification on the key.
+    //   dall-e-3: { quality: "standard"|"hd", response_format }. "standard"
+    //     1024×1024 is ~$0.04/image; broadly available without org
+    //     verification.
+    //   dall-e-2: { response_format } only; cheapest legacy tier.
     const body = { model, prompt, n: 1, size: "1024x1024" };
+    if (model.startsWith("gpt-image-1")) {
+      const isMini = model === "gpt-image-1-mini";
+      body.quality = providerConfig?.quality || (isMini ? "medium" : "low");
+      body.output_format = providerConfig?.output_format || "png";
+    } else if (model.startsWith("dall-e-3")) {
+      body.quality = providerConfig?.quality || "standard";
+      body.response_format = "b64_json";
+    } else {
+      body.response_format = "b64_json";
+    }
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
