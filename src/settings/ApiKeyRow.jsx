@@ -1,0 +1,83 @@
+import React, { useState } from "react";
+import { encryptSecret } from "../storage/encryption.js";
+import { PROVIDER_META, resetProviderKey } from "../llm/providers.js";
+
+export function ApiKeyRow({ providerId }) {
+  const meta = PROVIDER_META[providerId];
+  const [stored, setStored] = React.useState(() => !!localStorage.getItem(meta.keyStorage));
+  const [editing, setEditing] = React.useState(false);
+  const [value, setValue] = React.useState("");
+  const fieldStyle = {
+    flex: 1,
+    padding: "7px 9px",
+    fontSize: 12,
+    borderRadius: 6,
+    border: "1px solid rgba(232,222,197,0.22)",
+    background: "rgba(22,18,21,0.9)",
+    color: "var(--cream-bright)",
+    fontFamily: "monospace",
+    minWidth: 0
+  };
+  const btnStyle = {
+    padding: "7px 11px",
+    fontSize: 11,
+    borderRadius: 6,
+    border: "1px solid rgba(232,222,197,0.22)",
+    background: "rgba(22,18,21,0.9)",
+    color: "var(--cream-dim)",
+    cursor: "pointer",
+    letterSpacing: "0.14em",
+    whiteSpace: "nowrap"
+  };
+  const saveKey = async () => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    let passphrase = window.__sessionPassphrase;
+    if (!passphrase) {
+      passphrase = prompt("Set a session passphrase to encrypt your API keys:");
+      if (!passphrase) return;
+      window.__sessionPassphrase = passphrase;
+    }
+    localStorage.setItem(meta.keyStorage, await encryptSecret(trimmed, passphrase));
+    setValue("");
+    setEditing(false);
+    setStored(true);
+  };
+  const forgetKey = () => {
+    resetProviderKey(providerId);
+    setStored(false);
+    setEditing(false);
+    setValue("");
+  };
+  return /* @__PURE__ */ React.createElement("div", { style: { marginTop: 12 } },
+    /* @__PURE__ */ React.createElement("div", {
+      className: "display-font",
+      style: { color: "var(--cream-dim)", letterSpacing: "0.14em", fontSize: 10, textTransform: "uppercase", marginBottom: 5 }
+    }, meta.name),
+    stored && !editing
+      ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center" } },
+          /* @__PURE__ */ React.createElement("span", {
+            className: "body-font italic",
+            style: { color: "var(--cream-faint)", fontSize: 11, flex: 1 }
+          }, "Key stored"),
+          /* @__PURE__ */ React.createElement("button", { style: btnStyle, onClick: () => setEditing(true) }, "REPLACE"),
+          /* @__PURE__ */ React.createElement("button", { style: { ...btnStyle, color: "rgba(200,100,100,0.8)" }, onClick: forgetKey }, "FORGET"))
+      : /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } },
+          /* @__PURE__ */ React.createElement("input", {
+            type: "password",
+            value,
+            onChange: (e) => setValue(e.target.value),
+            onKeyDown: (e) => { if (e.key === "Enter") saveKey(); if (e.key === "Escape") { setEditing(false); setValue(""); } },
+            placeholder: `Paste ${meta.name} API key…`,
+            "aria-label": `${meta.name} API key`,
+            style: fieldStyle,
+            autoComplete: "off"
+          }),
+          /* @__PURE__ */ React.createElement("button", {
+            style: { ...btnStyle, opacity: value.trim() ? 1 : 0.45, cursor: value.trim() ? "pointer" : "default" },
+            onClick: saveKey,
+            disabled: !value.trim()
+          }, "SAVE"),
+          stored && /* @__PURE__ */ React.createElement("button", { style: btnStyle, onClick: () => { setEditing(false); setValue(""); } }, "CANCEL"))
+  );
+}

@@ -1,20 +1,29 @@
-# The Borrowed Hour — Standalone Artifact
+# The Borrowed Hour
 
-This repository contains a single standalone HTML port of the Claude Artifact version of **The Borrowed Hour**, a literary interactive text adventure with built-in scenarios and a custom "Wild" mode.
+A literary interactive text adventure with built-in scenarios and a custom "Wild" mode. The API provider and models are chosen at runtime from the Settings panel — twelve providers are supported, from major cloud APIs to a local LLM endpoint.
 
-Earlier per-provider builds have been merged into a single `index.html`. The API provider and models are chosen at runtime from the Settings panel — twelve providers are supported, from major cloud APIs to a local LLM endpoint.
+Originally a single-file HTML artifact; now a small Vite + React + Tailwind project. The `App` component still lives as one file (`src/App.jsx`); peripheral components, data, LLM adapters, TTS adapters, and the ambience engine are split into their own modules under `src/`.
 
 ## Run
 
-Open `index.html` in a modern browser, or serve the repository directory locally:
+### Development
 
 ```bash
-python -m http.server 8000
+npm install
+npm run dev
 ```
 
-Then visit <http://localhost:8000/index.html>.
+Then visit <http://localhost:5173>.
 
-Pushes to `main` also publish the app to GitHub Pages via `.github/workflows/pages.yml`.
+### Production build
+
+```bash
+npm run build
+```
+
+The built site is written to `dist/`. Preview it locally with `npm run preview`.
+
+Pushes to `main` build and publish the app to GitHub Pages via `.github/workflows/pages.yml`.
 
 ## Choosing engines
 
@@ -146,7 +155,7 @@ Browsers block cross-origin requests unless the server explicitly allows them. M
 
 ## Provider adapters
 
-`index.html` keeps a small `PROVIDERS` registry. Each provider supplies a request builder, a usage logger, and a response extractor. For the opener and GM-logic roles the app forces the model to return structured output; the mechanism varies by provider:
+`src/llm/providers.js` keeps a small `PROVIDERS` registry. Each provider supplies a request builder, a usage logger, and a response extractor. For the opener and GM-logic roles the app forces the model to return structured output; the mechanism varies by provider:
 
 - **Claude** — Anthropic Messages API; the GM schema is sent as a tool with `tool_choice` set to force the exact tool call on in-fiction turns.
 - **Gemini** — `generateContent` with `responseMimeType: "application/json"` and `responseJsonSchema` for in-fiction turns.
@@ -160,6 +169,16 @@ The Local LLM endpoint URL is configurable per-session in Settings; no API key i
 
 ## Files
 
-- `index.html` — the unified standalone artifact implementation.
-- `the_borrowed_hour (17).txt` — the original Claude Artifact source used as the porting reference.
-- `.github/workflows/pages.yml` — GitHub Pages deployment workflow (deploys on push to `main`).
+- `index.html` — the Vite shell. The mounted React app is loaded from `src/main.jsx`.
+- `src/main.jsx` — boot entry. Installs the `window.storage` shim, imports CSS, mounts `<App/>` inside `<ErrorBoundary/>`.
+- `src/App.jsx` — the main App component (kept as one file).
+- `src/components/` — `TitleScreen`, `GameScreen`, `ErrorBoundary`, `ErrorRawDetail`, `TypewriterText`, modals.
+- `src/settings/` — Settings modal sub-components (engine selectors, TTS row, ambience row, API key rows, etc.).
+- `src/llm/` — provider registry, GM tool schemas, system-prompt builders, parse/repair helpers.
+- `src/tts/` — five TTS adapter modules (browser, puter, openai, voxtral, elevenlabs), provider catalogue, controller.
+- `src/ambience/` — Web Audio AmbienceEngine and the scene/event recipe tables.
+- `src/data/` — premises, languages, runtime constants.
+- `src/storage/` — `window.storage` localStorage fallback shim and the AES-GCM encryption helpers for stored API keys.
+- `src/styles/theme.css` — the original literary stylesheet (Cinzel/Cormorant fonts, twilight palette, grain/vignette).
+- `dist/` — `npm run build` output (deployed to Pages).
+- `.github/workflows/pages.yml` — GitHub Pages deployment workflow (builds with Node 20 and deploys `dist/` on push to `main`).
