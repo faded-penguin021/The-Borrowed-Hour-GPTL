@@ -284,19 +284,40 @@ export function App() {
   // Per-entry play handler (button shown beneath each fully-revealed narration).
   // Behavior: if this entry is the active one → toggle pause/resume; otherwise
   // stop whatever is playing and synthesize this entry from scratch.
-  const playEntry = (idx) => {
+  const playEntry = async (idx) => {
     const ctrl = ensureTTSController();
     const e = entries[idx];
     if (!e || e.type !== "narration" || !e.fullyRevealed) return;
-    if (!ttsEnabled) setTtsEnabled(true);
-    if (ttsMuted) setTtsMuted(false);
     const active = ctrl.activeTurnId === idx && ctrl.activeHandle;
     if (active) {
       if (ctrl.isPaused()) ctrl.resume();
       else ctrl.pause();
       return;
     }
-    if (typeof e.text === "string" && e.text.trim()) ctrl.speak(e.text, { turnId: idx });
+    if (typeof e.text !== "string" || !e.text.trim()) return;
+    // Push enabled/muted into the controller directly — React state updates
+    // won't reach the controller in time for the speak() call in this tick.
+    if (!ttsEnabled) setTtsEnabled(true);
+    if (ttsMuted) setTtsMuted(false);
+    ctrl.setEnabled(true);
+    ctrl.setMuted(false);
+    // Ensure a provider is chosen and the controller has its key. Without
+    // this, a first-time click (TTS never enabled) leaves the controller on
+    // its default with no adapter configured and speak() silently no-ops.
+    let providerId = ttsProviderId;
+    if (!providerId) {
+      const ready = await detectTtsProviderReady();
+      providerId = pickBestReadyProvider(ready);
+      setTtsProviderId(providerId);
+    }
+    const meta = TTS_PROVIDER_META[providerId];
+    if (meta) {
+      let key = null;
+      if (meta.reusesLLMKey) { try { key = await getProviderKey(meta.reusesLLMKey); } catch {} }
+      else if (providerId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => null));
+      ctrl.setProvider(providerId, { voiceId: ttsVoiceId, key });
+    }
+    ctrl.speak(e.text, { turnId: idx });
   };
 
   // Play/pause/replay handler for the HUD button.
