@@ -35,6 +35,20 @@ export var DEFAULT_ENGINE_OPENING = { provider: "mistral", model: "mistral-large
 export var DEFAULT_ENGINE_GM = { provider: "mistral", model: "mistral-medium-latest" };
 export var DEFAULT_ENGINE_NARRATOR = { provider: "mistral", model: "mistral-medium-latest" };
 
+export var DEFAULT_CODEX_SETTINGS = {
+  mode: "off",
+  provider: "pollinations",
+  providerConfig: {
+    pollinations: { model: "flux" },
+    replicate: { model: "black-forest-labs/flux-schnell" },
+    openai: { model: "gpt-image-1" },
+    local: {}
+  },
+  artDirectorEngine: { provider: "mistral", model: "mistral-small-latest" },
+  maxPerSession: 12,
+  timeoutMs: 20000
+};
+
 export var DEFAULT_SETTINGS = {
   highContrast: false,
   disableTypewriter: false,
@@ -43,7 +57,8 @@ export var DEFAULT_SETTINGS = {
   freeModelSelection: false,
   engineOpening: DEFAULT_ENGINE_OPENING,
   engineGM: DEFAULT_ENGINE_GM,
-  engineNarrator: DEFAULT_ENGINE_NARRATOR
+  engineNarrator: DEFAULT_ENGINE_NARRATOR,
+  codex: DEFAULT_CODEX_SETTINGS
 };
 
 export var LOCAL_DEFAULT_URL = "http://localhost:11434/v1/chat/completions";

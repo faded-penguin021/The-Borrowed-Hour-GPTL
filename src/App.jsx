@@ -6,7 +6,14 @@ import { PROVIDERS, PROVIDER_META, PROVIDER_ORDER, providerSupportsToolUse, FREE
 import { GM_TOOL, GM_LOGIC_TOOL, buildSystem, buildNarratorSystem, buildMetaSystem } from "./llm/tools.js";
 import { parseGMResponse, parseGMLogicResponse, isStateEmpty } from "./llm/parse.js";
 import { formatStateForPrompt, stripHistoricalUser, stripHistoricalAssistant, serializeStatePublic } from "./llm/prompt.js";
-import { formatError, scrubSecrets, extractApiErrorMessage, BorrowedError } from "./llm/errors.js";
+import { formatError, scrubSecrets, extractApiErrorMessage, BorrowedError, httpStatusHint } from "./llm/errors.js";
+import {
+  ART_DIRECTOR_BOOTSTRAP_TOOL, ART_DIRECTOR_TURN_TOOL,
+  buildBootstrapSystem, buildTurnSystem,
+  parseBootstrapResponse, parseTurnResponse,
+  composeImagePrompt, mergeLedger
+} from "./llm/artDirector.js";
+import { generateImage } from "./llm/imaging.js";
 import { AmbienceEngine } from "./ambience/engine.js";
 import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "./tts/catalogue.js";
 import { TTSController } from "./tts/controller.js";
@@ -59,6 +66,16 @@ export function App() {
         if (r?.value) {
           const parsed = JSON.parse(r.value);
           const merged = { ...DEFAULT_SETTINGS, ...parsed };
+          // Deep-merge the codex block so newly-added defaults survive
+          // alongside the user's saved choices.
+          merged.codex = {
+            ...DEFAULT_SETTINGS.codex,
+            ...(parsed.codex || {}),
+            providerConfig: {
+              ...DEFAULT_SETTINGS.codex.providerConfig,
+              ...((parsed.codex && parsed.codex.providerConfig) || {})
+            }
+          };
           for (const role of ["engineOpening", "engineGM", "engineNarrator"]) {
             const eng = merged[role];
             if (eng?.provider === "gemini" && (eng.model === "gemini-3.1-flash-lite" || eng.model === "gemini-flash-lite-latest"))
@@ -95,6 +112,31 @@ export function App() {
     })();
   }, [settings]);
   const updateSetting = (key, value) => setSettings((s) => ({ ...s, [key]: value }));
+
+  // ── Prestige Codex (illustration plates) ──────────────────────────
+  // styleBible and visualLedger are seeded by the Art Director on the first
+  // turn and updated incrementally. They are persisted with saves so a
+  // reloaded chronicle keeps a consistent visual identity. plateCount tracks
+  // how many illustrations have been produced this session vs. maxPerSession.
+  const [styleBible, setStyleBible] = useState(null);
+  const [visualLedger, setVisualLedger] = useState([]);
+  const [plateCount, setPlateCount] = useState(0);
+  const styleBibleRef = useRef(null);
+  const visualLedgerRef = useRef([]);
+  const plateCountRef = useRef(0);
+  useEffect(() => { styleBibleRef.current = styleBible; }, [styleBible]);
+  useEffect(() => { visualLedgerRef.current = visualLedger; }, [visualLedger]);
+  useEffect(() => { plateCountRef.current = plateCount; }, [plateCount]);
+
+  const setEntryIllustration = (index, patch) => {
+    setEntries((prev) => {
+      const e = prev[index];
+      if (!e) return prev;
+      const next = prev.slice();
+      next[index] = { ...e, illustration: { ...(e.illustration || {}), ...patch } };
+      return next;
+    });
+  };
   const [osReducedMotion, setOsReducedMotion] = useState(() => {
     if (typeof window === "undefined" || !window.matchMedia)
       return false;
@@ -791,12 +833,102 @@ export function App() {
     }
     throw lastErr || new BorrowedError("The hour falters.", "Unknown failure.");
   };
+  // Bootstrap the Style Bible + initial Visual Ledger in parallel with the
+  // Opening Engine. Failure is silent — the chronicle continues without
+  // illustrations rather than blocking the opening.
+  const runArtDirectorBootstrap = async (chosen, signal) => {
+    const codex = settings.codex || {};
+    if (codex.mode === "off") return;
+    const engine = codex.artDirectorEngine || { provider: "mistral", model: "mistral-small-latest" };
+    try {
+      const sys = buildBootstrapSystem(chosen, language);
+      const msgs = [{ role: "user", content: "Seed the codex for this chronicle." }];
+      const raw = await callAPI(sys, msgs, true, engine, 1400, 0.4, signal, ART_DIRECTOR_BOOTSTRAP_TOOL);
+      if (signal?.aborted) return;
+      const parsed = parseBootstrapResponse(raw);
+      if (parsed.malformed) return;
+      setStyleBible(parsed.style_bible);
+      setVisualLedger(parsed.visual_ledger || []);
+    } catch (e) {
+      if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Art Director bootstrap failed:", e?.detail || e?.message || e);
+    }
+  };
+
+  // Run the per-turn Art Director and, if warranted, kick off image
+  // generation. Attaches the resulting illustration to the entry at
+  // `entryIndex`. All errors become a "Missing Plate" — never break the turn.
+  const runArtDirectorTurn = async ({ entryIndexProvider, gmParsed, signal }) => {
+    const codex = settings.codex || {};
+    if (codex.mode === "off") return;
+    const cap = codex.maxPerSession ?? 12;
+    if (plateCountRef.current >= cap && codex.mode !== "always") return;
+    const sb = styleBibleRef.current;
+    if (!sb) return; // bootstrap hasn't landed yet — skip silently this turn
+
+    const engine = codex.artDirectorEngine || { provider: "mistral", model: "mistral-small-latest" };
+    let ad;
+    try {
+      const sys = buildTurnSystem(premise, sb, visualLedgerRef.current, language);
+      const userPrompt = `[Scene]\n${gmParsed.state?.scene || ""}\n\n[Narrator brief]\n${gmParsed.narrator_brief || ""}\n\n[Named NPCs present this turn]\n${(gmParsed.state?.npcs || []).map((n) => `- ${n.name}: ${n.note}`).join("\n") || "(none)"}\n\nDecide if this turn warrants a plate. Be ruthless; the default is no.`;
+      const raw = await callAPI(sys, [{ role: "user", content: userPrompt }], true, engine, 900, 0.4, signal, ART_DIRECTOR_TURN_TOOL);
+      if (signal?.aborted) return;
+      const parsed = parseTurnResponse(raw);
+      if (parsed.malformed) return;
+      if (parsed.ledger_updates?.length) {
+        const merged = mergeLedger(visualLedgerRef.current, parsed.ledger_updates);
+        visualLedgerRef.current = merged;
+        setVisualLedger(merged);
+      }
+      ad = parsed;
+    } catch (e) {
+      if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Art Director turn failed:", e?.detail || e?.message || e);
+      return;
+    }
+
+    const wants = codex.mode === "always" || ad.warrants_illustration;
+    if (!wants) return;
+    if (!ad.scene_clause) return;
+
+    const idx = entryIndexProvider();
+    if (idx == null || idx < 0) return;
+    setEntryIllustration(idx, { status: "pending", milestoneReason: ad.milestone_reason || "" });
+    plateCountRef.current = plateCountRef.current + 1;
+    setPlateCount(plateCountRef.current);
+
+    const { prompt, negatives } = composeImagePrompt({
+      styleBible: sb,
+      visualLedger: visualLedgerRef.current,
+      subjectIds: ad.subject_ids,
+      sceneClause: ad.scene_clause,
+      extraNegatives: ad.extra_negatives
+    });
+
+    try {
+      const providerId = codex.provider || "pollinations";
+      const providerCfg = (codex.providerConfig && codex.providerConfig[providerId]) || {};
+      const img = await generateImage({
+        providerId, providerConfig: providerCfg, prompt, negatives,
+        signal, timeoutMs: codex.timeoutMs || 20000
+      });
+      if (signal?.aborted) return;
+      setEntryIllustration(idx, { status: "ready", url: img.url, prompt, provider: img.provider });
+    } catch (e) {
+      if (signal?.aborted) return;
+      if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Image generation failed:", e?.detail || e?.message || e);
+      setEntryIllustration(idx, { status: "failed" });
+    }
+  };
+
   const beginAdventure = async (chosen) => {
     sessionTokensRef.current = { input: 0, output: 0 };
     setSessionTokens({ input: 0, output: 0 });
     setPremise(chosen);
     setPhase("playing");
     setGameState(EMPTY_STATE);
+    // Reset codex per chronicle. The bootstrap call below re-seeds them.
+    setStyleBible(null); styleBibleRef.current = null;
+    setVisualLedger([]); visualLedgerRef.current = [];
+    setPlateCount(0); plateCountRef.current = 0;
     setLoadingPhrase(pickPhrase(OPENING_LOADING_PHRASES));
     setLoading(true);
     setError(null);
@@ -811,7 +943,12 @@ export function App() {
     try {
       const sys = buildSystem(chosen, language);
       const msgs = [{ role: "user", content: "Begin." }];
+      // Kick the Art Director bootstrap in parallel — it must not block the
+      // opening narration, but its result is needed for any later plates.
+      const bootstrapPromise = runArtDirectorBootstrap(chosen, controller.signal);
       const firstRaw = await callAPI(sys, msgs, true, settings.engineOpening, 4500, 0.7, controller.signal);
+      // Don't await bootstrap here — we never want it to delay the opening.
+      bootstrapPromise.catch(() => {});
       if (controller.signal.aborted)
         return;
       let openingRaw = firstRaw;
@@ -1123,6 +1260,16 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       }
       if (ambienceRef.current && gmParsed.ambience !== undefined)
         ambienceRef.current.applyAmbience(gmParsed.ambience);
+      // Kick the Art Director in parallel with the narrator. The narration
+      // entry will be inserted at index `newEntries.length` — image arrives
+      // asynchronously and attaches itself when ready (or fades as a Missing
+      // Plate on failure). Never awaited; never blocks input.
+      const artDirectorPromise = runArtDirectorTurn({
+        entryIndexProvider: () => newEntries.length,
+        gmParsed,
+        signal: controller.signal
+      });
+      artDirectorPromise.catch(() => {});
       const narratorSys = buildNarratorSystem(premise, language);
       const recentNarration = entries.filter((e) => e.type === "narration").slice(-4).map((e) => e.text).join("\n\n");
       const narratorPrompt = `[State]\n${serializeStatePublic(gmParsed.state)}\n\n[Narrator brief]\n${gmParsed.narrator_brief}\n\n[Recent narration]\n${recentNarration}`;
@@ -1312,6 +1459,9 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     if (ambienceRef.current) ambienceRef.current.applyAmbience(null);
     if (ttsRef.current) ttsRef.current.stop();
     ttsNextRef.current = 0;
+    setStyleBible(null); styleBibleRef.current = null;
+    setVisualLedger([]); visualLedgerRef.current = [];
+    setPlateCount(0); plateCountRef.current = 0;
   };
   const loadSaveList = async () => {
     setSaveListLoading(true);
@@ -1362,11 +1512,21 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       turns: entries.filter((e) => e.type === "action").length,
       ended,
       gameState,
-      entries: entries.map((e) => ({ ...e, fullyRevealed: true })),
+      entries: entries.map((e) => {
+        // Drop pending/failed illustrations on save (their URLs are blob:
+        // refs that won't survive a reload anyway). Keep only ready
+        // illustrations whose URL is a data: URL; blob: URLs are session-
+        // local and would 404 if we kept them.
+        const ill = e.illustration && e.illustration.status === "ready" && typeof e.illustration.url === "string" && e.illustration.url.startsWith("data:")
+          ? e.illustration
+          : undefined;
+        return { ...e, fullyRevealed: true, illustration: ill };
+      }),
       history,
       metaMessages: metaMessages.map((m) => ({ ...m, fullyRevealed: true })),
       metaMode,
-      language
+      language,
+      codex: { styleBible, visualLedger, plateCount }
     };
     try {
       const existing = await window.storage.list(SAVE_PREFIX);
@@ -1423,6 +1583,13 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setInputHistoryIndex(-1);
     setMetaMessages((save.metaMessages || []).map((m) => ({ ...m, fullyRevealed: true })));
     setMetaMode(!!save.metaMode);
+    const savedCodex = save.codex || {};
+    setStyleBible(savedCodex.styleBible || null);
+    styleBibleRef.current = savedCodex.styleBible || null;
+    setVisualLedger(savedCodex.visualLedger || []);
+    visualLedgerRef.current = savedCodex.visualLedger || [];
+    setPlateCount(savedCodex.plateCount || 0);
+    plateCountRef.current = savedCodex.plateCount || 0;
     setPhase("playing");
     setShowSaves(false);
     setSaveBanner({ kind: "ok", text: "The hour resumes." });

@@ -3,6 +3,7 @@ import { realmGlyph } from "../data/premises.js";
 import { formatTokens } from "../data/constants.js";
 import { TypewriterText } from "./TypewriterText.jsx";
 import { ErrorRawDetail } from "./ErrorRawDetail.jsx";
+import { IllustrationPlate } from "./IllustrationPlate.jsx";
 
 export function GameScreen({
   premise,
@@ -224,7 +225,10 @@ export function GameScreen({
         skipSignal: skipNonce,
         onDone: () => onEntryDone(i),
         scrollRef
-      })), showPlay && /* @__PURE__ */ React.createElement("div", {
+      })), entry.illustration && /* @__PURE__ */ React.createElement(IllustrationPlate, {
+        plate: entry.illustration,
+        realm: premise.realm
+      }), showPlay && /* @__PURE__ */ React.createElement("div", {
         className: "mt-2",
         style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "4px" },
         onClick: (e) => e.stopPropagation()
