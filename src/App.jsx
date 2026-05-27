@@ -857,7 +857,7 @@ export function App() {
   // Run the per-turn Art Director and, if warranted, kick off image
   // generation. Attaches the resulting illustration to the entry at
   // `entryIndex`. All errors become a "Missing Plate" — never break the turn.
-  const runArtDirectorTurn = async ({ entryIndexProvider, gmParsed, signal }) => {
+  const runArtDirectorTurn = async ({ entryIndexProvider, gmParsed, signal, opener = false }) => {
     const codex = settings.codex || {};
     if (codex.mode === "off") return;
     const cap = codex.maxPerSession ?? 12;
@@ -885,13 +885,24 @@ export function App() {
       return;
     }
 
-    // Defensive: some smaller models say warrants_illustration=true but
-    // write a negative milestone_reason ("no significant event", etc.) or
-    // omit the scene clause. Treat those as a no.
+    // In "key_moments" mode some smaller models say warrants_illustration=true
+    // but write a negative milestone_reason ("no significant event") or omit
+    // the scene clause. Treat those as a no. In "always" mode, the player has
+    // asked for a plate every turn, so we override the AD's gate entirely and
+    // fall back to the GM's scene description if no scene_clause was written.
     const reason = (ad.milestone_reason || "").trim();
     const NEG = /\b(no|not|none|nothing|minor|routine|absent|n\/a|skip)\b/i;
-    const looksNegative = !reason || (reason.length < 6) || NEG.test(reason);
-    const wants = (codex.mode === "always" || ad.warrants_illustration) && !looksNegative && ad.scene_clause && ad.scene_clause.trim().length >= 12;
+    let sceneClause = (ad.scene_clause || "").trim();
+    let wants;
+    if (opener || codex.mode === "always") {
+      if (!sceneClause || sceneClause.length < 12) {
+        sceneClause = (gmParsed.state?.scene || gmParsed.narrator_brief || "").trim();
+      }
+      wants = sceneClause.length >= 12;
+    } else {
+      const looksNegative = !reason || reason.length < 6 || NEG.test(reason);
+      wants = ad.warrants_illustration && !looksNegative && sceneClause.length >= 12;
+    }
     if (!wants) return;
 
     const idx = entryIndexProvider();
@@ -904,7 +915,7 @@ export function App() {
       styleBible: sb,
       visualLedger: visualLedgerRef.current,
       subjectIds: ad.subject_ids,
-      sceneClause: ad.scene_clause,
+      sceneClause,
       extraNegatives: ad.extra_negatives
     });
 
@@ -986,6 +997,20 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
         setEnded(true);
       if (ambienceRef.current && parsed.ambience !== undefined)
         ambienceRef.current.applyAmbience(parsed.ambience);
+      // The opening is a real "first reveal" — always a plate-worthy moment
+      // when codex mode is on. Wait for the bootstrap (Style Bible) to land
+      // before kicking image gen, but never block the player on this.
+      if ((settings.codex?.mode || "off") !== "off") {
+        bootstrapPromise.then(() => {
+          if (controller.signal.aborted) return;
+          return runArtDirectorTurn({
+            entryIndexProvider: () => 0,
+            gmParsed: { state: parsed.state, narrator_brief: parsed.narration },
+            signal: controller.signal,
+            opener: true
+          });
+        }).catch(() => {});
+      }
     } catch (e) {
       if (controller.signal.aborted)
         return;
