@@ -139,7 +139,7 @@ export function CodexSection({ settings, onChange }) {
         /* @__PURE__ */ React.createElement("div", {
           className: "body-font italic",
           style: { color: "var(--cream-faint)", fontSize: 11, marginTop: 4 }
-        }, "Uses your saved OpenAI API key (set under API keys above).")
+        }, "Uses your saved OpenAI API key. Defaults to dall-e-3 standard quality (1024×1024, ~$0.04/image). gpt-image-1 needs OpenAI organization verification; if you use it, this app pins quality to 'low' to keep cost down.")
       ),
 
       providerId === "local" && /* @__PURE__ */ React.createElement(React.Fragment, null,

@@ -41,7 +41,7 @@ export var DEFAULT_CODEX_SETTINGS = {
   providerConfig: {
     pollinations: { model: "flux" },
     replicate: { model: "black-forest-labs/flux-schnell" },
-    openai: { model: "gpt-image-1" },
+    openai: { model: "dall-e-3" },
     local: {}
   },
   artDirectorEngine: { provider: "mistral", model: "mistral-small-latest" },
