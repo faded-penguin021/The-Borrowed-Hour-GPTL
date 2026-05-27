@@ -85,7 +85,5 @@ export function TypewriterText({
   }, [revealed, scrollRef]);
   const isTyping = !effectiveInstant && revealed < text.length;
   const display = revealed >= text.length ? text : text.slice(0, revealed);
-  return /* @__PURE__ */ React.createElement("span", {
-    className: isTyping ? "cursor-blink" : ""
-  }, display);
+  return <span className={isTyping ? "cursor-blink" : ""}>{display}</span>;
 }

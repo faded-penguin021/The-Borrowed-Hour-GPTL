@@ -8,7 +8,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { App } from "./App.jsx";
 
 createRoot(document.getElementById("root")).render(
-  React.createElement(ErrorBoundary, null,
-    React.createElement(App, null)
-  )
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
 );

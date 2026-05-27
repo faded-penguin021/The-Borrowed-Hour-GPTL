@@ -18,32 +18,38 @@ export function ErrorRawDetail({ raw }) {
       }).catch(() => {});
     }
   };
-  return /* @__PURE__ */ React.createElement("div", {
-    className: "mt-2",
-    style: { textAlign: "left", opacity: 0.75 }
-  }, /* @__PURE__ */ React.createElement("div", {
-    style: {
-      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-      fontSize: "11px",
-      lineHeight: 1.4,
-      whiteSpace: "pre-wrap",
-      wordBreak: "break-word",
-      maxHeight: "200px",
-      overflowY: "auto",
-      padding: "8px 10px",
-      border: "1px solid rgba(217,122,122,0.35)",
-      borderRadius: "4px",
-      background: "rgba(0,0,0,0.18)"
-    }
-  }, preview), /* @__PURE__ */ React.createElement("button", {
-    onClick: handleCopy,
-    className: "icon-btn",
-    style: {
-      marginTop: "6px",
-      fontSize: "10px",
-      letterSpacing: "0.18em",
-      padding: "4px 10px"
-    },
-    title: "Copy the full raw model response to the clipboard"
-  }, copied ? "COPIED" : "COPY RAW RESPONSE"));
+  return (
+    <div className="mt-2" style={{ textAlign: "left", opacity: 0.75 }}>
+      <div
+        style={{
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+          fontSize: "11px",
+          lineHeight: 1.4,
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          maxHeight: "200px",
+          overflowY: "auto",
+          padding: "8px 10px",
+          border: "1px solid rgba(217,122,122,0.35)",
+          borderRadius: "4px",
+          background: "rgba(0,0,0,0.18)"
+        }}
+      >
+        {preview}
+      </div>
+      <button
+        onClick={handleCopy}
+        className="icon-btn"
+        style={{
+          marginTop: "6px",
+          fontSize: "10px",
+          letterSpacing: "0.18em",
+          padding: "4px 10px"
+        }}
+        title="Copy the full raw model response to the clipboard"
+      >
+        {copied ? "COPIED" : "COPY RAW RESPONSE"}
+      </button>
+    </div>
+  );
 }

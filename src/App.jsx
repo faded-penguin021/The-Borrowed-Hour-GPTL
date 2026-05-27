@@ -584,7 +584,7 @@ export function App() {
     let lastBodySnippet = null;
     for (let attempt = 0;attempt <= MAX_RETRIES; attempt++) {
       if (attempt > 0)
-        await new Promise((r) => setTimeout(r, 300 * Math.pow(2, attempt)));
+        await new Promise((r) => setTimeout(r, 300 * Math.pow(2, attempt) + Math.random() * 300));
       if (signal && signal.aborted) {
         throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
       }
@@ -702,7 +702,7 @@ export function App() {
     let lastErr = null;
     for (let attempt = 0;attempt <= MAX_RETRIES; attempt++) {
       if (attempt > 0)
-        await new Promise((r) => setTimeout(r, 300 * Math.pow(2, attempt)));
+        await new Promise((r) => setTimeout(r, 300 * Math.pow(2, attempt) + Math.random() * 300));
       if (signal && signal.aborted) {
         throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
       }
@@ -1764,121 +1764,141 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     const lastEntry = [...entries].reverse().find((e) => e.type === "narration" && e.fullyRevealed);
     return lastEntry?.text || "";
   })();
-  return /* @__PURE__ */ React.createElement("div", {
-    className: `borrowed-root borrowed-vignette borrowed-grain min-h-screen relative overflow-hidden${settings.highContrast ? " high-contrast" : ""}`
-  }, /* @__PURE__ */ React.createElement("div", {
-    className: "sr-only",
-    "aria-live": "polite",
-    "aria-atomic": "true"
-  }, liveRegionText), /* @__PURE__ */ React.createElement("div", {
-    className: "relative z-10"
-  }, phase === "title" ? /* @__PURE__ */ React.createElement(TitleScreen, {
-    onChoose: beginAdventure,
-    onOpenSaves: openSavesModal,
-    onOpenCustom: () => setShowCustom(true),
-    onOpenSettings: () => setShowSettings(true),
-    language,
-    onChangeLanguage: setLanguage,
-    loading,
-    error
-  }) : /* @__PURE__ */ React.createElement(GameScreen, {
-    premise,
-    entries,
-    skipNonce,
-    instantReveal,
-    onEntryDone: markEntryRevealed,
-    onMetaDone: markMetaRevealed,
-    loading,
-    loadingPhrase,
-    error,
-    ended,
-    metaMode,
-    metaMessages,
-    onEnterMeta: enterMetaMode,
-    onExitMeta: exitMetaMode,
-    onOpenLedger: () => setShowLedger(true),
-    onOpenSettings: () => setShowSettings(true),
-    canUndo: canUndo(),
-    onUndo: undoLastTurn,
-    input,
-    onInputChange,
-    onKeyDown,
-    onSubmit: submit,
-    onSkip: skipReveal,
-    onCancel: cancelRequest,
-    recovery,
-    onContinueNarration: continueNarration,
-    onRestart: restart,
-    onSave: saveCurrent,
-    onOpenSaves: openSavesModal,
-    onExport: exportChronicle,
-    saveBanner,
-    sessionTokens,
-    scrollRef,
-    textareaRef,
-    ambienceEnabled: ambienceLevel !== "off" && !ambienceUnavailable,
-    ambienceMuted,
-    onToggleAmbienceMute: () => setAmbienceMuted((m) => !m),
-    ttsEnabled,
-    ttsMuted,
-    ttsPlayback,
-    onToggleTtsMute: () => setTtsMuted((m) => !m),
-    onTogglePlayPause: togglePlayPause,
-    onPlayEntry: playEntry
-  }), showSaves && /* @__PURE__ */ React.createElement(SavesModal, {
-    saves: saveList,
-    totalBytes: savesTotalBytes,
-    cap: SAVE_CAP,
-    loading: saveListLoading,
-    onClose: () => setShowSaves(false),
-    onLoad: loadSave,
-    onDelete: deleteSave,
-    inGame: phase === "playing"
-  }), showSettings && /* @__PURE__ */ React.createElement(SettingsModal, {
-    settings,
-    onChange: updateSetting,
-    onClose: () => setShowSettings(false),
-    osReducedMotion,
-    ambienceLevel,
-    ambienceUnavailable,
-    ambienceDuringNarrationOnly,
-    ambienceBoostWithTTS,
-    ambienceMusicLevel,
-    onChangeAmbience: setAmbienceLevel,
-    onChangeAmbienceDuringNarrationOnly: setAmbienceDuringNarrationOnly,
-    onChangeAmbienceBoostWithTTS: setAmbienceBoostWithTTS,
-    onChangeAmbienceMusicLevel: setAmbienceMusicLevel,
-    ttsEnabled,
-    ttsProviderId,
-    ttsProviderReady,
-    ttsVoiceId,
-    ttsBrowserVoices,
-    ttsVoxtralVoices,
-    ttsVoxtralVoicesError,
-    ttsRate,
-    ttsElevenKey,
-    onChangeTtsEnabled: setTtsEnabled,
-    onChangeTtsProvider: setTtsProviderId,
-    onChangeTtsVoice: setTtsVoiceId,
-    onChangeTtsRate: setTtsRate,
-    onChangeTtsElevenKey: async (k) => {
-      setTtsElevenKey(k);
-      await saveTtsElevenLabsKey(k);
-      detectTtsProviderReady();
-    }
-  }), showLedger && premise && /* @__PURE__ */ React.createElement(LedgerModal, {
-    premise,
-    gameState,
-    onClose: () => setShowLedger(false)
-  }), showCustom && /* @__PURE__ */ React.createElement(CustomModal, {
-    onClose: () => setShowCustom(false),
-    onBegin: (description) => {
-      setShowCustom(false);
-      beginAdventure(buildCustomPremise(description));
-    },
-    disabled: loading
-  }), exportFallbackText !== null && /* @__PURE__ */ React.createElement(ExportFallbackModal, {
-    text: exportFallbackText,
-    onClose: () => setExportFallbackText(null)
-  })));
+  return (
+    <div
+      className={`borrowed-root borrowed-vignette borrowed-grain min-h-screen relative overflow-hidden${settings.highContrast ? " high-contrast" : ""}`}
+    >
+      <div className="sr-only" aria-live="polite" aria-atomic="true">{liveRegionText}</div>
+      <div className="relative z-10">
+        {phase === "title" ? (
+          <TitleScreen
+            onChoose={beginAdventure}
+            onOpenSaves={openSavesModal}
+            onOpenCustom={() => setShowCustom(true)}
+            onOpenSettings={() => setShowSettings(true)}
+            language={language}
+            onChangeLanguage={setLanguage}
+            loading={loading}
+            error={error}
+          />
+        ) : (
+          <GameScreen
+            premise={premise}
+            entries={entries}
+            skipNonce={skipNonce}
+            instantReveal={instantReveal}
+            onEntryDone={markEntryRevealed}
+            onMetaDone={markMetaRevealed}
+            loading={loading}
+            loadingPhrase={loadingPhrase}
+            error={error}
+            ended={ended}
+            metaMode={metaMode}
+            metaMessages={metaMessages}
+            onEnterMeta={enterMetaMode}
+            onExitMeta={exitMetaMode}
+            onOpenLedger={() => setShowLedger(true)}
+            onOpenSettings={() => setShowSettings(true)}
+            canUndo={canUndo()}
+            onUndo={undoLastTurn}
+            input={input}
+            onInputChange={onInputChange}
+            onKeyDown={onKeyDown}
+            onSubmit={submit}
+            onSkip={skipReveal}
+            onCancel={cancelRequest}
+            recovery={recovery}
+            onContinueNarration={continueNarration}
+            onRestart={restart}
+            onSave={saveCurrent}
+            onOpenSaves={openSavesModal}
+            onExport={exportChronicle}
+            saveBanner={saveBanner}
+            sessionTokens={sessionTokens}
+            scrollRef={scrollRef}
+            textareaRef={textareaRef}
+            ambienceEnabled={ambienceLevel !== "off" && !ambienceUnavailable}
+            ambienceMuted={ambienceMuted}
+            onToggleAmbienceMute={() => setAmbienceMuted((m) => !m)}
+            ttsEnabled={ttsEnabled}
+            ttsMuted={ttsMuted}
+            ttsPlayback={ttsPlayback}
+            onToggleTtsMute={() => setTtsMuted((m) => !m)}
+            onTogglePlayPause={togglePlayPause}
+            onPlayEntry={playEntry}
+          />
+        )}
+        {showSaves && (
+          <SavesModal
+            saves={saveList}
+            totalBytes={savesTotalBytes}
+            cap={SAVE_CAP}
+            loading={saveListLoading}
+            onClose={() => setShowSaves(false)}
+            onLoad={loadSave}
+            onDelete={deleteSave}
+            inGame={phase === "playing"}
+          />
+        )}
+        {showSettings && (
+          <SettingsModal
+            settings={settings}
+            onChange={updateSetting}
+            onClose={() => setShowSettings(false)}
+            osReducedMotion={osReducedMotion}
+            ambienceLevel={ambienceLevel}
+            ambienceUnavailable={ambienceUnavailable}
+            ambienceDuringNarrationOnly={ambienceDuringNarrationOnly}
+            ambienceBoostWithTTS={ambienceBoostWithTTS}
+            ambienceMusicLevel={ambienceMusicLevel}
+            onChangeAmbience={setAmbienceLevel}
+            onChangeAmbienceDuringNarrationOnly={setAmbienceDuringNarrationOnly}
+            onChangeAmbienceBoostWithTTS={setAmbienceBoostWithTTS}
+            onChangeAmbienceMusicLevel={setAmbienceMusicLevel}
+            ttsEnabled={ttsEnabled}
+            ttsProviderId={ttsProviderId}
+            ttsProviderReady={ttsProviderReady}
+            ttsVoiceId={ttsVoiceId}
+            ttsBrowserVoices={ttsBrowserVoices}
+            ttsVoxtralVoices={ttsVoxtralVoices}
+            ttsVoxtralVoicesError={ttsVoxtralVoicesError}
+            ttsRate={ttsRate}
+            ttsElevenKey={ttsElevenKey}
+            onChangeTtsEnabled={setTtsEnabled}
+            onChangeTtsProvider={setTtsProviderId}
+            onChangeTtsVoice={setTtsVoiceId}
+            onChangeTtsRate={setTtsRate}
+            onChangeTtsElevenKey={async (k) => {
+              setTtsElevenKey(k);
+              await saveTtsElevenLabsKey(k);
+              detectTtsProviderReady();
+            }}
+          />
+        )}
+        {showLedger && premise && (
+          <LedgerModal
+            premise={premise}
+            gameState={gameState}
+            onClose={() => setShowLedger(false)}
+          />
+        )}
+        {showCustom && (
+          <CustomModal
+            onClose={() => setShowCustom(false)}
+            onBegin={(description) => {
+              setShowCustom(false);
+              beginAdventure(buildCustomPremise(description));
+            }}
+            disabled={loading}
+          />
+        )}
+        {exportFallbackText !== null && (
+          <ExportFallbackModal
+            text={exportFallbackText}
+            onClose={() => setExportFallbackText(null)}
+          />
+        )}
+      </div>
+    </div>
+  );
 }

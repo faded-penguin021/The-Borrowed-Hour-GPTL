@@ -34,6 +34,14 @@ export class AmbienceEngine {
     this.intensity = "off";
     this.muted = false;
     this.destroyed = false;
+    // Generation counter incremented on every setIntensity transition.
+    // Self-rescheduling timers (music lanes, suspend timer, _firePluck
+    // cleanups) capture _gen in their closure and check it; mismatches
+    // mean the closure was scheduled by a previous activation and must
+    // not fire or reschedule. Guards against orphaned audio after rapid
+    // off→on→off cycles.
+    this._gen = 0;
+    this.suspendTimer = 0;
     this.startTime = this.ctx.currentTime;
     this.comfortGain = 1.0;
 
@@ -310,13 +318,13 @@ export class AmbienceEngine {
     src.connect(hp); hp.connect(g); g.connect(this.drums.out);
     src.start(now); src.stop(now + 0.08);
   }
-  _scheduleDrums() {
-    if (this.destroyed) return;
+  _scheduleDrums(gen) {
+    if (this.destroyed || gen !== this._gen) return;
     const mood = this.current.mood;
     const pattern = mood ? AMBIENCE_MOOD_DRUM_PATTERN[mood] : null;
     if (!pattern || this.intensity === "off" || this.muted || this.musicLevel !== "full") {
       this.drumStep = 0;
-      this.drumScheduled = setTimeout(() => this._scheduleDrums(), 1500);
+      this.drumScheduled = setTimeout(() => this._scheduleDrums(gen), 1500);
       return;
     }
     const bpm = AMBIENCE_MOOD_PULSE_BPM[mood] || 70;
@@ -327,7 +335,7 @@ export class AmbienceEngine {
     if (slot.s) this._fireSnare(gainOv.snare != null ? gainOv.snare * 6 : 0.5);
     if (slot.h) this._fireHat(gainOv.hat != null ? gainOv.hat * 6 : 0.35);
     this.drumStep = (this.drumStep + 1) % pattern.length;
-    this.drumScheduled = setTimeout(() => this._scheduleDrums(), sixteenthMs);
+    this.drumScheduled = setTimeout(() => this._scheduleDrums(gen), sixteenthMs);
   }
   // ── Scene lanes (space, population) ───────────────────────────────
   _setSceneLane(lane, category, name, trimTable) {
@@ -420,16 +428,16 @@ export class AmbienceEngine {
       voice.tri.frequency.setTargetAtTime(freq, t, TC);
     });
   }
-  _scheduleNextChord() {
-    if (this.destroyed) return;
+  _scheduleNextChord(gen) {
+    if (this.destroyed || gen !== this._gen) return;
     const mood = this.current.mood;
     if (!mood || this.intensity === "off" || this.muted) {
-      this.chordPad.scheduled = setTimeout(() => this._scheduleNextChord(), 5000);
+      this.chordPad.scheduled = setTimeout(() => this._scheduleNextChord(gen), 5000);
       return;
     }
     const prog = AMBIENCE_MOOD_PROGRESSION[mood];
     if (!prog) {
-      this.chordPad.scheduled = setTimeout(() => this._scheduleNextChord(), 5000);
+      this.chordPad.scheduled = setTimeout(() => this._scheduleNextChord(gen), 5000);
       return;
     }
     const [root, quality] = prog[this.chordPad.progressionIdx % prog.length];
@@ -437,7 +445,7 @@ export class AmbienceEngine {
     this._setChord([root, third, root + 7], 4);
     this.chordPad.progressionIdx = (this.chordPad.progressionIdx + 1) % prog.length;
     const wait = 16000 + Math.random() * 8000;
-    this.chordPad.scheduled = setTimeout(() => this._scheduleNextChord(), wait);
+    this.chordPad.scheduled = setTimeout(() => this._scheduleNextChord(gen), wait);
   }
   // ── MelodyVoice ───────────────────────────────────────────────────
   _buildMelody() {
@@ -459,19 +467,20 @@ export class AmbienceEngine {
     if (r < 0.85) return Math.random() < 0.5 ? -2 : 2;
     return Math.random() < 0.5 ? -3 : 3;
   }
-  _scheduleNextMelodyNote() {
-    if (this.destroyed) return;
+  _scheduleNextMelodyNote(gen) {
+    if (this.destroyed || gen !== this._gen) return;
     const mood = this.current.mood;
     if (!mood || this.intensity === "off" || this.muted) {
-      this.melodyVoice.scheduled = setTimeout(() => this._scheduleNextMelodyNote(), 4000);
+      this.melodyVoice.scheduled = setTimeout(() => this._scheduleNextMelodyNote(gen), 4000);
       return;
     }
     const meanInterval = AMBIENCE_MOOD_MELODY_TEMPO[mood] || 5;
     const wait = -Math.log(1 - Math.random() * 0.99) * meanInterval;
     this.melodyVoice.scheduled = setTimeout(() => {
+      if (this.destroyed || gen !== this._gen) return;
       this._fireMelodyNote();
       this._fireInstrumentNote();
-      this._scheduleNextMelodyNote();
+      this._scheduleNextMelodyNote(gen);
     }, Math.min(22000, wait * 1000));
   }
   // Fire piano/pluck/pizz on the same scale-degree the melody just used,
@@ -543,17 +552,17 @@ export class AmbienceEngine {
     out.connect(this.master);
     return { out, scheduled: 0 };
   }
-  _schedulePulse() {
-    if (this.destroyed) return;
+  _schedulePulse(gen) {
+    if (this.destroyed || gen !== this._gen) return;
     const mood = this.current.mood;
     const bpm = mood ? AMBIENCE_MOOD_PULSE_BPM[mood] : null;
     if (!bpm || this.intensity === "off" || this.muted) {
-      this.pulse.scheduled = setTimeout(() => this._schedulePulse(), 4000);
+      this.pulse.scheduled = setTimeout(() => this._schedulePulse(gen), 4000);
       return;
     }
     this._firePulse();
     const interval = 60000 / bpm;
-    this.pulse.scheduled = setTimeout(() => this._schedulePulse(), interval);
+    this.pulse.scheduled = setTimeout(() => this._schedulePulse(gen), interval);
   }
   _firePulse() {
     if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
@@ -643,10 +652,28 @@ export class AmbienceEngine {
     if (this.destroyed) return;
     const prev = this.intensity;
     this.intensity = (level === "subtle" || level === "present") ? level : "off";
+    // Bump generation so any in-flight self-rescheduling closures from the
+    // previous activation stop perpetuating themselves. Music lane re-arm
+    // below installs fresh closures with the new generation.
+    this._gen += 1;
+    const gen = this._gen;
+    // Cancel a pending suspend if we're flipping back on inside the 3.2s
+    // grace, or replacing an older suspend timer with a new one.
+    if (this.suspendTimer) {
+      clearTimeout(this.suspendTimer);
+      this.suspendTimer = 0;
+    }
+    // Re-arming is gated by the *Armed flags so the schedulers don't get
+    // double-installed; clear those flags so the new generation re-arms.
+    this.melodyArmed = false;
+    this.pulseArmed = false;
+    this.chordArmed = false;
+    this.drumsArmed = false;
     if (this.intensity === "off") {
       this._applyMaster();
-      setTimeout(() => {
-        if (this.destroyed) return;
+      this.suspendTimer = setTimeout(() => {
+        this.suspendTimer = 0;
+        if (this.destroyed || gen !== this._gen) return;
         if (this.intensity === "off" && this.ctx && this.ctx.state === "running") {
           this.ctx.suspend().catch(() => {});
         }
@@ -655,10 +682,10 @@ export class AmbienceEngine {
       if (this.ctx && this.ctx.state === "suspended") {
         this.ctx.resume().catch(() => {});
       }
-      if (!this.melodyArmed) { this.melodyArmed = true; this._scheduleNextMelodyNote(); }
-      if (!this.pulseArmed)  { this.pulseArmed  = true; this._schedulePulse(); }
-      if (!this.chordArmed)  { this.chordArmed  = true; this._scheduleNextChord(); }
-      if (!this.drumsArmed)  { this.drumsArmed  = true; this._scheduleDrums(); }
+      this.melodyArmed = true; this._scheduleNextMelodyNote(gen);
+      this.pulseArmed  = true; this._schedulePulse(gen);
+      this.chordArmed  = true; this._scheduleNextChord(gen);
+      this.drumsArmed  = true; this._scheduleDrums(gen);
       if (prev === "off") this.startTime = this.ctx.currentTime;
       this._applyMaster();
     }
@@ -738,6 +765,7 @@ export class AmbienceEngine {
   destroy() {
     this.destroyed = true;
     clearInterval(this.comfortInterval);
+    if (this.suspendTimer) clearTimeout(this.suspendTimer);
     if (this.melodyVoice && this.melodyVoice.scheduled) clearTimeout(this.melodyVoice.scheduled);
     if (this.pulse && this.pulse.scheduled) clearTimeout(this.pulse.scheduled);
     if (this.chordPad && this.chordPad.scheduled) clearTimeout(this.chordPad.scheduled);

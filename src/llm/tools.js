@@ -1,6 +1,12 @@
 import { languageNameFor, DEFAULT_LANGUAGE } from "../data/languages.js";
 import { EMPTY_STATE } from "../data/constants.js";
 import { setGMTool } from "./providers.js";
+import {
+  AMBIENCE_SPACE_VALUES,
+  AMBIENCE_POPULATION_VALUES,
+  AMBIENCE_MOOD_VALUES,
+  AMBIENCE_EVENT_VALUES
+} from "../ambience/enums.js";
 
 export const GM_LOGIC_TOOL = {
   name: "gm_decide",
@@ -16,10 +22,10 @@ export const GM_LOGIC_TOOL = {
         type: "object",
         description: "Optional scene audio. Omit any field to hold its previous value. Pass null for space, population, or mood to fade that lane to silence.",
         properties: {
-          space:      { type: "string", enum: ["intimate","chamber","hall","cavern","street","field","forest","vehicle","void"], description: "Acoustic environment — the kind of place the player is in. intimate=small sealed room; chamber=medium room; hall=large interior; cavern=huge resonant interior; street=outdoor hard surfaces; field=outdoor open; forest=outdoor organic; vehicle=confined moving; void=abstract/unreal." },
-          population: { type: "string", enum: ["solitary","sparse_voices","crowd","machinery","nature","ceremony","creature","wild"], description: "Optional — what fills the space sonically. solitary=only the speaker; sparse_voices=a few voices nearby; crowd=many voices/bustle; machinery=mechanical/industrial; nature=wind/water/birds; ceremony=ritual/procession; creature=non-human animal; wild=untamed elements (storm, fire, surf). Omit for just-the-room." },
-          mood:       { type: "string", enum: ["calm","tender","tense","ominous","joyous","melancholy","urgent","mysterious"], description: "Optional — emotional weather. Drives the music layer (scale, chord, pulse). Omit for no music at all." },
-          events:     { type: "array", items: { type: "string", enum: ["bell_toll","bell_distant","clock_chime","door_close","door_creak","footsteps_close","footsteps_recede","wind_gust","distant_thunder","paper_rustle","chair_scrape","glass_set_down","coin_drop","crowd_hush","cough_distant","breath_held","metal_clang","whisper_close"] }, description: "Optional — up to 2 one-shot diegetic sounds for this turn. Only when the literal sound carries narrative weight." }
+          space:      { type: "string", enum: AMBIENCE_SPACE_VALUES, description: "Acoustic environment — the kind of place the player is in. intimate=small sealed room; chamber=medium room; hall=large interior; cavern=huge resonant interior; street=outdoor hard surfaces; field=outdoor open; forest=outdoor organic; vehicle=confined moving; void=abstract/unreal." },
+          population: { type: "string", enum: AMBIENCE_POPULATION_VALUES, description: "Optional — what fills the space sonically. solitary=only the speaker; sparse_voices=a few voices nearby; crowd=many voices/bustle; machinery=mechanical/industrial; nature=wind/water/birds; ceremony=ritual/procession; creature=non-human animal; wild=untamed elements (storm, fire, surf). Omit for just-the-room." },
+          mood:       { type: "string", enum: AMBIENCE_MOOD_VALUES, description: "Optional — emotional weather. Drives the music layer (scale, chord, pulse). Omit for no music at all." },
+          events:     { type: "array", items: { type: "string", enum: AMBIENCE_EVENT_VALUES }, description: "Optional — up to 2 one-shot diegetic sounds for this turn. Only when the literal sound carries narrative weight." }
         }
       }
     },
@@ -102,10 +108,10 @@ These two checks are the scratchpad's job; do them here, in writing, every turn.
         type: "object",
         description: "Optional scene audio. Omit any field to hold its previous value. Pass null for space, population, or mood to fade that lane to silence.",
         properties: {
-          space:      { type: "string", enum: ["intimate","chamber","hall","cavern","street","field","forest","vehicle","void"], description: "Acoustic environment — the kind of place the player is in. intimate=small sealed room; chamber=medium room; hall=large interior; cavern=huge resonant interior; street=outdoor hard surfaces; field=outdoor open; forest=outdoor organic; vehicle=confined moving; void=abstract/unreal." },
-          population: { type: "string", enum: ["solitary","sparse_voices","crowd","machinery","nature","ceremony","creature","wild"], description: "Optional — what fills the space sonically. solitary=only the speaker; sparse_voices=a few voices nearby; crowd=many voices/bustle; machinery=mechanical/industrial; nature=wind/water/birds; ceremony=ritual/procession; creature=non-human animal; wild=untamed elements (storm, fire, surf). Omit for just-the-room." },
-          mood:       { type: "string", enum: ["calm","tender","tense","ominous","joyous","melancholy","urgent","mysterious"], description: "Optional — emotional weather. Drives the music layer (scale, chord, pulse). Omit for no music at all." },
-          events:     { type: "array", items: { type: "string", enum: ["bell_toll","bell_distant","clock_chime","door_close","door_creak","footsteps_close","footsteps_recede","wind_gust","distant_thunder","paper_rustle","chair_scrape","glass_set_down","coin_drop","crowd_hush","cough_distant","breath_held","metal_clang","whisper_close"] }, description: "Optional — up to 2 one-shot diegetic sounds for this turn. Only when the literal sound carries narrative weight." }
+          space:      { type: "string", enum: AMBIENCE_SPACE_VALUES, description: "Acoustic environment — the kind of place the player is in. intimate=small sealed room; chamber=medium room; hall=large interior; cavern=huge resonant interior; street=outdoor hard surfaces; field=outdoor open; forest=outdoor organic; vehicle=confined moving; void=abstract/unreal." },
+          population: { type: "string", enum: AMBIENCE_POPULATION_VALUES, description: "Optional — what fills the space sonically. solitary=only the speaker; sparse_voices=a few voices nearby; crowd=many voices/bustle; machinery=mechanical/industrial; nature=wind/water/birds; ceremony=ritual/procession; creature=non-human animal; wild=untamed elements (storm, fire, surf). Omit for just-the-room." },
+          mood:       { type: "string", enum: AMBIENCE_MOOD_VALUES, description: "Optional — emotional weather. Drives the music layer (scale, chord, pulse). Omit for no music at all." },
+          events:     { type: "array", items: { type: "string", enum: AMBIENCE_EVENT_VALUES }, description: "Optional — up to 2 one-shot diegetic sounds for this turn. Only when the literal sound carries narrative weight." }
         }
       }
     },
