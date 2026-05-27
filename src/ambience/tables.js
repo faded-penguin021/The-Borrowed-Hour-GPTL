@@ -1,3 +1,12 @@
+// ─────────────────────────────────────────────────────────────────────────
+// Procedural synthesis recipes adapted from Hermes Agent Music (MIT)
+//   https://github.com/jlaiii/hermes-agent-music
+// Adapted pieces: noise-buffer generators, IR convolver reverb, piano-drift,
+// kick/snare/hat voices, weather/nature beds (wind/ocean/thunder/birds/
+// crickets/stream). Recomposed for The Borrowed Hour's mood/space/
+// population taxonomy.
+// ─────────────────────────────────────────────────────────────────────────
+
 export var AMBIENCE_INTENSITY_GAIN = { off: 0, subtle: 0.10, present: 0.22 };
 export var AMBIENCE_HARD_CEILING = 0.30;
 
@@ -64,6 +73,52 @@ export var AMBIENCE_MOOD_MUSIC_GAIN = {
   mysterious: { chord: 0.28, melody: 0.32, pulse: 0.00 }
 };
 
+// Mood → instrument peak gains. Each instrument is summed with the existing
+// chord/melody/pulse weights into the same master ceiling — values are
+// intentionally modest so the music ceiling holds with TTS narration.
+// Entries omitted (or 0) mean that instrument is silent for that mood.
+export var AMBIENCE_MOOD_INSTRUMENTATION = {
+  calm:       { piano: 0.22 },
+  tender:     { piano: 0.20, pluck: 0.12 },
+  melancholy: { piano: 0.24, pizz:  0.14 },
+  ominous:    { piano: 0.18, bow:   0.22 },
+  joyous:     { piano: 0.16, pluck: 0.18 },
+  tense:      { pizz:  0.16, bow:   0.14 },
+  urgent:     { pizz:  0.18 },
+  mysterious: { piano: 0.20, pluck: 0.14 }
+};
+
+// 16th-note drum patterns; 16 slots per pattern. Moods absent here have
+// no drums. Slot is `{k,s,h}` for kick/snare/hat (booleans).
+// Pattern length is one bar at AMBIENCE_MOOD_PULSE_BPM[mood].
+export var AMBIENCE_MOOD_DRUM_PATTERN = {
+  tense: [
+    { k:1 }, { }, { }, { },
+    { },    { }, { h:1 }, { },
+    { k:1 }, { }, { }, { },
+    { },    { }, { h:1 }, { }
+  ],
+  urgent: [
+    { k:1 }, { h:1 }, { },    { h:1 },
+    { s:1 }, { h:1 }, { },    { h:1 },
+    { k:1 }, { h:1 }, { k:1 }, { h:1 },
+    { s:1 }, { h:1 }, { },    { h:1 }
+  ],
+  joyous: [
+    { h:1 }, { }, { h:1 }, { },
+    { h:1 }, { }, { h:1 }, { },
+    { h:1 }, { }, { h:1 }, { },
+    { h:1 }, { }, { h:1 }, { }
+  ]
+};
+
+// Per-mood drum-voice peak gains (overrides drumBus default).
+export var AMBIENCE_MOOD_DRUM_GAIN = {
+  tense:  { kick: 0.10, hat: 0.06 },
+  urgent: { kick: 0.14, snare: 0.08, hat: 0.10 },
+  joyous: { hat: 0.08 }
+};
+
 export var sanitizeAmbience = (raw) => {
   if (raw === null) return null;
   if (!raw || typeof raw !== "object") return undefined;
@@ -88,6 +143,101 @@ export var sanitizeAmbience = (raw) => {
   }
   return Object.keys(out).length > 0 ? out : undefined;
 };
+
+// ─── Scene ingredient factories (composable layers) ────────────────────
+// Each returns { nodes:[...], timers:[...] } compatible with the
+// scene-voice disposal protocol in engine._disposeSceneVoice.
+function _layerCrickets(eng, dest, density) {
+  const ctx = eng.ctx;
+  const period = 1200 / (density || 1);
+  const iv = setInterval(() => {
+    if (Math.random() > 0.7) return;
+    const now = ctx.currentTime;
+    const chirp = ctx.createOscillator(); chirp.type = "sine";
+    chirp.frequency.value = 4200 + Math.random() * 800;
+    const cg = ctx.createGain();
+    cg.gain.setValueAtTime(0, now);
+    const pulses = 2 + Math.floor(Math.random() * 3);
+    let t = now;
+    for (let p = 0; p < pulses; p++) {
+      cg.gain.linearRampToValueAtTime(0.025 + Math.random() * 0.02, t + 0.01);
+      cg.gain.linearRampToValueAtTime(0, t + 0.03);
+      t += 0.05 + Math.random() * 0.04;
+    }
+    chirp.connect(cg).connect(dest);
+    chirp.start(now); chirp.stop(t + 0.05);
+  }, period);
+  return { nodes: [], timers: [iv] };
+}
+function _layerOceanSwell(eng, dest, peak) {
+  const ctx = eng.ctx;
+  const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
+  const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 400;
+  const g = ctx.createGain(); g.gain.value = (peak || 0.15) * 0.4;
+  src.connect(f).connect(g).connect(dest); src.start();
+  const cycle = () => {
+    g.gain.setTargetAtTime((peak || 0.15), ctx.currentTime, 1.5);
+    f.frequency.setTargetAtTime(700, ctx.currentTime, 1.5);
+    setTimeout(() => {
+      g.gain.setTargetAtTime((peak || 0.15) * 0.3, ctx.currentTime, 2.5);
+      f.frequency.setTargetAtTime(250, ctx.currentTime, 2.5);
+    }, 3500);
+  };
+  cycle();
+  const iv = setInterval(cycle, 8000 + Math.random() * 4000);
+  return { nodes: [src, f, g], timers: [iv] };
+}
+function _layerStreamDrip(eng, dest, peak) {
+  const ctx = eng.ctx;
+  const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
+  const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 1200; f.Q.value = 2.5;
+  const g = ctx.createGain(); g.gain.value = (peak || 0.10) * 0.5;
+  src.connect(f).connect(g).connect(dest); src.start();
+  const iv = setInterval(() => {
+    g.gain.setTargetAtTime((peak || 0.10) * (0.5 + Math.random()), ctx.currentTime, 0.8);
+    f.frequency.setTargetAtTime(900 + Math.random() * 700, ctx.currentTime, 0.8);
+  }, 1200);
+  return { nodes: [src, f, g], timers: [iv] };
+}
+function _layerCafeMurmur(eng, dest, peak) {
+  const ctx = eng.ctx;
+  const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
+  const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 700; f.Q.value = 1.5;
+  const g = ctx.createGain(); g.gain.value = (peak || 0.20) * 0.6;
+  src.connect(f).connect(g).connect(dest); src.start();
+  const iv = setInterval(() => {
+    g.gain.setTargetAtTime((peak || 0.20) * (0.5 + Math.random() * 0.6), ctx.currentTime, 1.5);
+    f.frequency.setTargetAtTime(550 + Math.random() * 400, ctx.currentTime, 1.5);
+  }, 2400);
+  return { nodes: [src, f, g], timers: [iv] };
+}
+function _layerWindGust(eng, dest) {
+  const ctx = eng.ctx;
+  const iv = setInterval(() => {
+    if (Math.random() > 0.4) return;
+    const now = ctx.currentTime;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(2.5, "pink");
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass";
+    bp.frequency.value = 600; bp.Q.value = 0.7;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(0.35, now + 0.8);
+    g.gain.linearRampToValueAtTime(0, now + 2.4);
+    src.connect(bp).connect(g).connect(dest);
+    src.start(now); src.stop(now + 2.5);
+  }, 14000);
+  return { nodes: [], timers: [iv] };
+}
+// Merge children's nodes/timers into the recipe's return value.
+function _mergeLayers(...layers) {
+  const nodes = [];
+  const timers = [];
+  layers.forEach((l) => {
+    if (l.nodes) nodes.push(...l.nodes);
+    if (l.timers) timers.push(...l.timers);
+  });
+  return { nodes, timers };
+}
 
 export var AMBIENCE_SPACE_RECIPES = {
   intimate: (eng, dest) => {
@@ -135,10 +285,12 @@ export var AMBIENCE_SPACE_RECIPES = {
     const iv = setInterval(() => {
       lpf.frequency.setTargetAtTime(120 + Math.random()*200, ctx.currentTime, 4);
     }, 7000);
-    return { nodes: [out, lpf, ...oscs], timers: [iv] };
+    const drip = _layerStreamDrip(eng, dest, 0.08);
+    return _mergeLayers({ nodes: [out, lpf, ...oscs], timers: [iv] }, drip);
   },
   street: (eng, dest) => {
-    // Urban "wind" — bandpass pink noise, slow modulation.
+    // Urban "wind" — bandpass pink noise, slow modulation, plus distant
+    // café-murmur layer for a believable street undercurrent.
     const ctx = eng.ctx;
     const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
     const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 550; f.Q.value = 0.5;
@@ -148,10 +300,11 @@ export var AMBIENCE_SPACE_RECIPES = {
       g.gain.setTargetAtTime(0.4 + Math.random()*0.3, ctx.currentTime, 2);
       f.frequency.setTargetAtTime(400 + Math.random()*400, ctx.currentTime, 2);
     }, 3500);
-    return { nodes: [src, f, g], timers: [iv] };
+    const murmur = _layerCafeMurmur(eng, dest, 0.18);
+    return _mergeLayers({ nodes: [src, f, g], timers: [iv] }, murmur);
   },
   field: (eng, dest) => {
-    // Hermes "wind" recipe.
+    // Hermes "wind" recipe + a quiet ocean-cycle swell underneath.
     const ctx = eng.ctx;
     const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
     const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 600; f.Q.value = 0.5;
@@ -161,10 +314,11 @@ export var AMBIENCE_SPACE_RECIPES = {
       g.gain.setTargetAtTime(0.35 + Math.random()*0.4, ctx.currentTime, 1.5);
       f.frequency.setTargetAtTime(300 + Math.random()*700, ctx.currentTime, 1.5);
     }, 2500);
-    return { nodes: [src, f, g], timers: [iv] };
+    const swell = _layerOceanSwell(eng, dest, 0.12);
+    return _mergeLayers({ nodes: [src, f, g], timers: [iv] }, swell);
   },
   forest: (eng, dest) => {
-    // Soft wind + occasional bird chirps (Hermes "birds").
+    // Soft wind + occasional bird chirps + cricket layer (Hermes-derived).
     const ctx = eng.ctx;
     const wind = ctx.createBufferSource(); wind.buffer = eng._noiseBuffer(3, "pink"); wind.loop = true;
     const wf = ctx.createBiquadFilter(); wf.type = "bandpass"; wf.frequency.value = 700; wf.Q.value = 0.5;
@@ -186,7 +340,8 @@ export var AMBIENCE_SPACE_RECIPES = {
       o.connect(og).connect(dest);
       o.start(now); o.stop(now + 0.4);
     }, 1800);
-    return { nodes: [wind, wf, wg], timers: [ivWind, ivBirds] };
+    const crickets = _layerCrickets(eng, dest, 0.6);
+    return _mergeLayers({ nodes: [wind, wf, wg], timers: [ivWind, ivBirds] }, crickets);
   },
   vehicle: (eng, dest) => {
     // Confined moving — brown noise rumble + low sine, slow vibrato.
@@ -389,7 +544,8 @@ export var AMBIENCE_POPULATION_RECIPES = {
       t.connect(tf).connect(tg).connect(dest);
       t.start(now); t.stop(now + dur + 0.5);
     }, 9000);
-    return { nodes: [src, f, g], timers: [ivOcean, ivThunder] };
+    const gusts = _layerWindGust(eng, dest);
+    return _mergeLayers({ nodes: [src, f, g], timers: [ivOcean, ivThunder] }, gusts);
   }
 };
 

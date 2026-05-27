@@ -6,8 +6,8 @@ import { TTSRow } from "../../settings/TTSRow.jsx";
 import { SettingsToggleRow } from "../../settings/SettingsToggleRow.jsx";
 
 export function SettingsModal({ settings, onChange, onClose, osReducedMotion,
-  ambienceLevel, ambienceUnavailable, ambienceDuringNarrationOnly, ambienceBoostWithTTS,
-  onChangeAmbience, onChangeAmbienceDuringNarrationOnly, onChangeAmbienceBoostWithTTS,
+  ambienceLevel, ambienceUnavailable, ambienceDuringNarrationOnly, ambienceBoostWithTTS, ambienceMusicLevel,
+  onChangeAmbience, onChangeAmbienceDuringNarrationOnly, onChangeAmbienceBoostWithTTS, onChangeAmbienceMusicLevel,
   ttsEnabled, ttsProviderId, ttsProviderReady, ttsVoiceId, ttsBrowserVoices, ttsVoxtralVoices, ttsVoxtralVoicesError, ttsRate, ttsElevenKey,
   onChangeTtsEnabled, onChangeTtsProvider, onChangeTtsVoice, onChangeTtsRate, onChangeTtsElevenKey }) {
   return /* @__PURE__ */ React.createElement("div", {
@@ -63,8 +63,10 @@ export function SettingsModal({ settings, onChange, onClose, osReducedMotion,
     ttsEnabled,
     duringNarrationOnly: ambienceDuringNarrationOnly,
     boostWithTTS: ambienceBoostWithTTS,
+    musicLevel: ambienceMusicLevel,
     onChangeDuringNarrationOnly: onChangeAmbienceDuringNarrationOnly,
-    onChangeBoostWithTTS: onChangeAmbienceBoostWithTTS
+    onChangeBoostWithTTS: onChangeAmbienceBoostWithTTS,
+    onChangeMusicLevel: onChangeAmbienceMusicLevel
   }), /* @__PURE__ */ React.createElement(TTSRow, {
     enabled: ttsEnabled,
     providerId: ttsProviderId,
