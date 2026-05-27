@@ -184,9 +184,12 @@ WHEN TO WARRANT A PLATE (be ruthless):
 WHEN NOT TO:
 - Conversation, transit, small moves, internal thought, deliberation.
 - Anything routine, even if vivid.
+- If you find yourself writing a milestone_reason like "no significant event", "routine", "nothing notable", or "minor moment" — that means warrants_illustration MUST be false. A plate is justified by a specific, nameable beat ("first reveal of the cloister", "verdict lands", "the door opens onto the snow"), never by absence.
 
 RULES:
 - When in doubt, set warrants_illustration to false and write the reason.
+- If warrants_illustration is true, milestone_reason MUST name a concrete beat: a specific reveal, encounter, threshold, transformation, or finale. Not a negation.
+- If warrants_illustration is true, scene_clause MUST be present and 12–35 words. Without it, set warrants_illustration to false.
 - When you do warrant one, REUSE ledger ids (\`npc:<name>\`, \`location:<slug>\`, \`self:protagonist\`) so the recurring subjects look the same across plates.
 - scene_clause is purely visual: what the eye sees, the composition, the light. No interior states, no dialogue, no narrative meta.
 - Add ledger_updates ONLY for genuinely new recurring subjects.

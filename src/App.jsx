@@ -885,9 +885,14 @@ export function App() {
       return;
     }
 
-    const wants = codex.mode === "always" || ad.warrants_illustration;
+    // Defensive: some smaller models say warrants_illustration=true but
+    // write a negative milestone_reason ("no significant event", etc.) or
+    // omit the scene clause. Treat those as a no.
+    const reason = (ad.milestone_reason || "").trim();
+    const NEG = /\b(no|not|none|nothing|minor|routine|absent|n\/a|skip)\b/i;
+    const looksNegative = !reason || (reason.length < 6) || NEG.test(reason);
+    const wants = (codex.mode === "always" || ad.warrants_illustration) && !looksNegative && ad.scene_clause && ad.scene_clause.trim().length >= 12;
     if (!wants) return;
-    if (!ad.scene_clause) return;
 
     const idx = entryIndexProvider();
     if (idx == null || idx < 0) return;
@@ -999,7 +1004,15 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
   const finalizeNarration = (narration, gmParsed, baseEntries, baseHistory, fullyRevealed) => {
     const assistantPayload = JSON.stringify({ gm_scratchpad: "", narration, state: gmParsed.state, ending: gmParsed.ending });
     setHistory([...baseHistory, { role: "assistant", content: assistantPayload }]);
-    setEntries([...baseEntries, { type: "narration", text: narration, fullyRevealed }]);
+    // Preserve any illustration the Art Director may have already attached to
+    // this index in parallel — finalizeNarration runs after the narrator
+    // returns, which can be after the image has landed.
+    setEntries((prev) => {
+      const existing = prev[baseEntries.length];
+      const entry = { type: "narration", text: narration, fullyRevealed };
+      if (existing && existing.illustration) entry.illustration = existing.illustration;
+      return [...baseEntries, entry];
+    });
     if (gmParsed.state && !(isStateEmpty(gmParsed.state) && !isStateEmpty(gameState))) {
       setGameState(gmParsed.state);
     }
@@ -1276,7 +1289,14 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       if (settings.streamNarration) {
         const narrationIndex = newEntries.length;
         let acc = "";
-        setEntries([...newEntries, { type: "narration", text: "", streaming: true }]);
+        // Use functional form + preserve any illustration the Art Director
+        // may have already attached at this index in parallel.
+        setEntries((prev) => {
+          const existing = prev[narrationIndex];
+          const entry = { type: "narration", text: "", streaming: true };
+          if (existing && existing.illustration) entry.illustration = existing.illustration;
+          return [...newEntries, entry];
+        });
         const onDelta = (chunk) => {
           acc += chunk;
           setEntries((prev) => {
