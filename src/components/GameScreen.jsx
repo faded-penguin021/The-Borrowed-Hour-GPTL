@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { realmGlyph } from "../data/premises.js";
+import { formatTokens } from "../data/constants.js";
 import { TypewriterText } from "./TypewriterText.jsx";
 
 export function GameScreen({
