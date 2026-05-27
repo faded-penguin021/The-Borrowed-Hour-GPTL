@@ -196,7 +196,7 @@ export function App() {
   const [ttsElevenKey, setTtsElevenKey] = useState(""); // plaintext; only used for the inline key field
   const [ttsBrowserVoices, setTtsBrowserVoices] = useState([]);
   const [ttsProviderReady, setTtsProviderReady] = useState({ browser: true, puter: true });
-  const [ttsPlayback, setTtsPlayback] = useState({ speaking: false, paused: false, loading: false, loadingTurnId: null, activeTurnId: null });
+  const [ttsPlayback, setTtsPlayback] = useState({ speaking: false, paused: false, loading: false, loadingTurnId: null, activeTurnId: null, lastError: null, lastErrorTurnId: null });
   const ttsLoadedRef = useRef(false);
   const ttsRef = useRef(null);
   // Monotonic cursor: index of the next entry to speak. Reset on chronicle
@@ -269,7 +269,9 @@ export function App() {
         paused: ctrl.isPaused(),
         loading: ctrl.isLoading(),
         loadingTurnId: ctrl.loadingFor(),
-        activeTurnId: ctrl.activeTurnId
+        activeTurnId: ctrl.activeTurnId,
+        lastError: ctrl.lastError,
+        lastErrorTurnId: ctrl.lastErrorTurnId
       }));
       ttsRef.current = ctrl;
       if (typeof window !== "undefined" && "speechSynthesis" in window) {

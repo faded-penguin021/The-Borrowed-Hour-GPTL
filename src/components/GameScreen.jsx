@@ -225,7 +225,7 @@ export function GameScreen({
         scrollRef
       })), showPlay && /* @__PURE__ */ React.createElement("div", {
         className: "mt-2",
-        style: { display: "flex", justifyContent: "flex-start" },
+        style: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "4px" },
         onClick: (e) => e.stopPropagation()
       }, /* @__PURE__ */ React.createElement("button", {
         onClick: (e) => { e.stopPropagation(); onPlayEntry?.(i); },
@@ -243,7 +243,11 @@ export function GameScreen({
       }, " ", btnLabel), isLoading && /* @__PURE__ */ React.createElement("span", {
         className: "typing-dots",
         style: { marginLeft: "4px" }
-      }, /* @__PURE__ */ React.createElement("span", null, "."), /* @__PURE__ */ React.createElement("span", null, "."), /* @__PURE__ */ React.createElement("span", null, ".")))));
+      }, /* @__PURE__ */ React.createElement("span", null, "."), /* @__PURE__ */ React.createElement("span", null, "."), /* @__PURE__ */ React.createElement("span", null, "."))),
+      ttsPlayback?.lastError && ttsPlayback?.lastErrorTurnId === i && /* @__PURE__ */ React.createElement("div", {
+        className: "body-font italic",
+        style: { fontSize: "11px", color: "var(--rose-ember)", opacity: 0.85, lineHeight: 1.4, maxWidth: "100%", wordBreak: "break-word" }
+      }, "tts: ", ttsPlayback.lastError)));
     }
     return /* @__PURE__ */ React.createElement("div", {
       key: i,

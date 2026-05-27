@@ -10,7 +10,8 @@ export async function _fetchAudioBlob(url, init, signal) {
   }
   return resp.blob();
 }
-export function _blobHandle(blob, signal) {
+export function _blobHandle(blob, signal, onError) {
+  const report = (m) => { try { onError?.(m); } catch (_) {} };
   // Force a known audio MIME type. Some providers return application/octet-stream
   // or omit the content-type, which makes Safari/iOS refuse to decode the blob
   // URL silently — the Audio element never fires `playing`, just an `error`.
@@ -26,25 +27,26 @@ export function _blobHandle(blob, signal) {
   audio.onerror = () => {
     const err = audio.error;
     const code = err?.code, msg = err?.message;
-    if (typeof console !== "undefined") {
-      console.warn("[tts] audio element error:", { code, msg, type: typed.type, size: typed.size });
-    }
+    const codeName = ({ 1: "ABORTED", 2: "NETWORK", 3: "DECODE", 4: "SRC_NOT_SUPPORTED" })[code] || `code=${code}`;
+    const info = `audio ${codeName}${msg ? ` — ${msg}` : ""} (type=${typed.type}, ${typed.size}B)`;
+    if (typeof console !== "undefined") console.warn("[tts]", info);
+    report(info);
     cleanup();
     if (_onended) _onended();
   };
   const tryPlay = () => {
     let p;
     try { p = audio.play(); } catch (e) {
-      if (typeof console !== "undefined") console.warn("[tts] audio.play() threw:", e?.message || e);
+      const info = `play() threw: ${e?.message || e}`;
+      if (typeof console !== "undefined") console.warn("[tts]", info);
+      report(info);
       return;
     }
     if (p && typeof p.catch === "function") {
       p.catch((e) => {
-        if (typeof console !== "undefined") {
-          console.warn("[tts] audio.play() rejected:", e?.name || "", e?.message || e);
-        }
-        // Treat a rejected play() (autoplay block / decode failure) as end-of-playback
-        // so the controller releases activeHandle instead of looking stuck.
+        const info = `play() rejected: ${e?.name || ""}${e?.message ? ` — ${e.message}` : ""}`;
+        if (typeof console !== "undefined") console.warn("[tts]", info);
+        report(info);
         cleanup();
         if (_onended) _onended();
       });
