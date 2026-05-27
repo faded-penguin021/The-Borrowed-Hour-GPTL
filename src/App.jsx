@@ -125,6 +125,9 @@ export function App() {
   const [ambienceMusicLevel, setAmbienceMusicLevel] = useState("full");
   const ambienceLoadedRef = useRef(false);
   const ambienceRef = useRef(null);
+  // Bumped whenever the lazily-built AmbienceEngine is constructed, so
+  // coupling effects (speech gate, TTS bridge, boost) re-attach to it.
+  const [ambienceEngineNonce, setAmbienceEngineNonce] = useState(0);
   useEffect(() => {
     (async () => {
       try {
@@ -169,6 +172,7 @@ export function App() {
     if (!ambienceRef.current) {
       try {
         ambienceRef.current = new AmbienceEngine();
+        setAmbienceEngineNonce((n) => n + 1);
       } catch (e) {
         setAmbienceUnavailable(true);
         if (typeof console !== "undefined" && console.warn)
@@ -398,11 +402,11 @@ export function App() {
   // Ambience↔TTS coupling — gate: ambience only during narration.
   useEffect(() => {
     ambienceRef.current?.setSpeechGate(ambienceDuringNarrationOnly && ttsEnabled);
-  }, [ambienceDuringNarrationOnly, ttsEnabled]);
+  }, [ambienceDuringNarrationOnly, ttsEnabled, ambienceEngineNonce]);
   // Ambience↔TTS coupling — boost: lift ambience one notch while TTS is on.
   useEffect(() => {
     ambienceRef.current?.setBoost(ambienceBoostWithTTS && ttsEnabled);
-  }, [ambienceBoostWithTTS, ttsEnabled]);
+  }, [ambienceBoostWithTTS, ttsEnabled, ambienceEngineNonce]);
 
   // Bridge: subscribe ambience engine to TTS controller speak events.
   useEffect(() => {
@@ -412,7 +416,7 @@ export function App() {
     const u1 = ctrl.onSpeakStart(() => eng.notifySpeechStart());
     const u2 = ctrl.onSpeakEnd(()   => eng.notifySpeechEnd());
     return () => { u1(); u2(); };
-  }, [ttsEnabled, ambienceLevel]);
+  }, [ttsEnabled, ambienceLevel, ambienceEngineNonce]);
 
   // Walk entries. When a narration entry is fully revealed, speak it.
   // ttsNextRef advances monotonically — toggling TTS on doesn't replay history.
