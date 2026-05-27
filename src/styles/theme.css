@@ -1,0 +1,563 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --twilight: #0a0814;
+  --twilight-deep: #050309;
+  --gloaming: #14101e;
+  --cream: #e8dec5;
+  --cream-bright: #f4ecd8;
+  --cream-dim: #9a8d7a;
+  --cream-faint: #524a3e;
+  --rose-gold: #d4a574;
+  --rose-ember: #d97a7a;
+
+  --echo: #b8c8d8;
+  --echo-border: rgba(184, 200, 216, 0.4);
+  --echo-bg: rgba(184, 200, 216, 0.06);
+
+  --neon: #e87faa;
+  --neon-border: rgba(232, 127, 170, 0.45);
+  --neon-bg: rgba(232, 127, 170, 0.06);
+
+  --omen: #d4a574;
+  --omen-border: rgba(212, 165, 116, 0.45);
+  --omen-bg: rgba(212, 165, 116, 0.06);
+
+  --dream: #c8a8e0;
+  --dream-border: rgba(200, 168, 224, 0.45);
+  --dream-bg: rgba(200, 168, 224, 0.06);
+
+  --wild: #b8c896;
+  --wild-border: rgba(184, 200, 150, 0.45);
+  --wild-bg: rgba(184, 200, 150, 0.06);
+}
+
+.borrowed-root {
+  background:
+    radial-gradient(ellipse at 25% 15%, rgba(200, 168, 224, 0.06) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 85%, rgba(212, 165, 116, 0.05) 0%, transparent 55%),
+    radial-gradient(ellipse at center, var(--gloaming) 0%, var(--twilight) 80%);
+  color: var(--cream);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.borrowed-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.7 0 0 0 0 0.6 0 0 0 0 0.85 0 0 0 0.4 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+}
+
+.borrowed-vignette::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 95%);
+}
+
+.display-font { font-family: 'Cinzel', serif; font-weight: 500; }
+.body-font    { font-family: 'Cormorant Garamond', serif; }
+
+.realm-pill {
+  display: inline-block;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: 0.4em;
+  padding: 4px 10px;
+  border: 1px solid;
+}
+.realm-echo   { color: var(--echo);   border-color: var(--echo-border);   background: var(--echo-bg); }
+.realm-neon   { color: var(--neon);   border-color: var(--neon-border);   background: var(--neon-bg); }
+.realm-omen   { color: var(--omen);   border-color: var(--omen-border);   background: var(--omen-bg); }
+.realm-dream  { color: var(--dream);  border-color: var(--dream-border);  background: var(--dream-bg); }
+.realm-wild   { color: var(--wild);   border-color: var(--wild-border);   background: var(--wild-bg); }
+
+.premise-card {
+  border: 1px solid rgba(232, 222, 197, 0.1);
+  background: linear-gradient(180deg, rgba(28, 22, 44, 0.55) 0%, rgba(10, 8, 20, 0.55) 100%);
+  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+}
+.premise-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.6s;
+  pointer-events: none;
+}
+.premise-card[data-realm="echo"]::before  { background: radial-gradient(circle at 50% 0%, rgba(184, 200, 216, 0.13), transparent 60%); }
+.premise-card[data-realm="neon"]::before  { background: radial-gradient(circle at 50% 0%, rgba(232, 127, 170, 0.13), transparent 60%); }
+.premise-card[data-realm="omen"]::before  { background: radial-gradient(circle at 50% 0%, rgba(212, 165, 116, 0.13), transparent 60%); }
+.premise-card[data-realm="dream"]::before { background: radial-gradient(circle at 50% 0%, rgba(200, 168, 224, 0.13), transparent 60%); }
+.premise-card[data-realm="wild"]::before  { background: radial-gradient(circle at 50% 0%, rgba(184, 200, 150, 0.13), transparent 60%); }
+
+.premise-card:hover { transform: translateY(-3px); }
+.premise-card:hover::before { opacity: 1; }
+.premise-card[data-realm="echo"]:hover  { border-color: var(--echo-border);  box-shadow: 0 20px 60px -25px rgba(184, 200, 216, 0.22); }
+.premise-card[data-realm="neon"]:hover  { border-color: var(--neon-border);  box-shadow: 0 20px 60px -25px rgba(232, 127, 170, 0.22); }
+.premise-card[data-realm="omen"]:hover  { border-color: var(--omen-border);  box-shadow: 0 20px 60px -25px rgba(212, 165, 116, 0.22); }
+.premise-card[data-realm="dream"]:hover { border-color: var(--dream-border); box-shadow: 0 20px 60px -25px rgba(200, 168, 224, 0.22); }
+.premise-card[data-realm="wild"]:hover  { border-color: var(--wild-border);  box-shadow: 0 20px 60px -25px rgba(184, 200, 150, 0.22); }
+
+.premise-card:disabled { cursor: wait; opacity: 0.5; }
+
+.narration-text {
+  color: var(--cream-bright);
+  text-shadow: 0 0 24px rgba(232, 222, 197, 0.04);
+  white-space: pre-wrap;
+}
+
+.action-text {
+  color: var(--cream-dim);
+  font-style: italic;
+  white-space: pre-wrap;
+}
+.action-text::before {
+  content: "› ";
+  color: var(--rose-ember);
+  font-style: normal;
+  font-weight: 500;
+}
+
+.borrowed-input {
+  background: rgba(10, 8, 20, 0.65);
+  border: 1px solid rgba(232, 222, 197, 0.15);
+  color: var(--cream-bright);
+  font-family: 'Cormorant Garamond', serif;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.borrowed-input::placeholder {
+  color: var(--cream-faint);
+  font-style: italic;
+}
+.borrowed-input:focus {
+  outline: none;
+  border-color: rgba(212, 165, 116, 0.45);
+  box-shadow: 0 0 30px rgba(212, 165, 116, 0.08), inset 0 0 0 1px rgba(212, 165, 116, 0.1);
+}
+
+.cursor-blink::after {
+  content: "▍";
+  color: var(--rose-gold);
+  animation: blink 1.05s steps(2) infinite;
+  margin-left: 2px;
+}
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(232, 222, 197, 0.13);
+  border-radius: 0;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background-color: rgba(232, 222, 197, 0.28); }
+
+.fade-in { animation: fadeIn 1.1s ease-out; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.slow-fade-in { animation: slowFade 1.8s ease-out; }
+@keyframes slowFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.typing-dots span {
+  animation: dot-pulse 1.4s infinite ease-in-out both;
+  display: inline-block;
+}
+.typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+.typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes dot-pulse {
+  0%, 80%, 100% { opacity: 0.2; }
+  40% { opacity: 1; }
+}
+
+/* The inline STOP button next to the loading phrase. Quiet by default —
+ * doesn't compete with the loading texture — but readable enough that a
+ * player who wants to cancel can find it. Danger-tinted on hover to make
+ * the action's weight visible at the moment of clicking. */
+.loading-stop-btn {
+  margin-left: 14px;
+  padding: 2px 10px;
+  background: transparent;
+  border: 1px solid rgba(232, 222, 197, 0.18);
+  color: var(--cream-faint);
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  font-style: normal;
+  letter-spacing: 0.3em;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: all 0.25s;
+}
+.loading-stop-btn:hover {
+  border-color: rgba(217, 122, 122, 0.5);
+  color: var(--rose-ember);
+}
+
+.divider-mark {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--cream-faint);
+}
+.divider-mark::before, .divider-mark::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(232, 222, 197, 0.2), transparent);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 3, 9, 0.85);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease-out;
+  padding: 20px;
+}
+
+.modal-panel {
+  background: linear-gradient(180deg, #16121f 0%, #0a0814 100%);
+  border: 1px solid rgba(232, 222, 197, 0.15);
+  max-width: 560px;
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  /* min-height: 0 lets the inner overflow-y-auto child actually scroll inside
+   * a flex column on mobile (otherwise content can spill out / vanish off
+   * the bottom on small viewports). overflow: hidden keeps gradient borders
+   * crisp on Fennec, which is happy to paint slightly outside otherwise. */
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The blurred backdrop is expensive enough on Firefox-Android (Fennec) to
+ * stall the compositor when a modal opens — the Ledger button being the
+ * obvious offender since gameState renders can be large. Drop the blur on
+ * mobile and lean the background opacity up a touch to compensate. */
+@media (max-width: 720px) {
+  .modal-backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(5, 3, 9, 0.94);
+  }
+}
+
+.save-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 1px solid rgba(232, 222, 197, 0.08);
+  background: rgba(28, 22, 44, 0.4);
+  transition: all 0.3s;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.save-row:hover {
+  border-color: rgba(212, 165, 116, 0.3);
+  background: rgba(28, 22, 44, 0.7);
+}
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid rgba(232, 222, 197, 0.2);
+  color: var(--cream-dim);
+  padding: 6px 14px;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.icon-btn:hover:not(:disabled) {
+  border-color: rgba(212, 165, 116, 0.5);
+  color: var(--cream-bright);
+}
+.icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.icon-btn-danger:hover:not(:disabled) {
+  border-color: rgba(217, 122, 122, 0.5);
+  color: var(--rose-ember);
+}
+
+/* Language selector on the title screen. Matches .icon-btn's twilight-cream
+ * register but uses a slightly larger letter-spacing-friendly font size so
+ * native-script labels (中文, 한국어, 日本語) read clearly without dwarfing
+ * the all-caps Latin neighbors. The custom dropdown chevron replaces the
+ * platform default, which clashes with the dark backdrop. */
+.lang-select {
+  background: transparent;
+  border: 1px solid rgba(232, 222, 197, 0.2);
+  color: var(--cream-dim);
+  padding: 6px 32px 6px 14px;
+  font-family: 'Cormorant Garamond', 'Cinzel', serif;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.3s;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path fill='none' stroke='%23a8a08a' stroke-width='1.4' d='M1.5 2 L6 6 L10.5 2'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
+}
+.lang-select:hover:not(:disabled) {
+  border-color: rgba(212, 165, 116, 0.5);
+  color: var(--cream-bright);
+}
+.lang-select:disabled { opacity: 0.4; cursor: not-allowed; }
+.lang-select option {
+  background: #1a1612;
+  color: var(--cream);
+  font-family: 'Cormorant Garamond', serif;
+}
+
+button:focus-visible, textarea:focus-visible {
+  outline: 1px solid rgba(212, 165, 116, 0.4);
+  outline-offset: 2px;
+}
+
+/* Mobile-specific adjustments. The header would otherwise overflow with all
+   six action buttons; we drop the text labels and let icons + tooltips
+   carry the meaning. The input row gets safe-area padding so the iOS home
+   indicator doesn't sit on top of the textarea. */
+@media (max-width: 720px) {
+  .borrowed-root { font-size: 17px; }
+  .header-actions {
+    gap: 4px !important;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+  .header-actions::-webkit-scrollbar { display: none; }
+  .header-actions .icon-btn {
+    padding: 6px 8px;
+    letter-spacing: 0.12em;
+    flex-shrink: 0;
+    font-size: 9px;
+  }
+  /* Mobile previously hid btn-label entirely, leaving title/aria-label as
+   * the only carrier of meaning — useless for sighted players who can't
+   * hover on a phone. Keep the text, just tighter. The header already
+   * scrolls horizontally so the extra width is absorbed. */
+  .btn-label { display: inline; }
+  .game-header {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+    gap: 8px;
+  }
+  .game-header .header-title {
+    letter-spacing: 0.18em;
+    max-width: 32vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .game-scroll {
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+    padding-top: 28px !important;
+    padding-bottom: 28px !important;
+  }
+  .game-input-row {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    padding-top: 12px !important;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .narration-text { font-size: 1.05rem; }
+}
+@media (min-width: 721px) {
+  .game-input-row { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* Screen-reader-only utility for the aria-live announce region. Visually
+ * hidden but reachable by assistive tech. The clip+absolute combination is
+ * the long-established cross-browser recipe; do not collapse it to
+ * display:none, which removes elements from the accessibility tree. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* HIGH-CONTRAST MODE. Toggle-driven; opt-in. The aesthetic loses its
+ * twilight register on purpose — the choice here is legibility for readers
+ * who need it, not preservation of mood. We override the CSS variables at
+ * the root scope, then silence the decorative grain/vignette overlays
+ * (which sit at 0.06 opacity in regular mode but visibly muddy text in
+ * high-contrast), and stiffen the borders that are otherwise rgba'd down
+ * to ghost-strength. The realm-tinted accents stay because they carry
+ * meaning (which premise is active) more than mood. */
+.borrowed-root.high-contrast {
+  --cream:        #ffffff;
+  --cream-bright: #ffffff;
+  --cream-dim:    #d8d2c4;
+  --cream-faint:  #b8b0a0;
+  --twilight:      #000000;
+  --twilight-deep: #000000;
+  --gloaming:      #0a0a0f;
+  --rose-gold:    #ffc788;
+  --rose-ember:   #ff9a9a;
+}
+.borrowed-root.high-contrast {
+  background: var(--twilight) !important;
+}
+.borrowed-root.high-contrast .borrowed-grain::before,
+.borrowed-root.high-contrast .borrowed-vignette::after {
+  display: none;
+}
+.borrowed-root.high-contrast .narration-text {
+  text-shadow: none;
+}
+.borrowed-root.high-contrast .premise-card {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.6);
+}
+.borrowed-root.high-contrast .icon-btn,
+.borrowed-root.high-contrast .borrowed-input,
+.borrowed-root.high-contrast .lang-select,
+.borrowed-root.high-contrast .save-row {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+.borrowed-root.high-contrast .icon-btn { color: var(--cream-bright); }
+.borrowed-root.high-contrast .save-row {
+  background: rgba(0, 0, 0, 0.55);
+}
+.borrowed-root.high-contrast .modal-panel {
+  background: #050505;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+.borrowed-root.high-contrast .modal-backdrop {
+  background: rgba(0, 0, 0, 0.92);
+}
+.borrowed-root.high-contrast button:focus-visible,
+.borrowed-root.high-contrast textarea:focus-visible,
+.borrowed-root.high-contrast select:focus-visible {
+  outline: 2px solid #ffd28a;
+  outline-offset: 2px;
+}
+
+/* prefers-reduced-motion: respect the OS-level signal in addition to the
+ * in-app toggle. Kills page-load fades, the typing-dot pulse, the blink
+ * cursor, and the premise-card lift. The typewriter ANIMATION itself is
+ * driven by JS and is handled there — see the typewriter component, which
+ * reads the same matchMedia query and renders instantly when reduce is on.
+ * We deliberately leave the slow-fade-in alone for loading phrases since
+ * a single, slow opacity transition is more like UI continuity than
+ * "motion" in the vestibular sense; reduced-motion specs explicitly allow
+ * non-vestibular fades. */
+@media (prefers-reduced-motion: reduce) {
+  .fade-in,
+  .slow-fade-in {
+    animation: none !important;
+  }
+  .premise-card {
+    transition: border-color 0.2s, box-shadow 0.2s !important;
+  }
+  .premise-card:hover {
+    transform: none !important;
+  }
+  .typing-dots span {
+    animation: none !important;
+    opacity: 0.7;
+  }
+  .cursor-blink::after {
+    animation: none !important;
+  }
+}
+
+/* Settings panel — a small, dignified popover, not a full modal.
+ * Triggered from the gear button on the title screen and the game header.
+ * Stays close to the aesthetic of icon-btn (twilight + cream + small
+ * caps) and uses toggle rows that match the save-row pattern. */
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border: 1px solid rgba(232, 222, 197, 0.1);
+  background: rgba(28, 22, 44, 0.4);
+  transition: border-color 0.25s;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.settings-toggle:hover {
+  border-color: rgba(212, 165, 116, 0.3);
+}
+.settings-toggle-track {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  border-radius: 9px;
+  background: rgba(232, 222, 197, 0.15);
+  border: 1px solid rgba(232, 222, 197, 0.25);
+  transition: all 0.25s;
+  flex-shrink: 0;
+}
+.settings-toggle-track[data-on="true"] {
+  background: rgba(212, 165, 116, 0.35);
+  border-color: rgba(212, 165, 116, 0.7);
+}
+.settings-toggle-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--cream-bright);
+  transition: transform 0.25s;
+}
+.settings-toggle-track[data-on="true"] .settings-toggle-thumb {
+  transform: translateX(16px);
+  background: var(--rose-gold);
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-toggle-track,
+  .settings-toggle-thumb {
+    transition: none !important;
+  }
+}

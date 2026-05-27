@@ -1,0 +1,61 @@
+import React, { useRef, useEffect } from "react";
+
+export function ExportFallbackModal({ text, onClose }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.focus();
+      try {
+        ref.current.select();
+      } catch {}
+    }
+  }, []);
+  return /* @__PURE__ */ React.createElement("div", {
+    className: "modal-backdrop",
+    onClick: onClose
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "modal-panel",
+    onClick: (e) => e.stopPropagation()
+  }, /* @__PURE__ */ React.createElement("div", {
+    className: "px-6 py-5 border-b flex items-center justify-between",
+    style: { borderColor: "rgba(232, 222, 197, 0.1)" }
+  }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", {
+    className: "display-font text-[10px] mb-1",
+    style: { color: "var(--cream-faint)", letterSpacing: "0.4em" }
+  }, "❧ COPY THE CHRONICLE"), /* @__PURE__ */ React.createElement("h2", {
+    className: "display-font text-xl",
+    style: { color: "var(--cream-bright)", letterSpacing: "0.04em" }
+  }, "Long-press the text below, then choose Copy")), /* @__PURE__ */ React.createElement("button", {
+    onClick: onClose,
+    className: "display-font text-sm",
+    style: { color: "var(--cream-dim)", letterSpacing: "0.2em" }
+  }, "✕")), /* @__PURE__ */ React.createElement("div", {
+    className: "px-6 py-5"
+  }, /* @__PURE__ */ React.createElement("p", {
+    className: "body-font italic text-sm mb-3",
+    style: { color: "var(--cream-dim)", lineHeight: 1.6 }
+  }, "Your browser would not place this on the clipboard directly. The chronicle is selected below — long-press (on phone) or use Ctrl/Cmd+C (on desktop) to copy it. Paste it wherever you wish."), /* @__PURE__ */ React.createElement("textarea", {
+    ref,
+    readOnly: true,
+    value: text,
+    className: "w-full body-font text-sm",
+    style: {
+      minHeight: "240px",
+      maxHeight: "50vh",
+      padding: "12px",
+      background: "rgba(0,0,0,0.3)",
+      border: "1px solid rgba(232, 222, 197, 0.15)",
+      borderRadius: "2px",
+      color: "var(--cream-bright)",
+      lineHeight: 1.5,
+      resize: "vertical"
+    }
+  })), /* @__PURE__ */ React.createElement("div", {
+    className: "px-6 py-4 border-t flex justify-end",
+    style: { borderColor: "rgba(232, 222, 197, 0.1)" }
+  }, /* @__PURE__ */ React.createElement("button", {
+    onClick: onClose,
+    className: "icon-btn",
+    style: { padding: "8px 18px" }
+  }, "✕ DONE"))));
+}
