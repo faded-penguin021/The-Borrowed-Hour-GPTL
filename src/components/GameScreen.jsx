@@ -45,7 +45,8 @@ export function GameScreen({
   ttsMuted,
   ttsPlayback,
   onToggleTtsMute,
-  onTogglePlayPause
+  onTogglePlayPause,
+  onPlayEntry
 }) {
   const lastEntry = entries[entries.length - 1];
   const showResolution = ended && lastEntry && lastEntry.type === "narration" && lastEntry.fullyRevealed && !metaMode;
@@ -152,17 +153,6 @@ export function GameScreen({
   }, ttsMuted ? "▷̸" : "▷"), /* @__PURE__ */ React.createElement("span", {
     className: "btn-label"
   }, ttsMuted ? " SILENT" : " VOICE")),
-  ttsEnabled && !ttsMuted && /* @__PURE__ */ React.createElement("button", {
-    onClick: onTogglePlayPause,
-    className: "icon-btn",
-    title: ttsPlayback?.paused ? "Resume narration" : (ttsPlayback?.speaking ? "Pause narration" : "Play the latest narration aloud"),
-    "aria-label": ttsPlayback?.paused ? "Resume narration" : (ttsPlayback?.speaking ? "Pause narration" : "Play latest narration"),
-    "aria-pressed": ttsPlayback?.paused ? "true" : "false"
-  }, /* @__PURE__ */ React.createElement("span", {
-    "aria-hidden": "true"
-  }, ttsPlayback?.speaking ? "❙❙" : "▶"), /* @__PURE__ */ React.createElement("span", {
-    className: "btn-label"
-  }, ttsPlayback?.paused ? " RESUME" : (ttsPlayback?.speaking ? " PAUSE" : " PLAY"))),
   /* @__PURE__ */ React.createElement("button", {
     onClick: onRestart,
     className: "icon-btn icon-btn-danger",
@@ -214,9 +204,18 @@ export function GameScreen({
     title: "Stop this request"
   }, "STOP")), entries.map((entry, i) => {
     if (entry.type === "narration") {
+      const showPlay = ttsEnabled && entry.fullyRevealed && !entry.streaming && typeof entry.text === "string" && entry.text.trim();
+      const isLoading = ttsPlayback?.loading && ttsPlayback?.loadingTurnId === i;
+      const isActive = ttsPlayback?.activeTurnId === i;
+      const isSpeaking = isActive && ttsPlayback?.speaking;
+      const isPaused = isActive && ttsPlayback?.paused;
+      const btnGlyph = isLoading ? "◐" : (isSpeaking ? "❙❙" : "▶");
+      const btnLabel = isLoading ? "LOADING" : (isSpeaking ? "PAUSE" : (isPaused ? "RESUME" : "PLAY"));
       return /* @__PURE__ */ React.createElement("div", {
         key: i,
-        className: "narration-text body-font text-lg fade-in",
+        className: "fade-in"
+      }, /* @__PURE__ */ React.createElement("div", {
+        className: "narration-text body-font text-lg",
         style: { lineHeight: 1.7 }
       }, /* @__PURE__ */ React.createElement(TypewriterText, {
         text: entry.text,
@@ -224,7 +223,27 @@ export function GameScreen({
         skipSignal: skipNonce,
         onDone: () => onEntryDone(i),
         scrollRef
-      }));
+      })), showPlay && /* @__PURE__ */ React.createElement("div", {
+        className: "mt-2",
+        style: { display: "flex", justifyContent: "flex-start" },
+        onClick: (e) => e.stopPropagation()
+      }, /* @__PURE__ */ React.createElement("button", {
+        onClick: (e) => { e.stopPropagation(); onPlayEntry?.(i); },
+        className: "icon-btn",
+        disabled: isLoading,
+        title: isLoading ? "Preparing narration…" : (isSpeaking ? "Pause narration" : (isPaused ? "Resume narration" : "Play this passage aloud")),
+        "aria-label": btnLabel,
+        "aria-busy": isLoading ? "true" : "false",
+        style: { padding: "4px 10px", fontSize: "10px", opacity: isLoading ? 0.75 : 1 }
+      }, /* @__PURE__ */ React.createElement("span", {
+        "aria-hidden": "true",
+        className: isLoading ? "tts-spin" : ""
+      }, btnGlyph), /* @__PURE__ */ React.createElement("span", {
+        className: "btn-label"
+      }, " ", btnLabel), isLoading && /* @__PURE__ */ React.createElement("span", {
+        className: "typing-dots",
+        style: { marginLeft: "4px" }
+      }, /* @__PURE__ */ React.createElement("span", null, "."), /* @__PURE__ */ React.createElement("span", null, "."), /* @__PURE__ */ React.createElement("span", null, ".")))));
     }
     return /* @__PURE__ */ React.createElement("div", {
       key: i,

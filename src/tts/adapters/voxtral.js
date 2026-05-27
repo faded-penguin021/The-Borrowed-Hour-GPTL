@@ -7,7 +7,7 @@ import { _fetchAudioBlob, _blobHandle } from "../shared.js";
 // it from OpenAI's schema. Supports 20 preset voices + zero-shot cloning.
 export class VoxtralTTSAdapter {
   constructor({ voiceId, rate, key, model }) {
-    this.voiceId = voiceId || "jane_confident";
+    this.voiceId = voiceId || "neutral_female";
     this.rate = rate || 1.0;
     this.key = key || "";
     this.model = model || "voxtral-mini-tts-2603";

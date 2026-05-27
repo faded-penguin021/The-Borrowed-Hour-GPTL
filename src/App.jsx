@@ -196,7 +196,7 @@ export function App() {
   const [ttsElevenKey, setTtsElevenKey] = useState(""); // plaintext; only used for the inline key field
   const [ttsBrowserVoices, setTtsBrowserVoices] = useState([]);
   const [ttsProviderReady, setTtsProviderReady] = useState({ browser: true, puter: true });
-  const [ttsPlayback, setTtsPlayback] = useState({ speaking: false, paused: false });
+  const [ttsPlayback, setTtsPlayback] = useState({ speaking: false, paused: false, loading: false, loadingTurnId: null, activeTurnId: null });
   const ttsLoadedRef = useRef(false);
   const ttsRef = useRef(null);
   // Monotonic cursor: index of the next entry to speak. Reset on chronicle
@@ -264,7 +264,13 @@ export function App() {
   const ensureTTSController = () => {
     if (!ttsRef.current) {
       const ctrl = new TTSController();
-      ctrl.onStateChange(() => setTtsPlayback({ speaking: ctrl.isSpeaking(), paused: ctrl.isPaused() }));
+      ctrl.onStateChange(() => setTtsPlayback({
+        speaking: ctrl.isSpeaking(),
+        paused: ctrl.isPaused(),
+        loading: ctrl.isLoading(),
+        loadingTurnId: ctrl.loadingFor(),
+        activeTurnId: ctrl.activeTurnId
+      }));
       ttsRef.current = ctrl;
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         const reload = () => setTtsBrowserVoices(window.speechSynthesis.getVoices().slice());
@@ -273,6 +279,24 @@ export function App() {
       }
     }
     return ttsRef.current;
+  };
+
+  // Per-entry play handler (button shown beneath each fully-revealed narration).
+  // Behavior: if this entry is the active one → toggle pause/resume; otherwise
+  // stop whatever is playing and synthesize this entry from scratch.
+  const playEntry = (idx) => {
+    const ctrl = ensureTTSController();
+    const e = entries[idx];
+    if (!e || e.type !== "narration" || !e.fullyRevealed) return;
+    if (!ttsEnabled) setTtsEnabled(true);
+    if (ttsMuted) setTtsMuted(false);
+    const active = ctrl.activeTurnId === idx && ctrl.activeHandle;
+    if (active) {
+      if (ctrl.isPaused()) ctrl.resume();
+      else ctrl.pause();
+      return;
+    }
+    if (typeof e.text === "string" && e.text.trim()) ctrl.speak(e.text, { turnId: idx });
   };
 
   // Play/pause/replay handler for the HUD button.
@@ -1519,7 +1543,8 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     ttsMuted,
     ttsPlayback,
     onToggleTtsMute: () => setTtsMuted((m) => !m),
-    onTogglePlayPause: togglePlayPause
+    onTogglePlayPause: togglePlayPause,
+    onPlayEntry: playEntry
   }), showSaves && /* @__PURE__ */ React.createElement(SavesModal, {
     saves: saveList,
     totalBytes: savesTotalBytes,
