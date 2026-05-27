@@ -30,13 +30,31 @@ export class PuterTTSAdapter {
     const audio = await puter.ai.txt2speech(text.trim(), { voice: this.voiceId, engine: this.engine });
     if (signal?.aborted) { try { audio.pause(); } catch (_) {} throw Object.assign(new Error("Aborted"), { name: "AbortError" }); }
     let _onended = null;
-    audio.onended = () => { if (_onended) _onended(); };
+    const finish = () => { if (_onended) _onended(); };
+    audio.onended = finish;
+    audio.onerror = () => {
+      if (typeof console !== "undefined") console.warn("[tts] puter audio error:", audio.error?.code, audio.error?.message);
+      finish();
+    };
+    const tryPlay = () => {
+      let p;
+      try { p = audio.play(); } catch (e) {
+        if (typeof console !== "undefined") console.warn("[tts] puter audio.play() threw:", e?.message || e);
+        return;
+      }
+      if (p && typeof p.catch === "function") {
+        p.catch((e) => {
+          if (typeof console !== "undefined") console.warn("[tts] puter audio.play() rejected:", e?.name || "", e?.message || e);
+          finish();
+        });
+      }
+    };
     const handle = {
-      play: () => { try { audio.play(); } catch (_) {} },
+      play: tryPlay,
       pause: () => { try { audio.pause(); } catch (_) {} },
-      resume: () => { try { audio.play(); } catch (_) {} },
+      resume: tryPlay,
       stop: () => { try { audio.pause(); audio.currentTime = 0; } catch (_) {} },
-      set onended(cb) { _onended = cb; audio.onended = () => { if (_onended) _onended(); }; }
+      set onended(cb) { _onended = cb; }
     };
     signal?.addEventListener("abort", handle.stop);
     return handle;
