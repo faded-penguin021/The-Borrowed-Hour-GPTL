@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "../tts/catalogue.js";
 
-export function TTSRow({ enabled, providerId, providerReady, voiceId, browserVoices, rate, elevenKey, onChangeEnabled, onChangeProvider, onChangeVoice, onChangeRate, onChangeElevenKey }) {
+export function TTSRow({ enabled, providerId, providerReady, voiceId, browserVoices, voxtralVoices, voxtralVoicesError, rate, elevenKey, onChangeEnabled, onChangeProvider, onChangeVoice, onChangeRate, onChangeElevenKey }) {
   const [elevenInput, setElevenInput] = React.useState(elevenKey || "");
   const [elevenSaved, setElevenSaved] = React.useState(false);
   const providers = TTS_PROVIDER_ORDER.map((id) => TTS_PROVIDER_META[id]);
@@ -9,7 +9,9 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, browserVoi
   const activeMeta = TTS_PROVIDER_META[providerId] || null;
   const voices = providerId === "browser"
     ? (browserVoices || []).map((v) => ({ id: v.name, label: `${v.name} — ${v.lang}` }))
-    : activeMeta?.voices || [];
+    : providerId === "voxtral"
+      ? (voxtralVoices && voxtralVoices.length > 0 ? voxtralVoices : (activeMeta?.voices || []))
+      : (activeMeta?.voices || []);
   const allowCustomVoiceId = !!activeMeta?.allowCustomVoiceId;
   return /* @__PURE__ */ React.createElement("div", {
     className: "settings-toggle",
@@ -87,6 +89,15 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, browserVoi
       style: { padding: "5px 10px", fontSize: 10, letterSpacing: "0.15em" },
       onClick: async () => { await onChangeElevenKey(elevenInput); setElevenSaved(true); }
     }, elevenSaved ? "SAVED ✓" : "SAVE")),
+    /* Voxtral voice-fetch status */
+    enabled && providerId === "voxtral" && voxtralVoicesError && /* @__PURE__ */ React.createElement("div", {
+      className: "body-font italic",
+      style: { color: "var(--rose-ember)", fontSize: 11, marginBottom: 6, opacity: 0.85 }
+    }, "Voice list: ", voxtralVoicesError),
+    enabled && providerId === "voxtral" && !voxtralVoicesError && (!voxtralVoices || voxtralVoices.length === 0) && /* @__PURE__ */ React.createElement("div", {
+      className: "body-font italic",
+      style: { color: "var(--cream-faint)", fontSize: 11, marginBottom: 6 }
+    }, "Loading voice list…"),
     /* Voice picker */
     enabled && voices.length > 0 && /* @__PURE__ */ React.createElement("label", {
       style: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }
@@ -112,7 +123,7 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, browserVoi
       value: voiceId || "",
       onChange: (e) => onChangeVoice(e.target.value.trim() || null),
       placeholder: providerId === "voxtral"
-        ? "Paste any Voxtral preset (e.g. casual_male) or cloned voice id"
+        ? "Paste any Voxtral voice id (e.g. en_paul_neutral) or cloned voice id"
         : "Paste any ElevenLabs voice ID (e.g. cloned voice)",
       className: "body-font",
       autoComplete: "off",

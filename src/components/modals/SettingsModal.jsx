@@ -8,7 +8,7 @@ import { SettingsToggleRow } from "../../settings/SettingsToggleRow.jsx";
 export function SettingsModal({ settings, onChange, onClose, osReducedMotion,
   ambienceLevel, ambienceUnavailable, ambienceDuringNarrationOnly, ambienceBoostWithTTS,
   onChangeAmbience, onChangeAmbienceDuringNarrationOnly, onChangeAmbienceBoostWithTTS,
-  ttsEnabled, ttsProviderId, ttsProviderReady, ttsVoiceId, ttsBrowserVoices, ttsRate, ttsElevenKey,
+  ttsEnabled, ttsProviderId, ttsProviderReady, ttsVoiceId, ttsBrowserVoices, ttsVoxtralVoices, ttsVoxtralVoicesError, ttsRate, ttsElevenKey,
   onChangeTtsEnabled, onChangeTtsProvider, onChangeTtsVoice, onChangeTtsRate, onChangeTtsElevenKey }) {
   return /* @__PURE__ */ React.createElement("div", {
     className: "modal-backdrop",
@@ -71,6 +71,8 @@ export function SettingsModal({ settings, onChange, onClose, osReducedMotion,
     providerReady: ttsProviderReady,
     voiceId: ttsVoiceId,
     browserVoices: ttsBrowserVoices,
+    voxtralVoices: ttsVoxtralVoices,
+    voxtralVoicesError: ttsVoxtralVoicesError,
     rate: ttsRate,
     elevenKey: ttsElevenKey,
     onChangeEnabled: onChangeTtsEnabled,

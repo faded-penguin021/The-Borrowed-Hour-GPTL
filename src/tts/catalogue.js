@@ -50,29 +50,12 @@ export var TTS_PROVIDER_META = {
     adapter: OpenAITTSAdapter
   },
   voxtral: {
+    // Voice list comes from the API at /v1/audio/voices — the hosted catalog
+    // diverges from the open-weight presets, so static IDs go stale fast.
+    // en_paul_neutral is the confirmed default fallback if the fetch fails.
     id: "voxtral", name: "Voxtral", requiresKey: true, reusesLLMKey: "mistral",
     voices: [
-      { id: "neutral_female",  label: "Neutral female (EN)" },
-      { id: "neutral_male",    label: "Neutral male (EN)" },
-      { id: "casual_female",   label: "Casual female (EN)" },
-      { id: "casual_male",     label: "Casual male (EN)" },
-      { id: "cheerful_female", label: "Cheerful female (EN)" },
-      { id: "fr_female",       label: "Female (FR)" },
-      { id: "fr_male",         label: "Male (FR)" },
-      { id: "es_female",       label: "Female (ES)" },
-      { id: "es_male",         label: "Male (ES)" },
-      { id: "de_female",       label: "Female (DE)" },
-      { id: "de_male",         label: "Male (DE)" },
-      { id: "it_female",       label: "Female (IT)" },
-      { id: "it_male",         label: "Male (IT)" },
-      { id: "pt_female",       label: "Female (PT)" },
-      { id: "pt_male",         label: "Male (PT)" },
-      { id: "nl_female",       label: "Female (NL)" },
-      { id: "nl_male",         label: "Male (NL)" },
-      { id: "hi_female",       label: "Female (HI)" },
-      { id: "hi_male",         label: "Male (HI)" },
-      { id: "ar_female",       label: "Female (AR)" },
-      { id: "ar_male",         label: "Male (AR)" }
+      { id: "en_paul_neutral", label: "Paul — neutral (EN)" }
     ],
     model: "voxtral-mini-tts-2603",
     adapter: VoxtralTTSAdapter,

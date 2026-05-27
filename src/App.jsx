@@ -11,6 +11,7 @@ import { AmbienceEngine } from "./ambience/engine.js";
 import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "./tts/catalogue.js";
 import { TTSController } from "./tts/controller.js";
 import { getTtsElevenLabsKey, saveTtsElevenLabsKey } from "./tts/elevenLabsKey.js";
+import { fetchVoxtralVoices } from "./tts/adapters/voxtral.js";
 import { ENC_PREFIX, encryptSecret, decryptSecret } from "./storage/encryption.js";
 import { TitleScreen } from "./components/TitleScreen.jsx";
 import { GameScreen } from "./components/GameScreen.jsx";
@@ -195,6 +196,8 @@ export function App() {
   const [ttsRate, setTtsRate] = useState(1.0);
   const [ttsElevenKey, setTtsElevenKey] = useState(""); // plaintext; only used for the inline key field
   const [ttsBrowserVoices, setTtsBrowserVoices] = useState([]);
+  const [ttsVoxtralVoices, setTtsVoxtralVoices] = useState([]);
+  const [ttsVoxtralVoicesError, setTtsVoxtralVoicesError] = useState(null);
   const [ttsProviderReady, setTtsProviderReady] = useState({ browser: true, puter: true });
   const [ttsPlayback, setTtsPlayback] = useState({ speaking: false, paused: false, loading: false, loadingTurnId: null, activeTurnId: null, lastError: null, lastErrorTurnId: null });
   const ttsLoadedRef = useRef(false);
@@ -359,6 +362,28 @@ export function App() {
 
   // Re-check provider readiness when settings panel opens.
   useEffect(() => { if (showSettings) detectTtsProviderReady(); }, [showSettings]);
+
+  // Fetch Voxtral's voice catalogue from the API. The hosted endpoint's voice
+  // IDs differ from the open-weight model's preset names, so static lists go
+  // stale fast — pull the live list whenever the user opens settings (or first
+  // selects Voxtral) and a Mistral key is available.
+  useEffect(() => {
+    if (ttsProviderId !== "voxtral") return;
+    if (!showSettings && ttsVoxtralVoices.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      let key = null;
+      try { key = await getProviderKey("mistral"); } catch {}
+      if (!key) return;
+      try {
+        const voices = await fetchVoxtralVoices(key);
+        if (!cancelled) { setTtsVoxtralVoices(voices); setTtsVoxtralVoicesError(null); }
+      } catch (e) {
+        if (!cancelled) setTtsVoxtralVoicesError(e?.message || String(e));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [ttsProviderId, showSettings]);
 
   // Ambience↔TTS coupling — gate: ambience only during narration.
   useEffect(() => {
@@ -1594,6 +1619,8 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     ttsProviderReady,
     ttsVoiceId,
     ttsBrowserVoices,
+    ttsVoxtralVoices,
+    ttsVoxtralVoicesError,
     ttsRate,
     ttsElevenKey,
     onChangeTtsEnabled: setTtsEnabled,
