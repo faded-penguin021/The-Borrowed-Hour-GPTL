@@ -46,7 +46,7 @@ export var DEFAULT_CODEX_SETTINGS = {
   },
   artDirectorEngine: { provider: "mistral", model: "mistral-small-latest" },
   maxPerSession: 12,
-  timeoutMs: 20000
+  timeoutMs: 60000
 };
 
 export var DEFAULT_SETTINGS = {

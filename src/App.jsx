@@ -76,6 +76,12 @@ export function App() {
               ...((parsed.codex && parsed.codex.providerConfig) || {})
             }
           };
+          // Migrate the old 20s image timeout to the new 60s default. No UI
+          // ever existed for this knob, so anything ≤20000 is the stale value
+          // shipping with the first cut of the codex feature.
+          if (!merged.codex.timeoutMs || merged.codex.timeoutMs <= 20000) {
+            merged.codex.timeoutMs = DEFAULT_SETTINGS.codex.timeoutMs;
+          }
           for (const role of ["engineOpening", "engineGM", "engineNarrator"]) {
             const eng = merged[role];
             if (eng?.provider === "gemini" && (eng.model === "gemini-3.1-flash-lite" || eng.model === "gemini-flash-lite-latest"))
