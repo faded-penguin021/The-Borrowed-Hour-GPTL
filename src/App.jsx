@@ -122,6 +122,7 @@ export function App() {
   const [ambienceUnavailable, setAmbienceUnavailable] = useState(false);
   const [ambienceDuringNarrationOnly, setAmbienceDuringNarrationOnly] = useState(false);
   const [ambienceBoostWithTTS, setAmbienceBoostWithTTS] = useState(false);
+  const [ambienceMusicLevel, setAmbienceMusicLevel] = useState("full");
   const ambienceLoadedRef = useRef(false);
   const ambienceRef = useRef(null);
   useEffect(() => {
@@ -139,6 +140,8 @@ export function App() {
               setAmbienceDuringNarrationOnly(parsed.duringNarrationOnly);
             if (typeof parsed.boostWithTTS === "boolean")
               setAmbienceBoostWithTTS(parsed.boostWithTTS);
+            if (parsed.musicLevel === "off" || parsed.musicLevel === "sparse" || parsed.musicLevel === "full")
+              setAmbienceMusicLevel(parsed.musicLevel);
           }
         }
       } catch {} finally {
@@ -154,11 +157,12 @@ export function App() {
           level: ambienceLevel,
           muted: ambienceMuted,
           duringNarrationOnly: ambienceDuringNarrationOnly,
-          boostWithTTS: ambienceBoostWithTTS
+          boostWithTTS: ambienceBoostWithTTS,
+          musicLevel: ambienceMusicLevel
         }));
       } catch {}
     })();
-  }, [ambienceLevel, ambienceMuted, ambienceDuringNarrationOnly, ambienceBoostWithTTS]);
+  }, [ambienceLevel, ambienceMuted, ambienceDuringNarrationOnly, ambienceBoostWithTTS, ambienceMusicLevel]);
   const ensureAmbienceEngine = () => {
     if (ambienceLevel === "off") return null;
     if (ambienceUnavailable) return null;
@@ -175,6 +179,7 @@ export function App() {
     const eng = ambienceRef.current;
     if (eng.intensity !== ambienceLevel) eng.setIntensity(ambienceLevel);
     if (eng.muted !== ambienceMuted) eng.mute(ambienceMuted);
+    if (eng.musicLevel !== ambienceMusicLevel) eng.setMusicLevel(ambienceMusicLevel);
     return eng;
   };
   useEffect(() => {
@@ -187,6 +192,11 @@ export function App() {
     if (!eng) return;
     if (eng.muted !== ambienceMuted) eng.mute(ambienceMuted);
   }, [ambienceMuted]);
+  useEffect(() => {
+    const eng = ambienceRef.current;
+    if (!eng) return;
+    if (eng.musicLevel !== ambienceMusicLevel) eng.setMusicLevel(ambienceMusicLevel);
+  }, [ambienceMusicLevel]);
 
   // ── TTS (text-to-speech narration) ──────────────────────────────
   const [ttsEnabled, setTtsEnabled] = useState(false);
@@ -1611,9 +1621,11 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     ambienceUnavailable,
     ambienceDuringNarrationOnly,
     ambienceBoostWithTTS,
+    ambienceMusicLevel,
     onChangeAmbience: setAmbienceLevel,
     onChangeAmbienceDuringNarrationOnly: setAmbienceDuringNarrationOnly,
     onChangeAmbienceBoostWithTTS: setAmbienceBoostWithTTS,
+    onChangeAmbienceMusicLevel: setAmbienceMusicLevel,
     ttsEnabled,
     ttsProviderId,
     ttsProviderReady,

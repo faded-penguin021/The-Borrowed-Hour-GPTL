@@ -1,3 +1,12 @@
+// ─────────────────────────────────────────────────────────────────────────
+// Procedural synthesis recipes adapted from Hermes Agent Music (MIT)
+//   https://github.com/jlaiii/hermes-agent-music
+// Adapted pieces: noise-buffer generators, IR convolver reverb, piano-drift,
+// kick/snare/hat voices, weather/nature beds (wind/ocean/thunder/birds/
+// crickets/stream). Recomposed for The Borrowed Hour's mood/space/
+// population taxonomy.
+// ─────────────────────────────────────────────────────────────────────────
+
 import {
   AMBIENCE_INTENSITY_GAIN,
   AMBIENCE_HARD_CEILING,
@@ -8,6 +17,9 @@ import {
   AMBIENCE_MOOD_PROGRESSION,
   AMBIENCE_MOOD_PULSE_BPM,
   AMBIENCE_MOOD_MUSIC_GAIN,
+  AMBIENCE_MOOD_INSTRUMENTATION,
+  AMBIENCE_MOOD_DRUM_PATTERN,
+  AMBIENCE_MOOD_DRUM_GAIN,
   AMBIENCE_SPACE_RECIPES,
   AMBIENCE_POPULATION_RECIPES,
   AMBIENCE_EVENT_RECIPES,
@@ -29,6 +41,18 @@ export class AmbienceEngine {
     this.master.gain.value = 0;
     this.master.connect(this.ctx.destination);
 
+    // Shared convolver reverb bus. Lanes that want wet tail connect to
+    // reverbSend at a per-voice gain; reverbReturn lives under master.
+    this.reverbSend = this.ctx.createGain();
+    this.reverbSend.gain.value = 1.0;
+    this.convolver = this.ctx.createConvolver();
+    this.convolver.buffer = this._impulseResponse(2.4, 2.0);
+    this.reverbReturn = this.ctx.createGain();
+    this.reverbReturn.gain.value = 0.55;
+    this.reverbSend.connect(this.convolver);
+    this.convolver.connect(this.reverbReturn);
+    this.reverbReturn.connect(this.master);
+
     // Diegetic synth lanes — each holds a scene voice built from one of
     // the recipes in AMBIENCE_SPACE_RECIPES / AMBIENCE_POPULATION_RECIPES.
     this.scene = {
@@ -40,6 +64,12 @@ export class AmbienceEngine {
     this.chordPad = this._buildChordPad();
     this.melodyVoice = this._buildMelody();
     this.pulse = this._buildPulse();
+    // New instrument lanes — additive over chord/melody/pulse.
+    this.piano   = this._buildInstrumentLane(0.45);
+    this.pluck   = this._buildInstrumentLane(0.30);
+    this.strings = this._buildInstrumentLane(0.40);
+    this.drums   = this._buildInstrumentLane(0.12);
+    this.musicLevel = "full"; // off | sparse | full
 
     // Currently held GM input — fields stay until re-emitted.
     this.current = { space: null, population: null, mood: null };
@@ -48,6 +78,9 @@ export class AmbienceEngine {
     this.melodyArmed = false;
     this.pulseArmed = false;
     this.chordArmed = false;
+    this.drumsArmed = false;
+    this.drumStep = 0;
+    this.drumScheduled = 0;
     // TTS coupling state
     this.speechGate = false;
     this.speechActive = false;
@@ -90,6 +123,211 @@ export class AmbienceEngine {
       for (let i = 0; i < len; i++) d[i] = Math.random()*2-1;
     }
     return b;
+  }
+  // ── Impulse response (adapted from Hermes Agent Music, MIT) ───────
+  _impulseResponse(seconds, decay) {
+    const ctx = this.ctx;
+    const len = Math.max(1, Math.floor(ctx.sampleRate * seconds));
+    const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < len; i++) {
+        d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+      }
+    }
+    return buf;
+  }
+  // ── Instrument lane scaffold ──────────────────────────────────────
+  // Returns { out, dry, wet } where `out` is what notes connect to.
+  // `out → dry → master` is the dry signal; `out → wet → reverbSend`
+  // is the wet send at `wetAmount`. Both branches share the lane gain
+  // (mood-controlled) so volume scales together.
+  _buildInstrumentLane(wetAmount) {
+    const ctx = this.ctx;
+    const out = ctx.createGain(); out.gain.value = 0;
+    const dry = ctx.createGain(); dry.gain.value = 1.0;
+    const wet = ctx.createGain(); wet.gain.value = wetAmount;
+    out.connect(dry); dry.connect(this.master);
+    out.connect(wet); wet.connect(this.reverbSend);
+    return { out, dry, wet, wetAmount };
+  }
+  // ── Piano: detuned triangles, soft attack, long release ───────────
+  _firePiano(freq, peak, release) {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const lpf = ctx.createBiquadFilter();
+    lpf.type = "lowpass";
+    lpf.frequency.value = 2500;
+    lpf.Q.value = 0.5;
+    const g = ctx.createGain();
+    const now = ctx.currentTime;
+    const rel = release || 2.5;
+    const p = peak || 0.10;
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(p, now + 0.6);
+    g.gain.linearRampToValueAtTime(p * 0.05, now + 1.8);
+    g.gain.exponentialRampToValueAtTime(0.0005, now + rel);
+    lpf.connect(g); g.connect(this.piano.out);
+    const detunes = [0, 0.5, -0.5];
+    detunes.forEach((d) => {
+      const o = ctx.createOscillator();
+      o.type = "triangle";
+      o.frequency.value = freq;
+      o.detune.value = d;
+      o.connect(lpf);
+      o.start(now);
+      o.stop(now + rel + 0.1);
+    });
+  }
+  // ── Pluck: Karplus-Strong (noise burst into feedback delay) ──────
+  _firePluck(freq, peak) {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const p = peak || 0.18;
+    const delayTime = 1 / Math.max(40, freq);
+    // Burst.
+    const burst = ctx.createBufferSource();
+    burst.buffer = this._noiseBuffer(0.02, "white");
+    const burstGain = ctx.createGain();
+    burstGain.gain.value = p;
+    // Feedback loop.
+    const delay = ctx.createDelay(0.05);
+    delay.delayTime.value = delayTime;
+    const fbGain = ctx.createGain();
+    fbGain.gain.value = 0.97;
+    const fbLpf = ctx.createBiquadFilter();
+    fbLpf.type = "lowpass";
+    fbLpf.frequency.value = 2500;
+    burst.connect(burstGain);
+    burstGain.connect(delay);
+    delay.connect(fbLpf);
+    fbLpf.connect(fbGain);
+    fbGain.connect(delay);
+    // Output envelope to silence the ringing tail.
+    const out = ctx.createGain();
+    out.gain.setValueAtTime(1, now);
+    out.gain.exponentialRampToValueAtTime(0.0005, now + 1.8);
+    delay.connect(out);
+    out.connect(this.pluck.out);
+    burst.start(now);
+    burst.stop(now + 0.05);
+    setTimeout(() => {
+      try { delay.disconnect(); } catch (_) {}
+      try { fbLpf.disconnect(); } catch (_) {}
+      try { fbGain.disconnect(); } catch (_) {}
+      try { out.disconnect(); } catch (_) {}
+    }, 2200);
+  }
+  // ── Strings: saw+triangle stack through bandpass; bowed or pizz ──
+  _fireStringNote(freq, mode, duration) {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const isBow = mode === "bow";
+    const dur = duration || (isBow ? 2.2 : 0.4);
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = Math.max(400, freq * 2);
+    bp.Q.value = isBow ? 1.4 : 2.0;
+    const env = ctx.createGain();
+    if (isBow) {
+      env.gain.setValueAtTime(0, now);
+      env.gain.linearRampToValueAtTime(0.18, now + 0.8);
+      env.gain.setTargetAtTime(0.15, now + 0.9, 0.4);
+      env.gain.setTargetAtTime(0.0005, now + dur - 0.3, 0.5);
+    } else {
+      env.gain.setValueAtTime(0, now);
+      env.gain.linearRampToValueAtTime(0.20, now + 0.005);
+      env.gain.exponentialRampToValueAtTime(0.0005, now + 0.35);
+    }
+    bp.connect(env); env.connect(this.strings.out);
+    const saw = ctx.createOscillator(); saw.type = "sawtooth"; saw.frequency.value = freq;
+    const tri = ctx.createOscillator(); tri.type = "triangle"; tri.frequency.value = freq;
+    tri.detune.value = -7;
+    saw.connect(bp); tri.connect(bp);
+    let lfo, lfoGain;
+    if (isBow) {
+      lfo = ctx.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 5.5;
+      lfoGain = ctx.createGain(); lfoGain.gain.value = 6; // cents
+      lfo.connect(lfoGain);
+      lfoGain.connect(saw.detune);
+      lfoGain.connect(tri.detune);
+      lfo.start(now);
+      lfo.stop(now + dur + 0.1);
+    }
+    saw.start(now); saw.stop(now + dur + 0.1);
+    tri.start(now); tri.stop(now + dur + 0.1);
+  }
+  _fireBow(freq, dur) { this._fireStringNote(freq, "bow", dur); }
+  _firePizz(freq)     { this._fireStringNote(freq, "pizz", 0.4); }
+  // ── Drums: kick, snare, hat ──────────────────────────────────────
+  _fireKick(peak) {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const o = ctx.createOscillator(); o.type = "sine";
+    o.frequency.setValueAtTime(150, now);
+    o.frequency.exponentialRampToValueAtTime(40, now + 0.18);
+    const g = ctx.createGain();
+    const p = peak || 0.9;
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(p, now + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
+    // Kick stays dry — route past the lane wet send.
+    o.connect(g); g.connect(this.drums.dry);
+    o.start(now); o.stop(now + 0.22);
+  }
+  _fireSnare(peak) {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this._noiseBuffer(0.2, "white");
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass"; bp.frequency.value = 2500; bp.Q.value = 1.0;
+    const g = ctx.createGain();
+    const p = peak || 0.5;
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(p, now + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    src.connect(bp); bp.connect(g); g.connect(this.drums.out);
+    src.start(now); src.stop(now + 0.15);
+  }
+  _fireHat(peak) {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this._noiseBuffer(0.08, "white");
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass"; hp.frequency.value = 7000;
+    const g = ctx.createGain();
+    const p = peak || 0.35;
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(p, now + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    src.connect(hp); hp.connect(g); g.connect(this.drums.out);
+    src.start(now); src.stop(now + 0.08);
+  }
+  _scheduleDrums() {
+    if (this.destroyed) return;
+    const mood = this.current.mood;
+    const pattern = mood ? AMBIENCE_MOOD_DRUM_PATTERN[mood] : null;
+    if (!pattern || this.intensity === "off" || this.muted || this.musicLevel !== "full") {
+      this.drumStep = 0;
+      this.drumScheduled = setTimeout(() => this._scheduleDrums(), 1500);
+      return;
+    }
+    const bpm = AMBIENCE_MOOD_PULSE_BPM[mood] || 70;
+    const sixteenthMs = (60000 / bpm) / 4;
+    const slot = pattern[this.drumStep % pattern.length] || {};
+    const gainOv = AMBIENCE_MOOD_DRUM_GAIN[mood] || {};
+    if (slot.k) this._fireKick(gainOv.kick != null ? gainOv.kick * 6 : 0.9);
+    if (slot.s) this._fireSnare(gainOv.snare != null ? gainOv.snare * 6 : 0.5);
+    if (slot.h) this._fireHat(gainOv.hat != null ? gainOv.hat * 6 : 0.35);
+    this.drumStep = (this.drumStep + 1) % pattern.length;
+    this.drumScheduled = setTimeout(() => this._scheduleDrums(), sixteenthMs);
   }
   // ── Scene lanes (space, population) ───────────────────────────────
   _setSceneLane(lane, category, name, trimTable) {
@@ -232,8 +470,41 @@ export class AmbienceEngine {
     const wait = -Math.log(1 - Math.random() * 0.99) * meanInterval;
     this.melodyVoice.scheduled = setTimeout(() => {
       this._fireMelodyNote();
+      this._fireInstrumentNote();
       this._scheduleNextMelodyNote();
     }, Math.min(22000, wait * 1000));
+  }
+  // Fire piano/pluck/pizz on the same scale-degree the melody just used,
+  // weighted by mood instrumentation. Bowed strings are timing-different
+  // (long sustains) — handled by a separate slower scheduler below.
+  _fireInstrumentNote() {
+    if (this.destroyed) return;
+    const mood = this.current.mood;
+    if (!mood) return;
+    const instr = AMBIENCE_MOOD_INSTRUMENTATION[mood];
+    if (!instr) return;
+    const scale = AMBIENCE_MOOD_SCALE[mood] || AMBIENCE_MOOD_SCALE.calm;
+    const degree = this.melodyVoice.scaleDegree ?? 3;
+    const root = 220; // A3
+    const freq = root * Math.pow(2, scale[degree] / 12);
+    // Each instrument fires with a per-mood probability so they don't all
+    // play every melody beat — sparseness sells the minimalist feel.
+    if (instr.piano && Math.random() < 0.45) {
+      this._firePiano(freq * 0.5, 0.10, 2.5 + Math.random() * 1.2);
+    }
+    if (instr.pluck && Math.random() < 0.55) {
+      this._firePluck(freq, 0.18);
+    }
+    if (instr.pizz && Math.random() < 0.50) {
+      this._firePizz(freq);
+    }
+    if (instr.bow && Math.random() < 0.25) {
+      // Bowed line uses the chord root for a sustained drone above the pad.
+      const prog = AMBIENCE_MOOD_PROGRESSION[mood];
+      const [chordRoot] = prog[(this.chordPad.progressionIdx + prog.length - 1) % prog.length];
+      const bowFreq = 110 * Math.pow(2, chordRoot / 12) * 2;
+      this._fireBow(bowFreq, 3.5 + Math.random() * 2);
+    }
   }
   _fireMelodyNote() {
     if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
@@ -310,12 +581,30 @@ export class AmbienceEngine {
       this.chordPad.out.gain.setTargetAtTime(0, t, TC);
       this.melodyVoice.out.gain.setTargetAtTime(0, t, TC);
       this.pulse.out.gain.setTargetAtTime(0, t, TC);
+      this.piano.out.gain.setTargetAtTime(0, t, TC);
+      this.pluck.out.gain.setTargetAtTime(0, t, TC);
+      this.strings.out.gain.setTargetAtTime(0, t, TC);
+      this.drums.out.gain.setTargetAtTime(0, t, TC);
       return;
     }
     const weights = AMBIENCE_MOOD_MUSIC_GAIN[mood] || AMBIENCE_MOOD_MUSIC_GAIN.calm;
+    // Shadow the legacy melody when piano takes the lead — keeps the bed
+    // present but not competing with the piano's foreground.
+    const instr = AMBIENCE_MOOD_INSTRUMENTATION[mood] || {};
+    const melodyScale = instr.piano ? 0.35 : 1.0;
     this.chordPad.out.gain.setTargetAtTime(weights.chord, t, TC);
-    this.melodyVoice.out.gain.setTargetAtTime(weights.melody, t, TC);
+    this.melodyVoice.out.gain.setTargetAtTime(weights.melody * melodyScale, t, TC);
     this.pulse.out.gain.setTargetAtTime(weights.pulse, t, TC);
+    // Instrument lanes — scaled by musicLevel.
+    const melodicScale = this.musicLevel === "off" ? 0
+      : this.musicLevel === "sparse" ? 0.6
+      : 1.0;
+    const drumScale = this.musicLevel === "full" ? 1.0 : 0;
+    this.piano.out.gain.setTargetAtTime((instr.piano || 0) * melodicScale, t, TC);
+    this.pluck.out.gain.setTargetAtTime((instr.pluck || 0) * melodicScale, t, TC);
+    const stringPeak = Math.max(instr.pizz || 0, instr.bow || 0);
+    this.strings.out.gain.setTargetAtTime(stringPeak * melodicScale, t, TC);
+    this.drums.out.gain.setTargetAtTime((AMBIENCE_MOOD_DRUM_PATTERN[mood] ? 1.0 : 0) * drumScale, t, TC);
     // Snap chord progression to a fresh starting voicing on mood change.
     this.chordPad.progressionIdx = 0;
     const prog = AMBIENCE_MOOD_PROGRESSION[mood];
@@ -369,6 +658,7 @@ export class AmbienceEngine {
       if (!this.melodyArmed) { this.melodyArmed = true; this._scheduleNextMelodyNote(); }
       if (!this.pulseArmed)  { this.pulseArmed  = true; this._schedulePulse(); }
       if (!this.chordArmed)  { this.chordArmed  = true; this._scheduleNextChord(); }
+      if (!this.drumsArmed)  { this.drumsArmed  = true; this._scheduleDrums(); }
       if (prev === "off") this.startTime = this.ctx.currentTime;
       this._applyMaster();
     }
@@ -419,6 +709,13 @@ export class AmbienceEngine {
     this.muted = !!bool;
     this._applyMaster(true);
   }
+  setMusicLevel(level) {
+    if (this.destroyed) return;
+    const next = (level === "off" || level === "sparse" || level === "full") ? level : "full";
+    if (this.musicLevel === next) return;
+    this.musicLevel = next;
+    if (this.current.mood) this._applyMood(this.current.mood);
+  }
   setSpeechGate(on) {
     this.speechGate = !!on;
     if (!on) this.speechActive = false;
@@ -444,6 +741,7 @@ export class AmbienceEngine {
     if (this.melodyVoice && this.melodyVoice.scheduled) clearTimeout(this.melodyVoice.scheduled);
     if (this.pulse && this.pulse.scheduled) clearTimeout(this.pulse.scheduled);
     if (this.chordPad && this.chordPad.scheduled) clearTimeout(this.chordPad.scheduled);
+    if (this.drumScheduled) clearTimeout(this.drumScheduled);
     if (this.scene) {
       [this.scene.space, this.scene.population].forEach((lane) => {
         if (lane && lane.voice) this._disposeSceneVoice(lane.voice);
