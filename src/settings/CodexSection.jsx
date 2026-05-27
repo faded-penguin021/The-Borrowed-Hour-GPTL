@@ -139,7 +139,7 @@ export function CodexSection({ settings, onChange }) {
         /* @__PURE__ */ React.createElement("div", {
           className: "body-font italic",
           style: { color: "var(--cream-faint)", fontSize: 11, marginTop: 4 }
-        }, "Uses your saved OpenAI API key. Defaults to dall-e-3 standard quality (1024×1024, ~$0.04/image). gpt-image-1 needs OpenAI organization verification; if you use it, this app pins quality to 'low' to keep cost down.")
+        }, "Uses your saved OpenAI API key. Default is gpt-image-1-mini at medium quality (1024×1024, ~$0.01/image — great price-to-performance). Alternatives: gpt-image-1 (flagship, needs org verification, pinned to 'low' quality here), dall-e-3 ('standard' quality, ~$0.04/image), dall-e-2 (cheapest legacy).")
       ),
 
       providerId === "local" && /* @__PURE__ */ React.createElement(React.Fragment, null,
