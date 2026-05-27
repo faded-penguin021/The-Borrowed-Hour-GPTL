@@ -10,10 +10,17 @@
 export var AMBIENCE_INTENSITY_GAIN = { off: 0, subtle: 0.10, present: 0.22 };
 export var AMBIENCE_HARD_CEILING = 0.30;
 
-export var AMBIENCE_SPACES = new Set(["intimate","chamber","hall","cavern","street","field","forest","vehicle","void"]);
-export var AMBIENCE_POPULATIONS = new Set(["solitary","sparse_voices","crowd","machinery","nature","ceremony","creature","wild"]);
-export var AMBIENCE_MOODS = new Set(["calm","tender","tense","ominous","joyous","melancholy","urgent","mysterious"]);
-export var AMBIENCE_EVENTS = new Set(["bell_toll","bell_distant","clock_chime","door_close","door_creak","footsteps_close","footsteps_recede","wind_gust","distant_thunder","paper_rustle","chair_scrape","glass_set_down","coin_drop","crowd_hush","cough_distant","breath_held","metal_clang","whisper_close"]);
+import {
+  AMBIENCE_SPACE_VALUES,
+  AMBIENCE_POPULATION_VALUES,
+  AMBIENCE_MOOD_VALUES,
+  AMBIENCE_EVENT_VALUES
+} from "./enums.js";
+
+export var AMBIENCE_SPACES = new Set(AMBIENCE_SPACE_VALUES);
+export var AMBIENCE_POPULATIONS = new Set(AMBIENCE_POPULATION_VALUES);
+export var AMBIENCE_MOODS = new Set(AMBIENCE_MOOD_VALUES);
+export var AMBIENCE_EVENTS = new Set(AMBIENCE_EVENT_VALUES);
 
 // Per-scene loudness trims — relative voice gains feeding the master.
 // Tuned by ear; samples are no longer involved.

@@ -584,7 +584,7 @@ export function App() {
     let lastBodySnippet = null;
     for (let attempt = 0;attempt <= MAX_RETRIES; attempt++) {
       if (attempt > 0)
-        await new Promise((r) => setTimeout(r, 300 * Math.pow(2, attempt)));
+        await new Promise((r) => setTimeout(r, 300 * Math.pow(2, attempt) + Math.random() * 300));
       if (signal && signal.aborted) {
         throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
       }
@@ -702,7 +702,7 @@ export function App() {
     let lastErr = null;
     for (let attempt = 0;attempt <= MAX_RETRIES; attempt++) {
       if (attempt > 0)
-        await new Promise((r) => setTimeout(r, 300 * Math.pow(2, attempt)));
+        await new Promise((r) => setTimeout(r, 300 * Math.pow(2, attempt) + Math.random() * 300));
       if (signal && signal.aborted) {
         throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
       }
