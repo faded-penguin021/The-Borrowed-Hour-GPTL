@@ -7,7 +7,7 @@ export class ElevenLabsTTSAdapter {
     this.voiceId = voiceId || "21m00Tcm4TlvDq8ikWAM";
     this.rate = rate || 1.0;
     this.key = key || "";
-    this.model = model || "eleven_multilingual_v2";
+    this.model = model || "eleven_turbo_v2_5";
   }
   async synthesize(text, signal, onError) {
     const blob = await _fetchAudioBlob(

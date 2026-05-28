@@ -28,7 +28,7 @@ export class VoxtralTTSAdapter {
     this.voiceId = voiceId || "en_paul_neutral";
     this.rate = rate || 1.0;
     this.key = key || "";
-    this.model = model || "voxtral-mini-2503";
+    this.model = model || "voxtral-mini-tts-2603";
   }
   async synthesize(text, signal, onError) {
     // Mistral's /v1/audio/speech does NOT return raw audio bytes like OpenAI.
