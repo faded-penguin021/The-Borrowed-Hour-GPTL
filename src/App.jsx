@@ -82,25 +82,10 @@ export function App() {
           if (!merged.codex.timeoutMs || merged.codex.timeoutMs <= 20000) {
             merged.codex.timeoutMs = DEFAULT_SETTINGS.codex.timeoutMs;
           }
-          // model-ID migration table — old fabricated IDs → current published IDs
-          const MODEL_MIGRATIONS = {
-            "gemini-3.5-flash": "gemini-2.5-flash",
-            "gemini-3.1-flash-lite": "gemini-2.5-flash",
-            "gemini-flash-lite-latest": "gemini-2.5-flash",
-            "gpt-5.4-mini": "gpt-4.1-mini",
-            "gpt-5-mini": "gpt-4.1",
-            "gpt-5.4-nano": "gpt-4.1-nano",
-            "deepseek-v4-flash": "deepseek-chat",
-            "kimi-k2.5": "kimi-k2",
-            "openai/gpt-5.4-mini": "openai/gpt-4o-mini",
-            "deepseek/deepseek-v4-flash:free": "deepseek/deepseek-chat:free",
-            "gpt-oss-120b": "llama-3.3-70b",
-            "openai/gpt-oss-120b": "meta-llama/llama-4-maverick-17b-128e-instruct"
-          };
           for (const role of ["engineOpening", "engineGM", "engineNarrator"]) {
             const eng = merged[role];
-            if (eng?.model && MODEL_MIGRATIONS[eng.model])
-              merged[role] = { ...eng, model: MODEL_MIGRATIONS[eng.model] };
+            if (eng?.provider === "gemini" && (eng.model === "gemini-3.1-flash-lite" || eng.model === "gemini-flash-lite-latest"))
+              merged[role] = { ...eng, model: "gemini-3.5-flash" };
           }
           if (merged.engineStack && merged.engineStack !== "free" && !providerSupportsToolUse(merged.engineStack)) {
             merged.engineStack = "free";

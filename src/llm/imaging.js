@@ -12,10 +12,11 @@ import { getProviderKey } from "./providers.js";
 
 export const POLLINATIONS_DEFAULT_MODEL = "flux";
 export const REPLICATE_DEFAULT_MODEL = "black-forest-labs/flux-schnell";
-export const OPENAI_IMAGE_DEFAULT_MODEL = "gpt-image-1";
+export const OPENAI_IMAGE_DEFAULT_MODEL = "gpt-image-1-mini";
 export const LOCAL_IMAGE_DEFAULT_URL = "http://localhost:7860/sdapi/v1/txt2img";
 
-// checked: 2026-05-28
+// checked: 2026-05-28. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
+// gpt-image-* models remain for the OpenAI images endpoint.
 export const IMAGE_PROVIDER_META = {
   pollinations: {
     name: "Pollinations",
@@ -24,8 +25,9 @@ export const IMAGE_PROVIDER_META = {
     defaultModel: POLLINATIONS_DEFAULT_MODEL,
     models: [
       { id: "flux", tier: "free" },
-      { id: "flux-realism", tier: "free" },
-      { id: "turbo", tier: "free" }
+      { id: "nanobanana-pro", tier: "free" },
+      { id: "seedream-pro", tier: "free" },
+      { id: "gpt-image-2", tier: "free" }
     ]
   },
   replicate: {
@@ -37,20 +39,21 @@ export const IMAGE_PROVIDER_META = {
     defaultModel: REPLICATE_DEFAULT_MODEL,
     models: [
       { id: "black-forest-labs/flux-schnell", tier: "fast" },
-      { id: "black-forest-labs/flux-1.1-pro", tier: "quality" },
-      { id: "stability-ai/sdxl", tier: "classic" }
+      { id: "black-forest-labs/flux-2-klein", tier: "fast" },
+      { id: "black-forest-labs/flux-2-pro", tier: "quality" }
     ]
   },
   openai: {
     name: "OpenAI Image",
     keyless: false,
     reusesLLMProvider: "openai",
-    description: "Reuses your OpenAI API key (gpt-image-1).",
+    description: "Reuses your OpenAI API key (gpt-image family).",
     defaultModel: OPENAI_IMAGE_DEFAULT_MODEL,
     models: [
+      { id: "gpt-image-1-mini", tier: "cheap" },
       { id: "gpt-image-1", tier: "quality" },
-      { id: "dall-e-3", tier: "standard" },
-      { id: "dall-e-2", tier: "legacy" }
+      { id: "gpt-image-1.5", tier: "quality" },
+      { id: "gpt-image-2", tier: "flagship" }
     ]
   },
   local: {
@@ -151,23 +154,17 @@ const adapters = {
   async openai({ prompt, providerConfig, signal }) {
     const apiKey = await getProviderKey("openai");
     const model = providerConfig?.model || OPENAI_IMAGE_DEFAULT_MODEL;
-    // Param shapes diverge by model family:
-    //   gpt-image-1 (default): quality "low" pinned since "auto"/"high" can
-    //     run >$0.05/image. Always returns b64_json; response_format rejected.
-    //     Requires OpenAI organization verification on the key.
-    //   dall-e-3: { quality: "standard"|"hd", response_format }. "standard"
-    //     1024×1024 is ~$0.04/image; broadly available without org verification.
-    //   dall-e-2: { response_format } only; cheapest legacy tier.
+    // Param shapes for the gpt-image-* family (DALL-E 2/3 retired 2026-05-12):
+    //   gpt-image-1-mini (default): cheapest tier — quality "medium" 1024×1024
+    //     is ~$0.01/image and has noticeably better coherence than "low"
+    //     (~$0.005). Always returns b64_json; response_format rejected.
+    //   gpt-image-1 / 1.5 / 2: quality "low" pinned by default since
+    //     "auto"/"high" can run >$0.05/image. gpt-image-1 needs OpenAI
+    //     organization verification on the key.
     const body = { model, prompt, n: 1, size: "1024x1024" };
-    if (model.startsWith("gpt-image-1")) {
-      body.quality = providerConfig?.quality || "low";
-      body.output_format = providerConfig?.output_format || "png";
-    } else if (model.startsWith("dall-e-3")) {
-      body.quality = providerConfig?.quality || "standard";
-      body.response_format = "b64_json";
-    } else {
-      body.response_format = "b64_json";
-    }
+    const isMini = model === "gpt-image-1-mini";
+    body.quality = providerConfig?.quality || (isMini ? "medium" : "low");
+    body.output_format = providerConfig?.output_format || "png";
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },

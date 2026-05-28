@@ -46,11 +46,11 @@ export var TTS_PROVIDER_META = {
       { id: "shimmer", label: "Shimmer — clear" },
       { id: "verse",   label: "Verse — expressive" }
     ],
-    model: "tts-1",
+    model: "gpt-4o-mini-tts",
     models: [
-      { id: "tts-1", tier: "fast" },
-      { id: "tts-1-hd", tier: "quality" },
-      { id: "gpt-4o-mini-tts", tier: "expressive" }
+      { id: "gpt-4o-mini-tts", tier: "expressive" },
+      { id: "tts-1", tier: "legacy-fast" },
+      { id: "tts-1-hd", tier: "legacy-quality" }
     ],
     adapter: OpenAITTSAdapter
   },
@@ -62,10 +62,9 @@ export var TTS_PROVIDER_META = {
     voices: [
       { id: "en_paul_neutral", label: "Paul — neutral (EN)" }
     ],
-    model: "voxtral-mini-2503",
+    model: "voxtral-mini-tts-2603",
     models: [
-      { id: "voxtral-mini-2503", tier: "fast" },
-      { id: "voxtral-2507", tier: "quality" }
+      { id: "voxtral-mini-tts-2603", tier: "fast" }
     ],
     adapter: VoxtralTTSAdapter,
     allowCustomVoiceId: true
@@ -81,11 +80,12 @@ export var TTS_PROVIDER_META = {
       { id: "ErXwobaYiN019PkySvjV",  label: "Antoni — warm" },
       { id: "TxGEqnHWrfWFTfGW9XjX",  label: "Josh — deep" }
     ],
-    model: "eleven_multilingual_v2",
+    model: "eleven_turbo_v2_5",
     models: [
-      { id: "eleven_multilingual_v2", tier: "quality" },
       { id: "eleven_turbo_v2_5", tier: "fast" },
-      { id: "eleven_flash_v2_5", tier: "fastest" }
+      { id: "eleven_flash_v2_5", tier: "fastest" },
+      { id: "eleven_multilingual_v2", tier: "quality" },
+      { id: "eleven_v3", tier: "flagship" }
     ],
     adapter: ElevenLabsTTSAdapter
   }
