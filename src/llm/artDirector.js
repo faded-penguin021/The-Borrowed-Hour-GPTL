@@ -101,7 +101,11 @@ export const ART_DIRECTOR_TURN_TOOL = {
       },
       milestone_reason: {
         type: "string",
-        description: "One short phrase justifying the decision (e.g. 'first reveal of the cloister', 'verdict lands'). Required even when warrants_illustration is false — explain the absence."
+        description: "PRIVATE gate reasoning — never shown to the player. One short phrase justifying the decision (e.g. 'first reveal of the cloister', 'verdict lands'). Required even when warrants_illustration is false — explain the absence. This is internal bookkeeping; the player-facing line is `caption`, which must never contain this kind of significance-talk."
+      },
+      caption: {
+        type: "string",
+        description: "PLAYER-FACING plate caption — the line engraved beneath the plate in a manuscript. 2 to 7 words. PURELY DESCRIPTIVE of what the plate depicts, in the player's present knowledge: a place, a figure, an object, a moment as seen by the eye. Examples: 'The woman in the green coat', 'Holborn, from the eastbound platform', 'The locked reliquary', 'Snow on the cloister steps'. FORBIDDEN: any commentary on narrative significance or its absence — never 'reveal', 'shift', 'turning point', 'the moment when', 'routine', 'nothing', 'no significant…', and never name a hidden identity or a fact the player has not yet been shown. No trailing punctuation. Always write this when warrants_illustration is true; it is independent of the gate reasoning above."
       },
       subject_ids: {
         type: "array",
@@ -208,7 +212,27 @@ RULES:
 - scene_clause is purely visual: what the eye sees, the composition, the light. No interior states, no dialogue, no narrative meta.
 - Add ledger_updates ONLY for genuinely new recurring subjects.
 
+THE CAPTION vs THE GATE REASON — CRITICAL (these must not be confused):
+- \`milestone_reason\` is PRIVATE. It explains your yes/no decision and the player never sees it. It is allowed to talk about significance ("first reveal", "routine transit, no shift").
+- \`caption\` is PUBLIC. It is printed under the plate like the engraved line beneath an illustration in an old book. It must NEVER leak your judgement of significance. It only names what the plate shows, in the player's own present knowledge. WRONG caption: "routine conversation, no significant shift or reveal", "the turning point", "a moment of tension". RIGHT caption: "The woman in the green coat", "The 8:11, nearing Holborn", "The reliquary, unopened". Whenever you warrant a plate, write a clean descriptive caption — it is independent of why you decided to draw it.
+
 Call the tool \`curate_plate\` and output ONLY the tool call.`;
+};
+
+// Defensive scrub of the player-facing plate caption. Even with explicit
+// instructions, smaller Art Director models sometimes echo their gate
+// reasoning into the caption ("routine conversation, no significant shift").
+// That is the exact epistemic leak the caption is meant to avoid, so a caption
+// that smells of significance-talk (or is over-long, or sentence-like) is
+// dropped — a clean untitled plate beats a leaky caption.
+const CAPTION_LEAK = /\b(no\s+significant|significant|reveal|reveals|revealing|shift|turning[\s-]?point|climax|milestone|moment\s+of|the\s+moment\s+when|nothing|none|routine|mundane|uneventful|minor|major\s+(beat|moment)|no\s+(major|notable|real)|tension|stakes|foreshadow|setup|set[\s-]?piece|plot)\b/i;
+export const cleanPlateCaption = (caption) => {
+  let c = (caption || "").trim().replace(/^["'“”]+|["'“”]+$/g, "").replace(/[.!]+$/g, "").trim();
+  if (!c) return "";
+  if (CAPTION_LEAK.test(c)) return "";
+  const words = c.split(/\s+/);
+  if (words.length > 9 || c.length > 64) return ""; // a caption, not a sentence
+  return c;
 };
 
 export const composeImagePrompt = ({ styleBible, visualLedger, subjectIds, sceneClause, extraNegatives }) => {
@@ -282,6 +306,7 @@ export const parseTurnResponse = (raw) => {
   return {
     warrants_illustration: !!parsed.warrants_illustration,
     milestone_reason: typeof parsed.milestone_reason === "string" ? parsed.milestone_reason : "",
+    caption: typeof parsed.caption === "string" ? parsed.caption : "",
     subject_ids: Array.isArray(parsed.subject_ids) ? parsed.subject_ids.filter((s) => typeof s === "string") : [],
     scene_clause: typeof parsed.scene_clause === "string" ? parsed.scene_clause : "",
     extra_negatives: Array.isArray(parsed.extra_negatives) ? parsed.extra_negatives.filter((s) => typeof s === "string") : [],
