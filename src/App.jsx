@@ -1660,6 +1660,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setPhase("playing");
     setShowSaves(false);
     setSaveBanner({ kind: "ok", text: "The hour resumes." });
+    ensureAmbienceEngine();
     // Don't narrate loaded history aloud — advance the TTS cursor past it.
     if (ttsRef.current) ttsRef.current.stop();
     ttsNextRef.current = (save.entries || []).length;
