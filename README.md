@@ -33,7 +33,7 @@ Open **⚙ Settings** from the title screen and find the **Story engines** secti
 - **GM logic** — the hidden rules layer; adjudicates actions and updates game state.
 - **Narration & discussion** — renders player-facing prose each turn and post-game discussion.
 
-Pick a **Model stack** to fill all three roles from one provider's preset at once. Enable **Free model selection** to override the stack and choose a provider and model for each role independently — you can mix providers across roles or enter a custom model ID. Selections are saved in the browser between sessions.
+Pick a **Model stack** to fill all three roles from one provider's preset at once. Enable **Free model selection** to override the stack and choose a provider and model for each role independently — you can mix providers across roles or enter a custom model ID. Free model selection also covers the **image provider model**, **Art Director model**, and **TTS model**, each of which exposes a preset list plus a Custom… option for any model ID. Selections are saved in the browser between sessions.
 
 ### Default stack
 
@@ -51,17 +51,17 @@ Mistral's free tier on the experimental API is generous enough for repeated per-
 
 | Provider | Models |
 |---|---|
-| **Gemini** | `gemini-3.5-flash` |
-| **OpenAI** | `gpt-5.4-mini`, `gpt-5-mini`, `gpt-5.4-nano` |
-| **Claude** | `claude-sonnet-4-6`, `claude-haiku-4-5-20251001` |
-| **DeepSeek** | `deepseek-v4-flash` |
-| **Qwen** | `qwen-plus`, `qwen-flash` |
-| **Kimi** | `kimi-k2.5` |
+| **Gemini** | `gemini-2.5-flash`, `gemini-2.0-flash`, `gemini-2.5-pro` |
+| **OpenAI** | `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano` |
+| **Claude** | `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001` |
+| **DeepSeek** | `deepseek-chat`, `deepseek-reasoner` |
+| **Qwen** | `qwen-plus`, `qwen-turbo`, `qwen-max` |
+| **Kimi** | `kimi-k2`, `moonshot-v1-128k` |
 | **ERNIE** | `ernie-4.5-turbo-128k`, `ernie-4.5-turbo-32k` |
 | **Mistral** | `mistral-small-latest`, `mistral-medium-latest` (both free), `mistral-large-latest` (free) |
-| **Groq** | `llama-3.3-70b-versatile`, `meta-llama/llama-4-scout-17b-16e-instruct`, `openai/gpt-oss-120b` |
-| **OpenRouter** | `deepseek/deepseek-v4-flash:free`, `z-ai/glm-4.5-air:free`, `anthropic/claude-sonnet-4-6`, `openai/gpt-5.4-mini` |
-| **Cerebras** | `llama-3.3-70b`, `gpt-oss-120b` |
+| **Groq** | `llama-3.3-70b-versatile`, `meta-llama/llama-4-scout-17b-16e-instruct`, `meta-llama/llama-4-maverick-17b-128e-instruct` |
+| **OpenRouter** | `deepseek/deepseek-chat:free`, `z-ai/glm-4.5-air:free`, `anthropic/claude-sonnet-4-6`, `openai/gpt-4o-mini` |
+| **Cerebras** | `llama-3.3-70b`, `llama-4-scout-17b-16e-instruct` |
 | **Local LLM** | `llama3.2`, `llama3.1`, `mistral`, `phi3`, `qwen2.5` (or any custom ID) |
 
 ### Free-tier notes
@@ -69,10 +69,10 @@ Mistral's free tier on the experimental API is generous enough for repeated per-
 Each GM turn sends a large request — system prompt, tool schema, and the rolling chronicle history. Free tiers differ in how much they allow per request and per minute:
 
 - **Mistral** (default) has generous free API access with no per-minute token limits, making it the most reliable free option. Both medium and large models are available on the free tier.
-- **Gemini** (`gemini-3.5-flash`) has daily request quotas but no per-minute caps; suitable for casual play but capped at ~20 games/day.
+- **Gemini** (`gemini-2.5-flash`) has daily request quotas but no per-minute caps; suitable for casual play but capped at ~20 games/day.
 - **Groq** rejects requests larger than the model's per-minute budget. Uses `llama-3.3-70b-versatile` by default for higher throughput; very long sessions can still exceed limits.
 - **Cerebras**' free tier caps context at 8,192 tokens — too small for a GM turn — so paid tier is required here.
-- **OpenRouter** free models (`deepseek-v4-flash:free`) have tight per-minute caps and are not recommended for repeated calls.
+- **OpenRouter** free models (`deepseek/deepseek-chat:free`) have tight per-minute caps and are not recommended for repeated calls.
 
 ## Read aloud (text-to-speech)
 

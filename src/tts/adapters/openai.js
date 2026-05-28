@@ -7,7 +7,7 @@ export class OpenAITTSAdapter {
     this.voiceId = voiceId || "alloy";
     this.rate = rate || 1.0;
     this.key = key || "";
-    this.model = model || "gpt-4o-mini-tts";
+    this.model = model || "tts-1";
   }
   async synthesize(text, signal, onError) {
     const blob = await _fetchAudioBlob(

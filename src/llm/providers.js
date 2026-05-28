@@ -41,6 +41,7 @@ var normalizeClaudeMessages = (msgs) => msgs.map((m) => ({
   content: normalizeContent(m.content)
 }));
 
+// checked: 2026-05-28
 export var PROVIDER_META = {
   gemini: {
     name: "Gemini",
@@ -48,7 +49,9 @@ export var PROVIDER_META = {
     windowKey: "GEMINI_API_KEY",
     metaName: "gemini-api-key",
     models: [
-      { id: "gemini-3.5-flash", tier: "free" }
+      { id: "gemini-2.5-flash", tier: "free" },
+      { id: "gemini-2.0-flash", tier: "free" },
+      { id: "gemini-2.5-pro", tier: "paid" }
     ]
   },
   openai: {
@@ -57,9 +60,9 @@ export var PROVIDER_META = {
     windowKey: "OPENAI_API_KEY",
     metaName: "openai-api-key",
     models: [
-      { id: "gpt-5.4-mini", tier: "paid" },
-      { id: "gpt-5-mini", tier: "paid" },
-      { id: "gpt-5.4-nano", tier: "paid" }
+      { id: "gpt-4.1", tier: "paid" },
+      { id: "gpt-4.1-mini", tier: "paid" },
+      { id: "gpt-4.1-nano", tier: "paid" }
     ]
   },
   anthropic: {
@@ -68,6 +71,7 @@ export var PROVIDER_META = {
     windowKey: "ANTHROPIC_API_KEY",
     metaName: "anthropic-api-key",
     models: [
+      { id: "claude-opus-4-7", tier: "paid" },
       { id: "claude-sonnet-4-6", tier: "paid" },
       { id: "claude-haiku-4-5-20251001", tier: "paid" }
     ]
@@ -78,7 +82,8 @@ export var PROVIDER_META = {
     windowKey: "DEEPSEEK_API_KEY",
     metaName: "deepseek-api-key",
     models: [
-      { id: "deepseek-v4-flash", tier: "paid" }
+      { id: "deepseek-chat", tier: "paid" },
+      { id: "deepseek-reasoner", tier: "paid" }
     ]
   },
   qwen: {
@@ -88,7 +93,8 @@ export var PROVIDER_META = {
     metaName: "qwen-api-key",
     models: [
       { id: "qwen-plus", tier: "paid" },
-      { id: "qwen-flash", tier: "paid" }
+      { id: "qwen-turbo", tier: "paid" },
+      { id: "qwen-max", tier: "paid" }
     ]
   },
   kimi: {
@@ -97,7 +103,8 @@ export var PROVIDER_META = {
     windowKey: "KIMI_API_KEY",
     metaName: "kimi-api-key",
     models: [
-      { id: "kimi-k2.5", tier: "paid" }
+      { id: "kimi-k2", tier: "paid" },
+      { id: "moonshot-v1-128k", tier: "paid" }
     ]
   },
   ernie: {
@@ -129,7 +136,7 @@ export var PROVIDER_META = {
     models: [
       { id: "llama-3.3-70b-versatile", tier: "free" },
       { id: "meta-llama/llama-4-scout-17b-16e-instruct", tier: "free" },
-      { id: "openai/gpt-oss-120b", tier: "free" }
+      { id: "meta-llama/llama-4-maverick-17b-128e-instruct", tier: "free" }
     ]
   },
   openrouter: {
@@ -138,10 +145,10 @@ export var PROVIDER_META = {
     windowKey: "OPENROUTER_API_KEY",
     metaName: "openrouter-api-key",
     models: [
-      { id: "deepseek/deepseek-v4-flash:free", tier: "free" },
+      { id: "deepseek/deepseek-chat:free", tier: "free" },
       { id: "z-ai/glm-4.5-air:free", tier: "free" },
       { id: "anthropic/claude-sonnet-4-6", tier: "paid" },
-      { id: "openai/gpt-5.4-mini", tier: "paid" }
+      { id: "openai/gpt-4o-mini", tier: "paid" }
     ]
   },
   cerebras: {
@@ -152,7 +159,7 @@ export var PROVIDER_META = {
     metaName: "cerebras-api-key",
     models: [
       { id: "llama-3.3-70b", tier: "paid" },
-      { id: "gpt-oss-120b", tier: "paid" }
+      { id: "llama-4-scout-17b-16e-instruct", tier: "paid" }
     ]
   },
   local: {
@@ -173,19 +180,19 @@ export var PROVIDER_META = {
 };
 export var PROVIDER_ORDER = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie", "mistral", "groq", "openrouter", "cerebras", "local"];
 export var FREE_MODELS_BY_PROVIDER = {
-  free:       { provider: "mistral",    opener: "mistral-large-latest",              gm: "mistral-medium-latest",             narrator: "mistral-medium-latest" },
-  gemini:     { opener: "gemini-3.5-flash",      gm: "gemini-3.5-flash",            narrator: "gemini-3.5-flash" },
-  openai:     { opener: "gpt-5-mini",             gm: "gpt-5.4-mini",               narrator: "gpt-5.4-nano" },
-  anthropic:  { opener: "claude-sonnet-4-6",      gm: "claude-haiku-4-5-20251001",  narrator: "claude-haiku-4-5-20251001" },
-  deepseek:   { opener: "deepseek-v4-flash",      gm: "deepseek-v4-flash",          narrator: "deepseek-v4-flash" },
-  qwen:       { opener: "qwen-plus",              gm: "qwen-plus",                  narrator: "qwen-flash" },
-  kimi:       { opener: "kimi-k2.5",              gm: "kimi-k2.5",                  narrator: "kimi-k2.5" },
-  ernie:      { opener: "ernie-4.5-turbo-128k",   gm: "ernie-4.5-turbo-32k",        narrator: "ernie-4.5-turbo-32k" },
-  mistral:    { opener: "mistral-large-latest",   gm: "mistral-medium-latest",      narrator: "mistral-medium-latest" },
-  groq:       { opener: "llama-3.3-70b-versatile", gm: "llama-3.3-70b-versatile",  narrator: "llama-3.3-70b-versatile" },
-  openrouter: { opener: "deepseek/deepseek-v4-flash:free", gm: "deepseek/deepseek-v4-flash:free", narrator: "deepseek/deepseek-v4-flash:free" },
-  cerebras:   { opener: "llama-3.3-70b",          gm: "llama-3.3-70b",              narrator: "llama-3.3-70b" },
-  local:      { opener: "llama3.2",               gm: "llama3.1",                   narrator: "llama3.2" }
+  free:       { provider: "mistral",    opener: "mistral-large-latest",                gm: "mistral-medium-latest",             narrator: "mistral-medium-latest" },
+  gemini:     { opener: "gemini-2.5-flash",        gm: "gemini-2.5-flash",            narrator: "gemini-2.5-flash" },
+  openai:     { opener: "gpt-4.1",                 gm: "gpt-4.1-mini",               narrator: "gpt-4.1-nano" },
+  anthropic:  { opener: "claude-sonnet-4-6",        gm: "claude-haiku-4-5-20251001",  narrator: "claude-haiku-4-5-20251001" },
+  deepseek:   { opener: "deepseek-chat",            gm: "deepseek-chat",              narrator: "deepseek-chat" },
+  qwen:       { opener: "qwen-max",                 gm: "qwen-plus",                  narrator: "qwen-turbo" },
+  kimi:       { opener: "kimi-k2",                  gm: "kimi-k2",                    narrator: "kimi-k2" },
+  ernie:      { opener: "ernie-4.5-turbo-128k",     gm: "ernie-4.5-turbo-32k",        narrator: "ernie-4.5-turbo-32k" },
+  mistral:    { opener: "mistral-large-latest",     gm: "mistral-medium-latest",      narrator: "mistral-medium-latest" },
+  groq:       { opener: "llama-3.3-70b-versatile",  gm: "llama-3.3-70b-versatile",   narrator: "llama-3.3-70b-versatile" },
+  openrouter: { opener: "deepseek/deepseek-chat:free", gm: "deepseek/deepseek-chat:free", narrator: "deepseek/deepseek-chat:free" },
+  cerebras:   { opener: "llama-3.3-70b",            gm: "llama-3.3-70b",              narrator: "llama-3.3-70b" },
+  local:      { opener: "llama3.2",                 gm: "llama3.1",                   narrator: "llama3.2" }
 };
 export var getLocalUrl = () => localStorage.getItem(PROVIDER_META.local.urlStorage)?.trim() || LOCAL_DEFAULT_URL;
 export var getProviderKey = async (id) => {

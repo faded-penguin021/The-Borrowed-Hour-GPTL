@@ -10,6 +10,7 @@ export class TTSController {
     this.voiceId = null;
     this.rate = 1.0;
     this.key = null;
+    this.model = null; // per-provider model override; null → use catalogue default
     this.enabled = false;
     this.muted = false;
     this.activeHandle = null;
@@ -24,15 +25,17 @@ export class TTSController {
     this._onSpeakEnd = new Set();
     this._onStateChange = new Set();
   }
-  setProvider(id, { voiceId, key } = {}) {
-    if (this.providerId === id && this.adapter && this.key === key && this.voiceId === voiceId) return;
+  setProvider(id, { voiceId, key, model } = {}) {
+    if (this.providerId === id && this.adapter && this.key === key && this.voiceId === voiceId && (model === undefined || this.model === (model || null))) return;
     this.stop();
     this.providerId = id;
     if (voiceId != null) this.voiceId = voiceId;
     this.key = key != null ? key : null;
+    if (model !== undefined) this.model = model || null;
     this.adapter = null;
   }
   setVoice(id) { this.voiceId = id || null; this.adapter = null; }
+  setModel(m) { this.model = m || null; this.adapter = null; }
   setRate(r) { this.rate = Math.max(0.5, Math.min(2.0, +r || 1)); this.adapter = null; }
   setKey(k) { this.key = k || null; this.adapter = null; }
   setEnabled(on) { this.enabled = !!on; if (!on) this.stop(); }
@@ -74,7 +77,7 @@ export class TTSController {
     const meta = TTS_PROVIDER_META[this.providerId];
     if (!meta) return;
     if (!this.adapter) {
-      this.adapter = new meta.adapter({ voiceId: this.voiceId, rate: this.rate, key: this.key, model: meta.model });
+      this.adapter = new meta.adapter({ voiceId: this.voiceId, rate: this.rate, key: this.key, model: this.model || meta.model });
     }
     const abort = new AbortController();
     this.activeAbort = abort;
