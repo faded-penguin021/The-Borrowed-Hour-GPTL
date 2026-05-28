@@ -300,7 +300,20 @@ export function App() {
             if (typeof p.providerId === "string" && TTS_PROVIDER_META[p.providerId]) setTtsProviderId(p.providerId);
             if (typeof p.voiceId === "string") setTtsVoiceId(p.voiceId);
             if (typeof p.rate === "number") setTtsRate(p.rate);
-            if (p.modelOverrides && typeof p.modelOverrides === "object") setTtsModelOverrides(p.modelOverrides);
+            if (p.modelOverrides && typeof p.modelOverrides === "object") {
+              // Drop stale per-provider overrides whose model ID is no
+              // longer in the catalogue's presets — these would 400 the
+              // synth request (e.g. voxtral-2507, briefly shipped by an
+              // earlier version of the preset list).
+              const clean = {};
+              for (const [provId, modelId] of Object.entries(p.modelOverrides)) {
+                const meta = TTS_PROVIDER_META[provId];
+                if (!meta || typeof modelId !== "string") continue;
+                const inPresets = (meta.models || []).some((m) => m.id === modelId);
+                if (inPresets) clean[provId] = modelId;
+              }
+              setTtsModelOverrides(clean);
+            }
           }
         }
       } catch {} finally {
