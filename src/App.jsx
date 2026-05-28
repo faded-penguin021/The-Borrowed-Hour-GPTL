@@ -1324,7 +1324,7 @@ ${text}`);
     };
     abortRef.current = { controller, rollback, startedAt: Date.now() };
     try {
-      const gmSys = buildSystem(premise, language);
+      const gmSys = buildSystem(premise, language, { split: true });
       const firstGmReply = await callAPI(gmSys, apiHistory, true, settings.engineGM, 2600, 0.35, controller.signal, GM_LOGIC_TOOL);
       if (controller.signal.aborted)
         return;
