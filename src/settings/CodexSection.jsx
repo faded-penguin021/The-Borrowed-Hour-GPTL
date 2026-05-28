@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { IMAGE_PROVIDER_META, IMAGE_PROVIDER_ORDER, setReplicateKey, getReplicateKeyPlaintext, setLocalImageUrl, getLocalImageUrl, LOCAL_IMAGE_DEFAULT_URL, REPLICATE_DEFAULT_MODEL, POLLINATIONS_DEFAULT_MODEL, OPENAI_IMAGE_DEFAULT_MODEL } from "../llm/imaging.js";
-import { PROVIDER_META, TOOL_USE_PROVIDER_ORDER, FREE_MODELS_BY_PROVIDER } from "../llm/providers.js";
+import { IMAGE_PROVIDER_META, IMAGE_PROVIDER_ORDER, setReplicateKey, getReplicateKeyPlaintext, setLocalImageUrl, getLocalImageUrl, LOCAL_IMAGE_DEFAULT_URL } from "../llm/imaging.js";
+import { PROVIDER_META, TOOL_USE_PROVIDER_ORDER } from "../llm/providers.js";
+import { ModelPicker } from "./ModelPicker.jsx";
 
 const fieldStyle = {
   width: "100%",
@@ -105,29 +106,17 @@ export function CodexSection({ settings, onChange }) {
             {IMAGE_PROVIDER_META[providerId].description}
           </div>
 
-          {providerId === "pollinations" && (
-            <>
-              <div style={subLabel}>Model</div>
-              <input
-                type="text"
-                value={providerCfg.model || POLLINATIONS_DEFAULT_MODEL}
-                onChange={(e) => updateProviderCfg("pollinations", { model: e.target.value })}
-                placeholder={POLLINATIONS_DEFAULT_MODEL}
-                style={fieldStyle}
-              />
-            </>
+          {IMAGE_PROVIDER_META[providerId]?.models?.length > 0 && (
+            <ModelPicker
+              label="Model"
+              presets={IMAGE_PROVIDER_META[providerId].models}
+              value={providerCfg.model || IMAGE_PROVIDER_META[providerId].defaultModel || ""}
+              onChange={(m) => updateProviderCfg(providerId, { model: m })}
+            />
           )}
 
           {providerId === "replicate" && (
             <>
-              <div style={subLabel}>Model slug</div>
-              <input
-                type="text"
-                value={providerCfg.model || REPLICATE_DEFAULT_MODEL}
-                onChange={(e) => updateProviderCfg("replicate", { model: e.target.value })}
-                placeholder={REPLICATE_DEFAULT_MODEL}
-                style={fieldStyle}
-              />
               <div style={subLabel}>Replicate API key</div>
               <input
                 type="password"
@@ -147,22 +136,12 @@ export function CodexSection({ settings, onChange }) {
           )}
 
           {providerId === "openai" && (
-            <>
-              <div style={subLabel}>Model</div>
-              <input
-                type="text"
-                value={providerCfg.model || OPENAI_IMAGE_DEFAULT_MODEL}
-                onChange={(e) => updateProviderCfg("openai", { model: e.target.value })}
-                placeholder={OPENAI_IMAGE_DEFAULT_MODEL}
-                style={fieldStyle}
-              />
-              <div
-                className="body-font italic"
-                style={{ color: "var(--cream-faint)", fontSize: 11, marginTop: 4 }}
-              >
-                Uses your saved OpenAI API key. Default is gpt-image-1-mini at medium quality (1024×1024, ~$0.01/image — great price-to-performance). Alternatives: gpt-image-1 (flagship, needs org verification, pinned to 'low' quality here), dall-e-3 ('standard' quality, ~$0.04/image), dall-e-2 (cheapest legacy).
-              </div>
-            </>
+            <div
+              className="body-font italic"
+              style={{ color: "var(--cream-faint)", fontSize: 11, marginTop: 4 }}
+            >
+              Uses your saved OpenAI API key. gpt-image-1 is the current flagship (needs org verification, ~$0.011–0.167/image). dall-e-3 is broadly available (~$0.04/image). dall-e-2 is cheapest legacy.
+            </div>
           )}
 
           {providerId === "local" && (
@@ -190,8 +169,7 @@ export function CodexSection({ settings, onChange }) {
             aria-label="Art Director provider"
             onChange={(e) => {
               const prov = e.target.value;
-              const preset = FREE_MODELS_BY_PROVIDER[prov];
-              const model = preset?.narrator || ad.model;
+              const model = PROVIDER_META[prov]?.models?.[0]?.id || ad.model;
               update({ artDirectorEngine: { provider: prov, model } });
             }}
             style={fieldStyle}
@@ -200,12 +178,11 @@ export function CodexSection({ settings, onChange }) {
               <option key={id} value={id}>{PROVIDER_META[id].name}</option>
             ))}
           </select>
-          <div style={subLabel}>Art Director — model</div>
-          <input
-            type="text"
+          <ModelPicker
+            label="Art Director — model"
+            presets={PROVIDER_META[ad.provider]?.models || []}
             value={ad.model}
-            onChange={(e) => update({ artDirectorEngine: { ...ad, model: e.target.value } })}
-            style={fieldStyle}
+            onChange={(m) => update({ artDirectorEngine: { ...ad, model: m } })}
           />
           <div
             className="body-font italic"

@@ -9,8 +9,8 @@ import { CodexSection } from "../../settings/CodexSection.jsx";
 export function SettingsModal({ settings, onChange, onClose, osReducedMotion,
   ambienceLevel, ambienceUnavailable, ambienceDuringNarrationOnly, ambienceBoostWithTTS, ambienceMusicLevel,
   onChangeAmbience, onChangeAmbienceDuringNarrationOnly, onChangeAmbienceBoostWithTTS, onChangeAmbienceMusicLevel,
-  ttsEnabled, ttsProviderId, ttsProviderReady, ttsVoiceId, ttsBrowserVoices, ttsVoxtralVoices, ttsVoxtralVoicesError, ttsRate, ttsElevenKey,
-  onChangeTtsEnabled, onChangeTtsProvider, onChangeTtsVoice, onChangeTtsRate, onChangeTtsElevenKey }) {
+  ttsEnabled, ttsProviderId, ttsProviderReady, ttsVoiceId, ttsModel, ttsBrowserVoices, ttsVoxtralVoices, ttsVoxtralVoicesError, ttsRate, ttsElevenKey,
+  onChangeTtsEnabled, onChangeTtsProvider, onChangeTtsVoice, onChangeTtsModel, onChangeTtsRate, onChangeTtsElevenKey }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
@@ -88,6 +88,7 @@ export function SettingsModal({ settings, onChange, onClose, osReducedMotion,
             providerId={ttsProviderId}
             providerReady={ttsProviderReady}
             voiceId={ttsVoiceId}
+            ttsModel={ttsModel}
             browserVoices={ttsBrowserVoices}
             voxtralVoices={ttsVoxtralVoices}
             voxtralVoicesError={ttsVoxtralVoicesError}
@@ -96,6 +97,7 @@ export function SettingsModal({ settings, onChange, onClose, osReducedMotion,
             onChangeEnabled={onChangeTtsEnabled}
             onChangeProvider={onChangeTtsProvider}
             onChangeVoice={onChangeTtsVoice}
+            onChangeModel={onChangeTtsModel}
             onChangeRate={onChangeTtsRate}
             onChangeElevenKey={onChangeTtsElevenKey}
           />

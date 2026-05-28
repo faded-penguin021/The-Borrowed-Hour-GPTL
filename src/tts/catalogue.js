@@ -46,7 +46,12 @@ export var TTS_PROVIDER_META = {
       { id: "shimmer", label: "Shimmer — clear" },
       { id: "verse",   label: "Verse — expressive" }
     ],
-    model: "gpt-4o-mini-tts",
+    model: "tts-1",
+    models: [
+      { id: "tts-1", tier: "fast" },
+      { id: "tts-1-hd", tier: "quality" },
+      { id: "gpt-4o-mini-tts", tier: "expressive" }
+    ],
     adapter: OpenAITTSAdapter
   },
   voxtral: {
@@ -57,7 +62,11 @@ export var TTS_PROVIDER_META = {
     voices: [
       { id: "en_paul_neutral", label: "Paul — neutral (EN)" }
     ],
-    model: "voxtral-mini-tts-2603",
+    model: "voxtral-mini-2503",
+    models: [
+      { id: "voxtral-mini-2503", tier: "fast" },
+      { id: "voxtral-2507", tier: "quality" }
+    ],
     adapter: VoxtralTTSAdapter,
     allowCustomVoiceId: true
   },
@@ -72,7 +81,12 @@ export var TTS_PROVIDER_META = {
       { id: "ErXwobaYiN019PkySvjV",  label: "Antoni — warm" },
       { id: "TxGEqnHWrfWFTfGW9XjX",  label: "Josh — deep" }
     ],
-    model: "eleven_turbo_v2_5",
+    model: "eleven_multilingual_v2",
+    models: [
+      { id: "eleven_multilingual_v2", tier: "quality" },
+      { id: "eleven_turbo_v2_5", tier: "fast" },
+      { id: "eleven_flash_v2_5", tier: "fastest" }
+    ],
     adapter: ElevenLabsTTSAdapter
   }
 };

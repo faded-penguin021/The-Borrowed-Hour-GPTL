@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "../tts/catalogue.js";
+import { ModelPicker } from "./ModelPicker.jsx";
 
-export function TTSRow({ enabled, providerId, providerReady, voiceId, browserVoices, voxtralVoices, voxtralVoicesError, rate, elevenKey, onChangeEnabled, onChangeProvider, onChangeVoice, onChangeRate, onChangeElevenKey }) {
+export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, browserVoices, voxtralVoices, voxtralVoicesError, rate, elevenKey, onChangeEnabled, onChangeProvider, onChangeVoice, onChangeModel, onChangeRate, onChangeElevenKey }) {
   const [elevenInput, setElevenInput] = React.useState(elevenKey || "");
   const [elevenSaved, setElevenSaved] = React.useState(false);
   const providers = TTS_PROVIDER_ORDER.map((id) => TTS_PROVIDER_META[id]);
@@ -171,6 +172,16 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, browserVoi
               style={{ background: "rgba(0,0,0,0.3)", color: "var(--cream-bright)", border: "1px solid rgba(232,222,197,0.2)", padding: "5px 8px", fontSize: 12, fontFamily: "monospace" }}
             />
           </label>
+        )}
+        {enabled && activeMeta?.models?.length > 0 && (
+          <div style={{ marginBottom: 8 }}>
+            <ModelPicker
+              label="Model"
+              presets={activeMeta.models}
+              value={ttsModel || activeMeta.model || ""}
+              onChange={onChangeModel}
+            />
+          </div>
         )}
         {enabled && (
           <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
