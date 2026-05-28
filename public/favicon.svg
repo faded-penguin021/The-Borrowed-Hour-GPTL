@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="The Borrowed Hour">
+  <defs>
+    <radialGradient id="bg" cx="42%" cy="35%" r="80%">
+      <stop offset="0%" stop-color="#14101e"/>
+      <stop offset="70%" stop-color="#0a0814"/>
+      <stop offset="100%" stop-color="#050309"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="url(#bg)"/>
+  <!-- glass body -->
+  <path d="M21 13 L43 13 L33.3 32 L43 51 L21 51 L30.7 32 Z"
+        fill="#7884961a" stroke="#d4a574" stroke-width="2.2" stroke-linejoin="round"/>
+  <!-- sand: bottom mound -->
+  <path d="M26.6 40 L37.4 40 L42.4 50.4 L21.6 50.4 Z" fill="#e8dec5"/>
+  <path d="M30 40 L34 40 L32 37.4 Z" fill="#e8dec5"/>
+  <!-- sand: draining funnel up top -->
+  <path d="M28.2 27 L35.8 27 L33 32 L31 32 Z" fill="#e8dec5"/>
+  <!-- falling stream -->
+  <rect x="31.2" y="32" width="1.6" height="10.5" fill="#f4ecd8"/>
+  <!-- caps -->
+  <rect x="19.5" y="10.6" width="25" height="4.2" rx="1.6" fill="#d4a574"/>
+  <rect x="19.5" y="49.2" width="25" height="4.2" rx="1.6" fill="#d4a574"/>
+</svg>
