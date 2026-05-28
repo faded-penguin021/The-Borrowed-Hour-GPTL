@@ -1,5 +1,4 @@
 import { TTS_PROVIDER_META } from "./catalogue.js";
-import { getTtsElevenLabsKey } from "./elevenLabsKey.js";
 import { BorrowedError } from "../llm/errors.js";
 
 // ── TTSController ────────────────────────────────────────────────────────
@@ -10,6 +9,7 @@ export class TTSController {
     this.voiceId = null;
     this.rate = 1.0;
     this.key = null;
+    this.region = null;
     this.model = null; // per-provider model override; null → use catalogue default
     this.enabled = false;
     this.muted = false;
@@ -25,13 +25,14 @@ export class TTSController {
     this._onSpeakEnd = new Set();
     this._onStateChange = new Set();
   }
-  setProvider(id, { voiceId, key, model } = {}) {
-    if (this.providerId === id && this.adapter && this.key === key && this.voiceId === voiceId && (model === undefined || this.model === (model || null))) return;
+  setProvider(id, { voiceId, key, model, region } = {}) {
+    if (this.providerId === id && this.adapter && this.key === key && this.voiceId === voiceId && (model === undefined || this.model === (model || null)) && (region === undefined || this.region === (region || null))) return;
     this.stop();
     this.providerId = id;
     if (voiceId != null) this.voiceId = voiceId;
     this.key = key != null ? key : null;
     if (model !== undefined) this.model = model || null;
+    if (region !== undefined) this.region = region || null;
     this.adapter = null;
   }
   setVoice(id) { this.voiceId = id || null; this.adapter = null; }
@@ -77,7 +78,8 @@ export class TTSController {
     const meta = TTS_PROVIDER_META[this.providerId];
     if (!meta) return;
     if (!this.adapter) {
-      this.adapter = new meta.adapter({ voiceId: this.voiceId, rate: this.rate, key: this.key, model: this.model || meta.model });
+      const AdapterClass = await meta.adapterLoader();
+      this.adapter = new AdapterClass({ voiceId: this.voiceId, rate: this.rate, key: this.key, model: this.model || meta.model, region: this.region });
     }
     const abort = new AbortController();
     this.activeAbort = abort;

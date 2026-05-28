@@ -2,9 +2,15 @@ import React, { useState, useEffect } from "react";
 import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "../tts/catalogue.js";
 import { ModelPicker } from "./ModelPicker.jsx";
 
-export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, browserVoices, voxtralVoices, voxtralVoicesError, rate, elevenKey, onChangeEnabled, onChangeProvider, onChangeVoice, onChangeModel, onChangeRate, onChangeElevenKey }) {
+export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, browserVoices, voxtralVoices, voxtralVoicesError, rate, elevenKey, azureKey, azureRegion, googleKey, onChangeEnabled, onChangeProvider, onChangeVoice, onChangeModel, onChangeRate, onChangeElevenKey, onChangeAzureKey, onChangeAzureRegion, onChangeGoogleKey }) {
   const [elevenInput, setElevenInput] = React.useState(elevenKey || "");
   const [elevenSaved, setElevenSaved] = React.useState(false);
+  const [azureInput, setAzureInput] = React.useState(azureKey || "");
+  const [azureSaved, setAzureSaved] = React.useState(false);
+  const [azureRegionInput, setAzureRegionInput] = React.useState(azureRegion || "eastus");
+  const [azureRegionSaved, setAzureRegionSaved] = React.useState(false);
+  const [googleInput, setGoogleInput] = React.useState(googleKey || "");
+  const [googleSaved, setGoogleSaved] = React.useState(false);
   const providers = TTS_PROVIDER_ORDER.map((id) => TTS_PROVIDER_META[id]);
   const ready = providerReady || {};
   const activeMeta = TTS_PROVIDER_META[providerId] || null;
@@ -61,7 +67,10 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, 
                 onClick={() => onChangeProvider(p.id)}
                 className="icon-btn"
                 title={p.requiresKey && !isReady
-                  ? (p.reusesLLMKey ? `Set the ${p.reusesLLMKey === "openai" ? "OpenAI" : p.reusesLLMKey === "mistral" ? "Mistral" : p.reusesLLMKey} key in Settings → API keys` : "Enter your ElevenLabs key below")
+                  ? (p.reusesLLMKey ? `Set the ${p.reusesLLMKey === "openai" ? "OpenAI" : p.reusesLLMKey === "mistral" ? "Mistral" : p.reusesLLMKey} key in Settings → API keys`
+                    : p.id === "azure" ? "Enter your Azure Speech key below"
+                    : p.id === "google" ? "Enter your Google Cloud key below"
+                    : "Enter your ElevenLabs key below")
                   : p.name}
                 style={{
                   padding: "5px 10px",
@@ -108,6 +117,63 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, 
               onClick={async () => { await onChangeElevenKey(elevenInput); setElevenSaved(true); }}
             >
               {elevenSaved ? "SAVED ✓" : "SAVE"}
+            </button>
+          </div>
+        )}
+        {providerId === "azure" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <input
+                type="password"
+                value={azureInput}
+                onChange={(e) => { setAzureInput(e.target.value); setAzureSaved(false); }}
+                placeholder="Azure Speech API key…"
+                className="body-font"
+                style={{ flex: 1, background: "rgba(0,0,0,0.3)", color: "var(--cream-bright)", border: "1px solid rgba(232,222,197,0.2)", padding: "5px 8px", fontSize: 12 }}
+              />
+              <button
+                className="icon-btn"
+                style={{ padding: "5px 10px", fontSize: 10, letterSpacing: "0.15em" }}
+                onClick={async () => { await onChangeAzureKey(azureInput); setAzureSaved(true); }}
+              >
+                {azureSaved ? "SAVED ✓" : "SAVE"}
+              </button>
+            </div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <input
+                type="text"
+                value={azureRegionInput}
+                onChange={(e) => { setAzureRegionInput(e.target.value); setAzureRegionSaved(false); }}
+                placeholder="Region (e.g. eastus)…"
+                className="body-font"
+                style={{ flex: 1, background: "rgba(0,0,0,0.3)", color: "var(--cream-bright)", border: "1px solid rgba(232,222,197,0.2)", padding: "5px 8px", fontSize: 12 }}
+              />
+              <button
+                className="icon-btn"
+                style={{ padding: "5px 10px", fontSize: 10, letterSpacing: "0.15em" }}
+                onClick={() => { onChangeAzureRegion(azureRegionInput); setAzureRegionSaved(true); }}
+              >
+                {azureRegionSaved ? "SAVED ✓" : "SAVE"}
+              </button>
+            </div>
+          </div>
+        )}
+        {providerId === "google" && (
+          <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
+            <input
+              type="password"
+              value={googleInput}
+              onChange={(e) => { setGoogleInput(e.target.value); setGoogleSaved(false); }}
+              placeholder="Google Cloud TTS API key…"
+              className="body-font"
+              style={{ flex: 1, background: "rgba(0,0,0,0.3)", color: "var(--cream-bright)", border: "1px solid rgba(232,222,197,0.2)", padding: "5px 8px", fontSize: 12 }}
+            />
+            <button
+              className="icon-btn"
+              style={{ padding: "5px 10px", fontSize: 10, letterSpacing: "0.15em" }}
+              onClick={async () => { await onChangeGoogleKey(googleInput); setGoogleSaved(true); }}
+            >
+              {googleSaved ? "SAVED ✓" : "SAVE"}
             </button>
           </div>
         )}

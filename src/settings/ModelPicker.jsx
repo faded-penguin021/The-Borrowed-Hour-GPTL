@@ -16,7 +16,21 @@ const fieldStyle = {
 // When presets is empty the component renders only the freeform input.
 export function ModelPicker({ label, presets = [], value, onChange }) {
   const hasPresets = presets.length > 0;
-  const isCustom = hasPresets && !presets.some((m) => m.id === value);
+  const inPresets = hasPresets && presets.some((m) => m.id === value);
+
+  // Local flag: tracks whether the user has explicitly chosen "Custom…"
+  // from the dropdown. Without this, selecting Custom… calls onChange("")
+  // which round-trips back through the parent as the catalogue default,
+  // re-selecting the preset and hiding the text input.
+  const [customMode, setCustomMode] = React.useState(!inPresets && hasPresets);
+
+  // If the external value moves into the preset list (e.g. provider change
+  // auto-sets a new default), exit custom mode.
+  React.useEffect(() => {
+    if (inPresets) setCustomMode(false);
+  }, [inPresets]);
+
+  const isCustom = !hasPresets || customMode || !inPresets;
   const subLabel = {
     color: "var(--cream-dim)", letterSpacing: "0.16em", fontSize: 10,
     textTransform: "uppercase", marginTop: 14
@@ -30,7 +44,14 @@ export function ModelPicker({ label, presets = [], value, onChange }) {
           value={isCustom ? "__custom__" : (value || "")}
           onChange={(e) => {
             const v = e.target.value;
-            onChange(v === "__custom__" ? "" : v);
+            if (v === "__custom__") {
+              // Show the text input but don't call onChange yet — the
+              // parent value remains unchanged until the user types.
+              setCustomMode(true);
+            } else {
+              setCustomMode(false);
+              onChange(v);
+            }
           }}
           style={fieldStyle}
         >
@@ -42,7 +63,7 @@ export function ModelPicker({ label, presets = [], value, onChange }) {
           <option value="__custom__">Custom…</option>
         </select>
       )}
-      {(!hasPresets || isCustom) && (
+      {isCustom && (
         <input
           type="text"
           value={value || ""}

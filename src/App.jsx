@@ -13,11 +13,11 @@ import {
   parseBootstrapResponse, parseTurnResponse,
   composeImagePrompt, mergeLedger
 } from "./llm/artDirector.js";
-import { generateImage } from "./llm/imaging.js";
-import { AmbienceEngine } from "./ambience/engine.js";
 import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "./tts/catalogue.js";
 import { TTSController } from "./tts/controller.js";
 import { getTtsElevenLabsKey, saveTtsElevenLabsKey } from "./tts/elevenLabsKey.js";
+import { getTtsAzureKey, saveTtsAzureKey, getTtsAzureRegion, saveTtsAzureRegion } from "./tts/azureKey.js";
+import { getTtsGoogleKey, saveTtsGoogleKey } from "./tts/googleKey.js";
 import { fetchVoxtralVoices } from "./tts/adapters/voxtral.js";
 import { ENC_PREFIX, encryptSecret, decryptSecret } from "./storage/encryption.js";
 import { TitleScreen } from "./components/TitleScreen.jsx";
@@ -214,11 +214,12 @@ export function App() {
       } catch {}
     })();
   }, [ambienceLevel, ambienceMuted, ambienceDuringNarrationOnly, ambienceBoostWithTTS, ambienceMusicLevel]);
-  const ensureAmbienceEngine = () => {
+  const ensureAmbienceEngine = async () => {
     if (ambienceLevel === "off") return null;
     if (ambienceUnavailable) return null;
     if (!ambienceRef.current) {
       try {
+        const { AmbienceEngine } = await import("./ambience/engine.js");
         ambienceRef.current = new AmbienceEngine();
         setAmbienceEngineNonce((n) => n + 1);
       } catch (e) {
@@ -258,6 +259,9 @@ export function App() {
   const [ttsModelOverrides, setTtsModelOverrides] = useState({}); // per-provider model overrides
   const [ttsRate, setTtsRate] = useState(1.0);
   const [ttsElevenKey, setTtsElevenKey] = useState(""); // plaintext; only used for the inline key field
+  const [ttsAzureKey, setTtsAzureKey] = useState("");
+  const [ttsAzureRegion, setTtsAzureRegion] = useState("eastus");
+  const [ttsGoogleKey, setTtsGoogleKey] = useState("");
   const [ttsBrowserVoices, setTtsBrowserVoices] = useState([]);
   const [ttsVoxtralVoices, setTtsVoxtralVoices] = useState([]);
   const [ttsVoxtralVoicesError, setTtsVoxtralVoicesError] = useState(null);
@@ -280,6 +284,8 @@ export function App() {
       catch { out[id] = false; }
     }
     out.elevenlabs = !!(ttsElevenKey || await getTtsElevenLabsKey());
+    out.azure = !!(ttsAzureKey || await getTtsAzureKey().catch(() => null));
+    out.google = !!(ttsGoogleKey || await getTtsGoogleKey().catch(() => null));
     setTtsProviderReady(out);
     return out;
   };
@@ -325,6 +331,16 @@ export function App() {
     (async () => {
       const k = await getTtsElevenLabsKey().catch(() => null);
       if (k) setTtsElevenKey(k);
+    })();
+    (async () => {
+      const k = await getTtsAzureKey().catch(() => null);
+      if (k) setTtsAzureKey(k);
+      const r = getTtsAzureRegion();
+      setTtsAzureRegion(r || "eastus");
+    })();
+    (async () => {
+      const k = await getTtsGoogleKey().catch(() => null);
+      if (k) setTtsGoogleKey(k);
     })();
   }, []);
 
@@ -396,9 +412,15 @@ export function App() {
     const meta = TTS_PROVIDER_META[providerId];
     if (meta) {
       let key = null;
+      let region = null;
       if (meta.reusesLLMKey) { try { key = await getProviderKey(meta.reusesLLMKey); } catch {} }
       else if (providerId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => null));
-      ctrl.setProvider(providerId, { voiceId: ttsVoiceId, key, model: ttsModelOverrides[providerId] || null });
+      else if (providerId === "azure") {
+        key = ttsAzureKey || (await getTtsAzureKey().catch(() => null));
+        region = ttsAzureRegion;
+      }
+      else if (providerId === "google") key = ttsGoogleKey || (await getTtsGoogleKey().catch(() => null));
+      ctrl.setProvider(providerId, { voiceId: ttsVoiceId, key, model: ttsModelOverrides[providerId] || null, region });
     }
     ctrl.speak(e.text, { turnId: idx });
   };
@@ -432,11 +454,17 @@ export function App() {
       const meta = TTS_PROVIDER_META[ttsProviderId];
       if (!meta) return;
       let key = null;
+      let region = null;
       if (meta.reusesLLMKey) { try { key = await getProviderKey(meta.reusesLLMKey); } catch {} }
       else if (ttsProviderId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => null));
-      ctrl.setProvider(ttsProviderId, { voiceId: ttsVoiceId, key, model: ttsModelOverrides[ttsProviderId] || null });
+      else if (ttsProviderId === "azure") {
+        key = ttsAzureKey || (await getTtsAzureKey().catch(() => null));
+        region = ttsAzureRegion;
+      }
+      else if (ttsProviderId === "google") key = ttsGoogleKey || (await getTtsGoogleKey().catch(() => null));
+      ctrl.setProvider(ttsProviderId, { voiceId: ttsVoiceId, key, model: ttsModelOverrides[ttsProviderId] || null, region });
     })();
-  }, [ttsProviderId, ttsVoiceId, ttsElevenKey, ttsModelOverrides]);
+  }, [ttsProviderId, ttsVoiceId, ttsElevenKey, ttsAzureKey, ttsAzureRegion, ttsGoogleKey, ttsModelOverrides]);
 
   // Re-check provider readiness when settings panel opens.
   useEffect(() => { if (showSettings) detectTtsProviderReady(); }, [showSettings]);
@@ -944,7 +972,8 @@ export function App() {
     try {
       const providerId = codex.provider || "pollinations";
       const providerCfg = (codex.providerConfig && codex.providerConfig[providerId]) || {};
-      const img = await generateImage({
+      const { generateImage: _generateImage } = await import("./llm/imaging.js");
+      const img = await _generateImage({
         providerId, providerConfig: providerCfg, prompt, negatives,
         signal, timeoutMs: codex.timeoutMs || 20000
       });
@@ -971,7 +1000,7 @@ export function App() {
     setLoading(true);
     setError(null);
     setRecovery(null);
-    ensureAmbienceEngine();
+    await ensureAmbienceEngine();
     const controller = new AbortController;
     const rollback = () => {
       setPhase("title");
@@ -1127,7 +1156,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
       return;
     skipReveal();
     setRecovery(null);
-    if (!metaMode) ensureAmbienceEngine();
+    if (!metaMode) await ensureAmbienceEngine();
     const previousInput = input;
     const previousInputHistory = inputHistory;
     const previousInputHistoryIndex = inputHistoryIndex;
@@ -1660,6 +1689,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setPhase("playing");
     setShowSaves(false);
     setSaveBanner({ kind: "ok", text: "The hour resumes." });
+    await ensureAmbienceEngine();
     // Don't narrate loaded history aloud — advance the TTS cursor past it.
     if (ttsRef.current) ttsRef.current.stop();
     ttsNextRef.current = (save.entries || []).length;
@@ -1881,6 +1911,9 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
             ttsVoxtralVoicesError={ttsVoxtralVoicesError}
             ttsRate={ttsRate}
             ttsElevenKey={ttsElevenKey}
+            ttsAzureKey={ttsAzureKey}
+            ttsAzureRegion={ttsAzureRegion}
+            ttsGoogleKey={ttsGoogleKey}
             onChangeTtsEnabled={setTtsEnabled}
             onChangeTtsProvider={setTtsProviderId}
             onChangeTtsVoice={setTtsVoiceId}
@@ -1896,6 +1929,20 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
             onChangeTtsElevenKey={async (k) => {
               setTtsElevenKey(k);
               await saveTtsElevenLabsKey(k);
+              detectTtsProviderReady();
+            }}
+            onChangeTtsAzureKey={async (k) => {
+              setTtsAzureKey(k);
+              await saveTtsAzureKey(k);
+              detectTtsProviderReady();
+            }}
+            onChangeTtsAzureRegion={(r) => {
+              setTtsAzureRegion(r);
+              saveTtsAzureRegion(r);
+            }}
+            onChangeTtsGoogleKey={async (k) => {
+              setTtsGoogleKey(k);
+              await saveTtsGoogleKey(k);
               detectTtsProviderReady();
             }}
           />

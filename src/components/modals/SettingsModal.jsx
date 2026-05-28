@@ -10,7 +10,9 @@ export function SettingsModal({ settings, onChange, onClose, osReducedMotion,
   ambienceLevel, ambienceUnavailable, ambienceDuringNarrationOnly, ambienceBoostWithTTS, ambienceMusicLevel,
   onChangeAmbience, onChangeAmbienceDuringNarrationOnly, onChangeAmbienceBoostWithTTS, onChangeAmbienceMusicLevel,
   ttsEnabled, ttsProviderId, ttsProviderReady, ttsVoiceId, ttsModel, ttsBrowserVoices, ttsVoxtralVoices, ttsVoxtralVoicesError, ttsRate, ttsElevenKey,
-  onChangeTtsEnabled, onChangeTtsProvider, onChangeTtsVoice, onChangeTtsModel, onChangeTtsRate, onChangeTtsElevenKey }) {
+  ttsAzureKey, ttsAzureRegion, ttsGoogleKey,
+  onChangeTtsEnabled, onChangeTtsProvider, onChangeTtsVoice, onChangeTtsModel, onChangeTtsRate, onChangeTtsElevenKey,
+  onChangeTtsAzureKey, onChangeTtsAzureRegion, onChangeTtsGoogleKey }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
@@ -94,12 +96,18 @@ export function SettingsModal({ settings, onChange, onClose, osReducedMotion,
             voxtralVoicesError={ttsVoxtralVoicesError}
             rate={ttsRate}
             elevenKey={ttsElevenKey}
+            azureKey={ttsAzureKey}
+            azureRegion={ttsAzureRegion}
+            googleKey={ttsGoogleKey}
             onChangeEnabled={onChangeTtsEnabled}
             onChangeProvider={onChangeTtsProvider}
             onChangeVoice={onChangeTtsVoice}
             onChangeModel={onChangeTtsModel}
             onChangeRate={onChangeTtsRate}
             onChangeElevenKey={onChangeTtsElevenKey}
+            onChangeAzureKey={onChangeTtsAzureKey}
+            onChangeAzureRegion={onChangeTtsAzureRegion}
+            onChangeGoogleKey={onChangeTtsGoogleKey}
           />
           <CodexSection settings={settings} onChange={onChange} />
           <div className="settings-toggle" style={{ cursor: "default", opacity: 0.85 }}>
