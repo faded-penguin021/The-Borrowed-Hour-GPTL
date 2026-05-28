@@ -1,15 +1,9 @@
-import { BrowserTTSAdapter } from "./adapters/browser.js";
-import { PuterTTSAdapter } from "./adapters/puter.js";
-import { OpenAITTSAdapter } from "./adapters/openai.js";
-import { VoxtralTTSAdapter } from "./adapters/voxtral.js";
-import { ElevenLabsTTSAdapter } from "./adapters/elevenlabs.js";
-
 // ── Provider catalogue ───────────────────────────────────────────────────
 export var TTS_PROVIDER_META = {
   browser: {
     id: "browser", name: "Browser", requiresKey: false, reusesLLMKey: null,
     voices: [], // populated from speechSynthesis at runtime
-    adapter: BrowserTTSAdapter
+    adapterLoader: () => import("./adapters/browser.js").then(m => m.BrowserTTSAdapter)
   },
   puter: {
     id: "puter", name: "Puter", requiresKey: false, reusesLLMKey: null,
@@ -29,7 +23,7 @@ export var TTS_PROVIDER_META = {
       { id: "Aria",     label: "Aria — generative" },
       { id: "Ruth",     label: "Ruth — generative" }
     ],
-    adapter: PuterTTSAdapter
+    adapterLoader: () => import("./adapters/puter.js").then(m => m.PuterTTSAdapter)
   },
   openai: {
     id: "openai", name: "OpenAI", requiresKey: true, reusesLLMKey: "openai",
@@ -52,7 +46,7 @@ export var TTS_PROVIDER_META = {
       { id: "tts-1", tier: "legacy-fast" },
       { id: "tts-1-hd", tier: "legacy-quality" }
     ],
-    adapter: OpenAITTSAdapter
+    adapterLoader: () => import("./adapters/openai.js").then(m => m.OpenAITTSAdapter)
   },
   voxtral: {
     // Voice list comes from the API at /v1/audio/voices — the hosted catalog
@@ -66,8 +60,8 @@ export var TTS_PROVIDER_META = {
     models: [
       { id: "voxtral-mini-tts-2603", tier: "fast" }
     ],
-    adapter: VoxtralTTSAdapter,
-    allowCustomVoiceId: true
+    allowCustomVoiceId: true,
+    adapterLoader: () => import("./adapters/voxtral.js").then(m => m.VoxtralTTSAdapter)
   },
   elevenlabs: {
     id: "elevenlabs", name: "ElevenLabs", requiresKey: true, reusesLLMKey: null,
@@ -87,8 +81,38 @@ export var TTS_PROVIDER_META = {
       { id: "eleven_multilingual_v2", tier: "quality" },
       { id: "eleven_v3", tier: "flagship" }
     ],
-    adapter: ElevenLabsTTSAdapter
+    adapterLoader: () => import("./adapters/elevenlabs.js").then(m => m.ElevenLabsTTSAdapter)
+  },
+  azure: {
+    id: "azure", name: "Azure", requiresKey: true, reusesLLMKey: null,
+    keyStorage: "borrowed:tts_azure_key:v1",
+    allowCustomVoiceId: true,
+    voices: [
+      { id: "en-US-JennyNeural", label: "Jenny — US Neural (warm)" },
+      { id: "en-US-GuyNeural",   label: "Guy — US Neural (deep)" },
+      { id: "en-US-AriaNeural",  label: "Aria — US Neural (expressive)" },
+      { id: "en-GB-SoniaNeural", label: "Sonia — UK Neural (confident)" },
+      { id: "en-GB-RyanNeural",  label: "Ryan — UK Neural (authoritative)" },
+      { id: "en-AU-NatashaNeural", label: "Natasha — AU Neural (bright)" }
+    ],
+    model: "", models: [],
+    adapterLoader: () => import("./adapters/azure.js").then(m => m.AzureTTSAdapter)
+  },
+  google: {
+    id: "google", name: "Google", requiresKey: true, reusesLLMKey: null,
+    keyStorage: "borrowed:tts_google_key:v1",
+    allowCustomVoiceId: true,
+    voices: [
+      { id: "en-US-Neural2-C",  label: "Neural2-C — US female (clear)" },
+      { id: "en-US-Neural2-J",  label: "Neural2-J — US male (warm)" },
+      { id: "en-US-Wavenet-D",  label: "Wavenet-D — US male (deep)" },
+      { id: "en-US-Wavenet-F",  label: "Wavenet-F — US female (bright)" },
+      { id: "en-GB-Neural2-A",  label: "Neural2-A — UK female (lyrical)" },
+      { id: "en-GB-Neural2-B",  label: "Neural2-B — UK male (calm)" }
+    ],
+    model: "", models: [],
+    adapterLoader: () => import("./adapters/google.js").then(m => m.GoogleTTSAdapter)
   }
 };
 // Quality-first order; first "ready" provider wins on auto-select.
-export var TTS_PROVIDER_ORDER = ["openai", "elevenlabs", "voxtral", "puter", "browser"];
+export var TTS_PROVIDER_ORDER = ["openai", "elevenlabs", "voxtral", "azure", "google", "puter", "browser"];
