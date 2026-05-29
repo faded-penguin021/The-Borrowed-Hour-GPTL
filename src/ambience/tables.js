@@ -188,16 +188,20 @@ export var AMBIENCE_DEFAULT_PALETTE = "ensemble";
 // is the wet-return gain (how much the convolver tail is heard); `tone` is a
 // master low-pass cutoff (Hz) — small/enclosed spaces sound darker and drier,
 // great halls sound bright and washed. Applied when `space` changes.
+// `tone` is a master low-pass cutoff (Hz). It must COLOUR the music, not bury
+// it — even the darkest, driest space keeps a high enough cutoff that the
+// instruments stay legible. Relative ordering carries the character: a vehicle
+// is clearly duller/drier than a hall, but neither smothers the melody.
 export var AMBIENCE_SPACE_ACOUSTICS = {
-  intimate: { reverb: 0.22, tone: 2400 },
-  chamber:  { reverb: 0.45, tone: 5200 },
-  hall:     { reverb: 0.72, tone: 8000 },
-  cavern:   { reverb: 0.95, tone: 5500 },
-  street:   { reverb: 0.30, tone: 6500 },
-  field:    { reverb: 0.35, tone: 9000 },
-  forest:   { reverb: 0.45, tone: 7000 },
-  vehicle:  { reverb: 0.18, tone: 1500 },
-  void:     { reverb: 0.85, tone: 5000 }
+  intimate: { reverb: 0.22, tone: 5200 },
+  chamber:  { reverb: 0.45, tone: 7500 },
+  hall:     { reverb: 0.70, tone: 13000 },
+  cavern:   { reverb: 0.90, tone: 8500 },
+  street:   { reverb: 0.30, tone: 9500 },
+  field:    { reverb: 0.35, tone: 14000 },
+  forest:   { reverb: 0.45, tone: 10500 },
+  vehicle:  { reverb: 0.18, tone: 4200 },
+  void:     { reverb: 0.80, tone: 8000 }
 };
 export var AMBIENCE_DEFAULT_ACOUSTICS = { reverb: 0.55, tone: 18000 };
 
