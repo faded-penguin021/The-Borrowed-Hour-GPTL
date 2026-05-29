@@ -1,4 +1,6 @@
+// @ts-check
 if (!window.storage) {
+  /** @type {StorageShim} */
   window.storage = {
     async get(key) {
       const value = localStorage.getItem(key);

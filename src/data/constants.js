@@ -1,8 +1,13 @@
+// @ts-check
 export var SAVE_PREFIX = "borrowed:save:";
 export var SETTINGS_KEY = "borrowed:settings:v1";
 export var SAVE_CAP = 30;
 export var APPROX_CHARS_PER_TOKEN = 3.5;
 
+/**
+ * @param {unknown} value
+ * @returns {SizeEstimate}
+ */
 export var estimateSize = (value) => {
   let bytes = 0;
   try {
@@ -17,6 +22,10 @@ export var estimateSize = (value) => {
   };
 };
 
+/**
+ * @param {number} kb
+ * @returns {string}
+ */
 export var formatKB = (kb) => {
   if (kb < 1)
     return `${Math.round(kb * 1024)} B`;
@@ -25,16 +34,24 @@ export var formatKB = (kb) => {
   return `${Math.round(kb)} KB`;
 };
 
+/**
+ * @param {number} t
+ * @returns {string}
+ */
 export var formatTokens = (t) => {
   if (t < 1000)
     return `~${t} tokens`;
   return `~${(t / 1000).toFixed(t < 1e4 ? 1 : 0)}K tokens`;
 };
 
+/** @type {EngineConfig} */
 export var DEFAULT_ENGINE_OPENING = { provider: "mistral", model: "mistral-large-latest" };
+/** @type {EngineConfig} */
 export var DEFAULT_ENGINE_GM = { provider: "mistral", model: "mistral-medium-latest" };
+/** @type {EngineConfig} */
 export var DEFAULT_ENGINE_NARRATOR = { provider: "mistral", model: "mistral-medium-latest" };
 
+/** @type {CodexSettings} */
 export var DEFAULT_CODEX_SETTINGS = {
   mode: "off",
   provider: "pollinations",
@@ -49,6 +66,7 @@ export var DEFAULT_CODEX_SETTINGS = {
   timeoutMs: 60000
 };
 
+/** @type {AppSettings} */
 export var DEFAULT_SETTINGS = {
   highContrast: false,
   disableTypewriter: false,
@@ -63,6 +81,7 @@ export var DEFAULT_SETTINGS = {
 
 export var LOCAL_DEFAULT_URL = "http://localhost:11434/v1/chat/completions";
 
+/** @type {GameState} */
 export var EMPTY_STATE = {
   scene: "",
   time: "",
@@ -73,4 +92,4 @@ export var EMPTY_STATE = {
   hidden_state: ""
 };
 
-export var VALID_ENDINGS = new Set(["good", "bittersweet", "pyrrhic", "ambiguous", "bad"]);
+export var VALID_ENDINGS = /** @type {Set<EndingType>} */ (/** @type {unknown} */ (new Set(["good", "bittersweet", "pyrrhic", "ambiguous", "bad"])));

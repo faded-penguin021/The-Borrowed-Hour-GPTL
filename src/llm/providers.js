@@ -1,3 +1,4 @@
+// @ts-check
 import { BorrowedError } from "./errors.js";
 import { httpStatusHint, extractApiErrorMessage } from "./errors.js";
 import { LOCAL_DEFAULT_URL } from "../data/constants.js";
@@ -8,7 +9,9 @@ import { ENC_PREFIX, decryptSecret } from "../storage/encryption.js";
 // methods — which are called at runtime, not at module load time. We expose a
 // setGMTool() setter here; tools.js calls setGMTool(GM_TOOL) after it defines it.
 // That way neither module needs a top-level import of the other.
+/** @type {ToolDefinition | null} */
 let _gmTool = null;
+/** @param {ToolDefinition} tool */
 export function setGMTool(tool) { _gmTool = tool; }
 function _getGMTool() { return _gmTool; }
 
@@ -24,6 +27,9 @@ import {
   parseChatStreamEvent,
   makeChatCompletionsProvider
 } from "./stream.js";
+
+/** @type {(opts: any) => any} */
+var _mkCCP = makeChatCompletionsProvider;
 
 var normalizeOpenAIMessages = (sys, msgs) => [
   { role: "developer", content: sys },
@@ -42,6 +48,7 @@ var normalizeClaudeMessages = (msgs) => msgs.map((m) => ({
 }));
 
 // checked: 2026-05-28
+/** @type {Record<ProviderId, ProviderMeta>} */
 export var PROVIDER_META = {
   gemini: {
     name: "Gemini",
@@ -199,12 +206,17 @@ export var FREE_MODELS_BY_PROVIDER = {
   cerebras:   { opener: "gpt-oss-120b",             gm: "gpt-oss-120b",               narrator: "gpt-oss-120b" },
   local:      { opener: "llama3.2",                 gm: "llama3.1",                   narrator: "llama3.2" }
 };
+/** @returns {string} */
 export var getLocalUrl = () => localStorage.getItem(PROVIDER_META.local.urlStorage)?.trim() || LOCAL_DEFAULT_URL;
+/**
+ * @param {ProviderId} id
+ * @returns {Promise<string>}
+ */
 export var getProviderKey = async (id) => {
   const m = PROVIDER_META[id];
   if (!m)
     throw new BorrowedError("The hour cannot open yet.", `Unknown API provider "${id}".`);
-  const injected = window[m.windowKey] || document.querySelector(`meta[name="${m.metaName}"]`)?.content;
+  const injected = window[m.windowKey] || /** @type {HTMLMetaElement | null} */ (document.querySelector(`meta[name="${m.metaName}"]`))?.content;
   if (injected)
     return injected.trim();
   const stored = localStorage.getItem(m.keyStorage);
@@ -226,11 +238,13 @@ export var getProviderKey = async (id) => {
     return "";
   throw new BorrowedError("The hour cannot open yet.", `No ${m.name} API key is saved. Open ⚙ Settings → API keys and paste your key there.`);
 };
+/** @param {ProviderId} id */
 export var resetProviderKey = (id) => {
   const m = PROVIDER_META[id];
   if (m)
     localStorage.removeItem(m.keyStorage);
 };
+/** @type {Record<string, any>} */
 export var PROVIDERS = {
   openai: {
     toolUse: true,
@@ -473,7 +487,7 @@ export var PROVIDERS = {
       return text;
     }
   },
-  deepseek: makeChatCompletionsProvider({
+  deepseek: _mkCCP({
     url: "https://api.deepseek.com/chat/completions",
     label: "DeepSeek",
     tools: true,
@@ -481,46 +495,47 @@ export var PROVIDERS = {
     // tool_choice. Disable thinking so we can pin the model to the schema.
     extraBody: { thinking: { type: "disabled" } }
   }),
-  qwen: makeChatCompletionsProvider({
+  qwen: _mkCCP({
     url: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
     label: "Qwen",
     tools: true
   }),
-  kimi: makeChatCompletionsProvider({
+  kimi: _mkCCP({
     url: "https://api.moonshot.cn/v1/chat/completions",
     label: "Kimi",
     tools: true
   }),
-  ernie: makeChatCompletionsProvider({
+  ernie: _mkCCP({
     url: "https://qianfan.baidubce.com/v2/chat/completions",
     label: "ERNIE",
     jsonSchema: false
   }),
-  mistral: makeChatCompletionsProvider({
+  mistral: _mkCCP({
     url: "https://api.mistral.ai/v1/chat/completions",
     label: "Mistral",
     tools: true
   }),
-  groq: makeChatCompletionsProvider({
+  groq: _mkCCP({
     url: "https://api.groq.com/openai/v1/chat/completions",
     label: "Groq",
     tools: true
   }),
-  openrouter: makeChatCompletionsProvider({
+  openrouter: _mkCCP({
     url: "https://openrouter.ai/api/v1/chat/completions",
     label: "OpenRouter",
     tools: true
   }),
-  cerebras: makeChatCompletionsProvider({
+  cerebras: _mkCCP({
     url: "https://api.cerebras.ai/v1/chat/completions",
     label: "Cerebras",
     tools: true
   }),
-  local: makeChatCompletionsProvider({
+  local: _mkCCP({
     url: () => getLocalUrl(),
     label: "Local LLM",
     jsonSchema: false
   })
 };
+/** @param {ProviderId} id @returns {boolean} */
 export var providerSupportsToolUse = (id) => !!PROVIDERS[id]?.toolUse;
 export var TOOL_USE_PROVIDER_ORDER = PROVIDER_ORDER.filter(providerSupportsToolUse);

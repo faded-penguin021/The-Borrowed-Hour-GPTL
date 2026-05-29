@@ -1,4 +1,6 @@
+// @ts-check
 // ── Provider catalogue ───────────────────────────────────────────────────
+/** @type {Record<string, TTSProviderMeta>} */
 export var TTS_PROVIDER_META = {
   browser: {
     id: "browser", name: "Browser", requiresKey: false, reusesLLMKey: null,
