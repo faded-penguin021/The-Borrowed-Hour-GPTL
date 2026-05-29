@@ -23,6 +23,12 @@ import {
   AMBIENCE_SPACE_RECIPES,
   AMBIENCE_POPULATION_RECIPES,
   AMBIENCE_EVENT_RECIPES,
+  AMBIENCE_PALETTE,
+  AMBIENCE_PALETTE_DEFAULT,
+  AMBIENCE_MASTER_LPF_DEFAULT,
+  AMBIENCE_MASTER_LPF_CAP,
+  AMBIENCE_ATTACK_FLOOR,
+  AMBIENCE_LANE_GAIN_CEILING,
   sanitizeAmbience
 } from "./tables.js";
 
@@ -47,7 +53,22 @@ export class AmbienceEngine {
 
     this.master = this.ctx.createGain();
     this.master.gain.value = 0;
-    this.master.connect(this.ctx.destination);
+
+    this.masterLPF = this.ctx.createBiquadFilter();
+    this.masterLPF.type = "lowpass";
+    this.masterLPF.frequency.value = AMBIENCE_MASTER_LPF_DEFAULT;
+    this.masterLPF.Q.value = 0.5;
+
+    this.masterComp = this.ctx.createDynamicsCompressor();
+    this.masterComp.threshold.value = -6;
+    this.masterComp.knee.value = 6;
+    this.masterComp.ratio.value = 3;
+    this.masterComp.attack.value = 0.012;
+    this.masterComp.release.value = 0.25;
+
+    this.master.connect(this.masterLPF);
+    this.masterLPF.connect(this.masterComp);
+    this.masterComp.connect(this.ctx.destination);
 
     // Shared convolver reverb bus. Lanes that want wet tail connect to
     // reverbSend at a per-voice gain; reverbReturn lives under master.
@@ -80,7 +101,8 @@ export class AmbienceEngine {
     this.musicLevel = "full"; // off | sparse | full
 
     // Currently held GM input — fields stay until re-emitted.
-    this.current = { space: null, population: null, mood: null };
+    this.current = { space: null, population: null, mood: null, palette: null };
+    this._paletteWeights = AMBIENCE_PALETTE[AMBIENCE_PALETTE_DEFAULT];
 
     this.comfortInterval = setInterval(() => this._updateComfort(), 30000);
     this.melodyArmed = false;
@@ -246,7 +268,7 @@ export class AmbienceEngine {
       env.gain.setTargetAtTime(0.0005, now + dur - 0.3, 0.5);
     } else {
       env.gain.setValueAtTime(0, now);
-      env.gain.linearRampToValueAtTime(0.20, now + 0.005);
+      env.gain.linearRampToValueAtTime(0.14, now + AMBIENCE_ATTACK_FLOOR);
       env.gain.exponentialRampToValueAtTime(0.0005, now + 0.35);
     }
     bp.connect(env); env.connect(this.strings.out);
@@ -295,9 +317,9 @@ export class AmbienceEngine {
     const bp = ctx.createBiquadFilter();
     bp.type = "bandpass"; bp.frequency.value = 2500; bp.Q.value = 1.0;
     const g = ctx.createGain();
-    const p = peak || 0.5;
+    const p = peak || 0.35;
     g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(p, now + 0.003);
+    g.gain.linearRampToValueAtTime(p, now + AMBIENCE_ATTACK_FLOOR);
     g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
     src.connect(bp); bp.connect(g); g.connect(this.drums.out);
     src.start(now); src.stop(now + 0.15);
@@ -311,7 +333,7 @@ export class AmbienceEngine {
     const hp = ctx.createBiquadFilter();
     hp.type = "highpass"; hp.frequency.value = 7000;
     const g = ctx.createGain();
-    const p = peak || 0.35;
+    const p = peak || 0.15;
     g.gain.setValueAtTime(0, now);
     g.gain.linearRampToValueAtTime(p, now + 0.002);
     g.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
@@ -498,16 +520,19 @@ export class AmbienceEngine {
     const freq = root * Math.pow(2, scale[degree] / 12);
     // Each instrument fires with a per-mood probability so they don't all
     // play every melody beat — sparseness sells the minimalist feel.
-    if (instr.piano && Math.random() < 0.45) {
+    // Palette allow gating suppresses instrument types outside this palette's
+    // character; palette can suppress but never invent lanes the mood didn't ask for.
+    const allow = this._paletteWeights?.allow || { piano: true, pluck: true, pizz: true, bow: true };
+    if (instr.piano && allow.piano && Math.random() < 0.45) {
       this._firePiano(freq * 0.5, 0.10, 2.5 + Math.random() * 1.2);
     }
-    if (instr.pluck && Math.random() < 0.55) {
+    if (instr.pluck && allow.pluck && Math.random() < 0.55) {
       this._firePluck(freq, 0.18);
     }
-    if (instr.pizz && Math.random() < 0.50) {
+    if (instr.pizz && allow.pizz && Math.random() < 0.50) {
       this._firePizz(freq);
     }
-    if (instr.bow && Math.random() < 0.25) {
+    if (instr.bow && allow.bow && Math.random() < 0.25) {
       // Bowed line uses the chord root for a sustained drone above the pad.
       const prog = AMBIENCE_MOOD_PROGRESSION[mood];
       const [chordRoot] = prog[(this.chordPad.progressionIdx + prog.length - 1) % prog.length];
@@ -532,7 +557,7 @@ export class AmbienceEngine {
     const peak = 0.08 + Math.random() * 0.03;
     const ctx = this.ctx;
     const osc = ctx.createOscillator();
-    osc.type = "triangle";
+    osc.type = this._paletteWeights?.melodyOsc || "triangle";
     osc.frequency.value = freq;
     const g = ctx.createGain();
     const now = ctx.currentTime;
@@ -580,7 +605,35 @@ export class AmbienceEngine {
     osc.start(now);
     osc.stop(now + 0.25);
   }
-  // ── Mood application ──────────────────────────────────────────────
+  // ── Voicing / mood application ────────────────────────────────────
+  // _applyVoicing writes all music lane gains; called by both _applyMood
+  // and _applyPalette so the two never fight over the same gain nodes.
+  _applyVoicing() {
+    if (this.destroyed) return;
+    const mood = this.current.mood;
+    if (!mood) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const TC = 0.83;
+    const clamp = (v) => Math.min(AMBIENCE_LANE_GAIN_CEILING, Math.max(0, v));
+    const pw = this._paletteWeights || AMBIENCE_PALETTE[AMBIENCE_PALETTE_DEFAULT];
+    const weights = AMBIENCE_MOOD_MUSIC_GAIN[mood] || AMBIENCE_MOOD_MUSIC_GAIN.calm;
+    const instr = AMBIENCE_MOOD_INSTRUMENTATION[mood] || {};
+    // Shadow the melody oscillator when piano takes the foreground.
+    const melodyScale = instr.piano ? 0.35 : 1.0;
+    const melodicScale = this.musicLevel === "off" ? 0
+      : this.musicLevel === "sparse" ? 0.6
+      : 1.0;
+    const drumScale = this.musicLevel === "full" ? 1.0 : 0;
+    this.chordPad.out.gain.setTargetAtTime(clamp(weights.chord * (pw.weights.chord ?? 1)), t, TC);
+    this.melodyVoice.out.gain.setTargetAtTime(clamp(weights.melody * melodyScale * (pw.weights.melody ?? 1)), t, TC);
+    this.pulse.out.gain.setTargetAtTime(clamp(weights.pulse * (pw.weights.pulse ?? 1)), t, TC);
+    this.piano.out.gain.setTargetAtTime(clamp((instr.piano || 0) * melodicScale * (pw.weights.piano ?? 1)), t, TC);
+    this.pluck.out.gain.setTargetAtTime(clamp((instr.pluck || 0) * melodicScale * (pw.weights.pluck ?? 1)), t, TC);
+    const stringPeak = Math.max(instr.pizz || 0, instr.bow || 0);
+    this.strings.out.gain.setTargetAtTime(clamp(stringPeak * melodicScale * (pw.weights.strings ?? 1)), t, TC);
+    this.drums.out.gain.setTargetAtTime(clamp((AMBIENCE_MOOD_DRUM_PATTERN[mood] ? 1.0 : 0) * drumScale * (pw.weights.drums ?? 1)), t, TC);
+  }
   _applyMood(mood) {
     if (this.destroyed) return;
     const ctx = this.ctx;
@@ -596,24 +649,6 @@ export class AmbienceEngine {
       this.drums.out.gain.setTargetAtTime(0, t, TC);
       return;
     }
-    const weights = AMBIENCE_MOOD_MUSIC_GAIN[mood] || AMBIENCE_MOOD_MUSIC_GAIN.calm;
-    // Shadow the legacy melody when piano takes the lead — keeps the bed
-    // present but not competing with the piano's foreground.
-    const instr = AMBIENCE_MOOD_INSTRUMENTATION[mood] || {};
-    const melodyScale = instr.piano ? 0.35 : 1.0;
-    this.chordPad.out.gain.setTargetAtTime(weights.chord, t, TC);
-    this.melodyVoice.out.gain.setTargetAtTime(weights.melody * melodyScale, t, TC);
-    this.pulse.out.gain.setTargetAtTime(weights.pulse, t, TC);
-    // Instrument lanes — scaled by musicLevel.
-    const melodicScale = this.musicLevel === "off" ? 0
-      : this.musicLevel === "sparse" ? 0.6
-      : 1.0;
-    const drumScale = this.musicLevel === "full" ? 1.0 : 0;
-    this.piano.out.gain.setTargetAtTime((instr.piano || 0) * melodicScale, t, TC);
-    this.pluck.out.gain.setTargetAtTime((instr.pluck || 0) * melodicScale, t, TC);
-    const stringPeak = Math.max(instr.pizz || 0, instr.bow || 0);
-    this.strings.out.gain.setTargetAtTime(stringPeak * melodicScale, t, TC);
-    this.drums.out.gain.setTargetAtTime((AMBIENCE_MOOD_DRUM_PATTERN[mood] ? 1.0 : 0) * drumScale, t, TC);
     // Snap chord progression to a fresh starting voicing on mood change.
     this.chordPad.progressionIdx = 0;
     const prog = AMBIENCE_MOOD_PROGRESSION[mood];
@@ -623,6 +658,19 @@ export class AmbienceEngine {
       this._setChord([root, third, root + 7], 2);
       this.chordPad.progressionIdx = 1;
     }
+    this._applyVoicing();
+  }
+  // Apply a palette by name (null → default). Glides the master LPF cutoff
+  // and rewrites lane gains without bumping _gen or rescheduling lanes.
+  _applyPalette(name) {
+    if (this.destroyed) return;
+    const cfg = (name !== null && name !== undefined && AMBIENCE_PALETTE[name])
+      ? AMBIENCE_PALETTE[name]
+      : AMBIENCE_PALETTE[AMBIENCE_PALETTE_DEFAULT];
+    this._paletteWeights = cfg;
+    const cutoff = Math.min(AMBIENCE_MASTER_LPF_CAP, cfg.cutoff);
+    this.masterLPF.frequency.setTargetAtTime(cutoff, this.ctx.currentTime, 1.5);
+    this._applyVoicing();
   }
   // ── Comfort / master gain ─────────────────────────────────────────
   _updateComfort() {
@@ -700,6 +748,8 @@ export class AmbienceEngine {
       this.current.space = null;
       this.current.population = null;
       this.current.mood = null;
+      this.current.palette = null;
+      this._paletteWeights = AMBIENCE_PALETTE[AMBIENCE_PALETTE_DEFAULT];
       this._applyMood(null);
       return;
     }
@@ -718,6 +768,13 @@ export class AmbienceEngine {
       if (this.current.population !== next) {
         this.current.population = next;
         this._setSceneLane(this.scene.population, "population", next, AMBIENCE_POPULATION_TRIM);
+      }
+    }
+    if ("palette" in sanitized) {
+      const next = sanitized.palette; // string or null
+      if (this.current.palette !== next) {
+        this.current.palette = next;
+        this._applyPalette(next);
       }
     }
     if ("mood" in sanitized) {
@@ -741,7 +798,7 @@ export class AmbienceEngine {
     const next = (level === "off" || level === "sparse" || level === "full") ? level : "full";
     if (this.musicLevel === next) return;
     this.musicLevel = next;
-    if (this.current.mood) this._applyMood(this.current.mood);
+    if (this.current.mood) this._applyVoicing();
   }
   // Resume a suspended AudioContext. Browsers start the context suspended
   // under their autoplay policy; the resume attempt inside setIntensity() runs

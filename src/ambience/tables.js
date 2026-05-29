@@ -14,13 +14,38 @@ import {
   AMBIENCE_SPACE_VALUES,
   AMBIENCE_POPULATION_VALUES,
   AMBIENCE_MOOD_VALUES,
+  AMBIENCE_PALETTE_VALUES,
   AMBIENCE_EVENT_VALUES
 } from "./enums.js";
 
 export var AMBIENCE_SPACES = new Set(AMBIENCE_SPACE_VALUES);
 export var AMBIENCE_POPULATIONS = new Set(AMBIENCE_POPULATION_VALUES);
 export var AMBIENCE_MOODS = new Set(AMBIENCE_MOOD_VALUES);
+export var AMBIENCE_PALETTES = new Set(AMBIENCE_PALETTE_VALUES);
 export var AMBIENCE_EVENTS = new Set(AMBIENCE_EVENT_VALUES);
+
+// Master safety-bus and voice guardrail constants.
+export var AMBIENCE_MASTER_LPF_DEFAULT = 3200;
+export var AMBIENCE_MASTER_LPF_CAP     = 4000;
+export var AMBIENCE_ATTACK_FLOOR       = 0.02;
+export var AMBIENCE_RELEASE_FLOOR      = 0.12;
+export var AMBIENCE_LANE_GAIN_CEILING  = 0.45;
+export var AMBIENCE_PALETTE_DEFAULT    = "piano";
+
+// Palette config — TIMBRE only, never adds lanes the mood didn't ask for.
+// cutoff ≤ CAP; melodyOsc for the melody voice oscillator type;
+// weights are multipliers (≤1) against the mood base for each lane;
+// allow gates which instrument types may actually fire this turn.
+export var AMBIENCE_PALETTE = {
+  piano:   { cutoff: 3200, melodyOsc: "triangle",  weights: { chord: 1.0, melody: 1.0, pulse: 1.0, piano: 1.0, pluck: 0.6, strings: 0.7, drums: 0.8 }, allow: { piano: true,  pluck: true,  pizz: true,  bow: true  } },
+  synth:   { cutoff: 3600, melodyOsc: "sawtooth",  weights: { chord: 0.9, melody: 1.0, pulse: 1.0, piano: 0.3, pluck: 0.4, strings: 0.5, drums: 1.0 }, allow: { piano: false, pluck: true,  pizz: true,  bow: false } },
+  glass:   { cutoff: 3800, melodyOsc: "triangle",  weights: { chord: 0.8, melody: 1.0, pulse: 0.5, piano: 0.5, pluck: 1.0, strings: 0.4, drums: 0.3 }, allow: { piano: true,  pluck: true,  pizz: false, bow: false } },
+  choir:   { cutoff: 2800, melodyOsc: "sine",      weights: { chord: 1.0, melody: 0.7, pulse: 0.6, piano: 0.4, pluck: 0.3, strings: 0.8, drums: 0.4 }, allow: { piano: false, pluck: false, pizz: false, bow: true  } },
+  strings: { cutoff: 3000, melodyOsc: "triangle",  weights: { chord: 0.9, melody: 0.9, pulse: 0.8, piano: 0.5, pluck: 0.7, strings: 1.0, drums: 0.6 }, allow: { piano: true,  pluck: true,  pizz: true,  bow: true  } },
+  reed:    { cutoff: 2400, melodyOsc: "sine",      weights: { chord: 0.8, melody: 0.8, pulse: 0.7, piano: 0.4, pluck: 1.0, strings: 0.6, drums: 0.5 }, allow: { piano: false, pluck: true,  pizz: true,  bow: false } },
+  brass:   { cutoff: 2200, melodyOsc: "sine",      weights: { chord: 0.7, melody: 0.6, pulse: 0.5, piano: 0.3, pluck: 0.2, strings: 0.5, drums: 0.0 }, allow: { piano: false, pluck: false, pizz: false, bow: false } },
+  guitar:  { cutoff: 3200, melodyOsc: "triangle",  weights: { chord: 0.9, melody: 1.0, pulse: 0.8, piano: 0.6, pluck: 1.0, strings: 0.7, drums: 0.7 }, allow: { piano: true,  pluck: true,  pizz: true,  bow: false } }
+};
 
 // Per-scene loudness trims — relative voice gains feeding the master.
 // Tuned by ear; samples are no longer involved.
@@ -127,10 +152,10 @@ export var AMBIENCE_MOOD_DRUM_GAIN = {
 };
 
 // Realm-derived opening ambience. Used to guarantee the world has sound from
-// the very first turn (before the GM has emitted its own ambience). `palette`
-// is carried for forward-compatibility and is ignored by this (deliberately
-// monotonous) engine, which voices everything from the mood/space/population
-// taxonomy — but it keeps GM emissions and the tool schema valid.
+// the very first turn (before the GM has emitted its own ambience). All four
+// fields — space, mood, palette, population — are live and applied by the
+// engine; palette sets the master LPF cutoff and lane weights for each realm's
+// distinct opening timbre.
 export var AMBIENCE_REALM_DEFAULTS = {
   neon:  { space: "street",  mood: "mysterious", palette: "synth",   population: "machinery" },
   dream: { space: "void",    mood: "mysterious", palette: "glass",   population: "solitary"  },
@@ -141,6 +166,28 @@ export var AMBIENCE_REALM_DEFAULTS = {
 export var AMBIENCE_REALM_FALLBACK = { space: "intimate", mood: "calm", palette: "piano", population: "solitary" };
 export var defaultAmbienceForRealm = (realm) =>
   AMBIENCE_REALM_DEFAULTS[realm] || AMBIENCE_REALM_FALLBACK;
+
+// Ordered keyword classifier for Wild (custom) realm turn-1 beds.
+// Specific keywords come before generic ones so "starship" beats "vehicle".
+// Returns a fresh object every call.
+export var deriveAmbienceFromSeed = (seed) => {
+  const s = (seed || "").toLowerCase();
+  const rules = [
+    [["submarine", "underwater"],                            { space: "vehicle",  population: "machinery",     mood: "ominous",    palette: "synth"   }],
+    [["starship", "orbital", "space-station", "space station"], { space: "void", population: "machinery",     mood: "mysterious", palette: "synth"   }],
+    [["cyberpunk", "neon", "chrome", "arcology", "alley"],   { space: "street",   population: "machinery",     mood: "tense",      palette: "synth"   }],
+    [["desert", "dune", "frontier"],                         { space: "field",    population: "wild",          mood: "calm",       palette: "guitar"  }],
+    [["forest", "woods", "jungle"],                          { space: "forest",   population: "nature",        mood: "calm",       palette: "strings" }],
+    [["temple", "cathedral", "sacred"],                      { space: "hall",     population: "ceremony",      mood: "ominous",    palette: "choir"   }],
+    [["manor", "gothic", "castle"],                          { space: "chamber",  population: "solitary",      mood: "ominous",    palette: "strings" }],
+    [["train", "carriage", "vehicle"],                       { space: "vehicle",  population: "sparse_voices", mood: "calm",       palette: "piano"   }],
+    [["city", "market", "tavern"],                           { space: "street",   population: "crowd",         mood: "joyous",     palette: "strings" }],
+  ];
+  for (const [keywords, config] of rules) {
+    if (keywords.some((k) => s.includes(k))) return { ...config };
+  }
+  return { space: "intimate", population: "solitary", mood: "calm", palette: "piano" };
+};
 
 export var sanitizeAmbience = (raw) => {
   if (raw === null) return null;
@@ -157,6 +204,10 @@ export var sanitizeAmbience = (raw) => {
   if ("mood" in raw) {
     if (raw.mood === null) out.mood = null;
     else if (typeof raw.mood === "string" && AMBIENCE_MOODS.has(raw.mood)) out.mood = raw.mood;
+  }
+  if ("palette" in raw) {
+    if (raw.palette === null) out.palette = null;
+    else if (typeof raw.palette === "string" && AMBIENCE_PALETTES.has(raw.palette)) out.palette = raw.palette;
   }
   if (Array.isArray(raw.events)) {
     const evts = raw.events
@@ -451,13 +502,13 @@ export var AMBIENCE_POPULATION_RECIPES = {
     o.connect(og).connect(dest); o.start();
     const iv = setInterval(() => {
       const now = ctx.currentTime;
-      const click = ctx.createOscillator(); click.type = "square"; click.frequency.value = 1200 + Math.random()*800;
+      const click = ctx.createOscillator(); click.type = "triangle"; click.frequency.value = 300 + Math.random()*200;
       const cg = ctx.createGain();
       cg.gain.setValueAtTime(0, now);
-      cg.gain.linearRampToValueAtTime(0.04, now + 0.005);
-      cg.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+      cg.gain.linearRampToValueAtTime(0.04, now + 0.03);
+      cg.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
       click.connect(cg).connect(dest);
-      click.start(now); click.stop(now + 0.05);
+      click.start(now); click.stop(now + 0.1);
     }, 700);
     return { nodes: [src, f, g, o, og], timers: [iv] };
   },
