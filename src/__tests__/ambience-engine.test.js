@@ -153,7 +153,7 @@ describe("realm-derived opening ambience", () => {
     eng.setIntensity("present");
     eng.applyAmbience(defaultAmbienceForRealm("neon"));
     expect(eng.current.space).toBe("street");
-    expect(eng.current.mood).toBe("tense");
+    expect(eng.current.mood).toBe("mysterious");
     expect(eng.current.palette).toBe("synth");
     // A GM emission layered on top overrides per field, holding the rest.
     eng.applyAmbience({ mood: "calm" });

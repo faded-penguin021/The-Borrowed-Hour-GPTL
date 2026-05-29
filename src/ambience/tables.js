@@ -145,8 +145,12 @@ export var AMBIENCE_PALETTE = {
     lead: "piano", drums: false
   },
   synth: {
-    pad:    { sine: "sawtooth", tri: "square", detune: 9, cutoff: 2300 },
-    melody: { osc: "sawtooth", cutoff: 2700, attack: 0.05, releaseScale: 0.8 },
+    // Warm analog-pad synth, not a bright lead. The original sawtooth+square
+    // pad and 2700 Hz sawtooth melody pushed harmonic energy up into the
+    // ~2 kHz shriek zone (confirmed by spectral analysis of the neon opener);
+    // triangle oscillators and lower cutoffs keep it moody, not piercing.
+    pad:    { sine: "sawtooth", tri: "triangle", detune: 9, cutoff: 1400 },
+    melody: { osc: "triangle", cutoff: 1500, attack: 0.12, releaseScale: 0.8 },
     instr:  { pluck: 0.16, bell: 0.10 },
     lead: "melody", drums: true
   },
@@ -201,7 +205,7 @@ export var AMBIENCE_SPACE_ACOUSTICS = {
   chamber:  { reverb: 0.32, tone: 4200 },
   hall:     { reverb: 0.48, tone: 6000 },
   cavern:   { reverb: 0.58, tone: 4600 },
-  street:   { reverb: 0.24, tone: 4800 },
+  street:   { reverb: 0.24, tone: 3800 },
   field:    { reverb: 0.28, tone: 6500 },
   forest:   { reverb: 0.34, tone: 5200 },
   vehicle:  { reverb: 0.15, tone: 2400 },
@@ -218,7 +222,7 @@ export var AMBIENCE_DEFAULT_ACOUSTICS = { reverb: 0.28, tone: 5500 };
 // must be drawn from the ambience enums; combos are chosen to be characterful
 // but easy on the ear for a first impression.
 export var AMBIENCE_REALM_DEFAULTS = {
-  neon:  { space: "street",  mood: "tense",      palette: "synth",   population: "machinery" },
+  neon:  { space: "street",  mood: "mysterious", palette: "synth",   population: "machinery" },
   dream: { space: "void",    mood: "mysterious", palette: "glass",   population: "solitary"  },
   echo:  { space: "hall",    mood: "melancholy", palette: "piano",   population: "solitary"  },
   omen:  { space: "cavern",  mood: "ominous",    palette: "choir",   population: "solitary"  },
