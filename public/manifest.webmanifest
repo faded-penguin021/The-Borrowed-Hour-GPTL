@@ -1,0 +1,19 @@
+{
+  "name": "The Borrowed Hour",
+  "short_name": "Borrowed Hour",
+  "description": "A literary interactive text adventure — a single borrowed hour, narrated turn by turn.",
+  "id": "./",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0814",
+  "theme_color": "#0a0814",
+  "categories": ["games", "entertainment", "books"],
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

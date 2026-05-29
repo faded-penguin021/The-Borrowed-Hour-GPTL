@@ -11,7 +11,7 @@ import {
   ART_DIRECTOR_BOOTSTRAP_TOOL, ART_DIRECTOR_TURN_TOOL,
   buildBootstrapSystem, buildTurnSystem,
   parseBootstrapResponse, parseTurnResponse,
-  composeImagePrompt, mergeLedger
+  composeImagePrompt, mergeLedger, cleanPlateCaption
 } from "./llm/artDirector.js";
 import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "./tts/catalogue.js";
 import { TTSController } from "./tts/controller.js";
@@ -957,7 +957,10 @@ export function App() {
 
     const idx = entryIndexProvider();
     if (idx == null || idx < 0) return;
-    setEntryIllustration(idx, { status: "pending", milestoneReason: ad.milestone_reason || "" });
+    // `caption` is the player-facing plate line; `milestoneReason` is kept only
+    // as private gate reasoning (never rendered). The caption is scrubbed of any
+    // significance-talk so it can't leak GM judgement under the plate.
+    setEntryIllustration(idx, { status: "pending", caption: cleanPlateCaption(ad.caption), milestoneReason: ad.milestone_reason || "" });
     plateCountRef.current = plateCountRef.current + 1;
     setPlateCount(plateCountRef.current);
 
@@ -1321,7 +1324,7 @@ ${text}`);
     };
     abortRef.current = { controller, rollback, startedAt: Date.now() };
     try {
-      const gmSys = buildSystem(premise, language);
+      const gmSys = buildSystem(premise, language, { split: true });
       const firstGmReply = await callAPI(gmSys, apiHistory, true, settings.engineGM, 2600, 0.35, controller.signal, GM_LOGIC_TOOL);
       if (controller.signal.aborted)
         return;

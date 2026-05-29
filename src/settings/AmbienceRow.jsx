@@ -8,8 +8,8 @@ export function AmbienceRow({ level, unavailable, onChange, ttsEnabled, duringNa
   ];
   const musicOptions = [
     { id: "off", label: "Off", hint: "Textures only — no instruments." },
-    { id: "sparse", label: "Sparse", hint: "Piano and strings, no drums." },
-    { id: "full", label: "Full", hint: "Piano, strings, and drums where the mood calls for them." }
+    { id: "sparse", label: "Sparse", hint: "Melodic instruments the scene calls for, no drums." },
+    { id: "full", label: "Full", hint: "Melodic instruments plus drums where the mood allows." }
   ];
   const showMusicRow = !unavailable && level !== "off";
   const currentMusic = musicLevel || "full";
@@ -73,7 +73,7 @@ export function AmbienceRow({ level, unavailable, onChange, ttsEnabled, duringNa
               className="body-font italic"
               style={{ fontSize: 11, color: "var(--cream-faint)", lineHeight: 1.4 }}
             >
-              Off = ambient textures only. Sparse adds piano and strings. Full adds a soft pulse of drums when the mood calls for them.
+              Off = ambient textures only. Sparse adds the melodic instruments the scene's setting calls for (strings, piano, synth, bells, choir…). Full adds a soft pulse of drums when the mood allows.
             </div>
           </div>
         )}

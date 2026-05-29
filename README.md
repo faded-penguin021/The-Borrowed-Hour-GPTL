@@ -25,6 +25,14 @@ The built site is written to `dist/`. Preview it locally with `npm run preview`.
 
 Pushes to `main` build and publish the app to GitHub Pages via `.github/workflows/pages.yml`.
 
+## Install as an app (PWA)
+
+The Borrowed Hour is a Progressive Web App. On a supported browser you can install it to the home screen / dock (Chrome and Edge show an install icon in the address bar; iOS Safari uses **Share → Add to Home Screen**). Installed, it launches in a standalone window with its own hourglass icon and the twilight theme colour.
+
+A service worker (`public/sw.js`) caches the app shell so the page opens offline; the story itself still needs the network, since the LLM, image, and TTS providers are all remote. The worker deliberately leaves every cross-origin request untouched and only caches same-origin shell assets, so it never interferes with provider calls. It registers in production builds only — `npm run dev` is left to Vite's HMR.
+
+App icons are generated, dependency-free, from `scripts/gen-icons.mjs` (`npm run gen:icons`) and committed under `public/`. Re-run that script after editing the icon design.
+
 ## Choosing engines
 
 Open **⚙ Settings** from the title screen and find the **Story engines** section. Three separate models handle distinct roles:
@@ -180,5 +188,7 @@ The Local LLM endpoint URL is configurable per-session in Settings; no API key i
 - `src/data/` — premises, languages, runtime constants.
 - `src/storage/` — `window.storage` localStorage fallback shim and the AES-GCM encryption helpers for stored API keys.
 - `src/styles/theme.css` — the original literary stylesheet (Cinzel/Cormorant fonts, twilight palette, grain/vignette).
+- `public/` — static assets copied verbatim to the site root: `manifest.webmanifest`, the service worker `sw.js`, `favicon.svg`, and the generated PNG app icons.
+- `scripts/gen-icons.mjs` — dependency-free PNG app-icon generator (run via `npm run gen:icons`).
 - `dist/` — `npm run build` output (deployed to Pages).
 - `.github/workflows/pages.yml` — GitHub Pages deployment workflow (builds with Node 20 and deploys `dist/` on push to `main`).

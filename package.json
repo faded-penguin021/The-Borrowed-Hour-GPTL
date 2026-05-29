@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "gen:icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

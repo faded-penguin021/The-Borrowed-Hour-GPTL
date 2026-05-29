@@ -2,9 +2,14 @@ import React, { useEffect, useState } from "react";
 
 // Renders one illustration plate beneath a narration entry. Four states:
 //   pending  → blurred sepia placeholder, then a "darkroom developing" reveal
-//   ready    → framed image with caption (milestone reason)
+//   ready    → framed image with a player-facing manuscript caption
 //   failed   → "PLATE MISSING" stamp that fades out
 //   vaulted  → never rendered here (caller filters those out)
+//
+// The caption is the Art Director's player-safe `caption` field — a purely
+// descriptive line, like the engraving beneath a plate. The GM-facing
+// `milestoneReason` (gate justification) is intentionally NOT shown: surfacing
+// it leaks epistemic judgement ("routine conversation, no significant reveal").
 //
 // The reveal animation is CSS-driven; we just toggle `.is-developed` once the
 // image element has actually loaded so blur lifts only when bytes are ready.
@@ -44,15 +49,15 @@ export function IllustrationPlate({ plate, realm }) {
       <div className="codex-plate-frame">
         <img
           src={plate.url}
-          alt={plate.milestoneReason || "illustration plate"}
+          alt={plate.caption || "illustration plate"}
           className={`codex-plate-img${developed ? " is-developed" : ""}`}
           onLoad={() => setDeveloped(true)}
           onError={() => setDeveloped(false)}
           draggable={false}
         />
       </div>
-      {plate.milestoneReason && (
-        <figcaption className="codex-plate-caption">{plate.milestoneReason}</figcaption>
+      {plate.caption && (
+        <figcaption className="codex-plate-caption">{plate.caption}</figcaption>
       )}
     </figure>
   );
