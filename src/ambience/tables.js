@@ -44,8 +44,13 @@ export var AMBIENCE_MOOD_SCALE = {
   joyous:      [0,2,4,5,7,9,11,12,14,16],    // ionian (major)
   melancholy:  [0,3,5,7,10,12,15,17,19,22],  // pentatonic minor
   ominous:     [0,3,5,7,10,12,15,17,19,22],  // pentatonic minor
-  tense:       [0,1,3,5,7,8,10,12,13,15],    // phrygian
-  urgent:      [0,1,3,5,7,8,10,12,13,15],    // phrygian
+  // Fast moods previously used phrygian, whose tonic half-step (0→1) — played
+  // at a 1–2s spacing against 1.3–2.9s note tails — produced overlapping
+  // semitone clusters (the grating A6/A# "shriek" measured in the neon opener).
+  // Minor pentatonic has no semitones at all, so however the notes overlap they
+  // can never grind. Tension still comes from the fast tempo and minor chords.
+  tense:       [0,3,5,7,10,12,15,17,19,22],  // pentatonic minor
+  urgent:      [0,3,5,7,10,12,15,17,19,22],  // pentatonic minor
   mysterious:  [0,2,3,5,7,9,10,12,14,15]     // dorian
 };
 // Mean inter-note interval in seconds.
@@ -61,7 +66,7 @@ export var AMBIENCE_MOOD_PROGRESSION = {
   joyous:     [[0,"maj"],[7,"maj"],[5,"maj"],[4,"min"]],
   melancholy: [[0,"min"],[8,"maj"],[3,"maj"],[10,"maj"]],
   ominous:    [[0,"min"],[8,"maj"],[1,"maj"],[3,"maj"]],
-  tense:      [[0,"min"],[1,"maj"],[7,"maj"],[0,"min"]],
+  tense:      [[0,"min"],[10,"maj"],[7,"maj"],[0,"min"]],
   urgent:     [[0,"min"],[5,"min"],[7,"min"],[0,"min"]],
   mysterious: [[0,"min"],[2,"min"],[10,"maj"],[5,"min"]]
 };

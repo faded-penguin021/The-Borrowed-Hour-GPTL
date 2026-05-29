@@ -237,10 +237,13 @@ export class AmbienceEngine {
     const delay = ctx.createDelay(0.05);
     delay.delayTime.value = delayTime;
     const fbGain = ctx.createGain();
-    fbGain.gain.value = 0.97;
+    fbGain.gain.value = 0.92; // shorter ring so overlapping plucks don't pile up
     const fbLpf = ctx.createBiquadFilter();
     fbLpf.type = "lowpass";
-    fbLpf.frequency.value = 2500;
+    // 1200 Hz (was 2500): a Karplus-Strong pluck radiates a full harmonic stack,
+    // and at the upper melody degrees its 3rd/4th partials landed at ~1.8–2.1 kHz —
+    // the bright ringing "wall" measured in the neon opener. Cap it to stay warm.
+    fbLpf.frequency.value = 1200;
     burst.connect(burstGain);
     burstGain.connect(delay);
     delay.connect(fbLpf);
@@ -249,7 +252,7 @@ export class AmbienceEngine {
     // Output envelope to silence the ringing tail.
     const out = ctx.createGain();
     out.gain.setValueAtTime(1, now);
-    out.gain.exponentialRampToValueAtTime(0.0005, now + 1.8);
+    out.gain.exponentialRampToValueAtTime(0.0005, now + 0.8);
     delay.connect(out);
     out.connect(this.pluck.out);
     burst.start(now);
@@ -259,7 +262,7 @@ export class AmbienceEngine {
       try { fbLpf.disconnect(); } catch (_) {}
       try { fbGain.disconnect(); } catch (_) {}
       try { out.disconnect(); } catch (_) {}
-    }, 2200);
+    }, 1100);
   }
   // ── Strings: saw+triangle stack through bandpass; bowed or pizz ──
   _fireStringNote(freq, mode, duration) {
