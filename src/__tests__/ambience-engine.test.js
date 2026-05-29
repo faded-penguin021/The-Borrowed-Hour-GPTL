@@ -62,32 +62,36 @@ afterEach(() => {
   delete globalThis.window;
 });
 
-describe("AmbienceEngine — monotonous procedural bed", () => {
+describe("AmbienceEngine — procedural bed", () => {
   it("constructs and exposes its lanes", () => {
     const eng = new AmbienceEngine();
     expect(eng.master).toBeTruthy();
+    expect(eng.masterLPF).toBeTruthy();
+    expect(eng.masterComp).toBeTruthy();
     expect(eng.chordPad).toBeTruthy();
     expect(eng.melodyVoice).toBeTruthy();
     expect(eng.pulse).toBeTruthy();
-    expect(eng.current).toEqual({ space: null, population: null, mood: null });
+    expect(eng.current).toEqual({ space: null, population: null, mood: null, palette: null });
     eng.destroy();
   });
 
-  it("applies every space / mood / population combination without throwing", () => {
+  it("applies every space / mood / population / palette combination without throwing", () => {
     const eng = new AmbienceEngine();
     eng.setIntensity("present");
     for (const space of AMBIENCE_SPACE_VALUES) {
       for (const mood of AMBIENCE_MOOD_VALUES) {
         eng.applyAmbience({ space, mood });
-        vi.advanceTimersByTime(1600); // let schedulers tick
+        vi.advanceTimersByTime(1600);
       }
     }
     for (const population of AMBIENCE_POPULATION_VALUES) {
       eng.applyAmbience({ population });
       vi.advanceTimersByTime(1600);
     }
-    // An emitted palette field is harmless — this engine ignores it.
-    eng.applyAmbience({ space: "street", mood: "mysterious", palette: "synth" });
+    for (const palette of AMBIENCE_PALETTE_VALUES) {
+      eng.applyAmbience({ mood: "calm", palette });
+      vi.advanceTimersByTime(1600);
+    }
     eng.applyAmbience(null);
     eng.destroy();
   });
@@ -113,7 +117,6 @@ describe("AmbienceEngine — monotonous procedural bed", () => {
     expect(eng.ctx.state).toBe("suspended");
     eng.resume();
     expect(eng.ctx.state).toBe("running");
-    // Idempotent when already running / after destroy.
     eng.resume();
     expect(eng.ctx.state).toBe("running");
     eng.destroy();
@@ -126,11 +129,186 @@ describe("AmbienceEngine — monotonous procedural bed", () => {
     eng.applyAmbience({ space: "street", mood: "mysterious" });
     expect(eng.current.space).toBe("street");
     expect(eng.current.mood).toBe("mysterious");
-    // A later emission overrides per field, holding the rest.
     eng.applyAmbience({ mood: "calm" });
     expect(eng.current.mood).toBe("calm");
     expect(eng.current.space).toBe("street");
     eng.destroy();
+  });
+});
+
+describe("palette", () => {
+  it("applies and tracks palette", () => {
+    const eng = new AmbienceEngine();
+    eng.setIntensity("present");
+    eng.applyAmbience({ space: "street", mood: "mysterious", palette: "synth" });
+    expect(eng.current.palette).toBe("synth");
+    eng.destroy();
+  });
+
+  it("holds palette when only mood is re-emitted", () => {
+    const eng = new AmbienceEngine();
+    eng.setIntensity("present");
+    eng.applyAmbience({ palette: "choir" });
+    eng.applyAmbience({ mood: "calm" });
+    expect(eng.current.palette).toBe("choir");
+    eng.destroy();
+  });
+
+  it("changes palette on new emission", () => {
+    const eng = new AmbienceEngine();
+    eng.setIntensity("present");
+    eng.applyAmbience({ palette: "synth" });
+    eng.applyAmbience({ palette: "choir" });
+    expect(eng.current.palette).toBe("choir");
+    eng.destroy();
+  });
+
+  it("palette null resets current.palette to null", () => {
+    const eng = new AmbienceEngine();
+    eng.setIntensity("present");
+    eng.applyAmbience({ palette: "synth" });
+    eng.applyAmbience({ palette: null });
+    expect(eng.current.palette).toBe(null);
+    eng.destroy();
+  });
+
+  it("invalid palette is silently dropped and held value unchanged", () => {
+    const eng = new AmbienceEngine();
+    eng.setIntensity("present");
+    eng.applyAmbience({ palette: "synth" });
+    eng.applyAmbience({ palette: "banjo" });
+    expect(eng.current.palette).toBe("synth");
+    eng.destroy();
+  });
+
+  it("total-silence null resets palette state", () => {
+    const eng = new AmbienceEngine();
+    eng.setIntensity("present");
+    eng.applyAmbience({ palette: "glass" });
+    eng.applyAmbience(null);
+    expect(eng.current.palette).toBe(null);
+    eng.destroy();
+  });
+
+  it("_applyPalette does not bump _gen", () => {
+    const eng = new AmbienceEngine();
+    eng.setIntensity("present");
+    const genBefore = eng._gen;
+    eng._applyPalette("synth");
+    expect(eng._gen).toBe(genBefore);
+    eng.destroy();
+  });
+});
+
+describe("master guard bus", () => {
+  it("masterLPF is a lowpass filter at construction", () => {
+    const eng = new AmbienceEngine();
+    expect(eng.masterLPF.type).toBe("lowpass");
+    eng.destroy();
+  });
+
+  it("masterLPF default frequency ≤ AMBIENCE_MASTER_LPF_CAP", async () => {
+    const { AMBIENCE_MASTER_LPF_CAP, AMBIENCE_MASTER_LPF_DEFAULT } = await import("../ambience/tables.js");
+    const eng = new AmbienceEngine();
+    expect(eng.masterLPF.frequency.value).toBe(AMBIENCE_MASTER_LPF_DEFAULT);
+    expect(eng.masterLPF.frequency.value).toBeLessThanOrEqual(AMBIENCE_MASTER_LPF_CAP);
+    eng.destroy();
+  });
+
+  it("masterComp exists with threshold ≤ -6 dB and ratio ≥ 2", () => {
+    const eng = new AmbienceEngine();
+    expect(eng.masterComp).toBeTruthy();
+    expect(eng.masterComp.threshold.value).toBeLessThanOrEqual(-6);
+    expect(eng.masterComp.ratio.value).toBeGreaterThanOrEqual(2);
+    eng.destroy();
+  });
+
+  it("every palette config has cutoff ≤ AMBIENCE_MASTER_LPF_CAP and weights ≤ 1", async () => {
+    const { AMBIENCE_PALETTE, AMBIENCE_MASTER_LPF_CAP } = await import("../ambience/tables.js");
+    for (const [, cfg] of Object.entries(AMBIENCE_PALETTE)) {
+      expect(cfg.cutoff).toBeLessThanOrEqual(AMBIENCE_MASTER_LPF_CAP);
+      for (const w of Object.values(cfg.weights)) {
+        expect(w).toBeGreaterThanOrEqual(0);
+        expect(w).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it("applying every palette does not throw", () => {
+    const eng = new AmbienceEngine();
+    eng.setIntensity("present");
+    eng.applyAmbience({ mood: "calm" });
+    for (const palette of AMBIENCE_PALETTE_VALUES) {
+      expect(() => eng.applyAmbience({ palette })).not.toThrow();
+    }
+    eng.destroy();
+  });
+});
+
+describe("Wild seed classifier — deriveAmbienceFromSeed", () => {
+  it("cyberpunk seed → synth / street", async () => {
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+    const r = deriveAmbienceFromSeed("A cyberpunk neon city at night");
+    expect(r.palette).toBe("synth");
+    expect(r.space).toBe("street");
+  });
+
+  it("desert seed → guitar / field", async () => {
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+    const r = deriveAmbienceFromSeed("A vast desert dune at dawn");
+    expect(r.palette).toBe("guitar");
+    expect(r.space).toBe("field");
+  });
+
+  it("starship seed → synth / void", async () => {
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+    const r = deriveAmbienceFromSeed("Aboard a starship in deep space");
+    expect(r.palette).toBe("synth");
+    expect(r.space).toBe("void");
+  });
+
+  it("gothic manor seed → strings / chamber", async () => {
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+    const r = deriveAmbienceFromSeed("In a gothic manor with candlelight");
+    expect(r.palette).toBe("strings");
+    expect(r.space).toBe("chamber");
+  });
+
+  it("forest seed → strings / forest", async () => {
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+    const r = deriveAmbienceFromSeed("Deep in an ancient forest");
+    expect(r.palette).toBe("strings");
+    expect(r.space).toBe("forest");
+  });
+
+  it("vague seed falls back to neutral intimate/solitary/calm/piano", async () => {
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+    const r = deriveAmbienceFromSeed("You wake and nothing is familiar");
+    expect(r.space).toBe("intimate");
+    expect(r.population).toBe("solitary");
+    expect(r.mood).toBe("calm");
+    expect(r.palette).toBe("piano");
+  });
+
+  it("result always uses valid enum values for any seed", async () => {
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+    const { AMBIENCE_SPACE_VALUES: sp, AMBIENCE_POPULATION_VALUES: po, AMBIENCE_MOOD_VALUES: mo, AMBIENCE_PALETTE_VALUES: pa } = await import("../ambience/enums.js");
+    const spaces = new Set(sp); const pops = new Set(po); const moods = new Set(mo); const palettes = new Set(pa);
+    const seeds = ["cyberpunk alley", "starship", "desert dune", "forest", "temple", "gothic manor", "train journey", "city market", "nothing special here"];
+    for (const s of seeds) {
+      const r = deriveAmbienceFromSeed(s);
+      expect(spaces.has(r.space), `space invalid for: ${s}`).toBe(true);
+      expect(pops.has(r.population), `population invalid for: ${s}`).toBe(true);
+      expect(moods.has(r.mood), `mood invalid for: ${s}`).toBe(true);
+      expect(palettes.has(r.palette), `palette invalid for: ${s}`).toBe(true);
+    }
+  });
+
+  it("returns a fresh object each call (not a shared reference)", async () => {
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+    const r1 = deriveAmbienceFromSeed("cyberpunk");
+    const r2 = deriveAmbienceFromSeed("cyberpunk");
+    expect(r1).not.toBe(r2);
   });
 });
 
@@ -164,10 +342,11 @@ describe("realm-derived opening ambience", () => {
     eng.applyAmbience(defaultAmbienceForRealm("neon"));
     expect(eng.current.space).toBe("street");
     expect(eng.current.mood).toBe("mysterious");
-    // A GM emission layered on top overrides per field, holding the rest.
+    expect(eng.current.palette).toBe("synth");
     eng.applyAmbience({ mood: "calm" });
     expect(eng.current.mood).toBe("calm");
     expect(eng.current.space).toBe("street");
+    expect(eng.current.palette).toBe("synth");
     eng.destroy();
   });
 });

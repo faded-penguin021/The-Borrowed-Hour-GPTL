@@ -248,8 +248,11 @@ export function App() {
       (async () => {
         const built = await ensureAmbienceEngine();
         if (built) {
-          const { defaultAmbienceForRealm } = await import("./ambience/tables.js");
-          built.applyAmbience(defaultAmbienceForRealm(premise.realm));
+          const { defaultAmbienceForRealm, deriveAmbienceFromSeed } = await import("./ambience/tables.js");
+          const bed = (premise.realm === "wild" && premise.seed)
+            ? deriveAmbienceFromSeed(premise.seed)
+            : defaultAmbienceForRealm(premise.realm);
+          built.applyAmbience(bed);
         }
       })();
     }
@@ -1090,8 +1093,11 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
       // derived bed, then layer the GM's own emission on top so it overrides
       // per field. Without this, an opener that omits `ambience` is silent.
       if (ambienceRef.current) {
-        const { defaultAmbienceForRealm } = await import("./ambience/tables.js");
-        ambienceRef.current.applyAmbience(defaultAmbienceForRealm(chosen.realm));
+        const { defaultAmbienceForRealm, deriveAmbienceFromSeed } = await import("./ambience/tables.js");
+        const bed = (chosen.realm === "wild" && chosen.seed)
+          ? deriveAmbienceFromSeed(chosen.seed)
+          : defaultAmbienceForRealm(chosen.realm);
+        ambienceRef.current.applyAmbience(bed);
         if (parsed.ambience !== undefined)
           ambienceRef.current.applyAmbience(parsed.ambience);
       }
@@ -1740,8 +1746,11 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     // Seed a realm bed so a resumed chronicle has sound immediately, rather
     // than staying silent until the next turn emits its own ambience.
     if (ambienceRef.current) {
-      const { defaultAmbienceForRealm } = await import("./ambience/tables.js");
-      ambienceRef.current.applyAmbience(defaultAmbienceForRealm(found.realm));
+      const { defaultAmbienceForRealm, deriveAmbienceFromSeed } = await import("./ambience/tables.js");
+      const bed = (found.realm === "wild" && found.seed)
+        ? deriveAmbienceFromSeed(found.seed)
+        : defaultAmbienceForRealm(found.realm);
+      ambienceRef.current.applyAmbience(bed);
     }
     // Don't narrate loaded history aloud — advance the TTS cursor past it.
     if (ttsRef.current) ttsRef.current.stop();
