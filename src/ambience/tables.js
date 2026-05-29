@@ -209,6 +209,25 @@ export var AMBIENCE_SPACE_ACOUSTICS = {
 };
 export var AMBIENCE_DEFAULT_ACOUSTICS = { reverb: 0.28, tone: 5500 };
 
+// ─── Realm → opening-ambience defaults ───────────────────────────────────
+// The engine only makes sound once the GM emits an `ambience` block, and the
+// model is not always reliable about doing so on the opening turn — which
+// reads as "no sound at all". To guarantee the world has sound from the first
+// moment, the opener seeds a bed derived from the premise's realm and the GM's
+// actual emission (if any) is layered on top, overriding per field. Values
+// must be drawn from the ambience enums; combos are chosen to be characterful
+// but easy on the ear for a first impression.
+export var AMBIENCE_REALM_DEFAULTS = {
+  neon:  { space: "street",  mood: "tense",      palette: "synth",   population: "machinery" },
+  dream: { space: "void",    mood: "mysterious", palette: "glass",   population: "solitary"  },
+  echo:  { space: "hall",    mood: "melancholy", palette: "piano",   population: "solitary"  },
+  omen:  { space: "cavern",  mood: "ominous",    palette: "choir",   population: "solitary"  },
+  wild:  { space: "forest",  mood: "calm",       palette: "strings", population: "nature"    }
+};
+export var AMBIENCE_REALM_FALLBACK = { space: "intimate", mood: "calm", palette: "piano", population: "solitary" };
+export var defaultAmbienceForRealm = (realm) =>
+  AMBIENCE_REALM_DEFAULTS[realm] || AMBIENCE_REALM_FALLBACK;
+
 export var sanitizeAmbience = (raw) => {
   if (raw === null) return null;
   if (!raw || typeof raw !== "object") return undefined;
