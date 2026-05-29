@@ -35,6 +35,12 @@ class MockAudioContext {
   createOscillator() { return audioNode({ type: "sine", frequency: makeParam(), detune: makeParam(), start() {}, stop() {} }); }
   createBufferSource() { return audioNode({ buffer: null, loop: false, start() {}, stop() {} }); }
   createConvolver() { return audioNode({ buffer: null }); }
+  createDynamicsCompressor() {
+    return audioNode({
+      threshold: makeParam(), knee: makeParam(), ratio: makeParam(),
+      attack: makeParam(), release: makeParam(), reduction: 0
+    });
+  }
   createDelay() { return audioNode({ delayTime: makeParam() }); }
   createBuffer(channels, len) {
     const data = new Float32Array(len);
@@ -62,6 +68,7 @@ describe("AmbienceEngine — palette + acoustics", () => {
     expect(eng.bell).toBeTruthy();
     expect(eng.brass).toBeTruthy();
     expect(eng.toneFilter).toBeTruthy();
+    expect(eng.limiter).toBeTruthy();
     expect(eng.palette).toBe("ensemble");
     eng.destroy();
   });

@@ -57,8 +57,20 @@ export class AmbienceEngine {
     this.toneFilter.type = "lowpass";
     this.toneFilter.frequency.value = AMBIENCE_DEFAULT_ACOUSTICS.tone;
     this.toneFilter.Q.value = 0.5;
+    // Brickwall safety limiter, last in the chain. The 0.30 master ceiling
+    // caps the gain COEFFICIENT, not the summed peak: many voices (pad, melody,
+    // instrument lanes, drums, reverb tail) add into `master`, so transient
+    // stacks can still spike toward the ±1.0 clip point and read as harsh/loud.
+    // This catches those peaks so the mix can never clip.
+    this.limiter = this.ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -3;
+    this.limiter.knee.value = 0;
+    this.limiter.ratio.value = 20;
+    this.limiter.attack.value = 0.003;
+    this.limiter.release.value = 0.25;
     this.master.connect(this.toneFilter);
-    this.toneFilter.connect(this.ctx.destination);
+    this.toneFilter.connect(this.limiter);
+    this.limiter.connect(this.ctx.destination);
 
     // Shared convolver reverb bus. Lanes that want wet tail connect to
     // reverbSend at a per-voice gain; reverbReturn lives under master. Its
@@ -291,23 +303,27 @@ export class AmbienceEngine {
   }
   _fireBow(freq, dur) { this._fireStringNote(freq, "bow", dur); }
   _firePizz(freq)     { this._fireStringNote(freq, "pizz", 0.4); }
-  // ── Bell: 2-op FM with an inharmonic ratio (music box / struck metal) ──
+  // ── Bell: 2-op FM, music-box / struck-metal ──────────────────────────
+  // A harmonic 2:1 (octave) modulator ratio keeps the partials consonant so
+  // several overlapping bells don't clash. The previous √2 (1.41) ratio with a
+  // high modulation index (freq*2.2) sprayed inharmonic sidebands that rang as
+  // an atonal metallic clang; the index is now low for a soft bell, not a buzz.
   _fireBell(freq, peak) {
     if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
     const ctx = this.ctx;
     const now = ctx.currentTime;
     const p = peak || 0.16;
     const carrier = ctx.createOscillator(); carrier.type = "sine"; carrier.frequency.value = freq;
-    const mod = ctx.createOscillator(); mod.type = "sine"; mod.frequency.value = freq * 1.41; // inharmonic
-    const modGain = ctx.createGain(); modGain.gain.value = freq * 2.2;
+    const mod = ctx.createOscillator(); mod.type = "sine"; mod.frequency.value = freq * 2; // harmonic (octave)
+    const modGain = ctx.createGain(); modGain.gain.value = freq * 0.7;
     mod.connect(modGain); modGain.connect(carrier.frequency);
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, now);
     g.gain.linearRampToValueAtTime(p, now + 0.006);
-    g.gain.exponentialRampToValueAtTime(0.0005, now + 2.6);
+    g.gain.exponentialRampToValueAtTime(0.0005, now + 1.8);
     carrier.connect(g); g.connect(this.bell.out);
-    carrier.start(now); carrier.stop(now + 2.7);
-    mod.start(now); mod.stop(now + 2.7);
+    carrier.start(now); carrier.stop(now + 1.9);
+    mod.start(now); mod.stop(now + 1.9);
   }
   // ── Brass: sawtooth through a swept low-pass, soft attack, sustain ────
   _fireBrass(freq, dur) {
@@ -395,9 +411,9 @@ export class AmbienceEngine {
     const sixteenthMs = (60000 / bpm) / 4;
     const slot = pattern[this.drumStep % pattern.length] || {};
     const gainOv = AMBIENCE_MOOD_DRUM_GAIN[mood] || {};
-    if (slot.k) this._fireKick(gainOv.kick != null ? gainOv.kick * 6 : 0.9);
-    if (slot.s) this._fireSnare(gainOv.snare != null ? gainOv.snare * 6 : 0.5);
-    if (slot.h) this._fireHat(gainOv.hat != null ? gainOv.hat * 6 : 0.35);
+    if (slot.k) this._fireKick(gainOv.kick != null ? gainOv.kick * 4 : 0.6);
+    if (slot.s) this._fireSnare(gainOv.snare != null ? gainOv.snare * 4 : 0.35);
+    if (slot.h) this._fireHat(gainOv.hat != null ? gainOv.hat * 4 : 0.25);
     this.drumStep = (this.drumStep + 1) % pattern.length;
     this.drumScheduled = setTimeout(() => this._scheduleDrums(gen), sixteenthMs);
   }
@@ -572,8 +588,9 @@ export class AmbienceEngine {
     if (instr.pizz && Math.random() < 0.50) {
       this._firePizz(freq);
     }
-    if (instr.bell && Math.random() < 0.45) {
-      // Bells ring an octave up — bright, music-box register.
+    if (instr.bell && Math.random() < 0.30) {
+      // Bells ring an octave up — bright, music-box register. Fired sparsely
+      // so the 1.8s tails don't pile into an overlapping wash.
       this._fireBell(freq * 2, 0.16);
     }
     // Sustained voices ride the chord root, a drone above the pad.
@@ -740,7 +757,10 @@ export class AmbienceEngine {
     if (prog && prog[0]) {
       const [root, quality] = prog[0];
       const third = quality === "min" ? root + 3 : root + 4;
-      this._setChord([root, third, root + 7], 2);
+      // Short glide: on a cold start the pad sits at a unison drone (110 Hz),
+      // so a long glide to the triad swoops audibly out of tune. Seat the
+      // voicing quickly instead.
+      this._setChord([root, third, root + 7], 0.8);
       this.chordPad.progressionIdx = 1;
     }
   }
