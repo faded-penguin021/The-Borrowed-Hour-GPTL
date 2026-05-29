@@ -36,7 +36,7 @@ export function AmbienceRow({ level, unavailable, onChange, ttsEnabled, duringNa
   );
   const description = unavailable
     ? "Your browser would not open an audio context. The bed is unavailable."
-    : "A synthesised room tone — drone, noise, and texture — that thickens or thins with the scene. Default silence. Starts on your next move, never on page load.";
+    : "A synthesised room tone — drone, noise, and texture — that thickens or thins with the scene. Default silence. Begins with the chronicle's opening scene (or your next move if you switch it on mid-story), never on page load.";
   const showCoupling = !unavailable && level !== "off" && ttsEnabled;
   return (
     <div
