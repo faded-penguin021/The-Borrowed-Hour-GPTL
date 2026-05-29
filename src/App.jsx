@@ -237,8 +237,22 @@ export function App() {
   };
   useEffect(() => {
     const eng = ambienceRef.current;
-    if (!eng) return;
-    if (eng.intensity !== ambienceLevel) eng.setIntensity(ambienceLevel);
+    if (eng) {
+      if (eng.intensity !== ambienceLevel) eng.setIntensity(ambienceLevel);
+      return;
+    }
+    // No engine yet. If the player turns ambience on while a chronicle is
+    // already underway, build it and seed the realm bed so it starts right
+    // away instead of waiting for a new chronicle or the next turn.
+    if (ambienceLevel !== "off" && phase === "playing" && premise) {
+      (async () => {
+        const built = await ensureAmbienceEngine();
+        if (built) {
+          const { defaultAmbienceForRealm } = await import("./ambience/tables.js");
+          built.applyAmbience(defaultAmbienceForRealm(premise.realm));
+        }
+      })();
+    }
   }, [ambienceLevel]);
   useEffect(() => {
     const eng = ambienceRef.current;
@@ -250,6 +264,29 @@ export function App() {
     if (!eng) return;
     if (eng.musicLevel !== ambienceMusicLevel) eng.setMusicLevel(ambienceMusicLevel);
   }, [ambienceMusicLevel]);
+  // Audio autoplay unlock. Browsers open an AudioContext suspended until a
+  // user gesture, and the resume() inside the engine's setIntensity() runs
+  // after an awaited dynamic import — detached from the originating click, so
+  // stricter browsers (Safari/iOS) refuse it and enabled ambience would stay
+  // silent for the whole session. Keep persistent capture-phase listeners that
+  // resume the live context on any gesture: lenient browsers already start the
+  // bed on turn one via setIntensity, and everywhere else the player's first
+  // tap/keypress unlocks it.
+  useEffect(() => {
+    const tryResume = () => {
+      const eng = ambienceRef.current;
+      if (eng && typeof eng.resume === "function") eng.resume();
+    };
+    const opts = { capture: true, passive: true };
+    document.addEventListener("pointerdown", tryResume, opts);
+    document.addEventListener("touchend", tryResume, opts);
+    document.addEventListener("keydown", tryResume, opts);
+    return () => {
+      document.removeEventListener("pointerdown", tryResume, opts);
+      document.removeEventListener("touchend", tryResume, opts);
+      document.removeEventListener("keydown", tryResume, opts);
+    };
+  }, []);
 
   // ── TTS (text-to-speech narration) ──────────────────────────────
   const [ttsEnabled, setTtsEnabled] = useState(false);
@@ -1700,6 +1737,12 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setShowSaves(false);
     setSaveBanner({ kind: "ok", text: "The hour resumes." });
     await ensureAmbienceEngine();
+    // Seed a realm bed so a resumed chronicle has sound immediately, rather
+    // than staying silent until the next turn emits its own ambience.
+    if (ambienceRef.current) {
+      const { defaultAmbienceForRealm } = await import("./ambience/tables.js");
+      ambienceRef.current.applyAmbience(defaultAmbienceForRealm(found.realm));
+    }
     // Don't narrate loaded history aloud — advance the TTS cursor past it.
     if (ttsRef.current) ttsRef.current.stop();
     ttsNextRef.current = (save.entries || []).length;
