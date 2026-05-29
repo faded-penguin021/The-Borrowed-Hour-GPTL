@@ -14,14 +14,12 @@ import {
   AMBIENCE_SPACE_VALUES,
   AMBIENCE_POPULATION_VALUES,
   AMBIENCE_MOOD_VALUES,
-  AMBIENCE_PALETTE_VALUES,
   AMBIENCE_EVENT_VALUES
 } from "./enums.js";
 
 export var AMBIENCE_SPACES = new Set(AMBIENCE_SPACE_VALUES);
 export var AMBIENCE_POPULATIONS = new Set(AMBIENCE_POPULATION_VALUES);
 export var AMBIENCE_MOODS = new Set(AMBIENCE_MOOD_VALUES);
-export var AMBIENCE_PALETTES = new Set(AMBIENCE_PALETTE_VALUES);
 export var AMBIENCE_EVENTS = new Set(AMBIENCE_EVENT_VALUES);
 
 // Per-scene loudness trims — relative voice gains feeding the master.
@@ -44,13 +42,8 @@ export var AMBIENCE_MOOD_SCALE = {
   joyous:      [0,2,4,5,7,9,11,12,14,16],    // ionian (major)
   melancholy:  [0,3,5,7,10,12,15,17,19,22],  // pentatonic minor
   ominous:     [0,3,5,7,10,12,15,17,19,22],  // pentatonic minor
-  // Fast moods previously used phrygian, whose tonic half-step (0→1) — played
-  // at a 1–2s spacing against 1.3–2.9s note tails — produced overlapping
-  // semitone clusters (the grating A6/A# "shriek" measured in the neon opener).
-  // Minor pentatonic has no semitones at all, so however the notes overlap they
-  // can never grind. Tension still comes from the fast tempo and minor chords.
-  tense:       [0,3,5,7,10,12,15,17,19,22],  // pentatonic minor
-  urgent:      [0,3,5,7,10,12,15,17,19,22],  // pentatonic minor
+  tense:       [0,1,3,5,7,8,10,12,13,15],    // phrygian
+  urgent:      [0,1,3,5,7,8,10,12,13,15],    // phrygian
   mysterious:  [0,2,3,5,7,9,10,12,14,15]     // dorian
 };
 // Mean inter-note interval in seconds.
@@ -66,7 +59,7 @@ export var AMBIENCE_MOOD_PROGRESSION = {
   joyous:     [[0,"maj"],[7,"maj"],[5,"maj"],[4,"min"]],
   melancholy: [[0,"min"],[8,"maj"],[3,"maj"],[10,"maj"]],
   ominous:    [[0,"min"],[8,"maj"],[1,"maj"],[3,"maj"]],
-  tense:      [[0,"min"],[10,"maj"],[7,"maj"],[0,"min"]],
+  tense:      [[0,"min"],[1,"maj"],[7,"maj"],[0,"min"]],
   urgent:     [[0,"min"],[5,"min"],[7,"min"],[0,"min"]],
   mysterious: [[0,"min"],[2,"min"],[10,"maj"],[5,"min"]]
 };
@@ -87,8 +80,20 @@ export var AMBIENCE_MOOD_MUSIC_GAIN = {
   mysterious: { chord: 0.28, melody: 0.32, pulse: 0.00 }
 };
 
-// (Instrument selection now lives in AMBIENCE_PALETTE below — `mood` sets the
-// musical content, `palette` sets which instruments voice it.)
+// Mood → instrument peak gains. Each instrument is summed with the existing
+// chord/melody/pulse weights into the same master ceiling — values are
+// intentionally modest so the music ceiling holds with TTS narration.
+// Entries omitted (or 0) mean that instrument is silent for that mood.
+export var AMBIENCE_MOOD_INSTRUMENTATION = {
+  calm:       { piano: 0.22 },
+  tender:     { piano: 0.20, pluck: 0.12 },
+  melancholy: { piano: 0.24, pizz:  0.14 },
+  ominous:    { piano: 0.18, bow:   0.22 },
+  joyous:     { piano: 0.16, pluck: 0.18 },
+  tense:      { pizz:  0.16, bow:   0.14 },
+  urgent:     { pizz:  0.18 },
+  mysterious: { piano: 0.20, pluck: 0.14 }
+};
 
 // 16th-note drum patterns; 16 slots per pattern. Moods absent here have
 // no drums. Slot is `{k,s,h}` for kick/snare/hat (booleans).
@@ -121,116 +126,11 @@ export var AMBIENCE_MOOD_DRUM_GAIN = {
   joyous: { hat: 0.08 }
 };
 
-// ─── Palette → timbre / instrumentation ──────────────────────────────────
-// `mood` decides the musical CONTENT (scale, chords, tempo, beat); `palette`
-// decides the TIMBRE that realises it. The same mood voiced through different
-// palettes reads as a different world — synth for neon, choir for a fresco,
-// glass for a dream. Each palette retunes the chord pad and melody oscillators
-// + filter, selects which instrument voices fire (peak gains; omitted = silent),
-// names the foreground `lead` (so the plain melody tone steps back behind it),
-// and says whether the mood's drum pattern is allowed. "ensemble" is the engine
-// default used before the GM picks a palette (it is not GM-selectable).
-export var AMBIENCE_PALETTE = {
-  ensemble: {
-    pad:    { sine: "sine", tri: "triangle", detune: 4, cutoff: 1200 },
-    melody: { osc: "triangle", cutoff: 1900, attack: 0.25, releaseScale: 1.0 },
-    instr:  { piano: 0.18, pizz: 0.12, bow: 0.10 },
-    lead: "piano", drums: true
-  },
-  strings: {
-    pad:    { sine: "sawtooth", tri: "sawtooth", detune: 7, cutoff: 1500 },
-    melody: { osc: "sawtooth", cutoff: 1800, attack: 0.18, releaseScale: 1.2 },
-    instr:  { bow: 0.24, pizz: 0.12 },
-    lead: "bow", drums: false
-  },
-  piano: {
-    pad:    { sine: "sine", tri: "sine", detune: 3, cutoff: 1000 },
-    melody: { osc: "triangle", cutoff: 1700, attack: 0.30, releaseScale: 1.3 },
-    instr:  { piano: 0.26 },
-    lead: "piano", drums: false
-  },
-  synth: {
-    // Warm analog-pad synth, not a bright lead. The original sawtooth+square
-    // pad and 2700 Hz sawtooth melody pushed harmonic energy up into the
-    // ~2 kHz shriek zone (confirmed by spectral analysis of the neon opener);
-    // triangle oscillators and lower cutoffs keep it moody, not piercing.
-    // The bell is deliberately omitted here too: it is an FM voice that rings
-    // an octave up, putting its carrier (1.2–1.6 kHz) and sidebands straight
-    // into that same shriek band — measured as the brightest remaining voice
-    // in the neon mix. The plucked accent (capped warm in the engine) carries
-    // the foreground instead.
-    pad:    { sine: "sawtooth", tri: "triangle", detune: 9, cutoff: 1400 },
-    melody: { osc: "triangle", cutoff: 1500, attack: 0.12, releaseScale: 0.8 },
-    instr:  { pluck: 0.16 },
-    lead: "melody", drums: true
-  },
-  glass: {
-    pad:    { sine: "sine", tri: "sine", detune: 2, cutoff: 3500 },
-    melody: { osc: "sine", cutoff: 4200, attack: 0.02, releaseScale: 1.4 },
-    instr:  { bell: 0.24, piano: 0.08 },
-    lead: "bell", drums: false
-  },
-  choir: {
-    pad:    { sine: "triangle", tri: "sine", detune: 5, cutoff: 1500 },
-    melody: { osc: "triangle", cutoff: 1500, attack: 0.40, releaseScale: 1.6, vibrato: true },
-    instr:  { bow: 0.06 },
-    lead: "melody", drums: false
-  },
-  reed: {
-    pad:    { sine: "square", tri: "triangle", detune: 6, cutoff: 1300 },
-    melody: { osc: "square", cutoff: 1700, attack: 0.12, releaseScale: 1.0 },
-    instr:  { pluck: 0.08 },
-    lead: "melody", drums: false
-  },
-  brass: {
-    pad:    { sine: "sawtooth", tri: "sawtooth", detune: 5, cutoff: 1500 },
-    melody: { osc: "sawtooth", cutoff: 1500, attack: 0.12, releaseScale: 1.0 },
-    instr:  { brass: 0.22 },
-    lead: "brass", drums: true
-  },
-  guitar: {
-    pad:    { sine: "triangle", tri: "sine", detune: 4, cutoff: 1400 },
-    melody: { osc: "triangle", cutoff: 1900, attack: 0.20, releaseScale: 1.0 },
-    instr:  { pluck: 0.22 },
-    lead: "pluck", drums: true
-  }
-};
-export var AMBIENCE_DEFAULT_PALETTE = "ensemble";
-
-// ─── Space → music-bus acoustics ─────────────────────────────────────────
-// The same palette+mood should sit differently in different rooms. `reverb`
-// is the wet-return gain (how much the convolver tail is heard); `tone` is a
-// master low-pass cutoff (Hz) — small/enclosed spaces sound darker and drier,
-// great halls sound bright and washed. Applied when `space` changes.
-// `tone` is a master low-pass cutoff (Hz). The procedural voices are built from
-// raw sawtooth/square oscillators, noise beds, and noise hi-hats — all of which
-// turn harsh and hissy when the top end is left open. So this filter is kept
-// deliberately WARM: it rolls the fizz off everything on the way to the speakers
-// while leaving the music legible. Relative ordering still carries the room's
-// character (a vehicle is dull and dry, a hall is open), but nothing here is
-// bright enough to sound like noise. `reverb` is the wet-return gain; kept
-// modest because a bright reverb tail is itself a major source of harshness.
-export var AMBIENCE_SPACE_ACOUSTICS = {
-  intimate: { reverb: 0.20, tone: 2800 },
-  chamber:  { reverb: 0.32, tone: 4200 },
-  hall:     { reverb: 0.48, tone: 6000 },
-  cavern:   { reverb: 0.58, tone: 4600 },
-  street:   { reverb: 0.24, tone: 3800 },
-  field:    { reverb: 0.28, tone: 6500 },
-  forest:   { reverb: 0.34, tone: 5200 },
-  vehicle:  { reverb: 0.15, tone: 2400 },
-  void:     { reverb: 0.50, tone: 4400 }
-};
-export var AMBIENCE_DEFAULT_ACOUSTICS = { reverb: 0.28, tone: 5500 };
-
-// ─── Realm → opening-ambience defaults ───────────────────────────────────
-// The engine only makes sound once the GM emits an `ambience` block, and the
-// model is not always reliable about doing so on the opening turn — which
-// reads as "no sound at all". To guarantee the world has sound from the first
-// moment, the opener seeds a bed derived from the premise's realm and the GM's
-// actual emission (if any) is layered on top, overriding per field. Values
-// must be drawn from the ambience enums; combos are chosen to be characterful
-// but easy on the ear for a first impression.
+// Realm-derived opening ambience. Used to guarantee the world has sound from
+// the very first turn (before the GM has emitted its own ambience). `palette`
+// is carried for forward-compatibility and is ignored by this (deliberately
+// monotonous) engine, which voices everything from the mood/space/population
+// taxonomy — but it keeps GM emissions and the tool schema valid.
 export var AMBIENCE_REALM_DEFAULTS = {
   neon:  { space: "street",  mood: "mysterious", palette: "synth",   population: "machinery" },
   dream: { space: "void",    mood: "mysterious", palette: "glass",   population: "solitary"  },
@@ -257,10 +157,6 @@ export var sanitizeAmbience = (raw) => {
   if ("mood" in raw) {
     if (raw.mood === null) out.mood = null;
     else if (typeof raw.mood === "string" && AMBIENCE_MOODS.has(raw.mood)) out.mood = raw.mood;
-  }
-  if ("palette" in raw) {
-    if (raw.palette === null) out.palette = null;
-    else if (typeof raw.palette === "string" && AMBIENCE_PALETTES.has(raw.palette)) out.palette = raw.palette;
   }
   if (Array.isArray(raw.events)) {
     const evts = raw.events

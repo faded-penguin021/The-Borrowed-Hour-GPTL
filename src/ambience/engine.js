@@ -17,12 +17,9 @@ import {
   AMBIENCE_MOOD_PROGRESSION,
   AMBIENCE_MOOD_PULSE_BPM,
   AMBIENCE_MOOD_MUSIC_GAIN,
+  AMBIENCE_MOOD_INSTRUMENTATION,
   AMBIENCE_MOOD_DRUM_PATTERN,
   AMBIENCE_MOOD_DRUM_GAIN,
-  AMBIENCE_PALETTE,
-  AMBIENCE_DEFAULT_PALETTE,
-  AMBIENCE_SPACE_ACOUSTICS,
-  AMBIENCE_DEFAULT_ACOUSTICS,
   AMBIENCE_SPACE_RECIPES,
   AMBIENCE_POPULATION_RECIPES,
   AMBIENCE_EVENT_RECIPES,
@@ -50,37 +47,16 @@ export class AmbienceEngine {
 
     this.master = this.ctx.createGain();
     this.master.gain.value = 0;
-    // Master tone filter — its cutoff is driven by `space` so enclosed rooms
-    // sound darker/drier and great halls sound open. Everything (beds, music,
-    // reverb tail) passes through it on the way to the speakers.
-    this.toneFilter = this.ctx.createBiquadFilter();
-    this.toneFilter.type = "lowpass";
-    this.toneFilter.frequency.value = AMBIENCE_DEFAULT_ACOUSTICS.tone;
-    this.toneFilter.Q.value = 0.5;
-    // Brickwall safety limiter, last in the chain. The 0.30 master ceiling
-    // caps the gain COEFFICIENT, not the summed peak: many voices (pad, melody,
-    // instrument lanes, drums, reverb tail) add into `master`, so transient
-    // stacks can still spike toward the ±1.0 clip point and read as harsh/loud.
-    // This catches those peaks so the mix can never clip.
-    this.limiter = this.ctx.createDynamicsCompressor();
-    this.limiter.threshold.value = -3;
-    this.limiter.knee.value = 0;
-    this.limiter.ratio.value = 20;
-    this.limiter.attack.value = 0.003;
-    this.limiter.release.value = 0.25;
-    this.master.connect(this.toneFilter);
-    this.toneFilter.connect(this.limiter);
-    this.limiter.connect(this.ctx.destination);
+    this.master.connect(this.ctx.destination);
 
     // Shared convolver reverb bus. Lanes that want wet tail connect to
-    // reverbSend at a per-voice gain; reverbReturn lives under master. Its
-    // gain (how much tail is heard) is driven by `space`.
+    // reverbSend at a per-voice gain; reverbReturn lives under master.
     this.reverbSend = this.ctx.createGain();
     this.reverbSend.gain.value = 1.0;
     this.convolver = this.ctx.createConvolver();
     this.convolver.buffer = this._impulseResponse(2.4, 2.0);
     this.reverbReturn = this.ctx.createGain();
-    this.reverbReturn.gain.value = AMBIENCE_DEFAULT_ACOUSTICS.reverb;
+    this.reverbReturn.gain.value = 0.55;
     this.reverbSend.connect(this.convolver);
     this.convolver.connect(this.reverbReturn);
     this.reverbReturn.connect(this.master);
@@ -100,21 +76,11 @@ export class AmbienceEngine {
     this.piano   = this._buildInstrumentLane(0.45);
     this.pluck   = this._buildInstrumentLane(0.30);
     this.strings = this._buildInstrumentLane(0.40);
-    this.bell    = this._buildInstrumentLane(0.30); // lower wet send: the bell's bright tail was the main reverb-wash source
-    this.brass   = this._buildInstrumentLane(0.30);
     this.drums   = this._buildInstrumentLane(0.12);
     this.musicLevel = "full"; // off | sparse | full
 
-    // Sonic palette — the instrument family the music is voiced with. Held
-    // across turns like space/mood. Defaults to the neutral ensemble until the
-    // GM picks one. _applyPalette (called below) retunes the pad/melody voices
-    // and selects which instrument lanes fire.
-    this.palette = AMBIENCE_DEFAULT_PALETTE;
-    this._paletteCfg = AMBIENCE_PALETTE[this.palette];
-
     // Currently held GM input — fields stay until re-emitted.
-    this.current = { space: null, population: null, mood: null, palette: null };
-    this._applyPalette(this.palette);
+    this.current = { space: null, population: null, mood: null };
 
     this.comfortInterval = setInterval(() => this._updateComfort(), 30000);
     this.melodyArmed = false;
@@ -237,13 +203,10 @@ export class AmbienceEngine {
     const delay = ctx.createDelay(0.05);
     delay.delayTime.value = delayTime;
     const fbGain = ctx.createGain();
-    fbGain.gain.value = 0.92; // shorter ring so overlapping plucks don't pile up
+    fbGain.gain.value = 0.97;
     const fbLpf = ctx.createBiquadFilter();
     fbLpf.type = "lowpass";
-    // 1200 Hz (was 2500): a Karplus-Strong pluck radiates a full harmonic stack,
-    // and at the upper melody degrees its 3rd/4th partials landed at ~1.8–2.1 kHz —
-    // the bright ringing "wall" measured in the neon opener. Cap it to stay warm.
-    fbLpf.frequency.value = 1200;
+    fbLpf.frequency.value = 2500;
     burst.connect(burstGain);
     burstGain.connect(delay);
     delay.connect(fbLpf);
@@ -252,7 +215,7 @@ export class AmbienceEngine {
     // Output envelope to silence the ringing tail.
     const out = ctx.createGain();
     out.gain.setValueAtTime(1, now);
-    out.gain.exponentialRampToValueAtTime(0.0005, now + 0.8);
+    out.gain.exponentialRampToValueAtTime(0.0005, now + 1.8);
     delay.connect(out);
     out.connect(this.pluck.out);
     burst.start(now);
@@ -262,7 +225,7 @@ export class AmbienceEngine {
       try { fbLpf.disconnect(); } catch (_) {}
       try { fbGain.disconnect(); } catch (_) {}
       try { out.disconnect(); } catch (_) {}
-    }, 1100);
+    }, 2200);
   }
   // ── Strings: saw+triangle stack through bandpass; bowed or pizz ──
   _fireStringNote(freq, mode, duration) {
@@ -306,53 +269,6 @@ export class AmbienceEngine {
   }
   _fireBow(freq, dur) { this._fireStringNote(freq, "bow", dur); }
   _firePizz(freq)     { this._fireStringNote(freq, "pizz", 0.4); }
-  // ── Bell: 2-op FM, music-box / struck-metal ──────────────────────────
-  // A harmonic 2:1 (octave) modulator ratio keeps the partials consonant so
-  // several overlapping bells don't clash. The previous √2 (1.41) ratio with a
-  // high modulation index (freq*2.2) sprayed inharmonic sidebands that rang as
-  // an atonal metallic clang; the index is now low for a soft bell, not a buzz.
-  _fireBell(freq, peak) {
-    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
-    const ctx = this.ctx;
-    const now = ctx.currentTime;
-    const p = peak || 0.16;
-    const carrier = ctx.createOscillator(); carrier.type = "sine"; carrier.frequency.value = freq;
-    const mod = ctx.createOscillator(); mod.type = "sine"; mod.frequency.value = freq * 2; // harmonic (octave)
-    const modGain = ctx.createGain(); modGain.gain.value = freq * 0.7;
-    mod.connect(modGain); modGain.connect(carrier.frequency);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(p, now + 0.006);
-    // Shorter tail (was 1.8s): long bell tails overlapped into a bright,
-    // metallic wash in the 1.2-2.4 kHz band. Keep the strike, drop the ring.
-    g.gain.exponentialRampToValueAtTime(0.0005, now + 1.2);
-    carrier.connect(g); g.connect(this.bell.out);
-    carrier.start(now); carrier.stop(now + 1.3);
-    mod.start(now); mod.stop(now + 1.3);
-  }
-  // ── Brass: sawtooth through a swept low-pass, soft attack, sustain ────
-  _fireBrass(freq, dur) {
-    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
-    const ctx = this.ctx;
-    const now = ctx.currentTime;
-    const d = dur || 1.6;
-    const lpf = ctx.createBiquadFilter();
-    lpf.type = "lowpass"; lpf.Q.value = 0.8;
-    lpf.frequency.setValueAtTime(Math.max(500, freq * 2), now);
-    lpf.frequency.linearRampToValueAtTime(Math.max(900, freq * 4), now + 0.12);
-    lpf.frequency.setTargetAtTime(Math.max(700, freq * 2.5), now + 0.2, 0.4);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(0.20, now + 0.12);
-    g.gain.setTargetAtTime(0.14, now + 0.2, 0.3);
-    g.gain.setTargetAtTime(0.0005, now + d - 0.25, 0.25);
-    lpf.connect(g); g.connect(this.brass.out);
-    const saw = ctx.createOscillator(); saw.type = "sawtooth"; saw.frequency.value = freq;
-    const saw2 = ctx.createOscillator(); saw2.type = "sawtooth"; saw2.frequency.value = freq; saw2.detune.value = 8;
-    saw.connect(lpf); saw2.connect(lpf);
-    saw.start(now); saw.stop(now + d + 0.1);
-    saw2.start(now); saw2.stop(now + d + 0.1);
-  }
   // ── Drums: kick, snare, hat ──────────────────────────────────────
   _fireKick(peak) {
     if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
@@ -406,8 +322,7 @@ export class AmbienceEngine {
     if (this.destroyed || gen !== this._gen) return;
     const mood = this.current.mood;
     const pattern = mood ? AMBIENCE_MOOD_DRUM_PATTERN[mood] : null;
-    const paletteDrums = this._paletteCfg && this._paletteCfg.drums;
-    if (!pattern || !paletteDrums || this.intensity === "off" || this.muted || this.musicLevel !== "full") {
+    if (!pattern || this.intensity === "off" || this.muted || this.musicLevel !== "full") {
       this.drumStep = 0;
       this.drumScheduled = setTimeout(() => this._scheduleDrums(gen), 1500);
       return;
@@ -416,9 +331,9 @@ export class AmbienceEngine {
     const sixteenthMs = (60000 / bpm) / 4;
     const slot = pattern[this.drumStep % pattern.length] || {};
     const gainOv = AMBIENCE_MOOD_DRUM_GAIN[mood] || {};
-    if (slot.k) this._fireKick(gainOv.kick != null ? gainOv.kick * 4 : 0.6);
-    if (slot.s) this._fireSnare(gainOv.snare != null ? gainOv.snare * 4 : 0.35);
-    if (slot.h) this._fireHat(gainOv.hat != null ? gainOv.hat * 4 : 0.25);
+    if (slot.k) this._fireKick(gainOv.kick != null ? gainOv.kick * 6 : 0.9);
+    if (slot.s) this._fireSnare(gainOv.snare != null ? gainOv.snare * 6 : 0.5);
+    if (slot.h) this._fireHat(gainOv.hat != null ? gainOv.hat * 6 : 0.35);
     this.drumStep = (this.drumStep + 1) % pattern.length;
     this.drumScheduled = setTimeout(() => this._scheduleDrums(gen), sixteenthMs);
   }
@@ -575,15 +490,14 @@ export class AmbienceEngine {
     if (this.destroyed) return;
     const mood = this.current.mood;
     if (!mood) return;
-    const cfg = this._paletteCfg;
-    if (!cfg) return;
-    const instr = cfg.instr || {};
+    const instr = AMBIENCE_MOOD_INSTRUMENTATION[mood];
+    if (!instr) return;
     const scale = AMBIENCE_MOOD_SCALE[mood] || AMBIENCE_MOOD_SCALE.calm;
     const degree = this.melodyVoice.scaleDegree ?? 3;
     const root = 220; // A3
     const freq = root * Math.pow(2, scale[degree] / 12);
-    // Each instrument fires with its own probability so they don't all play
-    // every melody beat — sparseness sells the minimalist feel.
+    // Each instrument fires with a per-mood probability so they don't all
+    // play every melody beat — sparseness sells the minimalist feel.
     if (instr.piano && Math.random() < 0.45) {
       this._firePiano(freq * 0.5, 0.10, 2.5 + Math.random() * 1.2);
     }
@@ -593,22 +507,12 @@ export class AmbienceEngine {
     if (instr.pizz && Math.random() < 0.50) {
       this._firePizz(freq);
     }
-    if (instr.bell && Math.random() < 0.30) {
-      // Bells ring at the melody register (was an octave up): at the upper scale
-      // degrees, freq*2 put the FM carrier at ~1.2-1.6 kHz — dead in the shriek
-      // band that read as harsh. Firing at freq keeps the carrier warm; the FM
-      // sidebands still give it sparkle. Fired sparsely so tails don't pile up.
-      this._fireBell(freq, 0.14);
-    }
-    // Sustained voices ride the chord root, a drone above the pad.
-    const prog = AMBIENCE_MOOD_PROGRESSION[mood];
-    const chordRoot = prog ? prog[(this.chordPad.progressionIdx + prog.length - 1) % prog.length][0] : 0;
-    const sustainFreq = 110 * Math.pow(2, chordRoot / 12) * 2;
     if (instr.bow && Math.random() < 0.25) {
-      this._fireBow(sustainFreq, 3.5 + Math.random() * 2);
-    }
-    if (instr.brass && Math.random() < 0.30) {
-      this._fireBrass(sustainFreq, 2.0 + Math.random() * 1.5);
+      // Bowed line uses the chord root for a sustained drone above the pad.
+      const prog = AMBIENCE_MOOD_PROGRESSION[mood];
+      const [chordRoot] = prog[(this.chordPad.progressionIdx + prog.length - 1) % prog.length];
+      const bowFreq = 110 * Math.pow(2, chordRoot / 12) * 2;
+      this._fireBow(bowFreq, 3.5 + Math.random() * 2);
     }
   }
   _fireMelodyNote() {
@@ -624,29 +528,19 @@ export class AmbienceEngine {
     this.melodyVoice.scaleDegree = next;
     const root = 220; // A3 — melody sits an octave above the pad.
     const freq = root * Math.pow(2, scale[next] / 12);
-    const mcfg = (this._paletteCfg && this._paletteCfg.melody) || {};
-    const attack = mcfg.attack != null ? mcfg.attack : 0.25;
-    const release = (1.3 + Math.random() * 1.6) * (mcfg.releaseScale || 1);
+    const release = 1.3 + Math.random() * 1.6;
     const peak = 0.08 + Math.random() * 0.03;
     const ctx = this.ctx;
     const osc = ctx.createOscillator();
-    osc.type = mcfg.osc || "triangle";
+    osc.type = "triangle";
     osc.frequency.value = freq;
     const g = ctx.createGain();
     const now = ctx.currentTime;
     g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(peak, now + attack);
+    g.gain.linearRampToValueAtTime(peak, now + 0.25);
     g.gain.exponentialRampToValueAtTime(0.0005, now + release);
     osc.connect(g);
     g.connect(this.melodyVoice.lpf);
-    // A breathy vibrato for vocal palettes (choir).
-    let lfo, lfoGain;
-    if (mcfg.vibrato) {
-      lfo = ctx.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 5;
-      lfoGain = ctx.createGain(); lfoGain.gain.value = 7; // cents
-      lfo.connect(lfoGain); lfoGain.connect(osc.detune);
-      lfo.start(now); lfo.stop(now + release + 0.1);
-    }
     osc.start(now);
     osc.stop(now + release + 0.1);
   }
@@ -686,37 +580,6 @@ export class AmbienceEngine {
     osc.start(now);
     osc.stop(now + 0.25);
   }
-  // ── Palette application (timbre / instrumentation) ────────────────
-  // Retunes the always-on pad and melody voices and recomputes which
-  // instrument lanes sound. OscillatorNode.type and filter cutoffs are
-  // settable live, so we re-skin the running pad without rebuilding it.
-  _applyPalette(name) {
-    if (this.destroyed) return;
-    const cfg = AMBIENCE_PALETTE[name] || AMBIENCE_PALETTE[AMBIENCE_DEFAULT_PALETTE];
-    this.palette = AMBIENCE_PALETTE[name] ? name : AMBIENCE_DEFAULT_PALETTE;
-    this._paletteCfg = cfg;
-    const t = this.ctx.currentTime;
-    if (this.chordPad && this.chordPad.voices) {
-      for (const v of this.chordPad.voices) {
-        if (!v) continue;
-        try { v.sine.type = cfg.pad.sine; } catch (_) {}
-        try { v.tri.type = cfg.pad.tri; v.tri.detune.setTargetAtTime(cfg.pad.detune, t, 0.3); } catch (_) {}
-      }
-      if (this.chordPad.lpf) this.chordPad.lpf.frequency.setTargetAtTime(cfg.pad.cutoff, t, 0.5);
-    }
-    if (this.melodyVoice && this.melodyVoice.lpf)
-      this.melodyVoice.lpf.frequency.setTargetAtTime(cfg.melody.cutoff, t, 0.5);
-    // Recompute lane gains for the new instrumentation under the held mood.
-    this._applyMood(this.current.mood);
-  }
-  // ── Space acoustics (reverb amount + master tone) ─────────────────
-  _applySpaceAcoustics(space) {
-    if (this.destroyed) return;
-    const a = (space && AMBIENCE_SPACE_ACOUSTICS[space]) || AMBIENCE_DEFAULT_ACOUSTICS;
-    const t = this.ctx.currentTime;
-    this.reverbReturn.gain.setTargetAtTime(a.reverb, t, 0.6);
-    this.toneFilter.frequency.setTargetAtTime(a.tone, t, 0.6);
-  }
   // ── Mood application ──────────────────────────────────────────────
   _applyMood(mood) {
     if (this.destroyed) return;
@@ -730,21 +593,18 @@ export class AmbienceEngine {
       this.piano.out.gain.setTargetAtTime(0, t, TC);
       this.pluck.out.gain.setTargetAtTime(0, t, TC);
       this.strings.out.gain.setTargetAtTime(0, t, TC);
-      this.bell.out.gain.setTargetAtTime(0, t, TC);
-      this.brass.out.gain.setTargetAtTime(0, t, TC);
       this.drums.out.gain.setTargetAtTime(0, t, TC);
       return;
     }
     const weights = AMBIENCE_MOOD_MUSIC_GAIN[mood] || AMBIENCE_MOOD_MUSIC_GAIN.calm;
-    const cfg = this._paletteCfg || AMBIENCE_PALETTE[AMBIENCE_DEFAULT_PALETTE];
-    const instr = cfg.instr || {};
-    // The plain melody voice steps back when another voice carries the lead,
-    // so the foreground instrument (piano, bell, plucked guitar…) isn't muddied.
-    const melodyScale = cfg.lead && cfg.lead !== "melody" ? 0.3 : 1.0;
+    // Shadow the legacy melody when piano takes the lead — keeps the bed
+    // present but not competing with the piano's foreground.
+    const instr = AMBIENCE_MOOD_INSTRUMENTATION[mood] || {};
+    const melodyScale = instr.piano ? 0.35 : 1.0;
     this.chordPad.out.gain.setTargetAtTime(weights.chord, t, TC);
     this.melodyVoice.out.gain.setTargetAtTime(weights.melody * melodyScale, t, TC);
     this.pulse.out.gain.setTargetAtTime(weights.pulse, t, TC);
-    // Instrument lanes — selected by palette, scaled by musicLevel.
+    // Instrument lanes — scaled by musicLevel.
     const melodicScale = this.musicLevel === "off" ? 0
       : this.musicLevel === "sparse" ? 0.6
       : 1.0;
@@ -753,21 +613,14 @@ export class AmbienceEngine {
     this.pluck.out.gain.setTargetAtTime((instr.pluck || 0) * melodicScale, t, TC);
     const stringPeak = Math.max(instr.pizz || 0, instr.bow || 0);
     this.strings.out.gain.setTargetAtTime(stringPeak * melodicScale, t, TC);
-    this.bell.out.gain.setTargetAtTime((instr.bell || 0) * melodicScale, t, TC);
-    this.brass.out.gain.setTargetAtTime((instr.brass || 0) * melodicScale, t, TC);
-    // Drums sound only when the palette permits a kit AND the mood has a beat.
-    const drumsOn = cfg.drums && AMBIENCE_MOOD_DRUM_PATTERN[mood];
-    this.drums.out.gain.setTargetAtTime((drumsOn ? 1.0 : 0) * drumScale, t, TC);
+    this.drums.out.gain.setTargetAtTime((AMBIENCE_MOOD_DRUM_PATTERN[mood] ? 1.0 : 0) * drumScale, t, TC);
     // Snap chord progression to a fresh starting voicing on mood change.
     this.chordPad.progressionIdx = 0;
     const prog = AMBIENCE_MOOD_PROGRESSION[mood];
     if (prog && prog[0]) {
       const [root, quality] = prog[0];
       const third = quality === "min" ? root + 3 : root + 4;
-      // Short glide: on a cold start the pad sits at a unison drone (110 Hz),
-      // so a long glide to the triad swoops audibly out of tune. Seat the
-      // voicing quickly instead.
-      this._setChord([root, third, root + 7], 0.8);
+      this._setChord([root, third, root + 7], 2);
       this.chordPad.progressionIdx = 1;
     }
   }
@@ -848,7 +701,6 @@ export class AmbienceEngine {
       this.current.population = null;
       this.current.mood = null;
       this._applyMood(null);
-      this._applySpaceAcoustics(null);
       return;
     }
     if (typeof input !== "object") return;
@@ -859,14 +711,6 @@ export class AmbienceEngine {
       if (this.current.space !== next) {
         this.current.space = next;
         this._setSceneLane(this.scene.space, "space", next, AMBIENCE_SPACE_TRIM);
-        this._applySpaceAcoustics(next);
-      }
-    }
-    if ("palette" in sanitized) {
-      const next = sanitized.palette; // string or null (null → revert to default)
-      if (this.current.palette !== next) {
-        this.current.palette = next;
-        this._applyPalette(next || AMBIENCE_DEFAULT_PALETTE);
       }
     }
     if ("population" in sanitized) {
