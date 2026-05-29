@@ -743,6 +743,16 @@ export class AmbienceEngine {
     this.musicLevel = next;
     if (this.current.mood) this._applyMood(this.current.mood);
   }
+  // Resume a suspended AudioContext. Browsers start the context suspended
+  // under their autoplay policy; the resume attempt inside setIntensity() runs
+  // after an awaited dynamic import and so is detached from the originating
+  // click, which stricter browsers (Safari/iOS) refuse. App-level gesture
+  // listeners call this on the player's first interaction so enabled ambience
+  // reliably begins. Safe to call repeatedly and when already running.
+  resume() {
+    if (this.destroyed) return;
+    if (this.ctx && this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+  }
   setSpeechGate(on) {
     this.speechGate = !!on;
     if (!on) this.speechActive = false;

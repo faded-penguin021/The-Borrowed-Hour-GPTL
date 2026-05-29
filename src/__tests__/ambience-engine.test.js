@@ -107,6 +107,19 @@ describe("AmbienceEngine — monotonous procedural bed", () => {
     expect(true).toBe(true);
   });
 
+  it("resume() resumes a suspended context and is a no-op when running", async () => {
+    const eng = new AmbienceEngine();
+    await eng.ctx.suspend();
+    expect(eng.ctx.state).toBe("suspended");
+    eng.resume();
+    expect(eng.ctx.state).toBe("running");
+    // Idempotent when already running / after destroy.
+    eng.resume();
+    expect(eng.ctx.state).toBe("running");
+    eng.destroy();
+    expect(() => eng.resume()).not.toThrow();
+  });
+
   it("holds and overrides ambience state per field", () => {
     const eng = new AmbienceEngine();
     eng.setIntensity("present");
