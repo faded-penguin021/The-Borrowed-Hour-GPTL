@@ -100,7 +100,7 @@ export class AmbienceEngine {
     this.piano   = this._buildInstrumentLane(0.45);
     this.pluck   = this._buildInstrumentLane(0.30);
     this.strings = this._buildInstrumentLane(0.40);
-    this.bell    = this._buildInstrumentLane(0.55);
+    this.bell    = this._buildInstrumentLane(0.30); // lower wet send: the bell's bright tail was the main reverb-wash source
     this.brass   = this._buildInstrumentLane(0.30);
     this.drums   = this._buildInstrumentLane(0.12);
     this.musicLevel = "full"; // off | sparse | full
@@ -323,10 +323,12 @@ export class AmbienceEngine {
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, now);
     g.gain.linearRampToValueAtTime(p, now + 0.006);
-    g.gain.exponentialRampToValueAtTime(0.0005, now + 1.8);
+    // Shorter tail (was 1.8s): long bell tails overlapped into a bright,
+    // metallic wash in the 1.2-2.4 kHz band. Keep the strike, drop the ring.
+    g.gain.exponentialRampToValueAtTime(0.0005, now + 1.2);
     carrier.connect(g); g.connect(this.bell.out);
-    carrier.start(now); carrier.stop(now + 1.9);
-    mod.start(now); mod.stop(now + 1.9);
+    carrier.start(now); carrier.stop(now + 1.3);
+    mod.start(now); mod.stop(now + 1.3);
   }
   // ── Brass: sawtooth through a swept low-pass, soft attack, sustain ────
   _fireBrass(freq, dur) {
@@ -592,9 +594,11 @@ export class AmbienceEngine {
       this._firePizz(freq);
     }
     if (instr.bell && Math.random() < 0.30) {
-      // Bells ring an octave up — bright, music-box register. Fired sparsely
-      // so the 1.8s tails don't pile into an overlapping wash.
-      this._fireBell(freq * 2, 0.16);
+      // Bells ring at the melody register (was an octave up): at the upper scale
+      // degrees, freq*2 put the FM carrier at ~1.2-1.6 kHz — dead in the shriek
+      // band that read as harsh. Firing at freq keeps the carrier warm; the FM
+      // sidebands still give it sparkle. Fired sparsely so tails don't pile up.
+      this._fireBell(freq, 0.14);
     }
     // Sustained voices ride the chord root, a drone above the pad.
     const prog = AMBIENCE_MOOD_PROGRESSION[mood];

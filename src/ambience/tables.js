@@ -154,9 +154,14 @@ export var AMBIENCE_PALETTE = {
     // pad and 2700 Hz sawtooth melody pushed harmonic energy up into the
     // ~2 kHz shriek zone (confirmed by spectral analysis of the neon opener);
     // triangle oscillators and lower cutoffs keep it moody, not piercing.
+    // The bell is deliberately omitted here too: it is an FM voice that rings
+    // an octave up, putting its carrier (1.2–1.6 kHz) and sidebands straight
+    // into that same shriek band — measured as the brightest remaining voice
+    // in the neon mix. The plucked accent (capped warm in the engine) carries
+    // the foreground instead.
     pad:    { sine: "sawtooth", tri: "triangle", detune: 9, cutoff: 1400 },
     melody: { osc: "triangle", cutoff: 1500, attack: 0.12, releaseScale: 0.8 },
-    instr:  { pluck: 0.16, bell: 0.10 },
+    instr:  { pluck: 0.16 },
     lead: "melody", drums: true
   },
   glass: {
