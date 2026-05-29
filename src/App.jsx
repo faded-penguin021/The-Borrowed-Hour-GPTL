@@ -1049,8 +1049,15 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
         setGameState(parsed.state);
       if (parsed.ending)
         setEnded(true);
-      if (ambienceRef.current && parsed.ambience !== undefined)
-        ambienceRef.current.applyAmbience(parsed.ambience);
+      // Guarantee the world has sound from the first moment: seed a realm-
+      // derived bed, then layer the GM's own emission on top so it overrides
+      // per field. Without this, an opener that omits `ambience` is silent.
+      if (ambienceRef.current) {
+        const { defaultAmbienceForRealm } = await import("./ambience/tables.js");
+        ambienceRef.current.applyAmbience(defaultAmbienceForRealm(chosen.realm));
+        if (parsed.ambience !== undefined)
+          ambienceRef.current.applyAmbience(parsed.ambience);
+      }
       // The opening is a real "first reveal" — always a plate-worthy moment
       // when codex mode is on. Wait for the bootstrap (Style Bible) to land
       // before kicking image gen, but never block the player on this.

@@ -123,3 +123,42 @@ describe("AmbienceEngine — palette + acoustics", () => {
     eng.destroy();
   });
 });
+
+describe("realm-derived opening ambience", () => {
+  it("every realm default uses only valid enum values", async () => {
+    const { AMBIENCE_REALM_DEFAULTS, AMBIENCE_REALM_FALLBACK } =
+      await import("../ambience/tables.js");
+    const spaces = new Set(AMBIENCE_SPACE_VALUES);
+    const moods = new Set(AMBIENCE_MOOD_VALUES);
+    const palettes = new Set(AMBIENCE_PALETTE_VALUES);
+    const populations = new Set(AMBIENCE_POPULATION_VALUES);
+    for (const bed of [...Object.values(AMBIENCE_REALM_DEFAULTS), AMBIENCE_REALM_FALLBACK]) {
+      expect(spaces.has(bed.space)).toBe(true);
+      expect(moods.has(bed.mood)).toBe(true);
+      expect(palettes.has(bed.palette)).toBe(true);
+      expect(populations.has(bed.population)).toBe(true);
+    }
+  });
+
+  it("falls back to a default bed for an unknown realm", async () => {
+    const { defaultAmbienceForRealm, AMBIENCE_REALM_FALLBACK } =
+      await import("../ambience/tables.js");
+    expect(defaultAmbienceForRealm("nonexistent-realm")).toEqual(AMBIENCE_REALM_FALLBACK);
+    expect(defaultAmbienceForRealm("neon").palette).toBe("synth");
+  });
+
+  it("applying a realm default drives the held engine state", async () => {
+    const { defaultAmbienceForRealm } = await import("../ambience/tables.js");
+    const eng = new AmbienceEngine();
+    eng.setIntensity("present");
+    eng.applyAmbience(defaultAmbienceForRealm("neon"));
+    expect(eng.current.space).toBe("street");
+    expect(eng.current.mood).toBe("tense");
+    expect(eng.current.palette).toBe("synth");
+    // A GM emission layered on top overrides per field, holding the rest.
+    eng.applyAmbience({ mood: "calm" });
+    expect(eng.current.mood).toBe("calm");
+    expect(eng.current.space).toBe("street");
+    eng.destroy();
+  });
+});
