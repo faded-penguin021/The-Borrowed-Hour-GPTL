@@ -1,3 +1,4 @@
+// @ts-check
 import React, { useEffect, useState } from "react";
 
 // Renders one illustration plate beneath a narration entry. Four states:
@@ -13,6 +14,11 @@ import React, { useEffect, useState } from "react";
 //
 // The reveal animation is CSS-driven; we just toggle `.is-developed` once the
 // image element has actually loaded so blur lifts only when bytes are ready.
+/**
+ * @param {Object} props
+ * @param {{status: string, url?: string, caption?: string, prompt?: string, milestoneReason?: string, provider?: string}} [props.plate]
+ * @param {string} [props.realm]
+ */
 export function IllustrationPlate({ plate, realm }) {
   const [developed, setDeveloped] = useState(false);
   useEffect(() => { if (plate?.status !== "ready") setDeveloped(false); }, [plate?.status, plate?.url]);

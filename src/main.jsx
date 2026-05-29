@@ -1,5 +1,8 @@
+// @ts-check
 import "./storage/shim.js";
+// @ts-ignore — CSS imports handled by Vite
 import "./styles/tailwind.css";
+// @ts-ignore — CSS imports handled by Vite
 import "./styles/theme.css";
 
 import React from "react";
@@ -7,7 +10,7 @@ import { createRoot } from "react-dom/client";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { App } from "./App.jsx";
 
-createRoot(document.getElementById("root")).render(
+createRoot(/** @type {HTMLElement} */ (document.getElementById("root"))).render(
   <ErrorBoundary>
     <App />
   </ErrorBoundary>
@@ -17,9 +20,9 @@ createRoot(document.getElementById("root")).render(
 // and opens offline. Production only — in dev it would shadow Vite's HMR. The
 // path is relative to BASE_URL so it resolves correctly under a GitHub Pages
 // subpath as well as at a domain root.
-if (import.meta.env.PROD && "serviceWorker" in navigator) {
+if (/** @type {any} */ (import.meta).env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    const swUrl = `${import.meta.env.BASE_URL}sw.js`;
+    const swUrl = `${/** @type {any} */ (import.meta).env.BASE_URL}sw.js`;
     navigator.serviceWorker.register(swUrl).catch((err) => {
       if (typeof console !== "undefined" && console.warn)
         console.warn("[borrowed] service worker registration failed:", err);

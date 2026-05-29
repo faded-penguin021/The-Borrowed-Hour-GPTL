@@ -1,3 +1,9 @@
+// @ts-check
+
+/**
+ * @param {string} realm
+ * @returns {string}
+ */
 export function realmGlyph(realm) {
   switch (realm) {
     case "echo":
@@ -15,6 +21,10 @@ export function realmGlyph(realm) {
   }
 }
 
+/**
+ * @param {string} description
+ * @returns {Premise}
+ */
 export var buildCustomPremise = (description) => ({
   id: "custom-" + Date.now().toString(36),
   realm: "wild",
@@ -50,6 +60,7 @@ The chronicle ends when the objective (committed or negotiated) is resolved, or 
 If the player has refused to commit to an objective at all, the ending types still apply — anchored on the resolution of THEIR refusal rather than the achievement of a goal.`
 });
 
+/** @type {Premise[]} */
 export var PREMISES = [
   {
     id: "echo-train",
@@ -155,6 +166,7 @@ ENDING CONDITIONS FOR THIS STORY:
   }
 ];
 
+/** @type {string[]} */
 export var NARRATION_LOADING_PHRASES = [
   "the GM turns the gears",
   "the narrator takes the stage",
@@ -170,6 +182,7 @@ export var NARRATION_LOADING_PHRASES = [
   "something is being decided about you"
 ];
 
+/** @type {string[]} */
 export var META_LOADING_PHRASES = [
   "the author considers",
   "the author gathers their thoughts",
@@ -178,6 +191,7 @@ export var META_LOADING_PHRASES = [
   "the margins are read again"
 ];
 
+/** @type {string[]} */
 export var OPENING_LOADING_PHRASES = [
   "the hour begins to write itself",
   "the first page finds its words",
@@ -186,4 +200,5 @@ export var OPENING_LOADING_PHRASES = [
   "the chronicle wakes"
 ];
 
+/** @param {string[]} pool @returns {string} */
 export var pickPhrase = (pool) => pool[Math.floor(Math.random() * pool.length)];

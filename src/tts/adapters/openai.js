@@ -1,14 +1,16 @@
+// @ts-check
 import { BorrowedError } from "../../llm/errors.js";
 import { _fetchAudioBlob, _blobHandle } from "../shared.js";
 
-// ── OpenAI TTS adapter ───────────────────────────────────────────────────
 export class OpenAITTSAdapter {
+  /** @param {TTSAdapterOptions} opts */
   constructor({ voiceId, rate, key, model }) {
     this.voiceId = voiceId || "alloy";
     this.rate = rate || 1.0;
     this.key = key || "";
     this.model = model || "gpt-4o-mini-tts";
   }
+  /** @param {string} text @param {AbortSignal} [signal] @param {(msg: string) => void} [onError] @returns {Promise<TTSHandle>} */
   async synthesize(text, signal, onError) {
     const blob = await _fetchAudioBlob(
       "https://api.openai.com/v1/audio/speech",

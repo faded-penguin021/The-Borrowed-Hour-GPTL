@@ -1,5 +1,12 @@
+// @ts-check
 import React, { useState, useRef, useEffect } from "react";
 
+/**
+ * @param {Object} props
+ * @param {() => void} props.onClose
+ * @param {(text: string) => void} props.onBegin
+ * @param {boolean} props.disabled
+ */
 export function CustomModal({ onClose, onBegin, disabled }) {
   const [text, setText] = useState("");
   const ref = useRef(null);

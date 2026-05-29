@@ -1,3 +1,4 @@
+// @ts-check
 // ─────────────────────────────────────────────────────────────────────────
 // Procedural synthesis recipes adapted from Hermes Agent Music (MIT)
 //   https://github.com/jlaiii/hermes-agent-music
@@ -164,15 +165,17 @@ export var AMBIENCE_REALM_DEFAULTS = {
   wild:  { space: "forest",  mood: "calm",       palette: "strings", population: "nature"    }
 };
 export var AMBIENCE_REALM_FALLBACK = { space: "intimate", mood: "calm", palette: "piano", population: "solitary" };
+/** @param {string} realm @returns {AmbienceInput} */
 export var defaultAmbienceForRealm = (realm) =>
   AMBIENCE_REALM_DEFAULTS[realm] || AMBIENCE_REALM_FALLBACK;
 
 // Ordered keyword classifier for Wild (custom) realm turn-1 beds.
 // Specific keywords come before generic ones so "starship" beats "vehicle".
 // Returns a fresh object every call.
+/** @param {string} seed @returns {any} */
 export var deriveAmbienceFromSeed = (seed) => {
   const s = (seed || "").toLowerCase();
-  const rules = [
+  const rules = /** @type {[string[], any][]} */ ([
     [["submarine", "underwater"],                            { space: "vehicle",  population: "machinery",     mood: "ominous",    palette: "synth"   }],
     [["starship", "orbital", "space-station", "space station"], { space: "void", population: "machinery",     mood: "mysterious", palette: "synth"   }],
     [["cyberpunk", "neon", "chrome", "arcology", "alley"],   { space: "street",   population: "machinery",     mood: "tense",      palette: "synth"   }],
@@ -182,36 +185,38 @@ export var deriveAmbienceFromSeed = (seed) => {
     [["manor", "gothic", "castle"],                          { space: "chamber",  population: "solitary",      mood: "ominous",    palette: "strings" }],
     [["train", "carriage", "vehicle"],                       { space: "vehicle",  population: "sparse_voices", mood: "calm",       palette: "piano"   }],
     [["city", "market", "tavern"],                           { space: "street",   population: "crowd",         mood: "joyous",     palette: "strings" }],
-  ];
+  ]);
   for (const [keywords, config] of rules) {
     if (keywords.some((k) => s.includes(k))) return { ...config };
   }
   return { space: "intimate", population: "solitary", mood: "calm", palette: "piano" };
 };
 
+/** @param {unknown} raw @returns {any} */
 export var sanitizeAmbience = (raw) => {
   if (raw === null) return null;
   if (!raw || typeof raw !== "object") return undefined;
-  const out = {};
-  if ("space" in raw) {
-    if (raw.space === null) out.space = null;
-    else if (typeof raw.space === "string" && AMBIENCE_SPACES.has(raw.space)) out.space = raw.space;
+  const r = /** @type {any} */ (raw);
+  const out = /** @type {any} */ ({});
+  if ("space" in r) {
+    if (r.space === null) out.space = null;
+    else if (typeof r.space === "string" && AMBIENCE_SPACES.has(r.space)) out.space = r.space;
   }
-  if ("population" in raw) {
-    if (raw.population === null) out.population = null;
-    else if (typeof raw.population === "string" && AMBIENCE_POPULATIONS.has(raw.population)) out.population = raw.population;
+  if ("population" in r) {
+    if (r.population === null) out.population = null;
+    else if (typeof r.population === "string" && AMBIENCE_POPULATIONS.has(r.population)) out.population = r.population;
   }
-  if ("mood" in raw) {
-    if (raw.mood === null) out.mood = null;
-    else if (typeof raw.mood === "string" && AMBIENCE_MOODS.has(raw.mood)) out.mood = raw.mood;
+  if ("mood" in r) {
+    if (r.mood === null) out.mood = null;
+    else if (typeof r.mood === "string" && AMBIENCE_MOODS.has(r.mood)) out.mood = r.mood;
   }
-  if ("palette" in raw) {
-    if (raw.palette === null) out.palette = null;
-    else if (typeof raw.palette === "string" && AMBIENCE_PALETTES.has(raw.palette)) out.palette = raw.palette;
+  if ("palette" in r) {
+    if (r.palette === null) out.palette = null;
+    else if (typeof r.palette === "string" && AMBIENCE_PALETTES.has(r.palette)) out.palette = r.palette;
   }
-  if (Array.isArray(raw.events)) {
-    const evts = raw.events
-      .filter((e) => typeof e === "string" && AMBIENCE_EVENTS.has(e))
+  if (Array.isArray(r.events)) {
+    const evts = r.events
+      .filter((e) => typeof e === "string" && /** @type {Set<string>} */ (/** @type {unknown} */ (AMBIENCE_EVENTS)).has(e))
       .slice(0, 4);
     if (evts.length) out.events = evts;
   }

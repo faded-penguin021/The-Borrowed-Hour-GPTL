@@ -1,9 +1,15 @@
+// @ts-check
 import React from "react";
 import { EngineSelector } from "./EngineSelector.jsx";
 import { EngineRoleDisplay } from "./EngineRoleDisplay.jsx";
 import { PROVIDER_META, FREE_MODELS_BY_PROVIDER, TOOL_USE_PROVIDER_ORDER } from "../llm/providers.js";
 import { SettingsToggleRow } from "./SettingsToggleRow.jsx";
 
+/**
+ * @param {Object} props
+ * @param {AppSettings} props.settings
+ * @param {(key: string, value: any) => void} props.onChange
+ */
 export function EngineSection({ settings, onChange }) {
   const stack = settings.engineStack || "gemini";
   const free = !!settings.freeModelSelection;

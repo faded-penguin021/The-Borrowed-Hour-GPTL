@@ -1,5 +1,7 @@
+// @ts-check
 import { ENC_PREFIX, decryptSecret, encryptSecret } from "../storage/encryption.js";
 
+/** @returns {Promise<string | null>} */
 export async function getTtsGoogleKey() {
   const stored = localStorage.getItem("borrowed:tts_google_key:v1");
   if (!stored) return null;
@@ -10,6 +12,7 @@ export async function getTtsGoogleKey() {
   try { return (await decryptSecret(stored, window.__sessionPassphrase)).trim(); }
   catch { window.__sessionPassphrase = null; return null; }
 }
+/** @param {string | null} plain @returns {Promise<void>} */
 export async function saveTtsGoogleKey(plain) {
   if (!plain) { localStorage.removeItem("borrowed:tts_google_key:v1"); return; }
   if (window.__sessionPassphrase) {

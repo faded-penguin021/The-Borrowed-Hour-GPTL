@@ -1,12 +1,14 @@
+// @ts-check
 import { BorrowedError } from "../../llm/errors.js";
 
-// ── Browser adapter (Web Speech API) ────────────────────────────────────
 export class BrowserTTSAdapter {
+  /** @param {TTSAdapterOptions} opts */
   constructor({ voiceId, rate }) {
     this.synth = (typeof window !== "undefined" && "speechSynthesis" in window) ? window.speechSynthesis : null;
     this.voiceId = voiceId || null;
     this.rate = rate || 1.0;
   }
+  /** @param {string} text @param {AbortSignal} [signal] @returns {Promise<TTSHandle>} */
   async synthesize(text, signal) {
     if (!this.synth) throw new Error("Web Speech API unavailable");
     if (signal?.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });

@@ -61,6 +61,7 @@ interface NarrationEntry {
   text: string;
   fullyRevealed: boolean;
   streaming?: boolean;
+  illustration?: Illustration;
 }
 
 interface ActionEntry {
@@ -68,6 +69,8 @@ interface ActionEntry {
   text: string;
   fullyRevealed: boolean;
   role?: "user" | "assistant";
+  streaming?: boolean;
+  illustration?: Illustration;
 }
 
 type Entry = NarrationEntry | ActionEntry;
@@ -168,7 +171,7 @@ interface TTSAdapterOptions {
 }
 
 interface TTSAdapter {
-  synthesize(text: string, signal?: AbortSignal): Promise<TTSHandle>;
+  synthesize(text: string, signal?: AbortSignal, onError?: (msg: string) => void): Promise<TTSHandle>;
   destroy(): void;
 }
 
@@ -313,6 +316,7 @@ interface StorageShim {
 interface Window {
   storage: StorageShim;
   __sessionPassphrase?: string;
+  puter?: any;
 }
 
 // ── Size / token estimate types ───────────────────────────────────────────────
@@ -329,4 +333,77 @@ interface LanguageEntry {
   code: string;
   label: string;
   name: string;
+}
+
+// ── Parse result types ───────────────────────────────────────────────────────
+
+interface GMParseResult {
+  narration: string;
+  state: GameState | null;
+  ending: string | null;
+  ambience?: AmbienceInput | null;
+  raw: string;
+  malformed: boolean;
+  diagnostic?: string;
+}
+
+interface GMLogicParseResult {
+  narrator_brief: string;
+  state: GameState | null;
+  ending: string | null;
+  ambience?: AmbienceInput | null;
+  raw: string;
+  malformed: boolean;
+  diagnostic?: string;
+}
+
+interface BootstrapParseResult {
+  style_bible?: StyleBible;
+  visual_ledger?: VisualLedgerEntry[];
+  malformed?: boolean;
+  diagnostic?: string;
+  raw?: string;
+}
+
+interface TurnParseResult {
+  warrants_illustration?: boolean;
+  milestone_reason?: string;
+  caption?: string;
+  subject_ids?: string[];
+  scene_clause?: string;
+  extra_negatives?: string[];
+  ledger_updates?: VisualLedgerEntry[];
+  malformed?: boolean;
+  diagnostic?: string;
+  raw?: string;
+}
+
+// ── Stream factory types ─────────────────────────────────────────────────────
+
+interface ChatCompletionsProviderConfig {
+  url: string | (() => string);
+  label: string;
+  jsonSchema?: boolean;
+  tools?: boolean;
+  extraBody?: Record<string, unknown>;
+}
+
+interface StatePromptBlocks {
+  publicBlock: string;
+  privateBlock: string;
+}
+
+// ── Art director types ───────────────────────────────────────────────────────
+
+interface RealmAestheticSeed {
+  era: string;
+  medium: string;
+  palette: string[];
+  mood_words: string[];
+  negatives: string[];
+}
+
+interface ComposedImagePrompt {
+  prompt: string;
+  negatives: string[];
 }

@@ -1,12 +1,15 @@
+// @ts-check
 import { BorrowedError } from "../../llm/errors.js";
 import { _blobHandle } from "../shared.js";
 
 export class GoogleTTSAdapter {
+  /** @param {TTSAdapterOptions} opts */
   constructor({ voiceId, rate, key }) {
     this.voiceId = voiceId || "en-US-Neural2-C";
     this.rate = rate || 1.0;
     this.key = key || "";
   }
+  /** @param {string} text @param {AbortSignal} [signal] @param {(msg: string) => void} [onError] @returns {Promise<TTSHandle>} */
   async synthesize(text, signal, onError) {
     if (!this.key) throw new BorrowedError("Google TTS key missing", "Enter your Google Cloud TTS API key in Settings → Reading.");
     const languageCode = this.voiceId.split("-").slice(0, 2).join("-") || "en-US";

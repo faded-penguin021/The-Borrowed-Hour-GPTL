@@ -1,3 +1,4 @@
+// @ts-check
 import React, { useState, useRef, useEffect } from "react";
 import { realmGlyph } from "../data/premises.js";
 import { formatTokens } from "../data/constants.js";
@@ -5,6 +6,52 @@ import { TypewriterText } from "./TypewriterText.jsx";
 import { ErrorRawDetail } from "./ErrorRawDetail.jsx";
 import { IllustrationPlate } from "./IllustrationPlate.jsx";
 
+/**
+ * @param {Object} props
+ * @param {Premise} props.premise
+ * @param {Entry[]} props.entries
+ * @param {number} props.skipNonce
+ * @param {boolean} props.instantReveal
+ * @param {(idx?: number) => void} props.onEntryDone
+ * @param {(idx?: number) => void} props.onMetaDone
+ * @param {boolean} props.loading
+ * @param {string} props.loadingPhrase
+ * @param {any} props.error
+ * @param {string | null} props.ended
+ * @param {boolean} props.metaMode
+ * @param {any[]} props.metaMessages
+ * @param {() => void} props.onEnterMeta
+ * @param {() => void} props.onExitMeta
+ * @param {() => void} props.onOpenLedger
+ * @param {() => void} props.onOpenSettings
+ * @param {boolean} props.canUndo
+ * @param {() => void} props.onUndo
+ * @param {string} props.input
+ * @param {(v: any) => void} props.onInputChange
+ * @param {(e: any) => void} props.onKeyDown
+ * @param {() => void} props.onSubmit
+ * @param {() => void} props.onSkip
+ * @param {() => void} props.onCancel
+ * @param {any} props.recovery
+ * @param {() => void} props.onContinueNarration
+ * @param {() => void} props.onRestart
+ * @param {() => void} props.onSave
+ * @param {() => void} props.onOpenSaves
+ * @param {(includeMeta?: boolean) => void} props.onExport
+ * @param {{kind: string, text: string} | null} props.saveBanner
+ * @param {{input: number, output: number}} props.sessionTokens
+ * @param {React.RefObject<any>} props.scrollRef
+ * @param {React.RefObject<any>} props.textareaRef
+ * @param {boolean} props.ambienceEnabled
+ * @param {boolean} props.ambienceMuted
+ * @param {() => void} props.onToggleAmbienceMute
+ * @param {boolean} props.ttsEnabled
+ * @param {boolean} props.ttsMuted
+ * @param {any} props.ttsPlayback
+ * @param {() => void} props.onToggleTtsMute
+ * @param {() => void} props.onTogglePlayPause
+ * @param {(idx: number) => void} props.onPlayEntry
+ */
 export function GameScreen({
   premise,
   entries,

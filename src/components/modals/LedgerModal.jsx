@@ -1,5 +1,12 @@
+// @ts-check
 import React from "react";
 
+/**
+ * @param {Object} props
+ * @param {Premise} props.premise
+ * @param {GameState} props.gameState
+ * @param {() => void} props.onClose
+ */
 export function LedgerModal({ premise, gameState, onClose }) {
   const realmColor = `var(--${premise.realm})`;
   const has = (a) => Array.isArray(a) && a.length > 0;
@@ -109,6 +116,12 @@ export function LedgerModal({ premise, gameState, onClose }) {
   );
 }
 
+/**
+ * @param {Object} props
+ * @param {string} props.label
+ * @param {string} [props.color]
+ * @param {React.ReactNode} props.children
+ */
 export function LedgerBlock({ label, color, children }) {
   return (
     <div>

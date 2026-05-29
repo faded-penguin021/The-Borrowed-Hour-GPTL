@@ -1,5 +1,14 @@
+// @ts-check
 import React from "react";
 
+/**
+ * @param {Object} props
+ * @param {string} props.id
+ * @param {string} props.label
+ * @param {string} props.description
+ * @param {boolean} props.value
+ * @param {(v: boolean) => void} props.onChange
+ */
 export function SettingsToggleRow({ id, label, description, value, onChange }) {
   return (
     <button

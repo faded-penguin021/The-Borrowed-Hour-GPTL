@@ -1,3 +1,9 @@
+// @ts-check
+
+/**
+ * @param {GameState | null | undefined} state
+ * @returns {StatePromptBlocks}
+ */
 export function formatStateForPrompt(state) {
   if (!state)
     return { publicBlock: "", privateBlock: "" };
@@ -38,6 +44,10 @@ export function formatStateForPrompt(state) {
   };
 }
 
+/**
+ * @param {GameState | null | undefined} state
+ * @returns {string}
+ */
 export function serializeStatePublic(state) {
   if (!state || typeof state !== "object")
     return "";
@@ -52,6 +62,10 @@ export function serializeStatePublic(state) {
   return JSON.stringify(pub, null, 2);
 }
 
+/**
+ * @param {string} content
+ * @returns {string}
+ */
 export function stripHistoricalUser(content) {
   const m = content.match(/\[Player action\]\n([\s\S]*?)(?=\n\n\[GM-PRIVATE|$)/);
   if (!m)
@@ -60,6 +74,10 @@ export function stripHistoricalUser(content) {
 ${m[1].trim()}`;
 }
 
+/**
+ * @param {string} content
+ * @returns {string}
+ */
 export function stripHistoricalAssistant(content) {
   try {
     const obj = JSON.parse(content);

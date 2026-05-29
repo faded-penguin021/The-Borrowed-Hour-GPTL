@@ -1,5 +1,11 @@
+// @ts-check
 import React, { useRef, useEffect } from "react";
 
+/**
+ * @param {Object} props
+ * @param {string} props.text
+ * @param {() => void} props.onClose
+ */
 export function ExportFallbackModal({ text, onClose }) {
   const ref = useRef(null);
   useEffect(() => {

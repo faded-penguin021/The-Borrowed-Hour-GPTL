@@ -12,11 +12,10 @@
 // prepending the Style Bible and referencing Visual Ledger tags — so that the
 // LLM cannot drift away from the locked aesthetic or invent new appearances
 // for recurring NPCs.
+// @ts-check
 import { languageNameFor, DEFAULT_LANGUAGE } from "../data/languages.js";
 
-// Per-realm aesthetic anchors. The bootstrap LLM is constrained to extend
-// these, not replace them — preventing a sepia codex from drifting into a
-// neon scene halfway through.
+/** @type {Record<string, RealmAestheticSeed>} */
 export const REALM_AESTHETIC_SEEDS = {
   echo: {
     era: "19th-century chiaroscuro etching",
@@ -55,6 +54,7 @@ export const REALM_AESTHETIC_SEEDS = {
   }
 };
 
+/** @type {ToolDefinition} */
 export const ART_DIRECTOR_BOOTSTRAP_TOOL = {
   name: "seed_codex",
   description: "Seed the locked aesthetic Style Bible and an initial Visual Ledger of recurring subjects for the chronicle.",
@@ -89,6 +89,7 @@ export const ART_DIRECTOR_BOOTSTRAP_TOOL = {
   }
 };
 
+/** @type {ToolDefinition} */
 export const ART_DIRECTOR_TURN_TOOL = {
   name: "curate_plate",
   description: "Decide whether THIS turn warrants an illustration plate. If yes, compose a tight visual brief and update the Visual Ledger with any new recurring subjects.",
@@ -138,11 +139,20 @@ export const ART_DIRECTOR_TURN_TOOL = {
   }
 };
 
+/**
+ * @param {Premise} premise
+ * @returns {string}
+ */
 const realmKey = (premise) => {
   const r = premise?.realm;
   return REALM_AESTHETIC_SEEDS[r] ? r : "wild";
 };
 
+/**
+ * @param {Premise} premise
+ * @param {string} [language]
+ * @returns {string}
+ */
 export const buildBootstrapSystem = (premise, language = DEFAULT_LANGUAGE) => {
   if (premise?.isCustom) {
     return `You are the Art Director of an immersive text adventure called "The Borrowed Hour". Illustrations in this codex are RARE plates in a manuscript. Your job on this very first turn is to LOCK IN the aesthetic for the whole chronicle based on the player's custom scenario, and to seed an initial Visual Ledger of recurring subjects.
@@ -178,9 +188,16 @@ CALL THE TOOL \`seed_codex\` with:
 Write tag values plainly in English (these are prompt fragments for an image model). Output ONLY the tool call.`;
 };
 
+/**
+ * @param {Premise} premise
+ * @param {StyleBible} styleBible
+ * @param {VisualLedgerEntry[]} visualLedger
+ * @param {string} [language]
+ * @returns {string}
+ */
 export const buildTurnSystem = (premise, styleBible, visualLedger, language = DEFAULT_LANGUAGE) => {
   const ledgerLines = (visualLedger || []).map((e) => `  - ${e.id}: ${(e.tags || []).join(", ")}`).join("\n") || "  (empty)";
-  const sb = styleBible || {};
+  const sb = /** @type {Partial<StyleBible>} */ (styleBible || {});
   return `You are the Art Director of an immersive text adventure. The narrative text is sovereign — your job is to CURATE rare illustration plates that feel like inserts in a leather-bound manuscript. Most turns DO NOT warrant a plate; the default answer is no.
 
 LOCKED STYLE BIBLE (do not contradict — it is prepended to every prompt automatically):
@@ -226,6 +243,10 @@ Call the tool \`curate_plate\` and output ONLY the tool call.`;
 // that smells of significance-talk (or is over-long, or sentence-like) is
 // dropped — a clean untitled plate beats a leaky caption.
 const CAPTION_LEAK = /\b(no\s+significant|significant|reveal|reveals|revealing|shift|turning[\s-]?point|climax|milestone|moment\s+of|the\s+moment\s+when|nothing|none|routine|mundane|uneventful|minor|major\s+(beat|moment)|no\s+(major|notable|real)|tension|stakes|foreshadow|setup|set[\s-]?piece|plot)\b/i;
+/**
+ * @param {string} caption
+ * @returns {string}
+ */
 export const cleanPlateCaption = (caption) => {
   let c = (caption || "").trim().replace(/^["'“”]+|["'“”]+$/g, "").replace(/[.!]+$/g, "").trim();
   if (!c) return "";
@@ -235,8 +256,12 @@ export const cleanPlateCaption = (caption) => {
   return c;
 };
 
+/**
+ * @param {{ styleBible: StyleBible, visualLedger: VisualLedgerEntry[], subjectIds?: string[], sceneClause?: string, extraNegatives?: string[] }} params
+ * @returns {ComposedImagePrompt}
+ */
 export const composeImagePrompt = ({ styleBible, visualLedger, subjectIds, sceneClause, extraNegatives }) => {
-  const sb = styleBible || {};
+  const sb = /** @type {Partial<StyleBible>} */ (styleBible || {});
   const ledgerById = new Map((visualLedger || []).map((e) => [e.id, e]));
   const subjectFragments = (subjectIds || [])
     .map((id) => ledgerById.get(id))
@@ -255,6 +280,11 @@ export const composeImagePrompt = ({ styleBible, visualLedger, subjectIds, scene
   return { prompt, negatives: Array.from(new Set(negatives)) };
 };
 
+/**
+ * @param {VisualLedgerEntry[]} current
+ * @param {VisualLedgerEntry[]} updates
+ * @returns {VisualLedgerEntry[]}
+ */
 export const mergeLedger = (current, updates) => {
   if (!Array.isArray(updates) || updates.length === 0) return current || [];
   const byId = new Map((current || []).map((e) => [e.id, e]));
@@ -266,8 +296,13 @@ export const mergeLedger = (current, updates) => {
 };
 
 // Minimal parsers — separate from parse.js so they can evolve independently.
+/** @param {string} s @returns {any} */
 const tryJSON = (s) => { try { return JSON.parse(s); } catch { return null; } };
 
+/**
+ * @param {string} raw
+ * @returns {BootstrapParseResult}
+ */
 export const parseBootstrapResponse = (raw) => {
   if (!raw) return { malformed: true };
   let txt = String(raw).trim().replace(/^```[a-zA-Z]*\s*/, "").replace(/```\s*$/, "");
@@ -293,6 +328,10 @@ export const parseBootstrapResponse = (raw) => {
   };
 };
 
+/**
+ * @param {string} raw
+ * @returns {TurnParseResult}
+ */
 export const parseTurnResponse = (raw) => {
   if (!raw) return { malformed: true };
   let txt = String(raw).trim().replace(/^```[a-zA-Z]*\s*/, "").replace(/```\s*$/, "");

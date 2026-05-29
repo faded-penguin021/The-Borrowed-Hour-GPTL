@@ -1,7 +1,19 @@
+// @ts-check
 import React, { useState, useEffect } from "react";
 import { SAVE_CAP, APPROX_CHARS_PER_TOKEN, formatKB, formatTokens } from "../../data/constants.js";
 import { realmGlyph } from "../../data/premises.js";
 
+/**
+ * @param {Object} props
+ * @param {any[]} props.saves
+ * @param {number} [props.totalBytes]
+ * @param {number} [props.cap]
+ * @param {boolean} props.loading
+ * @param {() => void} props.onClose
+ * @param {(save: any) => void} props.onLoad
+ * @param {(key: string, e: any) => void} props.onDelete
+ * @param {boolean} props.inGame
+ */
 export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onClose, onLoad, onDelete, inGame }) {
   const [armedKey, setArmedKey] = useState(null);
   useEffect(() => {

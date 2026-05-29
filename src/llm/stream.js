@@ -1,5 +1,10 @@
+// @ts-check
 import { BorrowedError } from "./errors.js";
 
+/**
+ * @param {unknown} content
+ * @returns {string}
+ */
 export var normalizeContent = (content) => {
   if (typeof content === "string")
     return content;
@@ -18,6 +23,10 @@ export var normalizeContent = (content) => {
   return String(content ?? "");
 };
 
+/**
+ * @param {any} data
+ * @returns {string}
+ */
 export var extractOpenAIText = (data) => {
   if (typeof data.output_text === "string" && data.output_text.trim())
     return data.output_text.trim();
@@ -37,6 +46,10 @@ export var extractOpenAIText = (data) => {
   return chunks.join(`
 `).trim();
 };
+/**
+ * @param {any} data
+ * @returns {string}
+ */
 export var extractGeminiText = (data) => {
   const chunks = [];
   for (const candidate of data.candidates || []) {
@@ -48,6 +61,10 @@ export var extractGeminiText = (data) => {
   return chunks.join(`
 `).trim();
 };
+/**
+ * @param {any} data
+ * @returns {string}
+ */
 export var extractClaudeText = (data) => {
   const chunks = [];
   for (const part of data.content || []) {
@@ -57,13 +74,22 @@ export var extractClaudeText = (data) => {
   return chunks.join(`
 `).trim();
 };
+/**
+ * @param {string} sys
+ * @param {ChatMessage[]} msgs
+ * @returns {ChatMessage[]}
+ */
 export var normalizeChatMessages = (sys, msgs) => [
   { role: "system", content: sys },
-  ...msgs.map((m) => ({
+  ...msgs.map((m) => (/** @type {ChatMessage} */ ({
     role: m.role === "assistant" ? "assistant" : "user",
     content: normalizeContent(m.content)
-  }))
+  })))
 ];
+/**
+ * @param {any} data
+ * @returns {string}
+ */
 export var extractChatText = (data) => {
   const chunks = [];
   for (const choice of data.choices || []) {
@@ -76,6 +102,10 @@ export var extractChatText = (data) => {
   return chunks.join(`
 `).trim();
 };
+/**
+ * @param {string} rawEvent
+ * @returns {string}
+ */
 export var sseEventData = (rawEvent) => {
   const dataLines = [];
   for (const line of rawEvent.split(`
@@ -86,6 +116,10 @@ export var sseEventData = (rawEvent) => {
   return dataLines.join(`
 `).trim();
 };
+/**
+ * @param {string} rawEvent
+ * @returns {StreamEvent | null}
+ */
 export var parseChatStreamEvent = (rawEvent) => {
   const data = sseEventData(rawEvent);
   if (!data || data === "[DONE]")
@@ -109,6 +143,10 @@ export var parseChatStreamEvent = (rawEvent) => {
     out.error = json.error.message || String(json.error);
   return out;
 };
+/**
+ * @param {any} data
+ * @returns {string}
+ */
 export var extractChatToolCallArgs = (data) => {
   const msg = data?.choices?.[0]?.message;
   if (!msg) return "";
@@ -125,6 +163,10 @@ export var extractChatToolCallArgs = (data) => {
   }
   return "";
 };
+/**
+ * @param {ChatCompletionsProviderConfig} config
+ * @returns {any}
+ */
 export var makeChatCompletionsProvider = ({ url, label, jsonSchema, tools: useToolsApi, extraBody }) => ({
   toolUse: !!(jsonSchema || useToolsApi),
   retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
