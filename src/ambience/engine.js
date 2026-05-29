@@ -105,6 +105,24 @@ export class AmbienceEngine {
     this._paletteWeights = AMBIENCE_PALETTE[AMBIENCE_PALETTE_DEFAULT];
 
     this.comfortInterval = setInterval(() => this._updateComfort(), 30000);
+    // Page Visibility coupling. When the tab is hidden, browsers throttle JS
+    // timers but the AudioContext clock keeps its own time. Without this, any
+    // setInterval-driven scene layer (crickets, wind gusts, birds, thunder)
+    // keeps spawning oscillators against a frozen currentTime; on resume the
+    // queued bursts all play at the same instant — the "thundering herd"
+    // screech. Suspending the context here freezes everything cleanly and the
+    // spawn-callbacks in tables.js short-circuit on ctx.state !== "running".
+    this._onVisibility = () => {
+      if (this.destroyed || !this.ctx) return;
+      if (document.hidden) {
+        if (this.ctx.state === "running") this.ctx.suspend().catch(() => {});
+      } else if (this.intensity !== "off" && this.ctx.state === "suspended") {
+        this.ctx.resume().catch(() => {});
+      }
+    };
+    if (typeof document !== "undefined" && document.addEventListener) {
+      document.addEventListener("visibilitychange", this._onVisibility);
+    }
     this.melodyArmed = false;
     this.pulseArmed = false;
     this.chordArmed = false;
@@ -832,6 +850,9 @@ export class AmbienceEngine {
   destroy() {
     this.destroyed = true;
     clearInterval(this.comfortInterval);
+    if (this._onVisibility && typeof document !== "undefined" && document.removeEventListener) {
+      document.removeEventListener("visibilitychange", this._onVisibility);
+    }
     if (this.suspendTimer) clearTimeout(this.suspendTimer);
     if (this.melodyVoice && this.melodyVoice.scheduled) clearTimeout(this.melodyVoice.scheduled);
     if (this.pulse && this.pulse.scheduled) clearTimeout(this.pulse.scheduled);
