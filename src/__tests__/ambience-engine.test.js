@@ -62,64 +62,61 @@ afterEach(() => {
   delete globalThis.window;
 });
 
-describe("AmbienceEngine — palette + acoustics", () => {
-  it("constructs and exposes the new lanes and palette default", () => {
+describe("AmbienceEngine — monotonous procedural bed", () => {
+  it("constructs and exposes its lanes", () => {
     const eng = new AmbienceEngine();
-    expect(eng.bell).toBeTruthy();
-    expect(eng.brass).toBeTruthy();
-    expect(eng.toneFilter).toBeTruthy();
-    expect(eng.limiter).toBeTruthy();
-    expect(eng.palette).toBe("ensemble");
+    expect(eng.master).toBeTruthy();
+    expect(eng.chordPad).toBeTruthy();
+    expect(eng.melodyVoice).toBeTruthy();
+    expect(eng.pulse).toBeTruthy();
+    expect(eng.current).toEqual({ space: null, population: null, mood: null });
     eng.destroy();
   });
 
-  it("applies every space / mood / palette combination without throwing", () => {
+  it("applies every space / mood / population combination without throwing", () => {
     const eng = new AmbienceEngine();
     eng.setIntensity("present");
-    for (const palette of AMBIENCE_PALETTE_VALUES) {
-      for (const space of AMBIENCE_SPACE_VALUES) {
-        for (const mood of AMBIENCE_MOOD_VALUES) {
-          eng.applyAmbience({ space, mood, palette });
-          vi.advanceTimersByTime(1200); // let schedulers tick
-        }
+    for (const space of AMBIENCE_SPACE_VALUES) {
+      for (const mood of AMBIENCE_MOOD_VALUES) {
+        eng.applyAmbience({ space, mood });
+        vi.advanceTimersByTime(1600); // let schedulers tick
       }
     }
     for (const population of AMBIENCE_POPULATION_VALUES) {
       eng.applyAmbience({ population });
+      vi.advanceTimersByTime(1600);
     }
-    // null clears mood; explicit null palette reverts to default.
-    eng.applyAmbience({ palette: null });
-    expect(eng.palette).toBe("ensemble");
+    // An emitted palette field is harmless — this engine ignores it.
+    eng.applyAmbience({ space: "street", mood: "mysterious", palette: "synth" });
     eng.applyAmbience(null);
     eng.destroy();
   });
 
-  it("fires every instrument voice directly under each palette", () => {
+  it("fires each voice directly without throwing", () => {
     const eng = new AmbienceEngine();
     eng.setIntensity("present");
     eng.applyAmbience({ mood: "tense" });
-    for (const palette of AMBIENCE_PALETTE_VALUES) {
-      eng.applyAmbience({ palette });
-      eng._fireMelodyNote();
-      eng._fireInstrumentNote();
-      eng._fireBell(440, 0.16);
-      eng._fireBrass(220, 1.5);
-      eng._firePiano(220, 0.1, 2.5);
-      eng._firePluck(330, 0.18);
-      eng._firePizz(330);
-      eng._fireBow(220, 3);
-    }
+    eng._firePiano(220, 0.1, 2.5);
+    eng._firePluck(330, 0.18);
+    eng._firePizz(330);
+    eng._fireBow(220, 3);
+    eng._fireKick(0.5);
+    eng._fireSnare(0.3);
+    eng._fireHat(0.2);
     eng.destroy();
     expect(true).toBe(true);
   });
 
-  it("space changes drive reverb and tone targets", () => {
+  it("holds and overrides ambience state per field", () => {
     const eng = new AmbienceEngine();
     eng.setIntensity("present");
-    const spy = vi.spyOn(eng.toneFilter.frequency, "setTargetAtTime");
-    eng.applyAmbience({ space: "cavern" });
-    eng.applyAmbience({ space: "vehicle" });
-    expect(spy).toHaveBeenCalled();
+    eng.applyAmbience({ space: "street", mood: "mysterious" });
+    expect(eng.current.space).toBe("street");
+    expect(eng.current.mood).toBe("mysterious");
+    // A later emission overrides per field, holding the rest.
+    eng.applyAmbience({ mood: "calm" });
+    expect(eng.current.mood).toBe("calm");
+    expect(eng.current.space).toBe("street");
     eng.destroy();
   });
 });
@@ -144,7 +141,7 @@ describe("realm-derived opening ambience", () => {
     const { defaultAmbienceForRealm, AMBIENCE_REALM_FALLBACK } =
       await import("../ambience/tables.js");
     expect(defaultAmbienceForRealm("nonexistent-realm")).toEqual(AMBIENCE_REALM_FALLBACK);
-    expect(defaultAmbienceForRealm("neon").palette).toBe("synth");
+    expect(defaultAmbienceForRealm("neon").space).toBe("street");
   });
 
   it("applying a realm default drives the held engine state", async () => {
@@ -154,7 +151,6 @@ describe("realm-derived opening ambience", () => {
     eng.applyAmbience(defaultAmbienceForRealm("neon"));
     expect(eng.current.space).toBe("street");
     expect(eng.current.mood).toBe("mysterious");
-    expect(eng.current.palette).toBe("synth");
     // A GM emission layered on top overrides per field, holding the rest.
     eng.applyAmbience({ mood: "calm" });
     expect(eng.current.mood).toBe("calm");

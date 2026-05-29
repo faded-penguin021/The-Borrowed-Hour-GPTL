@@ -13,7 +13,7 @@
 //   • everything else (cross-origin, non-GET) → untouched
 //
 // Bump CACHE_VERSION to force old caches out on the next activation.
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const CACHE = `borrowed-hour-${CACHE_VERSION}`;
 
 // Stable shell entries. Hashed build assets are not listed (their names change
