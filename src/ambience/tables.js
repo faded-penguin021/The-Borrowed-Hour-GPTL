@@ -225,6 +225,7 @@ function _layerCrickets(eng, dest, density) {
   const ctx = eng.ctx;
   const period = 1200 / (density || 1);
   const iv = setInterval(() => {
+    if (ctx.state !== "running") return;
     if (Math.random() > 0.7) return;
     const now = ctx.currentTime;
     const chirp = ctx.createOscillator(); chirp.type = "sine";
@@ -288,6 +289,7 @@ function _layerCafeMurmur(eng, dest, peak) {
 function _layerWindGust(eng, dest) {
   const ctx = eng.ctx;
   const iv = setInterval(() => {
+    if (ctx.state !== "running") return;
     if (Math.random() > 0.4) return;
     const now = ctx.currentTime;
     const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(2.5, "pink");
@@ -402,6 +404,7 @@ export var AMBIENCE_SPACE_RECIPES = {
       wg.gain.setTargetAtTime(0.25 + Math.random()*0.3, ctx.currentTime, 2);
     }, 3000);
     const ivBirds = setInterval(() => {
+      if (ctx.state !== "running") return;
       if (Math.random() > 0.55) return;
       const now = ctx.currentTime;
       const freq = 3000 + Math.random()*4000;
@@ -501,6 +504,7 @@ export var AMBIENCE_POPULATION_RECIPES = {
     const og = ctx.createGain(); og.gain.value = 0.12;
     o.connect(og).connect(dest); o.start();
     const iv = setInterval(() => {
+      if (ctx.state !== "running") return;
       const now = ctx.currentTime;
       const click = ctx.createOscillator(); click.type = "triangle"; click.frequency.value = 300 + Math.random()*200;
       const cg = ctx.createGain();
@@ -524,6 +528,7 @@ export var AMBIENCE_POPULATION_RECIPES = {
       sf.frequency.setTargetAtTime(900 + Math.random()*700, ctx.currentTime, 0.8);
     }, 900);
     const ivCrickets = setInterval(() => {
+      if (ctx.state !== "running") return;
       const now = ctx.currentTime;
       const chirp = ctx.createOscillator(); chirp.type = "sine"; chirp.frequency.value = 4200 + Math.random()*800;
       const cg = ctx.createGain();
@@ -539,6 +544,7 @@ export var AMBIENCE_POPULATION_RECIPES = {
       chirp.start(now); chirp.stop(t + 0.05);
     }, 1200);
     const ivBirds = setInterval(() => {
+      if (ctx.state !== "running") return;
       if (Math.random() > 0.5) return;
       const now = ctx.currentTime;
       const freq = 3000 + Math.random()*4000;
@@ -606,6 +612,7 @@ export var AMBIENCE_POPULATION_RECIPES = {
     cycle();
     const ivOcean = setInterval(cycle, 7000 + Math.random()*3000);
     const ivThunder = setInterval(() => {
+      if (ctx.state !== "running") return;
       if (Math.random() > 0.45) return;
       const now = ctx.currentTime;
       const dur = 2 + Math.random()*2;
