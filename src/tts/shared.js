@@ -1,6 +1,12 @@
+// @ts-check
 import { BorrowedError } from "../llm/errors.js";
 
-// ── Shared cloud adapter helpers (fetch → blob → Audio element) ──────────
+/**
+ * @param {string} url
+ * @param {RequestInit} init
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<Blob>}
+ */
 export async function _fetchAudioBlob(url, init, signal) {
   const resp = await fetch(url, { ...init, signal });
   if (!resp.ok) {
@@ -10,6 +16,12 @@ export async function _fetchAudioBlob(url, init, signal) {
   }
   return resp.blob();
 }
+/**
+ * @param {Blob} blob
+ * @param {AbortSignal} [signal]
+ * @param {(msg: string) => void} [onError]
+ * @returns {TTSHandle}
+ */
 export function _blobHandle(blob, signal, onError) {
   const report = (m) => { try { onError?.(m); } catch (_) {} };
   // Sniff the first bytes so we can report the actual audio format, not

@@ -1,5 +1,9 @@
+// @ts-check
 import React from "react";
 
+/**
+ * @extends {React.Component<{children: React.ReactNode}, {error: Error | null}>}
+ */
 export class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);

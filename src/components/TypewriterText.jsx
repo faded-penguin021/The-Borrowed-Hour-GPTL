@@ -1,5 +1,15 @@
+// @ts-check
 import React, { useState, useEffect, useRef } from "react";
 
+/**
+ * @param {Object} props
+ * @param {string} props.text
+ * @param {boolean} [props.instant]
+ * @param {number} [props.skipSignal]
+ * @param {() => void} [props.onDone]
+ * @param {React.RefObject<HTMLElement>} [props.scrollRef]
+ * @param {boolean} [props.fastMode]
+ */
 export function TypewriterText({
   text,
   instant = false,

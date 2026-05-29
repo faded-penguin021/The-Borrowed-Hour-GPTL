@@ -1,3 +1,4 @@
+// @ts-check
 // Image provider abstraction for the Prestige Codex. Parallel to providers.js
 // (LLM providers) but kept separate because image APIs are fewer, simpler, and
 // have different lifecycle (single shot, sometimes polled).
@@ -17,6 +18,7 @@ export const LOCAL_IMAGE_DEFAULT_URL = "http://localhost:7860/sdapi/v1/txt2img";
 
 // checked: 2026-05-28. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
 // gpt-image-* models remain for the OpenAI images endpoint.
+/** @type {Record<ImageProviderId, ImageProviderMeta & { keyless?: boolean, reusesLLMProvider?: string, windowKey?: string, description?: string }>} */
 export const IMAGE_PROVIDER_META = {
   pollinations: {
     name: "Pollinations",
@@ -70,7 +72,7 @@ export const IMAGE_PROVIDER_ORDER = ["pollinations", "replicate", "openai", "loc
 
 const getReplicateKey = async () => {
   const m = IMAGE_PROVIDER_META.replicate;
-  const injected = window[m.windowKey] || document.querySelector(`meta[name="replicate-api-key"]`)?.content;
+  const injected = window[m.windowKey] || /** @type {HTMLMetaElement | null} */ (document.querySelector(`meta[name="replicate-api-key"]`))?.content;
   if (injected) return injected.trim();
   const stored = localStorage.getItem(m.keyStorage);
   if (!stored) throw new BorrowedError("The plate cannot be drawn.", "No Replicate API key is saved. Open ⚙ Settings → Codex → Replicate to paste your key.");
@@ -208,7 +210,10 @@ const adapters = {
   }
 };
 
-// Top-level: dispatch by providerId with a hard timeout.
+/**
+ * @param {{ providerId: ImageProviderId, providerConfig?: Record<string,any>, prompt: string, negatives?: string[], signal?: AbortSignal, timeoutMs?: number }} params
+ * @returns {Promise<GeneratedImage>}
+ */
 export const generateImage = async ({ providerId, providerConfig, prompt, negatives, signal, timeoutMs = 20000 }) => {
   const adapter = adapters[providerId];
   if (!adapter) throw new BorrowedError("The plate cannot be drawn.", `Unknown image provider "${providerId}".`);

@@ -1,8 +1,10 @@
+// @ts-check
 import React, { useState } from "react";
 import { LOCAL_DEFAULT_URL } from "../data/constants.js";
 import { encryptSecret } from "../storage/encryption.js";
 import { PROVIDER_META } from "../llm/providers.js";
 
+/** No props. */
 export function LocalLLMRow() {
   const meta = PROVIDER_META.local;
   const [url, setUrl] = React.useState(() => localStorage.getItem(meta.urlStorage) || "");

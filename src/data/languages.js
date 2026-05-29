@@ -1,3 +1,6 @@
+// @ts-check
+
+/** @type {LanguageEntry[]} */
 export var LANGUAGES = [
   { code: "en", label: "English", name: "English" },
   { code: "es", label: "Español", name: "Spanish" },
@@ -15,4 +18,8 @@ export var LANGUAGES = [
 
 export var DEFAULT_LANGUAGE = "en";
 
+/**
+ * @param {string} code
+ * @returns {string}
+ */
 export var languageNameFor = (code) => (LANGUAGES.find((l) => l.code === code) || LANGUAGES[0]).name;

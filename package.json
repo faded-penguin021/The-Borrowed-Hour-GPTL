@@ -7,19 +7,24 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "gen:icons": "node scripts/gen-icons.mjs"
+    "gen:icons": "node scripts/gen-icons.mjs",
+    "typecheck": "tsc --noEmit",
+    "typecheck:watch": "tsc --noEmit --watch"
   },
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4",
     "@vitest/ui": "^3",
     "autoprefixer": "^10",
     "jsdom": "^29.1.1",
     "postcss": "^8",
     "tailwindcss": "^3",
+    "typescript": "^6.0.3",
     "vite": "^5",
     "vitest": "^3"
   }

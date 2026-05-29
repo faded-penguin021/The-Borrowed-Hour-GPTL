@@ -1,30 +1,51 @@
+// @ts-check
 import { TTS_PROVIDER_META } from "./catalogue.js";
 import { BorrowedError } from "../llm/errors.js";
 
-// ── TTSController ────────────────────────────────────────────────────────
 export class TTSController {
   constructor() {
+    /** @type {string} */
     this.providerId = "browser";
+    /** @type {TTSAdapter | null} */
     this.adapter = null;
+    /** @type {string | null} */
     this.voiceId = null;
+    /** @type {number} */
     this.rate = 1.0;
+    /** @type {string | null} */
     this.key = null;
+    /** @type {string | null} */
     this.region = null;
-    this.model = null; // per-provider model override; null → use catalogue default
+    /** @type {string | null} */
+    this.model = null;
+    /** @type {boolean} */
     this.enabled = false;
+    /** @type {boolean} */
     this.muted = false;
+    /** @type {TTSHandle | null} */
     this.activeHandle = null;
+    /** @type {AbortController | null} */
     this.activeAbort = null;
+    /** @type {any} */
     this.activeTurnId = null;
+    /** @type {boolean} */
     this.paused = false;
+    /** @type {boolean} */
     this.loading = false;
+    /** @type {any} */
     this.loadingTurnId = null;
+    /** @type {string | null} */
     this.lastError = null;
+    /** @type {any} */
     this.lastErrorTurnId = null;
+    /** @type {Set<(turnId?: any) => void>} */
     this._onSpeakStart = new Set();
+    /** @type {Set<(turnId?: any) => void>} */
     this._onSpeakEnd = new Set();
+    /** @type {Set<() => void>} */
     this._onStateChange = new Set();
   }
+  /** @param {string} id @param {{ voiceId?: string | null, key?: string | null, model?: string | null, region?: string | null }} [opts] */
   setProvider(id, { voiceId, key, model, region } = {}) {
     if (this.providerId === id && this.adapter && this.key === key && this.voiceId === voiceId && (model === undefined || this.model === (model || null)) && (region === undefined || this.region === (region || null))) return;
     this.stop();
@@ -71,6 +92,7 @@ export class TTSController {
     this.paused = false;
     this._notifyState();
   }
+  /** @param {string} text @param {{ turnId?: any }} [opts] */
   async speak(text, { turnId } = {}) {
     if (!this.enabled || this.muted) return;
     if (!text || !text.trim()) return;

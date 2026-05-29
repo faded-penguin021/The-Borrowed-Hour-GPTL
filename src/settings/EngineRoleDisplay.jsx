@@ -1,6 +1,12 @@
+// @ts-check
 import React from "react";
 import { PROVIDER_META } from "../llm/providers.js";
 
+/**
+ * @param {Object} props
+ * @param {string} props.label
+ * @param {EngineConfig} props.engine
+ */
 export function EngineRoleDisplay({ label, engine }) {
   const providerName = PROVIDER_META[engine?.provider]?.name || engine?.provider || "—";
   const model = engine?.model || "—";

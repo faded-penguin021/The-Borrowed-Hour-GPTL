@@ -1,5 +1,10 @@
+// @ts-check
 import React, { useState } from "react";
 
+/**
+ * @param {Object} props
+ * @param {string} [props.raw]
+ */
 export function ErrorRawDetail({ raw }) {
   const [copied, setCopied] = useState(false);
   if (!raw || typeof raw !== "string") return null;

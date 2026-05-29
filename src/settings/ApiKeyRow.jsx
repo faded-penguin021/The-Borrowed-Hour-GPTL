@@ -1,7 +1,12 @@
+// @ts-check
 import React, { useState } from "react";
 import { encryptSecret } from "../storage/encryption.js";
 import { PROVIDER_META, resetProviderKey } from "../llm/providers.js";
 
+/**
+ * @param {Object} props
+ * @param {ProviderId} props.providerId
+ */
 export function ApiKeyRow({ providerId }) {
   const meta = PROVIDER_META[providerId];
   const [stored, setStored] = React.useState(() => !!localStorage.getItem(meta.keyStorage));

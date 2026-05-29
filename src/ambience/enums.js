@@ -1,18 +1,22 @@
+// @ts-check
 // Single source of truth for the ambience taxonomy.
 // Consumed by both the engine (ambience/tables.js validation Sets) and the
 // GM tool schemas (llm/tools.js enum arrays). Adding a new value here makes
 // it available to both the LLM and the audio engine at once.
 
+/** @type {AmbienceSpace[]} */
 export var AMBIENCE_SPACE_VALUES = [
   "intimate", "chamber", "hall", "cavern",
   "street", "field", "forest", "vehicle", "void"
 ];
 
+/** @type {AmbiencePopulation[]} */
 export var AMBIENCE_POPULATION_VALUES = [
   "solitary", "sparse_voices", "crowd", "machinery",
   "nature", "ceremony", "creature", "wild"
 ];
 
+/** @type {AmbienceMood[]} */
 export var AMBIENCE_MOOD_VALUES = [
   "calm", "tender", "tense", "ominous",
   "joyous", "melancholy", "urgent", "mysterious"
@@ -24,11 +28,13 @@ export var AMBIENCE_MOOD_VALUES = [
 // instruments sound and how), so the same mood reads very differently in a
 // neon back-alley (synth) versus a devotional fresco (choir). The GM picks the
 // palette to match the setting; omit to hold the previous value.
+/** @type {AmbiencePalette[]} */
 export var AMBIENCE_PALETTE_VALUES = [
   "strings", "piano", "synth", "glass",
   "choir", "reed", "brass", "guitar"
 ];
 
+/** @type {AmbienceEvent[]} */
 export var AMBIENCE_EVENT_VALUES = [
   "bell_toll", "bell_distant", "clock_chime",
   "door_close", "door_creak",

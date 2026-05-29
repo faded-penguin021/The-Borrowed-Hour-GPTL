@@ -1,6 +1,11 @@
+// @ts-check
 import { sanitizeAmbience } from "../ambience/tables.js";
 import { VALID_ENDINGS } from "../data/constants.js";
 
+/**
+ * @param {...unknown} candidates
+ * @returns {string}
+ */
 export function firstString(...candidates) {
   for (const c of candidates) {
     if (typeof c === "string") {
@@ -11,6 +16,10 @@ export function firstString(...candidates) {
   return "";
 }
 
+/**
+ * @param {string} text
+ * @returns {any}
+ */
 export function tryParseJSON(text) {
   try {
     return JSON.parse(text);
@@ -19,6 +28,10 @@ export function tryParseJSON(text) {
   }
 }
 
+/**
+ * @param {string} text
+ * @returns {string}
+ */
 export function repairJSON(text) {
   let t = text;
   t = t.replace(/,(\s*[}\]])/g, "$1");
@@ -63,6 +76,12 @@ export function repairJSON(text) {
   return out;
 }
 
+/**
+ * @param {string} rawText
+ * @param {unknown} [parsed]
+ * @param {string | null} [reasonGuess]
+ * @returns {string}
+ */
 export function buildParseDiagnostic(rawText, parsed, reasonGuess) {
   const raw = rawText || "";
   const len = raw.length;
@@ -82,8 +101,12 @@ export function buildParseDiagnostic(rawText, parsed, reasonGuess) {
   return `${reason} Length: ${len}. Starts with JSON: ${startsAsJson ? "yes" : "no"}. Ends cleanly: ${endsCleanly ? "yes" : "no"}. Head: «${head}»${len > 400 ? " … " : " "}Tail: «${tail}».`;
 }
 
+/**
+ * @param {unknown} s
+ * @returns {GameState}
+ */
 export function normalizeGameState(s) {
-  const safe = s && typeof s === "object" ? s : {};
+  const safe = /** @type {any} */ (s && typeof s === "object" ? s : {});
   return {
     scene: typeof safe.scene === "string" ? safe.scene : "",
     time: typeof safe.time === "string" ? safe.time : "",
@@ -98,6 +121,11 @@ export function normalizeGameState(s) {
   };
 }
 
+/**
+ * @param {string} text
+ * @param {number} start
+ * @returns {number}
+ */
 export function findBalancedJSONEnd(text, start) {
   let depth = 0;
   let inStr = false;
@@ -120,6 +148,10 @@ export function findBalancedJSONEnd(text, start) {
   return -1;
 }
 
+/**
+ * @param {string} rawText
+ * @returns {GMLogicParseResult}
+ */
 export function parseGMLogicResponse(rawText) {
   let text = (rawText || "").trim();
   text = text.replace(/^\s*[`~]{3}[ \t]*[a-zA-Z]*[ \t]*\r?\n?/, "");
@@ -174,6 +206,10 @@ export function parseGMLogicResponse(rawText) {
   return { narrator_brief: narratorBrief, state: normalizeGameState(parsed.state), ending, ambience: ambienceExplicitNull ? null : ambience, raw: rawText, malformed: false };
 }
 
+/**
+ * @param {string} rawText
+ * @returns {GMParseResult}
+ */
 export function parseGMResponse(rawText) {
   let text = (rawText || "").trim();
   text = text.replace(/^\s*[`~]{3}[ \t]*[a-zA-Z]*[ \t]*\r?\n?/, "");
@@ -227,6 +263,10 @@ export function parseGMResponse(rawText) {
   return { narration, state, ending, ambience: ambienceExplicitNull ? null : ambience, raw: rawText, malformed: false };
 }
 
+/**
+ * @param {GameState | null | undefined} s
+ * @returns {boolean}
+ */
 export function isStateEmpty(s) {
   if (!s)
     return true;

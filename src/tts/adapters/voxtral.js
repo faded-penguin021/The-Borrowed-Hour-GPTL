@@ -1,11 +1,15 @@
+// @ts-check
 import { BorrowedError } from "../../llm/errors.js";
 import { _fetchAudioBlob, _blobHandle } from "../shared.js";
-
-// ── Voxtral (Mistral TTS) adapter ───────────────────────────────────────
 // Uses Mistral's OpenAI-compatible /v1/audio/speech endpoint with model
 // voxtral-mini-tts-2603. Body uses voice_id (NOT voice), distinguishing
 // it from OpenAI's schema. The hosted API's voice IDs are not the same as
 // the open-weight model's preset names — fetch them from /v1/audio/voices.
+/**
+ * @param {string} key
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<TTSVoiceEntry[]>}
+ */
 export async function fetchVoxtralVoices(key, signal) {
   if (!key) return [];
   const resp = await fetch("https://api.mistral.ai/v1/audio/voices?limit=200&offset=0", {
@@ -24,12 +28,14 @@ export async function fetchVoxtralVoices(key, signal) {
 }
 
 export class VoxtralTTSAdapter {
+  /** @param {TTSAdapterOptions} opts */
   constructor({ voiceId, rate, key, model }) {
     this.voiceId = voiceId || "en_paul_neutral";
     this.rate = rate || 1.0;
     this.key = key || "";
     this.model = model || "voxtral-mini-tts-2603";
   }
+  /** @param {string} text @param {AbortSignal} [signal] @param {(msg: string) => void} [onError] @returns {Promise<TTSHandle>} */
   async synthesize(text, signal, onError) {
     // Mistral's /v1/audio/speech does NOT return raw audio bytes like OpenAI.
     // It returns JSON: { "audio": "<base64>" } (sometimes "audio_data"). Fetch,

@@ -1,3 +1,4 @@
+// @ts-check
 import React, { useState } from "react";
 import { IMAGE_PROVIDER_META, IMAGE_PROVIDER_ORDER, setReplicateKey, getReplicateKeyPlaintext, setLocalImageUrl, getLocalImageUrl, LOCAL_IMAGE_DEFAULT_URL } from "../llm/imaging.js";
 import { PROVIDER_META, TOOL_USE_PROVIDER_ORDER } from "../llm/providers.js";
@@ -17,8 +18,13 @@ const subLabel = {
   color: "var(--cream-dim)", letterSpacing: "0.16em", fontSize: 10, textTransform: "uppercase", marginTop: 14
 };
 
+/**
+ * @param {Object} props
+ * @param {AppSettings} props.settings
+ * @param {(key: string, value: any) => void} props.onChange
+ */
 export function CodexSection({ settings, onChange }) {
-  const codex = settings.codex || {};
+  const codex = settings.codex || /** @type {CodexSettings} */ ({});
   const mode = codex.mode || "off";
   const providerId = codex.provider || "pollinations";
   const providerCfg = (codex.providerConfig && codex.providerConfig[providerId]) || {};

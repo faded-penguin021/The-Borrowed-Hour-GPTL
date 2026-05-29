@@ -1,7 +1,33 @@
+// @ts-check
 import React, { useState, useEffect } from "react";
 import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "../tts/catalogue.js";
 import { ModelPicker } from "./ModelPicker.jsx";
 
+/**
+ * @param {Object} props
+ * @param {boolean} props.enabled
+ * @param {string} props.providerId
+ * @param {Record<string, boolean>} props.providerReady
+ * @param {string|null} props.voiceId
+ * @param {string} [props.ttsModel]
+ * @param {SpeechSynthesisVoice[]} [props.browserVoices]
+ * @param {Array<{id: string, label: string}>} [props.voxtralVoices]
+ * @param {string} [props.voxtralVoicesError]
+ * @param {number} props.rate
+ * @param {string} [props.elevenKey]
+ * @param {string} [props.azureKey]
+ * @param {string} [props.azureRegion]
+ * @param {string} [props.googleKey]
+ * @param {(v: boolean) => void} props.onChangeEnabled
+ * @param {(id: string) => void} props.onChangeProvider
+ * @param {(id: string|null) => void} props.onChangeVoice
+ * @param {(id: string) => void} props.onChangeModel
+ * @param {(v: number) => void} props.onChangeRate
+ * @param {(key: string) => Promise<void>} props.onChangeElevenKey
+ * @param {(key: string) => Promise<void>} props.onChangeAzureKey
+ * @param {(region: string) => void} props.onChangeAzureRegion
+ * @param {(key: string) => Promise<void>} props.onChangeGoogleKey
+ */
 export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, browserVoices, voxtralVoices, voxtralVoicesError, rate, elevenKey, azureKey, azureRegion, googleKey, onChangeEnabled, onChangeProvider, onChangeVoice, onChangeModel, onChangeRate, onChangeElevenKey, onChangeAzureKey, onChangeAzureRegion, onChangeGoogleKey }) {
   const [elevenInput, setElevenInput] = React.useState(elevenKey || "");
   const [elevenSaved, setElevenSaved] = React.useState(false);

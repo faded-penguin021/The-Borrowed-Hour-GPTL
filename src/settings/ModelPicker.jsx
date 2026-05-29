@@ -1,3 +1,4 @@
+// @ts-check
 import React from "react";
 
 const fieldStyle = {
@@ -11,9 +12,15 @@ const fieldStyle = {
   color: "var(--cream-bright)"
 };
 
-// Preset-dropdown + Custom… + freeform text input.
-// presets: { id, tier? }[]  value: current model ID  onChange: (id) => void
-// When presets is empty the component renders only the freeform input.
+/**
+ * Preset-dropdown + Custom... + freeform text input.
+ * When presets is empty the component renders only the freeform input.
+ * @param {Object} props
+ * @param {string} [props.label]
+ * @param {Array<{id: string, tier?: string}>} [props.presets]
+ * @param {string} props.value
+ * @param {(id: string) => void} props.onChange
+ */
 export function ModelPicker({ label, presets = [], value, onChange }) {
   const hasPresets = presets.length > 0;
   const inPresets = hasPresets && presets.some((m) => m.id === value);

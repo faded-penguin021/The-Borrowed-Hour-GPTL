@@ -1,13 +1,16 @@
+// @ts-check
 import { BorrowedError } from "../../llm/errors.js";
 import { _blobHandle } from "../shared.js";
 
 export class AzureTTSAdapter {
+  /** @param {TTSAdapterOptions} opts */
   constructor({ voiceId, rate, key, model, region }) {
     this.voiceId = voiceId || "en-US-JennyNeural";
     this.rate = rate || 1.0;
     this.key = key || "";
     this.region = region || "eastus";
   }
+  /** @param {string} text @param {AbortSignal} [signal] @param {(msg: string) => void} [onError] @returns {Promise<TTSHandle>} */
   async synthesize(text, signal, onError) {
     if (!this.key) throw new BorrowedError("Azure key missing", "Enter your Azure Speech key in Settings → Reading.");
     const rateStr = this.rate === 1.0 ? "+0%" : `${this.rate >= 1 ? "+" : ""}${Math.round((this.rate - 1) * 100)}%`;
@@ -36,6 +39,7 @@ export class AzureTTSAdapter {
   destroy() {}
 }
 
+/** @param {string} s @returns {string} */
 function escapeXml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }

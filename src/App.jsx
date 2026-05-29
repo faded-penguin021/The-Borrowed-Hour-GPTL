@@ -651,6 +651,7 @@ export function App() {
     return () => clearTimeout(t);
   }, [saveBanner]);
   const skipReveal = () => setSkipNonce((n) => n + 1);
+  /** @param {string} sys @param {ChatMessage[]} msgs @param {boolean} [useTool] @param {EngineConfig} [engine] @param {number} [maxTokens] @param {number} [temperature] @param {AbortSignal|null} [signal] @param {ToolDefinition} [tool] @returns {Promise<string>} */
   const callAPI = async (sys, msgs, useTool = false, engine = settings.engineNarrator, maxTokens = 3000, temperature = 0.6, signal = null, tool = GM_TOOL) => {
     const providerId = engine?.provider;
     const model = engine?.model;
@@ -766,6 +767,7 @@ export function App() {
     } catch {}
     return provider.extract(data, useTool, tool, maxTokens);
   };
+  /** @param {string} sys @param {ChatMessage[]} msgs @param {EngineConfig} engine @param {number} maxTokens @param {number} temperature @param {AbortSignal} signal @param {(delta: string) => void} onDelta @returns {Promise<string>} */
   const streamAPI = async (sys, msgs, engine, maxTokens, temperature, signal, onDelta) => {
     const providerId = engine?.provider;
     const model = engine?.model;
@@ -1029,6 +1031,7 @@ export function App() {
     }
   };
 
+  /** @param {Premise} chosen @returns {Promise<void>} */
   const beginAdventure = async (chosen) => {
     sessionTokensRef.current = { input: 0, output: 0 };
     setSessionTokens({ input: 0, output: 0 });
@@ -1201,6 +1204,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
       }
     }
   };
+  /** @returns {Promise<void>} */
   const submit = async () => {
     const text = input.trim();
     if (!text || loading)

@@ -1,5 +1,19 @@
+// @ts-check
 import React from "react";
 
+/**
+ * @param {Object} props
+ * @param {string} props.level
+ * @param {boolean} props.unavailable
+ * @param {(id: string) => void} props.onChange
+ * @param {boolean} props.ttsEnabled
+ * @param {boolean} props.duringNarrationOnly
+ * @param {boolean} props.boostWithTTS
+ * @param {(v: boolean) => void} props.onChangeDuringNarrationOnly
+ * @param {(v: boolean) => void} props.onChangeBoostWithTTS
+ * @param {string} [props.musicLevel]
+ * @param {(id: string) => void} [props.onChangeMusicLevel]
+ */
 export function AmbienceRow({ level, unavailable, onChange, ttsEnabled, duringNarrationOnly, boostWithTTS, onChangeDuringNarrationOnly, onChangeBoostWithTTS, musicLevel, onChangeMusicLevel }) {
   const options = [
     { id: "off", label: "Off", hint: "Silence." },

@@ -1,9 +1,18 @@
+// @ts-check
 import React from "react";
 import { PROVIDER_META, PROVIDER_ORDER, FREE_MODELS_BY_PROVIDER, providerSupportsToolUse, TOOL_USE_PROVIDER_ORDER } from "../llm/providers.js";
 
+/**
+ * @param {Object} props
+ * @param {string} props.label
+ * @param {string} props.hint
+ * @param {EngineConfig} props.engine
+ * @param {(engine: EngineConfig) => void} props.onChange
+ * @param {boolean} [props.requireToolUse]
+ */
 export function EngineSelector({ label, hint, engine, onChange, requireToolUse = false }) {
   const allowedProviders = requireToolUse ? TOOL_USE_PROVIDER_ORDER : PROVIDER_ORDER;
-  const providerValid = PROVIDER_META[engine?.provider] && (!requireToolUse || providerSupportsToolUse(engine.provider));
+  const providerValid = PROVIDER_META[engine?.provider] && (!requireToolUse || providerSupportsToolUse(/** @type {ProviderId} */ (engine.provider)));
   const provider = providerValid ? engine.provider : allowedProviders[0];
   const meta = PROVIDER_META[provider];
   const model = engine?.model || "";

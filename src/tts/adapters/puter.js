@@ -1,8 +1,10 @@
+// @ts-check
 import { BorrowedError } from "../../llm/errors.js";
 import { _fetchAudioBlob, _blobHandle } from "../shared.js";
 
-// ── Puter adapter (free, one-time sign-in) ───────────────────────────────
+/** @type {Promise<any> | null} */
 let _puterReady = null;
+/** @returns {Promise<any>} */
 export function _loadPuter() {
   if (_puterReady) return _puterReady;
   _puterReady = new Promise((resolve, reject) => {
@@ -17,11 +19,13 @@ export function _loadPuter() {
   return _puterReady;
 }
 export class PuterTTSAdapter {
+  /** @param {{ voiceId?: string | null, rate?: number, engine?: string }} opts */
   constructor({ voiceId, rate, engine }) {
     this.voiceId = voiceId || "Joanna";
     this.rate = rate || 1.0;
     this.engine = engine || "neural";
   }
+  /** @param {string} text @param {AbortSignal} [signal] @param {(msg: string) => void} [onError] @returns {Promise<TTSHandle>} */
   async synthesize(text, signal, onError) {
     const report = (m) => { try { onError?.(m); } catch (_) {} };
     if (signal?.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });

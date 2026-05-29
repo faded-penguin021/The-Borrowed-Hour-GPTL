@@ -713,7 +713,7 @@ export class AmbienceEngine {
     if (this.speechGate && !this.speechActive) target = 0;
     this.master.gain.setTargetAtTime(target, t, fastCut ? 0.04 : 0.5);
   }
-  // ── Public API ────────────────────────────────────────────────────
+  /** @param {"off" | "subtle" | "present"} level */
   setIntensity(level) {
     if (this.destroyed) return;
     const prev = this.intensity;
@@ -756,6 +756,7 @@ export class AmbienceEngine {
       this._applyMaster();
     }
   }
+  /** @param {AmbienceInput | null | undefined} input */
   applyAmbience(input) {
     if (this.destroyed) return;
     if (input === undefined) return;
@@ -806,11 +807,13 @@ export class AmbienceEngine {
       sanitized.events.forEach((name) => this._fireEvent(name));
     }
   }
+  /** @param {boolean} bool */
   mute(bool) {
     if (this.destroyed) return;
     this.muted = !!bool;
     this._applyMaster(true);
   }
+  /** @param {"off" | "sparse" | "full"} level */
   setMusicLevel(level) {
     if (this.destroyed) return;
     const next = (level === "off" || level === "sparse" || level === "full") ? level : "full";
@@ -828,11 +831,13 @@ export class AmbienceEngine {
     if (this.destroyed) return;
     if (this.ctx && this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
   }
+  /** @param {boolean} on */
   setSpeechGate(on) {
     this.speechGate = !!on;
     if (!on) this.speechActive = false;
     this._applyMaster(false);
   }
+  /** @param {boolean} on */
   setBoost(on) {
     this.boosted = !!on;
     this._applyMaster(false);

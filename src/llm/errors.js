@@ -1,9 +1,19 @@
+// @ts-check
+
+/**
+ * @param {string} s
+ * @returns {string}
+ */
 export var scrubSecrets = (s) => {
   if (typeof s !== "string")
     return s;
   return s.replace(/(sk-[A-Za-z0-9_-]{16,})|(AIza[A-Za-z0-9_-]{20,})/g, "[REDACTED]");
 };
 
+/**
+ * @param {string | null | undefined} snippet
+ * @returns {string}
+ */
 export var extractApiErrorMessage = (snippet) => {
   if (!snippet || typeof snippet !== "string")
     return "";
@@ -22,13 +32,25 @@ export var extractApiErrorMessage = (snippet) => {
 };
 
 export class BorrowedError extends Error {
+  /**
+   * @param {string} message
+   * @param {string | null} [detail]
+   */
   constructor(message, detail) {
     super(message);
     this.name = "BorrowedError";
+    /** @type {string | null} */
     this.detail = detail || null;
+    /** @type {unknown} */
+    this.raw = null;
   }
 }
 
+/**
+ * @param {number} status
+ * @param {string} [providerName]
+ * @returns {string}
+ */
 export var httpStatusHint = (status, providerName = "the API") => {
   switch (status) {
     case 400:
@@ -58,12 +80,16 @@ export var httpStatusHint = (status, providerName = "the API") => {
   }
 };
 
+/**
+ * @param {unknown} e
+ * @returns {{ message: string, detail: string | null, raw: unknown }}
+ */
 export var formatError = (e) => {
   if (e instanceof BorrowedError) {
     return { message: e.message, detail: e.detail, raw: e.raw || null };
   }
-  if (e && typeof e === "object" && typeof e.message === "string") {
-    return { message: e.message, detail: null, raw: e.raw || null };
+  if (e && typeof e === "object" && typeof (/** @type {any} */(e)).message === "string") {
+    return { message: (/** @type {any} */(e)).message, detail: null, raw: (/** @type {any} */(e)).raw || null };
   }
   return { message: String(e), detail: null, raw: null };
 };

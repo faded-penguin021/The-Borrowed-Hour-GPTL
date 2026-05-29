@@ -1,8 +1,20 @@
+// @ts-check
 import React from "react";
 import { realmGlyph, buildCustomPremise, PREMISES } from "../data/premises.js";
 import { LANGUAGES } from "../data/languages.js";
 import { ErrorRawDetail } from "./ErrorRawDetail.jsx";
 
+/**
+ * @param {Object} props
+ * @param {(premise: Premise) => void} props.onChoose
+ * @param {() => void} props.onOpenSaves
+ * @param {() => void} props.onOpenCustom
+ * @param {() => void} props.onOpenSettings
+ * @param {string} props.language
+ * @param {(lang: string) => void} props.onChangeLanguage
+ * @param {boolean} props.loading
+ * @param {{ message: string, detail?: string, raw?: string } | null} props.error
+ */
 export function TitleScreen({ onChoose, onOpenSaves, onOpenCustom, onOpenSettings, language, onChangeLanguage, loading, error }) {
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center px-6 py-16">
