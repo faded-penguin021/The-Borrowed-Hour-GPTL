@@ -5,6 +5,7 @@ import {
   AMBIENCE_SPACE_VALUES,
   AMBIENCE_POPULATION_VALUES,
   AMBIENCE_MOOD_VALUES,
+  AMBIENCE_PALETTE_VALUES,
   AMBIENCE_EVENT_VALUES
 } from "../ambience/enums.js";
 
@@ -79,9 +80,10 @@ export const AMBIENCE_SCHEMA = {
   type: "object",
   description: "Optional scene audio. Omit any field to hold its previous value. Pass null for space, population, or mood to fade that lane to silence.",
   properties: {
-    space:      { type: "string", enum: AMBIENCE_SPACE_VALUES, description: "Acoustic environment — the kind of place the player is in. intimate=small sealed room; chamber=medium room; hall=large interior; cavern=huge resonant interior; street=outdoor hard surfaces; field=outdoor open; forest=outdoor organic; vehicle=confined moving; void=abstract/unreal." },
+    space:      { type: "string", enum: AMBIENCE_SPACE_VALUES, description: "Acoustic environment — the kind of place the player is in. intimate=small sealed room; chamber=medium room; hall=large interior; cavern=huge resonant interior; street=outdoor hard surfaces; field=outdoor open; forest=outdoor organic; vehicle=confined moving; void=abstract/unreal. Also sets the room reverb and tone of the music." },
     population: { type: "string", enum: AMBIENCE_POPULATION_VALUES, description: "Optional — what fills the space sonically. solitary=only the speaker; sparse_voices=a few voices nearby; crowd=many voices/bustle; machinery=mechanical/industrial; nature=wind/water/birds; ceremony=ritual/procession; creature=non-human animal; wild=untamed elements (storm, fire, surf). Omit for just-the-room." },
-    mood:       { type: "string", enum: AMBIENCE_MOOD_VALUES, description: "Optional — emotional weather. Drives the music layer (scale, chord, slow pulse). Omit for no music at all." },
+    mood:       { type: "string", enum: AMBIENCE_MOOD_VALUES, description: "Optional — emotional weather. Drives the music CONTENT (scale, chords, tempo, beat). Omit for no music at all." },
+    palette:    { type: "string", enum: AMBIENCE_PALETTE_VALUES, description: "Optional — the instrument family the music is voiced with; the TIMBRE the mood is played through. Pick from the SETTING, not the emotion (mood already covers emotion), so the same mood reads as a different world: strings=orchestral/period; piano=intimate, modern, spare; synth=electronic, neon, sci-fi; glass=music-box/bells, dream, childlike, uncanny; choir=voices, sacred, devotional, vast; reed=woodwind/folk drone, ancient, pastoral; brass=horns, martial, civic, heavy; guitar=plucked, warm, folk, frontier. Held across turns — set it when the setting's character is established and only change it when the world's texture changes." },
     events:     { type: "array", items: { type: "string", enum: AMBIENCE_EVENT_VALUES }, description: "Optional — up to 2 one-shot diegetic sounds for this turn. Only when the literal sound carries narrative weight." }
   }
 };
@@ -240,23 +242,24 @@ OTHER COMMON LEAKS to avoid:
 The hidden_state field is where ALL of the above belong. Items there stay there. Promote a hidden_state item to public state ONLY when the narration has, in the intervening turns, actually shown or told the player. The act of fictional revelation is what licenses public-state recording — not the GM's awareness, not the scratchpad's reasoning, not the next-turn plan.
 
 AMBIENCE — OPTIONAL SCENE AUDIO:
-You may optionally emit an \`ambience\` object with up to four fields. Each one is held across turns: re-emit a field only when it changes. The four fields:
+You may optionally emit an \`ambience\` object. Each field is held across turns: re-emit a field only when it changes. The fields:
 
-- \`space\` (one of: intimate, chamber, hall, cavern, street, field, forest, vehicle, void) — the acoustic environment. Picks the looped room-tone bed.
+- \`space\` (one of: intimate, chamber, hall, cavern, street, field, forest, vehicle, void) — the acoustic environment. Picks the looped room-tone bed AND sets how the music is voiced acoustically (reverb and tone): a cavern washes and rings, a vehicle is dry and muffled, a hall is open and bright. The same music in two different spaces sounds like two different rooms.
 - \`population\` (optional; one of: solitary, sparse_voices, crowd, machinery, nature, ceremony, creature, wild) — what fills the space sonically. Layered over the space. Omit when the scene is just-the-room.
-- \`mood\` (optional; one of: calm, tender, tense, ominous, joyous, melancholy, urgent, mysterious) — drives the music layer (scale, chord, slow pulse). Omit entirely for no music; the bed plays alone.
+- \`mood\` (optional; one of: calm, tender, tense, ominous, joyous, melancholy, urgent, mysterious) — the emotional weather; drives the music CONTENT (scale, chords, tempo, beat). Omit entirely for no music; the bed plays alone.
+- \`palette\` (optional; one of: strings, piano, synth, glass, choir, reed, brass, guitar) — the instrument family the music is voiced with; the TIMBRE the mood is played through. Choose it from the SETTING, not the emotion: mood already carries the feeling, so palette is how the world SOUNDS. strings=orchestral/period drama; piano=intimate, modern, spare; synth=electronic, neon, cyberpunk, sci-fi; glass=music-box and bells, dream, childlike, uncanny; choir=voices, sacred, devotional, vast; reed=woodwind/folk drone, ancient, pastoral; brass=horns, martial, civic, heavy; guitar=plucked, warm, folk, frontier. Set it once the setting's character is clear and hold it; change it only when the world's texture genuinely shifts. This is the main lever that keeps a tense scene on a train from sounding like a tense scene in a temple.
 - \`events\` (optional; array of strings) — one-shot diegetic sounds for THIS turn only. Available: bell_toll, bell_distant, clock_chime, door_close, door_creak, footsteps_close, footsteps_recede, wind_gust, distant_thunder, paper_rustle, chair_scrape, glass_set_down, coin_drop, crowd_hush, cough_distant, breath_held, metal_clang, whisper_close. Use sparingly: at most 1–2 per turn, only when the literal sound carries narrative weight.
 
 Pass \`null\` (the literal JSON null) for space, population, or mood to fade that lane to silence. Use this for the held breath before a revelation, the moment a verdict lands, a confession heard in stillness — fade the music with \`"mood": null\`, or kill everything with all three set to null.
 
-Examples mapped onto the realms:
-- The 8:11 opens: \`{"space": "vehicle", "population": "crowd", "mood": "calm"}\`.
-- A Vermillion verdict beat: \`{"space": "cavern", "population": "ceremony", "mood": "ominous", "events": ["bell_toll"]}\`.
-- A Solstice feast: \`{"space": "hall", "population": "crowd", "mood": "joyous"}\`.
-- A Carnival leak: \`{"space": "void", "mood": "mysterious"}\` (omit population — there is no scene-of-people).
-- A cyberpunk Wild premise on a back street: \`{"space": "street", "population": "machinery", "mood": "tense"}\`.
+Examples mapped onto the realms (note how palette tracks the setting):
+- The 8:11 opens: \`{"space": "vehicle", "population": "crowd", "mood": "calm", "palette": "piano"}\`.
+- A Vermillion verdict beat: \`{"space": "cavern", "population": "ceremony", "mood": "ominous", "palette": "choir", "events": ["bell_toll"]}\`.
+- A Solstice feast: \`{"space": "hall", "population": "crowd", "mood": "joyous", "palette": "strings"}\`.
+- A Carnival leak: \`{"space": "void", "mood": "mysterious", "palette": "glass"}\` (omit population — there is no scene-of-people).
+- A cyberpunk Wild premise on a back street: \`{"space": "street", "population": "machinery", "mood": "tense", "palette": "synth"}\`.
 
-Reason about the scene — where the player is, who or what is sonically present, what the moment feels like — and pick from the enums. Do NOT invent values outside the lists; unknown values are silently dropped.
+Reason about the scene — where the player is, who or what is sonically present, what the moment feels like, and what the world is MADE of — and pick from the enums. Do NOT invent values outside the lists; unknown values are silently dropped.
 
 ENDING THE CHRONICLE:
 The chronicle is a single hour, not an open-ended series. It is MEANT to end when its arc completes. You must actively recognize and commit to that completion rather than writing past it.

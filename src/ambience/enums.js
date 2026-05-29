@@ -18,6 +18,17 @@ export var AMBIENCE_MOOD_VALUES = [
   "joyous", "melancholy", "urgent", "mysterious"
 ];
 
+// Sonic palette — the instrument family / timbre the music is voiced with.
+// Held across turns like space/mood. While `mood` drives the musical CONTENT
+// (scale, chords, tempo, beat pattern), `palette` drives the TIMBRE (which
+// instruments sound and how), so the same mood reads very differently in a
+// neon back-alley (synth) versus a devotional fresco (choir). The GM picks the
+// palette to match the setting; omit to hold the previous value.
+export var AMBIENCE_PALETTE_VALUES = [
+  "strings", "piano", "synth", "glass",
+  "choir", "reed", "brass", "guitar"
+];
+
 export var AMBIENCE_EVENT_VALUES = [
   "bell_toll", "bell_distant", "clock_chime",
   "door_close", "door_creak",
