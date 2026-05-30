@@ -1,13 +1,25 @@
 // @ts-check
 
 /**
+ * Redact secrets from a string before it reaches a log or the UI.
+ *
+ * The pattern pass is only a backstop for common key shapes (`sk-…`,
+ * `AIza…`). It does NOT know every provider's key format, so when the caller
+ * holds the actual secret it should pass it as `literalSecret` — that gets a
+ * verbatim replacement, which covers any provider regardless of shape.
+ *
  * @param {string} s
+ * @param {string | null} [literalSecret] the exact key used for this request
  * @returns {string}
  */
-export var scrubSecrets = (s) => {
+export var scrubSecrets = (s, literalSecret) => {
   if (typeof s !== "string")
     return s;
-  return s.replace(/(sk-[A-Za-z0-9_-]{16,})|(AIza[A-Za-z0-9_-]{20,})/g, "[REDACTED]");
+  let out = s;
+  if (typeof literalSecret === "string" && literalSecret.length >= 8) {
+    out = out.split(literalSecret).join("[REDACTED]");
+  }
+  return out.replace(/(sk-[A-Za-z0-9_-]{16,})|(AIza[A-Za-z0-9_-]{20,})/g, "[REDACTED]");
 };
 
 /**

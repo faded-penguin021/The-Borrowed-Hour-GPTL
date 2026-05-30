@@ -37,8 +37,9 @@ export function createLLMClient({ getDefaultEngine, onUsage }) {
         throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
       }
       let request;
+      let apiKey = null;
       try {
-        const apiKey = await getProviderKey(providerId);
+        apiKey = await getProviderKey(providerId);
         request = provider.buildRequest({
           sys, msgs, useTool, model, maxTokens, temperature: temp, tool, apiKey
         });
@@ -57,7 +58,7 @@ export function createLLMClient({ getDefaultEngine, onUsage }) {
         lastStatus = res.status;
         try {
           const bodyText = await res.text();
-          lastBodySnippet = scrubSecrets(bodyText.slice(0, 500));
+          lastBodySnippet = scrubSecrets(bodyText.slice(0, 500), apiKey);
         } catch {}
         if (res.status === 400 && temp !== undefined && /temperature/i.test(lastBodySnippet || "")) {
           temp = undefined;
@@ -141,8 +142,9 @@ export function createLLMClient({ getDefaultEngine, onUsage }) {
         throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
       }
       let request;
+      let apiKey = null;
       try {
-        const apiKey = await getProviderKey(providerId);
+        apiKey = await getProviderKey(providerId);
         request = provider.buildStreamRequest({ sys, msgs, model, maxTokens, temperature: temp, apiKey });
       } catch (e) {
         if (e instanceof BorrowedError) throw e;
@@ -170,7 +172,7 @@ export function createLLMClient({ getDefaultEngine, onUsage }) {
       }
       if (!res.ok) {
         let bodySnippet = null;
-        try { bodySnippet = scrubSecrets((await res.text()).slice(0, 500)); } catch {}
+        try { bodySnippet = scrubSecrets((await res.text()).slice(0, 500), apiKey); } catch {}
         if (res.status === 400 && temp !== undefined && /temperature/i.test(bodySnippet || "")) {
           temp = undefined;
           lastErr = new BorrowedError("The hour falters.", `${meta.name} rejected temperature for this model; retrying with the model default.`);
