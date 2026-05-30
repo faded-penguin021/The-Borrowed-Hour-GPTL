@@ -18,9 +18,9 @@ let _listener = null;
 export function requestPassphrase(prompt) {
   if (_pendingResolve) return Promise.resolve(null);
   _pendingPrompt = prompt;
-  _listener?.();
   return new Promise((resolve) => {
     _pendingResolve = resolve;
+    _listener?.();
   });
 }
 
