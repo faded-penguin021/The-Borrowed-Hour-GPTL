@@ -121,35 +121,78 @@ export var AMBIENCE_MOOD_INSTRUMENTATION = {
   mysterious: { piano: 0.20, pluck: 0.14 }
 };
 
-// 16th-note drum patterns; 16 slots per pattern. Moods absent here have
-// no drums. Slot is `{k,s,h}` for kick/snare/hat (booleans).
-// Pattern length is one bar at AMBIENCE_MOOD_PULSE_BPM[mood].
+// 16th-note drum patterns; 16 slots per bar at AMBIENCE_MOOD_PULSE_BPM[mood].
+// Slot keys: k=kick, s=snare, h=hat, t=tom, r=rim, sh=shaker, br=brush.
+// Sparse moods leave most slots empty so drums breathe with the narration.
+// Moods with null BPM use 40 BPM fallback for their patterns.
 export var AMBIENCE_MOOD_DRUM_PATTERN = {
+  calm: [
+    { br:1 }, { }, { }, { },
+    { },     { }, { }, { },
+    { },     { }, { }, { sh:1 },
+    { },     { }, { }, { }
+  ],
+  melancholy: [
+    { k:1 },  { }, { }, { },
+    { },      { }, { }, { br:1 },
+    { },      { }, { }, { },
+    { },      { }, { br:1 }, { }
+  ],
+  ominous: [
+    { k:1 },  { }, { }, { },
+    { },      { }, { t:1 }, { },
+    { k:1 },  { }, { }, { },
+    { },      { }, { }, { t:1 }
+  ],
   tense: [
-    { k:1 }, { }, { }, { },
-    { },    { }, { h:1 }, { },
-    { k:1 }, { }, { }, { },
-    { },    { }, { h:1 }, { }
+    { k:1 },  { },     { r:1 }, { },
+    { },      { sh:1 }, { h:1 }, { },
+    { k:1 },  { },     { },    { r:1 },
+    { t:1 },  { sh:1 }, { h:1 }, { }
   ],
   urgent: [
-    { k:1 }, { h:1 }, { },    { h:1 },
-    { s:1 }, { h:1 }, { },    { h:1 },
-    { k:1 }, { h:1 }, { k:1 }, { h:1 },
-    { s:1 }, { h:1 }, { },    { h:1 }
+    { k:1 },  { h:1 },  { r:1 },  { h:1 },
+    { s:1 },  { h:1 },  { sh:1 }, { h:1 },
+    { k:1 },  { h:1 },  { k:1 },  { h:1 },
+    { s:1 },  { h:1 },  { t:1 },  { h:1 }
   ],
   joyous: [
-    { h:1 }, { }, { h:1 }, { },
-    { h:1 }, { }, { h:1 }, { },
-    { h:1 }, { }, { h:1 }, { },
-    { h:1 }, { }, { h:1 }, { }
+    { sh:1 }, { },     { sh:1 }, { },
+    { r:1 },  { sh:1 }, { },     { sh:1 },
+    { },      { },     { sh:1 }, { },
+    { r:1 },  { sh:1 }, { },     { sh:1 }
+  ],
+  mysterious: [
+    { },      { }, { }, { },
+    { sh:1 }, { }, { }, { },
+    { },      { }, { }, { },
+    { },      { }, { sh:1 }, { }
+  ],
+  tender: [
+    { br:1 }, { }, { }, { },
+    { },      { }, { }, { },
+    { },      { }, { }, { },
+    { },      { }, { }, { br:1 }
   ]
+};
+
+// Drum-specific BPM for moods whose pulse BPM is null. The drum scheduler
+// falls back to this before its hardcoded 70 BPM default.
+export var AMBIENCE_MOOD_DRUM_BPM = {
+  tender: 32,
+  mysterious: 36
 };
 
 // Per-mood drum-voice peak gains (overrides drumBus default).
 export var AMBIENCE_MOOD_DRUM_GAIN = {
-  tense:  { kick: 0.10, hat: 0.06 },
-  urgent: { kick: 0.14, snare: 0.08, hat: 0.10 },
-  joyous: { hat: 0.08 }
+  calm:       { brush: 0.04, shaker: 0.03 },
+  tender:     { brush: 0.03 },
+  melancholy: { kick: 0.06, brush: 0.04 },
+  ominous:    { kick: 0.08, tom: 0.06 },
+  tense:      { kick: 0.10, hat: 0.06, rim: 0.05, shaker: 0.04, tom: 0.07 },
+  urgent:     { kick: 0.14, snare: 0.08, hat: 0.10, rim: 0.06, shaker: 0.05, tom: 0.08 },
+  joyous:     { shaker: 0.06, rim: 0.05 },
+  mysterious: { shaker: 0.03 }
 };
 
 // Realm-derived opening ambience. Used to guarantee the world has sound from
