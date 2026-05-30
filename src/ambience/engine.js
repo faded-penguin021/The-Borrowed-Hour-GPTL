@@ -112,16 +112,39 @@ export class AmbienceEngine {
     // queued bursts all play at the same instant — the "thundering herd"
     // screech. Suspending the context here freezes everything cleanly and the
     // spawn-callbacks in tables.js short-circuit on ctx.state !== "running".
+    this._lastVisibleAt = Date.now();
     this._onVisibility = () => {
       if (this.destroyed || !this.ctx) return;
       if (document.hidden) {
+        this._lastVisibleAt = Date.now();
         if (this.ctx.state === "running") this.ctx.suspend().catch(() => {});
       } else if (this.intensity !== "off" && this.ctx.state === "suspended") {
-        this.ctx.resume().catch(() => {});
+        this._resumeWithRamp();
+      }
+    };
+    this._onPageShow = (e) => {
+      if (this.destroyed || !this.ctx) return;
+      if (e.persisted && this.intensity !== "off" && this.ctx.state === "suspended") {
+        this._resumeWithRamp();
+      }
+    };
+    this._onBlur = () => {
+      if (this.destroyed || !this.ctx) return;
+      if (this.ctx.state === "running") this.ctx.suspend().catch(() => {});
+    };
+    this._onFocus = () => {
+      if (this.destroyed || !this.ctx) return;
+      if (this.intensity !== "off" && this.ctx.state === "suspended") {
+        this._resumeWithRamp();
       }
     };
     if (typeof document !== "undefined" && document.addEventListener) {
       document.addEventListener("visibilitychange", this._onVisibility);
+    }
+    if (typeof window !== "undefined" && window.addEventListener) {
+      window.addEventListener("pageshow", this._onPageShow);
+      window.addEventListener("blur", this._onBlur);
+      window.addEventListener("focus", this._onFocus);
     }
     this.melodyArmed = false;
     this.pulseArmed = false;
@@ -834,12 +857,18 @@ export class AmbienceEngine {
     this.musicLevel = next;
     if (this.current.mood) this._applyVoicing();
   }
-  // Resume a suspended AudioContext. Browsers start the context suspended
-  // under their autoplay policy; the resume attempt inside setIntensity() runs
-  // after an awaited dynamic import and so is detached from the originating
-  // click, which stricter browsers (Safari/iOS) refuse. App-level gesture
-  // listeners call this on the player's first interaction so enabled ambience
-  // reliably begins. Safe to call repeatedly and when already running.
+  _resumeWithRamp() {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "suspended") return;
+    const away = Date.now() - (this._lastVisibleAt || Date.now());
+    this.ctx.resume().then(() => {
+      if (this.destroyed || !this.master) return;
+      if (away > 2000) {
+        this.master.gain.cancelScheduledValues(this.ctx.currentTime);
+        this.master.gain.setValueAtTime(0, this.ctx.currentTime);
+        this._applyMaster(false);
+      }
+    }).catch(() => {});
+  }
   resume() {
     if (this.destroyed) return;
     if (this.ctx && this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
@@ -870,6 +899,11 @@ export class AmbienceEngine {
     clearInterval(this.comfortInterval);
     if (this._onVisibility && typeof document !== "undefined" && document.removeEventListener) {
       document.removeEventListener("visibilitychange", this._onVisibility);
+    }
+    if (typeof window !== "undefined" && window.removeEventListener) {
+      if (this._onPageShow) window.removeEventListener("pageshow", this._onPageShow);
+      if (this._onBlur) window.removeEventListener("blur", this._onBlur);
+      if (this._onFocus) window.removeEventListener("focus", this._onFocus);
     }
     if (this.suspendTimer) clearTimeout(this.suspendTimer);
     if (this.melodyVoice && this.melodyVoice.scheduled) clearTimeout(this.melodyVoice.scheduled);

@@ -256,9 +256,11 @@ function _layerOceanSwell(eng, dest, peak) {
   const g = ctx.createGain(); g.gain.value = (peak || 0.15) * 0.4;
   src.connect(f).connect(g).connect(dest); src.start();
   const cycle = () => {
+    if (ctx.state !== "running") return;
     g.gain.setTargetAtTime((peak || 0.15), ctx.currentTime, 1.5);
     f.frequency.setTargetAtTime(700, ctx.currentTime, 1.5);
     setTimeout(() => {
+      if (ctx.state !== "running") return;
       g.gain.setTargetAtTime((peak || 0.15) * 0.3, ctx.currentTime, 2.5);
       f.frequency.setTargetAtTime(250, ctx.currentTime, 2.5);
     }, 3500);
@@ -274,6 +276,7 @@ function _layerStreamDrip(eng, dest, peak) {
   const g = ctx.createGain(); g.gain.value = (peak || 0.10) * 0.5;
   src.connect(f).connect(g).connect(dest); src.start();
   const iv = setInterval(() => {
+    if (ctx.state !== "running") return;
     g.gain.setTargetAtTime((peak || 0.10) * (0.5 + Math.random()), ctx.currentTime, 0.8);
     f.frequency.setTargetAtTime(900 + Math.random() * 700, ctx.currentTime, 0.8);
   }, 1200);
@@ -286,6 +289,7 @@ function _layerCafeMurmur(eng, dest, peak) {
   const g = ctx.createGain(); g.gain.value = (peak || 0.20) * 0.6;
   src.connect(f).connect(g).connect(dest); src.start();
   const iv = setInterval(() => {
+    if (ctx.state !== "running") return;
     g.gain.setTargetAtTime((peak || 0.20) * (0.5 + Math.random() * 0.6), ctx.currentTime, 1.5);
     f.frequency.setTargetAtTime(550 + Math.random() * 400, ctx.currentTime, 1.5);
   }, 2400);
@@ -336,6 +340,7 @@ export var AMBIENCE_SPACE_RECIPES = {
     const g = ctx.createGain(); g.gain.value = 0.5;
     src.connect(f).connect(g).connect(dest); src.start();
     const iv = setInterval(() => {
+      if (ctx.state !== "running") return;
       f.frequency.setTargetAtTime(550 + Math.random()*300, ctx.currentTime, 3);
     }, 5000);
     return { nodes: [src, f, g], timers: [iv] };
@@ -364,6 +369,7 @@ export var AMBIENCE_SPACE_RECIPES = {
       oscs.push(o, og);
     });
     const iv = setInterval(() => {
+      if (ctx.state !== "running") return;
       lpf.frequency.setTargetAtTime(120 + Math.random()*200, ctx.currentTime, 4);
     }, 7000);
     const drip = _layerStreamDrip(eng, dest, 0.08);
@@ -378,6 +384,7 @@ export var AMBIENCE_SPACE_RECIPES = {
     const g = ctx.createGain(); g.gain.value = 0.55;
     src.connect(f).connect(g).connect(dest); src.start();
     const iv = setInterval(() => {
+      if (ctx.state !== "running") return;
       g.gain.setTargetAtTime(0.4 + Math.random()*0.3, ctx.currentTime, 2);
       f.frequency.setTargetAtTime(400 + Math.random()*400, ctx.currentTime, 2);
     }, 3500);
@@ -392,6 +399,7 @@ export var AMBIENCE_SPACE_RECIPES = {
     const g = ctx.createGain(); g.gain.value = 0.55;
     src.connect(f).connect(g).connect(dest); src.start();
     const iv = setInterval(() => {
+      if (ctx.state !== "running") return;
       g.gain.setTargetAtTime(0.35 + Math.random()*0.4, ctx.currentTime, 1.5);
       f.frequency.setTargetAtTime(300 + Math.random()*700, ctx.currentTime, 1.5);
     }, 2500);
@@ -406,6 +414,7 @@ export var AMBIENCE_SPACE_RECIPES = {
     const wg = ctx.createGain(); wg.gain.value = 0.4;
     wind.connect(wf).connect(wg).connect(dest); wind.start();
     const ivWind = setInterval(() => {
+      if (ctx.state !== "running") return;
       wg.gain.setTargetAtTime(0.25 + Math.random()*0.3, ctx.currentTime, 2);
     }, 3000);
     const ivBirds = setInterval(() => {
@@ -436,6 +445,7 @@ export var AMBIENCE_SPACE_RECIPES = {
     const og = ctx.createGain(); og.gain.value = 0.15;
     o.connect(og).connect(dest); o.start();
     const iv = setInterval(() => {
+      if (ctx.state !== "running") return;
       o.frequency.setTargetAtTime(54 + Math.random()*8, ctx.currentTime, 4);
     }, 6000);
     return { nodes: [src, f, g, o, og], timers: [iv] };
@@ -455,6 +465,7 @@ export var AMBIENCE_SPACE_RECIPES = {
       oscs.push(o, og);
     });
     const iv = setInterval(() => {
+      if (ctx.state !== "running") return;
       lpf.frequency.setTargetAtTime(400 + Math.random()*500, ctx.currentTime, 4);
     }, 6000);
     return { nodes: [out, lpf, ...oscs], timers: [iv] };
@@ -469,6 +480,7 @@ export var AMBIENCE_POPULATION_RECIPES = {
     const g = ctx.createGain(); g.gain.value = 0.40;
     src.connect(f).connect(g).connect(dest); src.start();
     const iv = setInterval(() => {
+      if (ctx.state !== "running") return;
       g.gain.setTargetAtTime(0.25 + Math.random()*0.25, ctx.currentTime, 3);
     }, 5000);
     return { nodes: [src, f, g], timers: [iv] };
@@ -480,6 +492,7 @@ export var AMBIENCE_POPULATION_RECIPES = {
     const g = ctx.createGain(); g.gain.value = 0.30;
     src.connect(f).connect(g).connect(dest); src.start();
     const iv = setInterval(() => {
+      if (ctx.state !== "running") return;
       g.gain.setTargetAtTime(0.15 + Math.random()*0.3, ctx.currentTime, 1.5);
       f.frequency.setTargetAtTime(700 + Math.random()*500, ctx.currentTime, 1.5);
     }, 2200);
@@ -493,6 +506,7 @@ export var AMBIENCE_POPULATION_RECIPES = {
     const g = ctx.createGain(); g.gain.value = 0.45;
     src.connect(f).connect(g).connect(dest); src.start();
     const iv = setInterval(() => {
+      if (ctx.state !== "running") return;
       g.gain.setTargetAtTime(0.3 + Math.random()*0.35, ctx.currentTime, 0.7);
       f.frequency.setTargetAtTime(500 + Math.random()*700, ctx.currentTime, 0.7);
     }, 900);
@@ -529,6 +543,7 @@ export var AMBIENCE_POPULATION_RECIPES = {
     const sg = ctx.createGain(); sg.gain.value = 0.25;
     stream.connect(sf).connect(sg).connect(dest); stream.start();
     const ivStream = setInterval(() => {
+      if (ctx.state !== "running") return;
       sg.gain.setTargetAtTime(0.15 + Math.random()*0.2, ctx.currentTime, 0.8);
       sf.frequency.setTargetAtTime(900 + Math.random()*700, ctx.currentTime, 0.8);
     }, 900);
@@ -579,6 +594,7 @@ export var AMBIENCE_POPULATION_RECIPES = {
       oscs.push(o, og);
     });
     const iv = setInterval(() => {
+      if (ctx.state !== "running") return;
       lpf.frequency.setTargetAtTime(350 + Math.random()*400, ctx.currentTime, 4);
     }, 8000);
     return { nodes: [out, lpf, ...oscs], timers: [iv] };
@@ -594,6 +610,7 @@ export var AMBIENCE_POPULATION_RECIPES = {
     const og = ctx.createGain(); og.gain.value = 0.10;
     o.connect(og).connect(dest); o.start();
     const iv = setInterval(() => {
+      if (ctx.state !== "running") return;
       o.frequency.setTargetAtTime(60 + Math.random()*30, ctx.currentTime, 1.5);
       g.gain.setTargetAtTime(0.25 + Math.random()*0.3, ctx.currentTime, 1.5);
     }, 2500);
@@ -607,9 +624,11 @@ export var AMBIENCE_POPULATION_RECIPES = {
     const g = ctx.createGain(); g.gain.value = 0.4;
     src.connect(f).connect(g).connect(dest); src.start();
     const cycle = () => {
+      if (ctx.state !== "running") return;
       g.gain.setTargetAtTime(0.6, ctx.currentTime, 1.2);
       f.frequency.setTargetAtTime(900, ctx.currentTime, 1.2);
       setTimeout(() => {
+        if (ctx.state !== "running") return;
         g.gain.setTargetAtTime(0.2, ctx.currentTime, 2.5);
         f.frequency.setTargetAtTime(250, ctx.currentTime, 2.5);
       }, 3500);
