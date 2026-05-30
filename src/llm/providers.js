@@ -223,8 +223,10 @@ export var getProviderKey = async (id) => {
   if (stored) {
     if (!stored.startsWith(ENC_PREFIX))
       return stored.trim();
-    if (!window.__sessionPassphrase)
-      window.__sessionPassphrase = prompt("Enter your session passphrase to unlock API keys:");
+    if (!window.__sessionPassphrase) {
+      const { requestPassphrase } = await import("../passphrase.js");
+      window.__sessionPassphrase = await requestPassphrase("Enter your session passphrase to unlock API keys:");
+    }
     if (!window.__sessionPassphrase)
       throw new BorrowedError("The hour cannot open yet.", "A session passphrase is required to unlock your API key.");
     try {

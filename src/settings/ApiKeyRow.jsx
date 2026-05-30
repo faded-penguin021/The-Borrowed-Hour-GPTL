@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { encryptSecret } from "../storage/encryption.js";
 import { PROVIDER_META, resetProviderKey } from "../llm/providers.js";
+import { requestPassphrase } from "../passphrase.js";
 
 /**
  * @param {Object} props
@@ -39,7 +40,7 @@ export function ApiKeyRow({ providerId }) {
     if (!trimmed) return;
     let passphrase = window.__sessionPassphrase;
     if (!passphrase) {
-      passphrase = prompt("Set a session passphrase to encrypt your API keys:");
+      passphrase = await requestPassphrase("Set a session passphrase to encrypt your API keys:");
       if (!passphrase) return;
       window.__sessionPassphrase = passphrase;
     }

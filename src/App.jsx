@@ -13,6 +13,7 @@ import { SavesModal } from "./components/modals/SavesModal.jsx";
 import { SettingsModal } from "./components/modals/SettingsModal.jsx";
 import { LedgerModal } from "./components/modals/LedgerModal.jsx";
 import { ExportFallbackModal } from "./components/modals/ExportFallbackModal.jsx";
+import { PassphraseModal } from "./components/PassphraseModal.jsx";
 import { CustomModal } from "./components/modals/CustomModal.jsx";
 import { ErrorRawDetail } from "./components/ErrorRawDetail.jsx";
 import { useSettings } from "./hooks/useSettings.js";
@@ -1144,6 +1145,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
             onClose={() => saves.setExportFallbackText(null)}
           />
         )}
+        <PassphraseModal />
       </div>
     </div>
   );
