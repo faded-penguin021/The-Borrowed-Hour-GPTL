@@ -1,3 +1,25 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  .btn-settings {
+    @apply px-3 py-[7px] text-[11px] rounded-md
+           cursor-pointer whitespace-nowrap;
+    border: 1px solid rgba(232,222,197,0.22);
+    background: rgba(22,18,21,0.9);
+    color: var(--cream-dim);
+    letter-spacing: 0.14em;
+  }
+  .btn-settings:disabled {
+    @apply cursor-default;
+    opacity: 0.45;
+  }
+  .field-settings {
+    @apply flex-1 px-2 py-[7px] text-xs rounded-md min-w-0;
+    border: 1px solid rgba(232,222,197,0.22);
+    background: rgba(22,18,21,0.9);
+    color: var(--cream-bright);
+    font-family: "JetBrains Mono", monospace;
+  }
+}

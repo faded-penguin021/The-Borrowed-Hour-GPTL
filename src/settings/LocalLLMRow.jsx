@@ -12,30 +12,6 @@ export function LocalLLMRow() {
   const [key, setKey] = React.useState("");
   const [keyStored, setKeyStored] = React.useState(() => !!localStorage.getItem(meta.keyStorage));
   const [editingKey, setEditingKey] = React.useState(false);
-  const fieldStyle = {
-    flex: 1,
-    padding: "7px 9px",
-    fontSize: 12,
-    borderRadius: 6,
-    border: "1px solid rgba(232,222,197,0.22)",
-    background: "rgba(22,18,21,0.9)",
-    color: "var(--cream-bright)",
-    fontFamily: "monospace",
-    minWidth: 0,
-    width: "100%",
-    marginTop: 4
-  };
-  const btnStyle = {
-    padding: "7px 11px",
-    fontSize: 11,
-    borderRadius: 6,
-    border: "1px solid rgba(232,222,197,0.22)",
-    background: "rgba(22,18,21,0.9)",
-    color: "var(--cream-dim)",
-    cursor: "pointer",
-    letterSpacing: "0.14em",
-    whiteSpace: "nowrap"
-  };
   const isValidLocalUrl = (u) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?(\/.*)?$/i.test(u);
   const saveUrl = (v) => {
     const trimmed = v.trim();
@@ -69,17 +45,11 @@ export function LocalLLMRow() {
     setKey("");
   };
   return (
-    <div style={{ marginTop: 12 }}>
-      <div
-        className="display-font"
-        style={{ color: "var(--cream-dim)", letterSpacing: "0.14em", fontSize: 10, textTransform: "uppercase", marginBottom: 5 }}
-      >
+    <div className="mt-3">
+      <div className="display-font text-cream-dim tracking-display text-[10px] uppercase mb-[5px]">
         Local LLM
       </div>
-      <div
-        className="body-font italic"
-        style={{ color: "var(--cream-faint)", fontSize: 11, lineHeight: 1.5, marginBottom: 4 }}
-      >
+      <div className="body-font italic text-cream-faint text-[11px] leading-normal mb-1">
         Paste the chat-completions endpoint of your local server (Ollama, LM Studio, llama.cpp). No API key required for most local setups. For Ollama, start it with OLLAMA_ORIGINS=* to allow browser access.
       </div>
       <input
@@ -89,29 +59,23 @@ export function LocalLLMRow() {
         aria-label="Local LLM endpoint URL"
         onChange={(e) => setUrl(e.target.value)}
         onBlur={(e) => saveUrl(e.target.value)}
-        style={fieldStyle}
+        className="field-settings w-full mt-1"
         autoComplete="off"
         spellCheck={false}
       />
-      <div
-        className="display-font"
-        style={{ color: "var(--cream-faint)", letterSpacing: "0.12em", fontSize: 10, textTransform: "uppercase", marginTop: 8, marginBottom: 4 }}
-      >
+      <div className="display-font text-cream-faint tracking-wide text-[10px] uppercase mt-2 mb-1">
         Bearer token (optional)
       </div>
       {keyStored && !editingKey ? (
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span
-            className="body-font italic"
-            style={{ color: "var(--cream-faint)", fontSize: 11, flex: 1 }}
-          >
+        <div className="flex gap-1.5 items-center">
+          <span className="body-font italic text-cream-faint text-[11px] flex-1">
             Token stored
           </span>
-          <button style={btnStyle} onClick={() => setEditingKey(true)}>REPLACE</button>
-          <button style={{ ...btnStyle, color: "rgba(200,100,100,0.8)" }} onClick={forgetKey}>FORGET</button>
+          <button className="btn-settings" onClick={() => setEditingKey(true)}>REPLACE</button>
+          <button className="btn-settings !text-[rgba(200,100,100,0.8)]" onClick={forgetKey}>FORGET</button>
         </div>
       ) : (
-        <div style={{ display: "flex", gap: 6 }}>
+        <div className="flex gap-1.5">
           <input
             type="password"
             value={key}
@@ -122,18 +86,19 @@ export function LocalLLMRow() {
             }}
             placeholder="Bearer token (leave blank if not needed)"
             aria-label="Local LLM bearer token"
-            style={{ ...fieldStyle, marginTop: 0 }}
+            className="field-settings"
             autoComplete="off"
           />
           <button
-            style={{ ...btnStyle, opacity: key.trim() ? 1 : 0.45, cursor: key.trim() ? "pointer" : "default" }}
+            className="btn-settings"
+            style={{ opacity: key.trim() ? 1 : 0.45, cursor: key.trim() ? "pointer" : "default" }}
             onClick={saveKey}
             disabled={!key.trim()}
           >
             SAVE
           </button>
           {keyStored && (
-            <button style={btnStyle} onClick={() => { setEditingKey(false); setKey(""); }}>CANCEL</button>
+            <button className="btn-settings" onClick={() => { setEditingKey(false); setKey(""); }}>CANCEL</button>
           )}
         </div>
       )}

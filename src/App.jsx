@@ -148,7 +148,12 @@ export function App() {
           throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
         }
         if (e instanceof BorrowedError) throw e;
-        lastErr = new BorrowedError("The hour falters.", `Network error before the ${meta.name} API responded${e?.message ? ` (${e.message})` : ""}. Check your connection, CORS/proxy policy, and API key.`);
+        const netMsg = e?.message || "";
+        const isCORS = /failed to fetch|networkerror|cors|load failed/i.test(netMsg);
+        const corsHint = isCORS && providerId === "local"
+          ? " If using Ollama, launch with OLLAMA_ORIGINS=* ; for LM Studio, enable CORS in server settings."
+          : "";
+        lastErr = new BorrowedError("The hour falters.", `Network error before the ${meta.name} API responded${netMsg ? ` (${netMsg})` : ""}.${corsHint || " Check your connection, CORS/proxy policy, and API key."}`);
         res = null;
       }
     }
@@ -232,7 +237,12 @@ export function App() {
         if (e && e.name === "AbortError" || signal && signal.aborted) {
           throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
         }
-        lastErr = new BorrowedError("The hour falters.", `Network error before the ${meta.name} API responded${e?.message ? ` (${e.message})` : ""}. Check your connection, CORS/proxy policy, and API key.`);
+        const netMsg = e?.message || "";
+        const isCORS = /failed to fetch|networkerror|cors|load failed/i.test(netMsg);
+        const corsHint = isCORS && providerId === "local"
+          ? " If using Ollama, launch with OLLAMA_ORIGINS=* ; for LM Studio, enable CORS in server settings."
+          : "";
+        lastErr = new BorrowedError("The hour falters.", `Network error before the ${meta.name} API responded${netMsg ? ` (${netMsg})` : ""}.${corsHint || " Check your connection, CORS/proxy policy, and API key."}`);
         continue;
       }
       if (!res.ok) {
