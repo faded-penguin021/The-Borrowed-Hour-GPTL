@@ -23,6 +23,8 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
   const styleBibleRef = useRef(null);
   const visualLedgerRef = useRef([]);
   const plateCountRef = useRef(0);
+  const turnIdRef = useRef(0);
+  const inflightRef = useRef(0);
 
   useEffect(() => { styleBibleRef.current = styleBible; }, [styleBible]);
   useEffect(() => { visualLedgerRef.current = visualLedger; }, [visualLedger]);
@@ -42,6 +44,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
     setStyleBible(null); styleBibleRef.current = null;
     setVisualLedger([]); visualLedgerRef.current = [];
     setPlateCount(0); plateCountRef.current = 0;
+    turnIdRef.current = 0;
   };
 
   const restoreCodex = (savedCodex) => {
@@ -72,6 +75,8 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
     }
   };
 
+  const MAX_INFLIGHT = 2;
+
   const runArtDirectorTurn = async ({ entryIndexProvider, gmParsed, signal, opener = false }) => {
     const codex = settings.codex || {};
     if (codex.mode === "off") return;
@@ -80,13 +85,16 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
     const sb = styleBibleRef.current;
     if (!sb) return;
 
+    const myTurn = ++turnIdRef.current;
+    const stale = () => signal?.aborted || myTurn !== turnIdRef.current;
+
     const engine = codex.artDirectorEngine || { provider: "mistral", model: "mistral-small-latest" };
     let ad;
     try {
       const sys = buildTurnSystem(premise, sb, visualLedgerRef.current, language);
       const userPrompt = `[Scene]\n${gmParsed.state?.scene || ""}\n\n[Narrator brief]\n${gmParsed.narrator_brief || ""}\n\n[Named NPCs present this turn]\n${(gmParsed.state?.npcs || []).map((n) => `- ${n.name}: ${n.note}`).join("\n") || "(none)"}\n\nDecide if this turn warrants a plate. Be ruthless; the default is no.`;
       const raw = await callAPI(sys, [{ role: "user", content: userPrompt }], true, engine, 900, 0.4, signal, ART_DIRECTOR_TURN_TOOL);
-      if (signal?.aborted) return;
+      if (stale()) return;
       const parsed = parseTurnResponse(raw);
       if (parsed.malformed) return;
       if (parsed.ledger_updates?.length) {
@@ -99,6 +107,8 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
       if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Art Director turn failed:", e?.detail || e?.message || e);
       return;
     }
+
+    if (stale()) return;
 
     const reason = (ad.milestone_reason || "").trim();
     const NEG = /\b(no|not|none|nothing|minor|routine|absent|n\/a|skip)\b/i;
@@ -115,6 +125,8 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
     }
     if (!wants) return;
 
+    if (inflightRef.current >= MAX_INFLIGHT) return;
+
     const idx = entryIndexProvider();
     if (idx == null || idx < 0) return;
     setEntryIllustration(idx, { status: "pending", caption: cleanPlateCaption(ad.caption), milestoneReason: ad.milestone_reason || "" });
@@ -129,7 +141,9 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
       extraNegatives: ad.extra_negatives
     });
 
+    inflightRef.current++;
     try {
+      if (stale()) return;
       const providerId = codex.provider || "pollinations";
       const providerCfg = (codex.providerConfig && codex.providerConfig[providerId]) || {};
       const { generateImage: _generateImage } = await import("../llm/imaging.js");
@@ -137,12 +151,14 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
         providerId, providerConfig: providerCfg, prompt, negatives,
         signal, timeoutMs: codex.timeoutMs || 20000
       });
-      if (signal?.aborted) return;
+      if (stale()) return;
       setEntryIllustration(idx, { status: "ready", url: img.url, prompt, provider: img.provider });
     } catch (e) {
-      if (signal?.aborted) return;
+      if (stale()) return;
       if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Image generation failed:", e?.detail || e?.message || e);
       setEntryIllustration(idx, { status: "failed" });
+    } finally {
+      inflightRef.current--;
     }
   };
 

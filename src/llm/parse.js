@@ -148,43 +148,58 @@ export function findBalancedJSONEnd(text, start) {
   return -1;
 }
 
+const MAX_REPAIR_LENGTH = 200_000;
+
 /**
+ * Multi-stage JSON recovery: strip fences → direct parse → balanced extract →
+ * last-brace extract → repair pass → repeat extraction on repaired text.
  * @param {string} rawText
- * @returns {GMLogicParseResult}
+ * @returns {{ parsed: any, repaired: boolean }}
  */
-export function parseGMLogicResponse(rawText) {
+export function recoverJSON(rawText) {
   let text = (rawText || "").trim();
   text = text.replace(/^\s*[`~]{3}[ \t]*[a-zA-Z]*[ \t]*\r?\n?/, "");
   text = text.replace(/\r?\n?[ \t]*[`~]{3}[ \t]*$/, "");
   text = text.trim();
 
   let parsed = tryParseJSON(text);
-  if (!parsed) {
-    const first = text.indexOf("{");
-    if (first >= 0) {
-      const end = findBalancedJSONEnd(text, first);
-      if (end > first) parsed = tryParseJSON(text.slice(first, end + 1));
-      if (!parsed) {
-        const last = text.lastIndexOf("}");
-        if (last > first) parsed = tryParseJSON(text.slice(first, last + 1));
-      }
-    }
-  }
-  if (!parsed) {
-    const repaired = repairJSON(text);
-    parsed = tryParseJSON(repaired);
+  if (parsed) return { parsed, repaired: false };
+
+  const first = text.indexOf("{");
+  if (first >= 0) {
+    const end = findBalancedJSONEnd(text, first);
+    if (end > first) parsed = tryParseJSON(text.slice(first, end + 1));
     if (!parsed) {
-      const first = repaired.indexOf("{");
-      if (first >= 0) {
-        const end = findBalancedJSONEnd(repaired, first);
-        if (end > first) parsed = tryParseJSON(repaired.slice(first, end + 1));
-        if (!parsed) {
-          const last = repaired.lastIndexOf("}");
-          if (last > first) parsed = tryParseJSON(repaired.slice(first, last + 1));
-        }
+      const last = text.lastIndexOf("}");
+      if (last > first) parsed = tryParseJSON(text.slice(first, last + 1));
+    }
+  }
+  if (parsed) return { parsed, repaired: false };
+
+  if (text.length > MAX_REPAIR_LENGTH) return { parsed: null, repaired: false };
+
+  const repaired = repairJSON(text);
+  parsed = tryParseJSON(repaired);
+  if (!parsed) {
+    const first2 = repaired.indexOf("{");
+    if (first2 >= 0) {
+      const end2 = findBalancedJSONEnd(repaired, first2);
+      if (end2 > first2) parsed = tryParseJSON(repaired.slice(first2, end2 + 1));
+      if (!parsed) {
+        const last2 = repaired.lastIndexOf("}");
+        if (last2 > first2) parsed = tryParseJSON(repaired.slice(first2, last2 + 1));
       }
     }
   }
+  return { parsed: parsed || null, repaired: !!parsed };
+}
+
+/**
+ * @param {string} rawText
+ * @returns {GMLogicParseResult}
+ */
+export function parseGMLogicResponse(rawText) {
+  const { parsed } = recoverJSON(rawText);
 
   if (!parsed || typeof parsed !== "object") {
     return { narrator_brief: "", state: null, ending: null, raw: rawText, malformed: true, diagnostic: buildParseDiagnostic(rawText, parsed, "Malformed GM logic response — could not parse JSON.") };
@@ -211,31 +226,10 @@ export function parseGMLogicResponse(rawText) {
  * @returns {GMParseResult}
  */
 export function parseGMResponse(rawText) {
-  let text = (rawText || "").trim();
-  text = text.replace(/^\s*[`~]{3}[ \t]*[a-zA-Z]*[ \t]*\r?\n?/, "");
-  text = text.replace(/\r?\n?[ \t]*[`~]{3}[ \t]*$/, "");
-  text = text.trim();
-  let parsed = tryParseJSON(text);
-  if (!parsed) {
-    const first = text.indexOf("{");
-    const last = text.lastIndexOf("}");
-    if (first >= 0 && last > first) {
-      parsed = tryParseJSON(text.slice(first, last + 1));
-    }
-  }
-  if (!parsed) {
-    const repaired = repairJSON(text);
-    parsed = tryParseJSON(repaired);
-    if (!parsed) {
-      const first = repaired.indexOf("{");
-      const last = repaired.lastIndexOf("}");
-      if (first >= 0 && last > first) {
-        parsed = tryParseJSON(repaired.slice(first, last + 1));
-      }
-    }
-    if (parsed && typeof console !== "undefined" && console.warn) {
-      console.warn("[borrowed] GM response recovered via JSON repair pass");
-    }
+  const { parsed, repaired } = recoverJSON(rawText);
+
+  if (repaired && typeof console !== "undefined" && console.warn) {
+    console.warn("[borrowed] GM response recovered via JSON repair pass");
   }
   const narration = parsed && typeof parsed === "object"
     ? firstString(parsed.narration, parsed.narrator_brief, parsed.brief, parsed.text)
