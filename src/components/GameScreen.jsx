@@ -1,47 +1,21 @@
 // @ts-check
-import React, { useState, useRef, useEffect } from "react";
+import React, { useRef, useEffect } from "react";
 import { realmGlyph } from "../data/premises.js";
 import { formatTokens } from "../data/constants.js";
+import { useGame } from "../context/GameContext.jsx";
 import { TypewriterText } from "./TypewriterText.jsx";
 import { ErrorRawDetail } from "./ErrorRawDetail.jsx";
 import { IllustrationPlate } from "./IllustrationPlate.jsx";
+import { GameComposer } from "./GameComposer.jsx";
 
 /**
+ * Reading/audio preferences come from `App` as props; everything about the
+ * game loop comes from `useGame()`. The input lives inside `GameComposer`.
+ *
  * @param {Object} props
- * @param {Premise} props.premise
- * @param {Entry[]} props.entries
- * @param {number} props.skipNonce
  * @param {boolean} props.instantReveal
- * @param {(idx?: number) => void} props.onEntryDone
- * @param {(idx?: number) => void} props.onMetaDone
- * @param {boolean} props.loading
- * @param {string} props.loadingPhrase
- * @param {any} props.error
- * @param {string | null} props.ended
- * @param {boolean} props.metaMode
- * @param {any[]} props.metaMessages
- * @param {() => void} props.onEnterMeta
- * @param {() => void} props.onExitMeta
  * @param {() => void} props.onOpenLedger
  * @param {() => void} props.onOpenSettings
- * @param {boolean} props.canUndo
- * @param {() => void} props.onUndo
- * @param {string} props.input
- * @param {(v: any) => void} props.onInputChange
- * @param {(e: any) => void} props.onKeyDown
- * @param {() => void} props.onSubmit
- * @param {() => void} props.onSkip
- * @param {() => void} props.onCancel
- * @param {any} props.recovery
- * @param {() => void} props.onContinueNarration
- * @param {() => void} props.onRestart
- * @param {() => void} props.onSave
- * @param {() => void} props.onOpenSaves
- * @param {(includeMeta?: boolean) => void} props.onExport
- * @param {{kind: string, text: string} | null} props.saveBanner
- * @param {{input: number, output: number}} props.sessionTokens
- * @param {React.RefObject<any>} props.scrollRef
- * @param {React.RefObject<any>} props.textareaRef
  * @param {boolean} props.ambienceEnabled
  * @param {boolean} props.ambienceMuted
  * @param {() => void} props.onToggleAmbienceMute
@@ -49,44 +23,12 @@ import { IllustrationPlate } from "./IllustrationPlate.jsx";
  * @param {boolean} props.ttsMuted
  * @param {any} props.ttsPlayback
  * @param {() => void} props.onToggleTtsMute
- * @param {() => void} props.onTogglePlayPause
  * @param {(idx: number) => void} props.onPlayEntry
  */
 export function GameScreen({
-  premise,
-  entries,
-  skipNonce,
   instantReveal,
-  onEntryDone,
-  onMetaDone,
-  loading,
-  loadingPhrase,
-  error,
-  ended,
-  metaMode,
-  metaMessages,
-  onEnterMeta,
-  onExitMeta,
   onOpenLedger,
   onOpenSettings,
-  canUndo,
-  onUndo,
-  input,
-  onInputChange,
-  onKeyDown,
-  onSubmit,
-  onSkip,
-  onCancel,
-  recovery,
-  onContinueNarration,
-  onRestart,
-  onSave,
-  onOpenSaves,
-  onExport,
-  saveBanner,
-  sessionTokens,
-  scrollRef,
-  textareaRef,
   ambienceEnabled,
   ambienceMuted,
   onToggleAmbienceMute,
@@ -94,12 +36,31 @@ export function GameScreen({
   ttsMuted,
   ttsPlayback,
   onToggleTtsMute,
-  onTogglePlayPause,
   onPlayEntry
 }) {
+  const {
+    premise, entries, skipNonce, loading, loadingPhrase, error, ended,
+    metaMode, metaMessages, recovery, saveBanner, sessionTokens, canUndo,
+    markEntryRevealed, markMetaRevealed, enterMetaMode, exitMetaMode,
+    undoLastTurn, skipReveal, cancelRequest, continueNarration, restart,
+    saveCurrent, openSavesModal, exportChronicle, submit
+  } = useGame();
+
+  const scrollRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+
+  // Keep the scroll pinned near the bottom as new prose and turns arrive.
+  useEffect(() => {
+    if (scrollRef.current) {
+      const el = scrollRef.current;
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (distanceFromBottom < 200) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }
+  }, [entries, loading, metaMessages]);
+
   const lastEntry = entries[entries.length - 1];
   const showResolution = ended && lastEntry && lastEntry.type === "narration" && lastEntry.fullyRevealed && !metaMode;
-  const inputLocked = ended && !metaMode || loading;
   const hasMeta = metaMessages.length > 0;
   return (
     <div
@@ -119,7 +80,7 @@ export function GameScreen({
         </div>
         <div className="header-actions flex items-center gap-2">
           <button
-            onClick={onUndo}
+            onClick={undoLastTurn}
             disabled={!canUndo}
             className="icon-btn"
             title="Undo the last turn"
@@ -139,7 +100,7 @@ export function GameScreen({
             <span className="btn-label"> LEDGER</span>
           </button>
           <button
-            onClick={onSave}
+            onClick={saveCurrent}
             disabled={loading || entries.length === 0}
             className="icon-btn"
             title="Set aside this hour"
@@ -149,7 +110,7 @@ export function GameScreen({
             <span className="btn-label"> SET ASIDE</span>
           </button>
           <button
-            onClick={() => onExport(false)}
+            onClick={() => exportChronicle(false)}
             disabled={entries.length === 0}
             className="icon-btn"
             title={hasMeta ? "Copy the chronicle as text — narration only, no commentary" : "Copy the chronicle as text — to keep, or to share"}
@@ -160,7 +121,7 @@ export function GameScreen({
           </button>
           {hasMeta && (
             <button
-              onClick={() => onExport(true)}
+              onClick={() => exportChronicle(true)}
               className="icon-btn"
               title="Copy the chronicle and the director's commentary together"
               aria-label="Copy the chronicle with commentary"
@@ -170,7 +131,7 @@ export function GameScreen({
             </button>
           )}
           <button
-            onClick={onOpenSaves}
+            onClick={openSavesModal}
             className="icon-btn"
             title="Open hours"
             aria-label="Open saved hours"
@@ -212,7 +173,7 @@ export function GameScreen({
             </button>
           )}
           <button
-            onClick={onRestart}
+            onClick={restart}
             className="icon-btn icon-btn-danger"
             title="Begin a new hour"
             aria-label="Begin a new hour"
@@ -258,7 +219,7 @@ export function GameScreen({
       <div
         ref={scrollRef}
         className="game-scroll flex-1 overflow-y-auto px-6 py-12"
-        onClick={onSkip}
+        onClick={skipReveal}
       >
         <div className="max-w-3xl mx-auto space-y-8">
           {entries.length === 0 && loading && (
@@ -268,7 +229,7 @@ export function GameScreen({
                 <span>.</span><span>.</span><span>.</span>
               </span>
               <button
-                onClick={(e) => { e.stopPropagation(); onCancel?.(); }}
+                onClick={(e) => { e.stopPropagation(); cancelRequest?.(); }}
                 className="loading-stop-btn"
                 aria-label="Stop this request"
                 title="Stop this request"
@@ -293,7 +254,7 @@ export function GameScreen({
                       text={entry.text}
                       instant={entry.fullyRevealed || entry.streaming || instantReveal}
                       skipSignal={skipNonce}
-                      onDone={() => onEntryDone(i)}
+                      onDone={() => markEntryRevealed(i)}
                       scrollRef={scrollRef}
                     />
                   </div>
@@ -380,7 +341,7 @@ export function GameScreen({
               </div>
               <div className="text-center mt-6 flex justify-center gap-3 flex-wrap">
                 <button
-                  onClick={onEnterMeta}
+                  onClick={enterMetaMode}
                   className="icon-btn"
                   style={{
                     padding: "10px 22px",
@@ -390,10 +351,10 @@ export function GameScreen({
                 >
                   ✦ SPEAK WITH THE AUTHOR
                 </button>
-                <button onClick={onSave} className="icon-btn" style={{ padding: "10px 22px" }}>
+                <button onClick={saveCurrent} className="icon-btn" style={{ padding: "10px 22px" }}>
                   ❀ KEEP THIS HOUR
                 </button>
-                <button onClick={onRestart} className="icon-btn" style={{ padding: "10px 22px" }}>
+                <button onClick={restart} className="icon-btn" style={{ padding: "10px 22px" }}>
                   ❀ BEGIN A NEW HOUR
                 </button>
               </div>
@@ -463,7 +424,7 @@ export function GameScreen({
                         text={m.text}
                         instant={m.fullyRevealed || instantReveal}
                         skipSignal={skipNonce}
-                        onDone={() => onMetaDone(i)}
+                        onDone={() => markMetaRevealed(i)}
                         scrollRef={scrollRef}
                         fastMode
                       />
@@ -480,7 +441,7 @@ export function GameScreen({
                 <span>.</span><span>.</span><span>.</span>
               </span>
               <button
-                onClick={(e) => { e.stopPropagation(); onCancel?.(); }}
+                onClick={(e) => { e.stopPropagation(); cancelRequest?.(); }}
                 className="loading-stop-btn"
                 aria-label="Stop this request"
                 title="Stop this request"
@@ -506,7 +467,7 @@ export function GameScreen({
           {recovery && !loading && (
             <div className="mt-3 fade-in">
               <button
-                onClick={(e) => { e.stopPropagation(); onContinueNarration?.(); }}
+                onClick={(e) => { e.stopPropagation(); continueNarration?.(); }}
                 className="icon-btn"
                 style={{
                   padding: "9px 20px",
@@ -521,69 +482,14 @@ export function GameScreen({
           )}
         </div>
       </div>
-      <div
-        className="game-input-row relative px-6 py-5 border-t"
-        style={{
-          borderColor: "rgba(232, 222, 197, 0.1)",
-          background: "rgba(5, 3, 9, 0.8)",
-          backdropFilter: "blur(4px)"
-        }}
-      >
-        <div className="max-w-3xl mx-auto">
-          <div className="flex gap-3 items-start">
-            <span
-              className="display-font text-2xl leading-none mt-2 select-none"
-              style={{ color: metaMode ? `var(--${premise.realm})` : "var(--rose-ember)" }}
-            >
-              {metaMode ? "✦" : "›"}
-            </span>
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={onInputChange}
-              onKeyDown={onKeyDown}
-              disabled={inputLocked}
-              rows={1}
-              autoFocus={!ended || metaMode}
-              placeholder={ended && !metaMode ? "The chronicle is closed." : metaMode ? "Ask the author. Speak frankly." : loading ? "" : "Speak. Move. Search your pockets. Lie. Run. Ask a question."}
-              className="borrowed-input flex-1 px-4 py-3 resize-none text-lg disabled:opacity-50"
-              style={{
-                minHeight: "52px",
-                maxHeight: "160px",
-                fontFamily: "'Cormorant Garamond', serif",
-                lineHeight: 1.5
-              }}
-            />
-          </div>
-          <div
-            className="text-xs mt-2 ml-8 italic body-font flex flex-wrap items-center gap-x-4 gap-y-1"
-            style={{ color: "var(--cream-faint)" }}
-          >
-            <span>↵ {metaMode ? "ask" : "act"}</span>
-            <span>⇧ ↵ new line</span>
-            <span>click the page to skip the writing</span>
-            {metaMode && (
-              <button
-                onClick={onExitMeta}
-                className="ml-auto"
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "var(--cream-dim)",
-                  fontStyle: "italic",
-                  fontFamily: "'Cormorant Garamond', serif",
-                  fontSize: "12px",
-                  textDecoration: "underline",
-                  textUnderlineOffset: "3px"
-                }}
-              >
-                leave the author's table
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      <GameComposer
+        onSubmit={submit}
+        premise={premise}
+        metaMode={metaMode}
+        ended={ended}
+        loading={loading}
+        onExitMeta={exitMetaMode}
+      />
     </div>
   );
 }

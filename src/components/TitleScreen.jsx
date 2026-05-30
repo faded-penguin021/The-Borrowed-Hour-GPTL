@@ -1,21 +1,27 @@
 // @ts-check
 import React from "react";
-import { realmGlyph, buildCustomPremise, PREMISES } from "../data/premises.js";
+import { realmGlyph, PREMISES } from "../data/premises.js";
 import { LANGUAGES } from "../data/languages.js";
+import { useGame } from "../context/GameContext.jsx";
 import { ErrorRawDetail } from "./ErrorRawDetail.jsx";
 
 /**
+ * Modal toggles come from `App`; the rest (premise choice, language, saves,
+ * loading/error) comes from `useGame()`.
+ *
  * @param {Object} props
- * @param {(premise: Premise) => void} props.onChoose
- * @param {() => void} props.onOpenSaves
  * @param {() => void} props.onOpenCustom
  * @param {() => void} props.onOpenSettings
- * @param {string} props.language
- * @param {(lang: string) => void} props.onChangeLanguage
- * @param {boolean} props.loading
- * @param {{ message: string, detail?: string, raw?: string } | null} props.error
  */
-export function TitleScreen({ onChoose, onOpenSaves, onOpenCustom, onOpenSettings, language, onChangeLanguage, loading, error }) {
+export function TitleScreen({ onOpenCustom, onOpenSettings }) {
+  const {
+    beginAdventure: onChoose,
+    openSavesModal: onOpenSaves,
+    language,
+    setLanguage: onChangeLanguage,
+    loading,
+    error
+  } = useGame();
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center px-6 py-16">
       <div className="text-center mb-14 max-w-3xl fade-in">
