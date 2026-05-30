@@ -7,7 +7,17 @@ if (!window.storage) {
       return value === null ? null : { key, value };
     },
     async set(key, value) {
-      localStorage.setItem(key, value);
+      try {
+        localStorage.setItem(key, value);
+      } catch (e) {
+        const msg = e?.message || "";
+        if (/quota|storage/i.test(msg) || e?.name === "QuotaExceededError") {
+          const wrapped = new Error(`Storage quota exceeded while saving "${key}" (${Math.round(value.length / 1024)} KB).`);
+          wrapped.name = "QuotaExceededError";
+          throw wrapped;
+        }
+        throw e;
+      }
       return { key, value };
     },
     async delete(key) {

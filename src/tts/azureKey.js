@@ -6,8 +6,10 @@ export async function getTtsAzureKey() {
   const stored = localStorage.getItem("borrowed:tts_azure_key:v1");
   if (!stored) return null;
   if (!stored.startsWith(ENC_PREFIX)) return stored.trim();
-  if (!window.__sessionPassphrase)
-    window.__sessionPassphrase = prompt("Enter your session passphrase to unlock API keys:");
+  if (!window.__sessionPassphrase) {
+    const { requestPassphrase } = await import("../passphrase.js");
+    window.__sessionPassphrase = await requestPassphrase("Enter your session passphrase to unlock API keys:");
+  }
   if (!window.__sessionPassphrase) return null;
   try { return (await decryptSecret(stored, window.__sessionPassphrase)).trim(); }
   catch { window.__sessionPassphrase = null; return null; }

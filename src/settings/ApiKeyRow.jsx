@@ -1,7 +1,8 @@
 // @ts-check
 import React, { useState } from "react";
 import { encryptSecret } from "../storage/encryption.js";
-import { PROVIDER_META, resetProviderKey } from "../llm/providers.js";
+import { PROVIDER_META, resetProviderKey, checkProviderHealth } from "../llm/providers.js";
+import { requestPassphrase } from "../passphrase.js";
 
 /**
  * @param {Object} props
@@ -12,34 +13,14 @@ export function ApiKeyRow({ providerId }) {
   const [stored, setStored] = React.useState(() => !!localStorage.getItem(meta.keyStorage));
   const [editing, setEditing] = React.useState(false);
   const [value, setValue] = React.useState("");
-  const fieldStyle = {
-    flex: 1,
-    padding: "7px 9px",
-    fontSize: 12,
-    borderRadius: 6,
-    border: "1px solid rgba(232,222,197,0.22)",
-    background: "rgba(22,18,21,0.9)",
-    color: "var(--cream-bright)",
-    fontFamily: "monospace",
-    minWidth: 0
-  };
-  const btnStyle = {
-    padding: "7px 11px",
-    fontSize: 11,
-    borderRadius: 6,
-    border: "1px solid rgba(232,222,197,0.22)",
-    background: "rgba(22,18,21,0.9)",
-    color: "var(--cream-dim)",
-    cursor: "pointer",
-    letterSpacing: "0.14em",
-    whiteSpace: "nowrap"
-  };
+  const [testing, setTesting] = React.useState(false);
+  const [testResult, setTestResult] = React.useState(null);
   const saveKey = async () => {
     const trimmed = value.trim();
     if (!trimmed) return;
     let passphrase = window.__sessionPassphrase;
     if (!passphrase) {
-      passphrase = prompt("Set a session passphrase to encrypt your API keys:");
+      passphrase = await requestPassphrase("Set a session passphrase to encrypt your API keys:");
       if (!passphrase) return;
       window.__sessionPassphrase = passphrase;
     }
@@ -53,28 +34,45 @@ export function ApiKeyRow({ providerId }) {
     setStored(false);
     setEditing(false);
     setValue("");
+    setTestResult(null);
+  };
+  const testKey = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const result = await checkProviderHealth(providerId);
+      setTestResult(result);
+    } catch {
+      setTestResult({ ok: false, detail: "Health check threw unexpectedly." });
+    } finally {
+      setTesting(false);
+    }
   };
   return (
-    <div style={{ marginTop: 12 }}>
-      <div
-        className="display-font"
-        style={{ color: "var(--cream-dim)", letterSpacing: "0.14em", fontSize: 10, textTransform: "uppercase", marginBottom: 5 }}
-      >
+    <div className="mt-3">
+      <div className="display-font text-cream-dim tracking-display text-[10px] uppercase mb-[5px]">
         {meta.name}
       </div>
       {stored && !editing ? (
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span
-            className="body-font italic"
-            style={{ color: "var(--cream-faint)", fontSize: 11, flex: 1 }}
-          >
-            Key stored
-          </span>
-          <button style={btnStyle} onClick={() => setEditing(true)}>REPLACE</button>
-          <button style={{ ...btnStyle, color: "rgba(200,100,100,0.8)" }} onClick={forgetKey}>FORGET</button>
+        <div>
+          <div className="flex gap-1.5 items-center">
+            <span className="body-font italic text-cream-faint text-[11px] flex-1">
+              Key stored
+            </span>
+            <button className="btn-settings" onClick={testKey} disabled={testing}>
+              {testing ? "TESTING…" : "TEST"}
+            </button>
+            <button className="btn-settings" onClick={() => setEditing(true)}>REPLACE</button>
+            <button className="btn-settings !text-[rgba(200,100,100,0.8)]" onClick={forgetKey}>FORGET</button>
+          </div>
+          {testResult && (
+            <div className="body-font text-[10px] mt-1 leading-normal" style={{ color: testResult.ok ? "rgba(120,200,120,0.85)" : "rgba(200,120,100,0.85)" }}>
+              {testResult.detail}
+            </div>
+          )}
         </div>
       ) : (
-        <div style={{ display: "flex", gap: 6 }}>
+        <div className="flex gap-1.5">
           <input
             type="password"
             value={value}
@@ -85,18 +83,19 @@ export function ApiKeyRow({ providerId }) {
             }}
             placeholder={`Paste ${meta.name} API key…`}
             aria-label={`${meta.name} API key`}
-            style={fieldStyle}
+            className="field-settings"
             autoComplete="off"
           />
           <button
-            style={{ ...btnStyle, opacity: value.trim() ? 1 : 0.45, cursor: value.trim() ? "pointer" : "default" }}
+            className="btn-settings"
+            style={{ opacity: value.trim() ? 1 : 0.45, cursor: value.trim() ? "pointer" : "default" }}
             onClick={saveKey}
             disabled={!value.trim()}
           >
             SAVE
           </button>
           {stored && (
-            <button style={btnStyle} onClick={() => { setEditing(false); setValue(""); }}>CANCEL</button>
+            <button className="btn-settings" onClick={() => { setEditing(false); setValue(""); }}>CANCEL</button>
           )}
         </div>
       )}

@@ -23,6 +23,13 @@ export function IllustrationPlate({ plate, realm }) {
   const [developed, setDeveloped] = useState(false);
   useEffect(() => { if (plate?.status !== "ready") setDeveloped(false); }, [plate?.status, plate?.url]);
 
+  useEffect(() => {
+    const url = plate?.url;
+    if (typeof url === "string" && url.startsWith("blob:")) {
+      return () => { try { URL.revokeObjectURL(url); } catch (_) {} };
+    }
+  }, [plate?.url]);
+
   if (!plate || plate.status === "vaulted") return null;
 
   const realmColor = realm ? `var(--${realm}-border)` : "rgba(232,222,197,0.18)";

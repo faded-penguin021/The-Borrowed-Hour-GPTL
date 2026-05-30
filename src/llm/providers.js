@@ -223,8 +223,10 @@ export var getProviderKey = async (id) => {
   if (stored) {
     if (!stored.startsWith(ENC_PREFIX))
       return stored.trim();
-    if (!window.__sessionPassphrase)
-      window.__sessionPassphrase = prompt("Enter your session passphrase to unlock API keys:");
+    if (!window.__sessionPassphrase) {
+      const { requestPassphrase } = await import("../passphrase.js");
+      window.__sessionPassphrase = await requestPassphrase("Enter your session passphrase to unlock API keys:");
+    }
     if (!window.__sessionPassphrase)
       throw new BorrowedError("The hour cannot open yet.", "A session passphrase is required to unlock your API key.");
     try {
@@ -244,6 +246,58 @@ export var resetProviderKey = (id) => {
   if (m)
     localStorage.removeItem(m.keyStorage);
 };
+
+/**
+ * Lightweight connectivity check: resolves key, then fires a tiny
+ * request to the provider's endpoint. Returns { ok, detail }.
+ * @param {ProviderId} id
+ * @param {string} [model]
+ * @returns {Promise<{ ok: boolean, detail: string }>}
+ */
+export var checkProviderHealth = async (id, model) => {
+  const m = PROVIDER_META[id];
+  if (!m) return { ok: false, detail: `Unknown provider "${id}".` };
+  let apiKey;
+  try {
+    apiKey = await getProviderKey(id);
+  } catch (e) {
+    return { ok: false, detail: e instanceof BorrowedError ? (e.detail || e.message) : String(e) };
+  }
+  if (!apiKey && !m.keyOptional) return { ok: false, detail: `No API key configured for ${m.name}.` };
+  const provider = PROVIDERS[id];
+  if (!provider) return { ok: false, detail: `No adapter registered for ${m.name}.` };
+  const testModel = model || m.models[0]?.id || "";
+  try {
+    const request = provider.buildRequest({
+      sys: "Reply with exactly: ok",
+      msgs: [{ role: "user", content: "Ping." }],
+      useTool: false, model: testModel, maxTokens: 4, temperature: 0, tool: null, apiKey
+    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch(request.url, {
+      method: "POST",
+      headers: request.headers,
+      body: JSON.stringify(request.body),
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    if (res.ok) return { ok: true, detail: `${m.name} (${testModel}) responded.` };
+    let snip = ""; try { snip = scrubSecrets((await res.text()).slice(0, 300)); } catch {}
+    const hint = httpStatusHint(res.status, m.name);
+    const apiMsg = extractApiErrorMessage(snip);
+    return { ok: false, detail: apiMsg ? `${hint} ${apiMsg}` : hint };
+  } catch (e) {
+    if (e?.name === "AbortError") return { ok: false, detail: `${m.name} did not respond within 10 seconds.` };
+    const msg = e?.message || String(e);
+    const isCORS = /failed to fetch|networkerror|cors|load failed/i.test(msg);
+    if (isCORS && id === "local") {
+      return { ok: false, detail: `Could not reach the local LLM endpoint. If using Ollama, set OLLAMA_ORIGINS to your app's origin (e.g. http://localhost:5173). For LM Studio, enable CORS in the server settings.` };
+    }
+    return { ok: false, detail: `Network error reaching ${m.name}: ${msg}` };
+  }
+};
+
 /** @type {Record<string, any>} */
 export var PROVIDERS = {
   openai: {

@@ -217,12 +217,14 @@ export class AmbienceEngine {
     g.gain.exponentialRampToValueAtTime(0.0005, now + rel);
     lpf.connect(g); g.connect(this.piano.out);
     const detunes = [0, 0.5, -0.5];
+    let ended = 0;
     detunes.forEach((d) => {
       const o = ctx.createOscillator();
       o.type = "triangle";
       o.frequency.value = freq;
       o.detune.value = d;
       o.connect(lpf);
+      o.onended = () => { if (++ended >= 3) { try { lpf.disconnect(); } catch (_) {} try { g.disconnect(); } catch (_) {} } };
       o.start(now);
       o.stop(now + rel + 0.1);
     });
@@ -260,12 +262,17 @@ export class AmbienceEngine {
     out.connect(this.pluck.out);
     burst.start(now);
     burst.stop(now + 0.05);
-    setTimeout(() => {
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
       try { delay.disconnect(); } catch (_) {}
       try { fbLpf.disconnect(); } catch (_) {}
       try { fbGain.disconnect(); } catch (_) {}
       try { out.disconnect(); } catch (_) {}
-    }, 2200);
+    };
+    burst.onended = cleanup;
+    setTimeout(cleanup, 2200);
   }
   // ── Strings: saw+triangle stack through bandpass; bowed or pizz ──
   _fireStringNote(freq, mode, duration) {
@@ -304,6 +311,7 @@ export class AmbienceEngine {
       lfo.start(now);
       lfo.stop(now + dur + 0.1);
     }
+    saw.onended = () => { try { bp.disconnect(); } catch (_) {} try { env.disconnect(); } catch (_) {} };
     saw.start(now); saw.stop(now + dur + 0.1);
     tri.start(now); tri.stop(now + dur + 0.1);
   }
@@ -324,6 +332,7 @@ export class AmbienceEngine {
     g.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
     // Kick stays dry — route past the lane wet send.
     o.connect(g); g.connect(this.drums.dry);
+    o.onended = () => { try { g.disconnect(); } catch (_) {} };
     o.start(now); o.stop(now + 0.22);
   }
   _fireSnare(peak) {
@@ -340,6 +349,7 @@ export class AmbienceEngine {
     g.gain.linearRampToValueAtTime(p, now + AMBIENCE_ATTACK_FLOOR);
     g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
     src.connect(bp); bp.connect(g); g.connect(this.drums.out);
+    src.onended = () => { try { bp.disconnect(); } catch (_) {} try { g.disconnect(); } catch (_) {} };
     src.start(now); src.stop(now + 0.15);
   }
   _fireHat(peak) {
@@ -356,6 +366,7 @@ export class AmbienceEngine {
     g.gain.linearRampToValueAtTime(p, now + 0.002);
     g.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
     src.connect(hp); hp.connect(g); g.connect(this.drums.out);
+    src.onended = () => { try { hp.disconnect(); } catch (_) {} try { g.disconnect(); } catch (_) {} };
     src.start(now); src.stop(now + 0.08);
   }
   _scheduleDrums(gen) {
@@ -584,6 +595,7 @@ export class AmbienceEngine {
     g.gain.exponentialRampToValueAtTime(0.0005, now + release);
     osc.connect(g);
     g.connect(this.melodyVoice.lpf);
+    osc.onended = () => { try { g.disconnect(); } catch (_) {} };
     osc.start(now);
     osc.stop(now + release + 0.1);
   }
@@ -620,6 +632,7 @@ export class AmbienceEngine {
     g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
     osc.connect(g);
     g.connect(this.pulse.out);
+    osc.onended = () => { try { g.disconnect(); } catch (_) {} };
     osc.start(now);
     osc.stop(now + 0.25);
   }
