@@ -292,7 +292,7 @@ export var checkProviderHealth = async (id, model) => {
     const msg = e?.message || String(e);
     const isCORS = /failed to fetch|networkerror|cors|load failed/i.test(msg);
     if (isCORS && id === "local") {
-      return { ok: false, detail: `Could not reach the local LLM endpoint. If using Ollama, launch it with OLLAMA_ORIGINS=* to allow browser access. For LM Studio, enable CORS in the server settings.` };
+      return { ok: false, detail: `Could not reach the local LLM endpoint. If using Ollama, set OLLAMA_ORIGINS to your app's origin (e.g. http://localhost:5173). For LM Studio, enable CORS in the server settings.` };
     }
     return { ok: false, detail: `Network error reaching ${m.name}: ${msg}` };
   }

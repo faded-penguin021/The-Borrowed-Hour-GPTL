@@ -30,10 +30,26 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
   useEffect(() => { visualLedgerRef.current = visualLedger; }, [visualLedger]);
   useEffect(() => { plateCountRef.current = plateCount; }, [plateCount]);
 
+  const revokeBlobUrl = (url) => {
+    if (typeof url === "string" && url.startsWith("blob:")) {
+      try { URL.revokeObjectURL(url); } catch (_) {}
+    }
+  };
+
+  const revokeAllPlates = (entriesArray) => {
+    if (!Array.isArray(entriesArray)) return;
+    for (const e of entriesArray) {
+      if (e?.illustration?.url) revokeBlobUrl(e.illustration.url);
+    }
+  };
+
   const setEntryIllustration = (index, patch) => {
     setEntries((prev) => {
       const e = prev[index];
       if (!e) return prev;
+      if (patch.url && e.illustration?.url && e.illustration.url !== patch.url) {
+        revokeBlobUrl(e.illustration.url);
+      }
       const next = prev.slice();
       next[index] = { ...e, illustration: { ...(e.illustration || {}), ...patch } };
       return next;
@@ -165,6 +181,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
   return {
     styleBible, visualLedger, plateCount,
     setEntryIllustration,
+    revokeAllPlates,
     resetCodex,
     restoreCodex,
     runArtDirectorBootstrap,

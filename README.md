@@ -135,8 +135,8 @@ In **⚙ Settings → API keys → Local LLM**:
 # Install and pull a model
 ollama pull llama3.2
 
-# Start with browser CORS access enabled
-OLLAMA_ORIGINS="*" ollama serve
+# Start with browser CORS access enabled (use your dev-server origin)
+OLLAMA_ORIGINS="http://localhost:5173" ollama serve
 ```
 
 Then open the app and point the Local LLM endpoint at `http://localhost:11434/v1/chat/completions` with model `llama3.2`.
@@ -157,9 +157,9 @@ Endpoint: `http://localhost:8080/v1/chat/completions`.
 
 Browsers block cross-origin requests unless the server explicitly allows them. Most local servers need to be told to allow the origin serving `index.html`:
 
-- **Ollama**: set `OLLAMA_ORIGINS=*` (or the specific origin) before starting.
-- **LM Studio**: enable CORS in the server settings panel.
-- **llama.cpp**: pass `--cors-origins "*"` to `llama-server`.
+- **Ollama**: set `OLLAMA_ORIGINS` to your app's origin (e.g. `http://localhost:5173`) before starting.
+- **LM Studio**: enable CORS in the server settings panel and add your origin to the allowlist.
+- **llama.cpp**: pass `--cors-origins "http://localhost:5173"` to `llama-server`.
 
 ## Provider adapters
 

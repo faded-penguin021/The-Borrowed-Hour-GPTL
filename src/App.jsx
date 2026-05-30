@@ -151,7 +151,7 @@ export function App() {
         const netMsg = e?.message || "";
         const isCORS = /failed to fetch|networkerror|cors|load failed/i.test(netMsg);
         const corsHint = isCORS && providerId === "local"
-          ? " If using Ollama, launch with OLLAMA_ORIGINS=* ; for LM Studio, enable CORS in server settings."
+          ? ` If using Ollama, set OLLAMA_ORIGINS to this page's origin (e.g. ${location.origin}). For LM Studio, enable CORS in server settings.`
           : "";
         lastErr = new BorrowedError("The hour falters.", `Network error before the ${meta.name} API responded${netMsg ? ` (${netMsg})` : ""}.${corsHint || " Check your connection, CORS/proxy policy, and API key."}`);
         res = null;
@@ -240,7 +240,7 @@ export function App() {
         const netMsg = e?.message || "";
         const isCORS = /failed to fetch|networkerror|cors|load failed/i.test(netMsg);
         const corsHint = isCORS && providerId === "local"
-          ? " If using Ollama, launch with OLLAMA_ORIGINS=* ; for LM Studio, enable CORS in server settings."
+          ? ` If using Ollama, set OLLAMA_ORIGINS to this page's origin (e.g. ${location.origin}). For LM Studio, enable CORS in server settings.`
           : "";
         lastErr = new BorrowedError("The hour falters.", `Network error before the ${meta.name} API responded${netMsg ? ` (${netMsg})` : ""}.${corsHint || " Check your connection, CORS/proxy policy, and API key."}`);
         continue;
@@ -438,6 +438,7 @@ export function App() {
 
   /** @param {Premise} chosen @returns {Promise<void>} */
   const beginAdventure = async (chosen) => {
+    codex.revokeAllPlates(entries);
     sessionTokensRef.current = { input: 0, output: 0 };
     setSessionTokens({ input: 0, output: 0 });
     setPremise(chosen);
@@ -907,6 +908,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   };
 
   const restart = () => {
+    codex.revokeAllPlates(entries);
     sessionTokensRef.current = { input: 0, output: 0 };
     setSessionTokens({ input: 0, output: 0 });
     setPhase("title");
@@ -940,6 +942,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       saves.setSaveBanner({ kind: "err", text: "This hour is no longer here." });
       return;
     }
+    codex.revokeAllPlates(entries);
     setPremise(found);
     setEntries((save.entries || []).map((e) => ({ ...e, fullyRevealed: true })));
     setHistory(save.history || []);

@@ -50,7 +50,7 @@ export function LocalLLMRow() {
         Local LLM
       </div>
       <div className="body-font italic text-cream-faint text-[11px] leading-normal mb-1">
-        Paste the chat-completions endpoint of your local server (Ollama, LM Studio, llama.cpp). No API key required for most local setups. For Ollama, start it with OLLAMA_ORIGINS=* to allow browser access.
+        Paste the chat-completions endpoint of your local server (Ollama, LM Studio, llama.cpp). No API key required for most local setups. For Ollama, set OLLAMA_ORIGINS to this page's origin (e.g. http://localhost:5173) before starting.
       </div>
       <input
         type="text"

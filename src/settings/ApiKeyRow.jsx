@@ -1,7 +1,7 @@
 // @ts-check
 import React, { useState } from "react";
 import { encryptSecret } from "../storage/encryption.js";
-import { PROVIDER_META, resetProviderKey } from "../llm/providers.js";
+import { PROVIDER_META, resetProviderKey, checkProviderHealth } from "../llm/providers.js";
 import { requestPassphrase } from "../passphrase.js";
 
 /**
@@ -13,6 +13,8 @@ export function ApiKeyRow({ providerId }) {
   const [stored, setStored] = React.useState(() => !!localStorage.getItem(meta.keyStorage));
   const [editing, setEditing] = React.useState(false);
   const [value, setValue] = React.useState("");
+  const [testing, setTesting] = React.useState(false);
+  const [testResult, setTestResult] = React.useState(null);
   const saveKey = async () => {
     const trimmed = value.trim();
     if (!trimmed) return;
@@ -32,6 +34,19 @@ export function ApiKeyRow({ providerId }) {
     setStored(false);
     setEditing(false);
     setValue("");
+    setTestResult(null);
+  };
+  const testKey = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const result = await checkProviderHealth(providerId);
+      setTestResult(result);
+    } catch {
+      setTestResult({ ok: false, detail: "Health check threw unexpectedly." });
+    } finally {
+      setTesting(false);
+    }
   };
   return (
     <div className="mt-3">
@@ -39,12 +54,22 @@ export function ApiKeyRow({ providerId }) {
         {meta.name}
       </div>
       {stored && !editing ? (
-        <div className="flex gap-1.5 items-center">
-          <span className="body-font italic text-cream-faint text-[11px] flex-1">
-            Key stored
-          </span>
-          <button className="btn-settings" onClick={() => setEditing(true)}>REPLACE</button>
-          <button className="btn-settings !text-[rgba(200,100,100,0.8)]" onClick={forgetKey}>FORGET</button>
+        <div>
+          <div className="flex gap-1.5 items-center">
+            <span className="body-font italic text-cream-faint text-[11px] flex-1">
+              Key stored
+            </span>
+            <button className="btn-settings" onClick={testKey} disabled={testing}>
+              {testing ? "TESTING…" : "TEST"}
+            </button>
+            <button className="btn-settings" onClick={() => setEditing(true)}>REPLACE</button>
+            <button className="btn-settings !text-[rgba(200,100,100,0.8)]" onClick={forgetKey}>FORGET</button>
+          </div>
+          {testResult && (
+            <div className="body-font text-[10px] mt-1 leading-normal" style={{ color: testResult.ok ? "rgba(120,200,120,0.85)" : "rgba(200,120,100,0.85)" }}>
+              {testResult.detail}
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex gap-1.5">
