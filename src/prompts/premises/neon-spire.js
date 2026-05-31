@@ -1,0 +1,32 @@
+// @ts-check
+
+export const gmNote = `This is a cyberpunk story about climbing a criminal hierarchy. The player begins as a low-rung runner being evaluated for promotion — but the meeting tonight is also a test, and possibly a trap. The world is grimy, neon, augmented, dangerous; corporate-syndicate politics are knife-edged and personal. Reward cunning, calculated ruthlessness, manipulation, the building of leverage. Punish naivety. Use cyberpunk argot lightly — chrome, the Loom (the city's ambient AI overlay), shard-credits, choom, ghost-rigs — but never let it crowd the prose. Prefer texture (rain on chrome, the metallic taste of fear, neon refracting through pollutant haze) to jargon.
+
+THE HIERARCHY OF THE VERMILLION THREAD:
+The Thread is structured four tiers deep. From the top: the ARCHITECT (one person, identity closely held even within the organization; rumored to operate from no fixed floor of the Spire); the CAPTAINS (three of them, each holding a portfolio of the city); the LIEUTENANTS (each Captain has two or three, running specific operations); and the RUNNERS, of which the player is one. Tonight's promotion would lift the player toward Lieutenant — closer to the rooms where the work is actually decided. None of this hierarchy has been spoken aloud to the player in the seed; reveal it only as scenes warrant.
+
+The three Captains:
+- VARDA, who holds the Crescent portfolio (extraction, smuggling, the wet logistics of moving people and substances through the arcology's lower tiers). Tends quiet, plays a long game, has lost two lieutenants in the past year to circumstances that may not have been accidents. The player's handler Sorrel reports up to Varda.
+- MARCH, who holds the Spire portfolio (the Thread's interface with the corporate towers — protection, blackmail, the cultivation of insiders). Brilliant, charismatic, the public face of the Thread when one is needed. Has the Architect's ear. Considers Crescent's recent operational losses an opportunity.
+- RENDER, who holds the Signal portfolio (information, surveillance, the Loom's quieter uses). Rarely seen at public functions. Neither aligned with Crescent nor Spire — observed by both, courted by neither.
+
+TONIGHT'S TEST:
+The summons originates from March, though it carries the Architect's seal. March's stated reason: an evaluation for elevation. March's actual motive: a runner being considered for Lieutenant under Varda is a runner whose loss would weaken Crescent. If the player passes the evening cleanly, they may indeed be promoted — but it will be into a role March can use, not the one Sorrel expected. If they fail in the wrong way, they will not leave the Spire.
+
+The Architect IS genuinely interested in the player, separately and for reasons of their own. The Architect rarely takes personal interest in runners. Whatever the player did or showed in their last three or four jobs caught attention. (Use the rolling summary to invent which recent jobs; if none have been seeded, the Architect's interest is in something the player did before the chronicle began — a flash of nerve, a refusal, a small competence noted by Render's Signal network.)
+
+The evaluation tonight unfolds in three rough stages — hold these loosely, not as required beats. (1) The arrival: who meets the player, where they are taken, who else is present, what's being implied by who is and isn't in the room. (2) The proposition or pressure: someone — usually March or one of March's Lieutenants — asks the player to do, say, or commit to something specific that costs them. (3) The resolution: what the player has revealed about themselves through the first two stages becomes the answer to what happens next.
+
+KEY NPCs:
+- MAREN, the man in the charcoal suit who appears in the elevator. March's personal security; reads the floor numbers because he is calmly tracking when to act. Will not be hostile in the first exchange — that would be inelegant. Watches.
+- CAPTAIN MARCH, the primary antagonist of the evening — though "antagonist" is too crude. Charming, generous-seeming, dangerous specifically because the player will want March to like them. The trap is shaped like an invitation.
+- CAPTAIN VARDA, if the player can reach her tonight (through Sorrel, through cleverness, through being walked past her floor on the way somewhere else). A potential ally if approached right, a closed door if approached wrong. Slow to commit, but committed once she does.
+- SORREL, the player's handler. Loyal to Varda, loyal to the player insofar as loyalty is pragmatic in the Thread; will protect the player up to the point where doing so would cost Sorrel their own position. The ping ("PLAY GENTLE") was real care, not script.
+- THE ARCHITECT, whom the player will likely not meet directly tonight unless the player engineers it remarkably. Felt presence rather than figure. References to "the Architect's wishes" arrive secondhand, sometimes through people who themselves do not know whether the wishes are real.
+
+ENDING CONDITIONS FOR THIS STORY:
+- GOOD: The player is formally elevated within the Thread — named Lieutenant under a Captain on terms that serve the player's interests, given a Captain's seal, or in extraordinary cases acknowledged by the Architect directly. Narrate the moment of ascension and what it cost.
+- BITTERSWEET: The player is elevated, but the path required burning a relationship that mattered — Sorrel sold to advance, Varda watched while losing a Lieutenant the player could have warned, an ally left to take a fall. The chrome shines. The room is colder than they thought it would be.
+- PYRRHIC: The player is elevated AND they have become the thing the Thread needed them to be. The promotion is real; the person who took the promotion is no longer recognizable as the runner who entered the elevator at 22:42. Success and self-loss are the same line.
+- AMBIGUOUS: The evaluation ends without verdict — the player navigates the evening, makes their choices, and exits the Spire neither promoted nor punished. Sorrel will not look them in the eye. March's people are unreadable. Whether the night was a passing grade, a failing one, or a longer game whose terms the player will only learn later: the chronicle ends before the answer arrives.
+- BAD: The player is killed — by enforcers, by a rival, by their own miscalculation — or politically destroyed and cast out of the Thread (sometimes more final than death). Narrate it without flinching.`;
