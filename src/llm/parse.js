@@ -29,9 +29,118 @@ export function tryParseJSON(text) {
 }
 
 /**
- * Simple JSON block extractor: strip markdown fences, attempt a direct parse,
- * and fall back to slicing from the first `{` to the last `}`. No regex repair
- * or balanced-brace scanning — malformed payloads are surfaced via Zod instead.
+ * Regex syntax recovery for almost-JSON the model emits: drop trailing commas,
+ * normalize smart quotes, and escape raw control characters inside strings.
+ * Operates on the JSON *string* (Layer 1) — orthogonal to Zod schema validation
+ * (Layer 2), which only runs on an already-parsed object.
+ * @param {string} text
+ * @returns {string}
+ */
+export function repairJSON(text) {
+  let t = text;
+  t = t.replace(/,(\s*[}\]])/g, "$1");
+  t = t.replace(/[“”]/g, '"');
+  let out = "";
+  let inStr = false;
+  let escaped = false;
+  for (let i = 0;i < t.length; i++) {
+    const ch = t[i];
+    if (escaped) {
+      out += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      out += ch;
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inStr = !inStr;
+      out += ch;
+      continue;
+    }
+    if (inStr) {
+      if (ch === "\n") {
+        out += "\\n";
+        continue;
+      }
+      if (ch === "\r") {
+        out += "\\r";
+        continue;
+      }
+      if (ch === "\t") {
+        out += "\\t";
+        continue;
+      }
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/**
+ * Scan from `start` (which must point at an opening `{`) to the matching close
+ * brace, ignoring braces inside strings. Returns the index of the closing brace,
+ * or -1 if the object never closes. Used to slice off trailing garbage (e.g. a
+ * stray extra `}`) before parsing — this is structural extraction, not repair.
+ * @param {string} text
+ * @param {number} start
+ * @returns {number}
+ */
+export function findBalancedJSONEnd(text, start) {
+  let depth = 0;
+  let inStr = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) { escaped = false; continue; }
+    if (inStr) {
+      if (ch === "\\") { escaped = true; continue; }
+      if (ch === '"') { inStr = false; }
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+const MAX_REPAIR_LENGTH = 200_000;
+
+/**
+ * Slice the first balanced `{...}` object out of `text` (dropping trailing
+ * garbage such as a stray extra brace), falling back to a first-`{`-to-last-`}`
+ * slice. Returns the parsed object or null.
+ * @param {string} text
+ * @returns {any}
+ */
+function extractObject(text) {
+  const first = text.indexOf("{");
+  if (first < 0) return null;
+  const end = findBalancedJSONEnd(text, first);
+  if (end > first) {
+    const parsed = tryParseJSON(text.slice(first, end + 1));
+    if (parsed) return parsed;
+  }
+  const last = text.lastIndexOf("}");
+  if (last > first) {
+    const parsed = tryParseJSON(text.slice(first, last + 1));
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+/**
+ * Multi-stage JSON recovery (Layer 1 — string → object). Strip markdown fences,
+ * direct-parse, slice the first balanced object, then run a regex repair pass
+ * (trailing commas, smart quotes, raw control chars) and re-extract. Returns the
+ * parsed object, or null if nothing JSON-shaped survives. Schema *validation* is
+ * a separate concern handled by Zod (Layer 2) on the returned object.
  * @param {string} rawText
  * @returns {any}
  */
@@ -44,13 +153,16 @@ export function extractJSONBlock(rawText) {
   let parsed = tryParseJSON(text);
   if (parsed) return parsed;
 
-  const first = text.indexOf("{");
-  const last = text.lastIndexOf("}");
-  if (first >= 0 && last > first) {
-    parsed = tryParseJSON(text.slice(first, last + 1));
-    if (parsed) return parsed;
-  }
-  return null;
+  parsed = extractObject(text);
+  if (parsed) return parsed;
+
+  if (text.length > MAX_REPAIR_LENGTH) return null;
+
+  const repaired = repairJSON(text);
+  parsed = tryParseJSON(repaired);
+  if (parsed) return parsed;
+
+  return extractObject(repaired);
 }
 
 /**
