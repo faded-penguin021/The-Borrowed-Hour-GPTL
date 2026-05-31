@@ -1,6 +1,7 @@
 // @ts-check
 export var SAVE_PREFIX = "borrowed:save:";
 export var SETTINGS_KEY = "borrowed:settings:v1";
+export var ONBOARDING_KEY = "borrowed:onboarding:v1";
 export var SAVE_CAP = 30;
 export var APPROX_CHARS_PER_TOKEN = 3.5;
 

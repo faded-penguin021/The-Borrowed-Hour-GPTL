@@ -1,5 +1,5 @@
 // @ts-check
-import React from "react";
+import React, { useRef, useState } from "react";
 import { ApiKeysSection } from "../../settings/ApiKeysSection.jsx";
 import { EngineSection } from "../../settings/EngineSection.jsx";
 import { AmbienceRow } from "../../settings/AmbienceRow.jsx";
@@ -10,6 +10,17 @@ import { CodexSection } from "../../settings/CodexSection.jsx";
 import { useSettingsContext } from "../../context/SettingsContext.jsx";
 import { useAmbienceContext } from "../../context/AmbienceContext.jsx";
 import { useTTSContext } from "../../context/TTSContext.jsx";
+
+/** @typedef {"reading" | "audio" | "codex" | "system" | "proxy"} SettingsTabId */
+
+/** @type {{ id: SettingsTabId, label: string }[]} */
+const TABS = [
+  { id: "reading", label: "Reading" },
+  { id: "audio", label: "Audio" },
+  { id: "codex", label: "Codex" },
+  { id: "system", label: "System" },
+  { id: "proxy", label: "Proxy" },
+];
 
 /**
  * Reads reading/display settings, ambience, and TTS straight from their
@@ -57,6 +68,29 @@ export function SettingsModal({ onClose }) {
   const onChangeTtsAzureKey = async (k) => { setTtsAzureKey(k); await saveTtsAzureKey(k); detectTtsProviderReady(); };
   const onChangeTtsAzureRegion = (r) => { setTtsAzureRegion(r); saveTtsAzureRegion(r); };
   const onChangeTtsGoogleKey = async (k) => { setTtsGoogleKey(k); await saveTtsGoogleKey(k); detectTtsProviderReady(); };
+
+  const [activeTab, setActiveTab] = useState(/** @type {SettingsTabId} */ ("reading"));
+  const tabRefs = useRef(/** @type {Record<string, HTMLButtonElement | null>} */ ({}));
+
+  /**
+   * ARIA tablist keyboard nav: Left/Right (and Home/End) move focus *and*
+   * selection between tabs, wrapping at the ends.
+   * @param {React.KeyboardEvent} e
+   * @param {number} index
+   */
+  const onTabKeyDown = (e, index) => {
+    let next = -1;
+    if (e.key === "ArrowRight") next = (index + 1) % TABS.length;
+    else if (e.key === "ArrowLeft") next = (index - 1 + TABS.length) % TABS.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = TABS.length - 1;
+    if (next === -1) return;
+    e.preventDefault();
+    const nextTab = TABS[next];
+    setActiveTab(nextTab.id);
+    tabRefs.current[nextTab.id]?.focus();
+  };
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
@@ -87,107 +121,177 @@ export function SettingsModal({ onClose }) {
             ✕
           </button>
         </div>
-        <div className="overflow-y-auto px-6 py-5 space-y-3">
-          <p
-            className="body-font italic text-sm"
-            style={{ color: "var(--cream-dim)", lineHeight: 1.6 }}
+        <div
+          className="settings-tablist px-6 pt-3 border-b"
+          role="tablist"
+          aria-label="Settings sections"
+          style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
+        >
+          {TABS.map((tab, i) => (
+            <button
+              key={tab.id}
+              ref={(el) => { tabRefs.current[tab.id] = el; }}
+              type="button"
+              role="tab"
+              id={`settings-tab-${tab.id}`}
+              aria-selected={activeTab === tab.id}
+              aria-controls={`settings-panel-${tab.id}`}
+              tabIndex={activeTab === tab.id ? 0 : -1}
+              className="settings-tab"
+              onClick={() => setActiveTab(tab.id)}
+              onKeyDown={(e) => onTabKeyDown(e, i)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="overflow-y-auto px-6 py-5">
+          {/* All panels stay mounted; the `hidden` attribute hides the inactive
+              ones so half-typed inputs (e.g. a Proxy URL) survive a tab switch. */}
+          <div
+            id="settings-panel-reading"
+            role="tabpanel"
+            aria-labelledby="settings-tab-reading"
+            hidden={activeTab !== "reading"}
+            className="space-y-3"
           >
-            The hour is told in cream-and-twilight by default. If that's hard on your reading, soften the rules below. Your choices are kept between sessions.
-          </p>
-          <EngineSection settings={settings} onChange={onChange} />
-          <ApiKeysSection />
-          <SettingsToggleRow
-            id="setting-high-contrast"
-            label="High contrast"
-            description="Bright text on flat black; no grain, no vignette, no atmospheric haze."
-            value={settings.highContrast}
-            onChange={(v) => onChange("highContrast", v)}
-          />
-          <SettingsToggleRow
-            id="setting-disable-typewriter"
-            label="Reveal at once"
-            description="Skip the typewriter animation. Narration appears all at once, the moment it arrives."
-            value={settings.disableTypewriter}
-            onChange={(v) => onChange("disableTypewriter", v)}
-          />
-          <SettingsToggleRow
-            id="setting-stream-narration"
-            label="Stream the narration"
-            description="Let narration arrive word by word as the narrator writes it, instead of waiting for the whole passage. The opening scene always arrives whole."
-            value={settings.streamNarration}
-            onChange={(v) => onChange("streamNarration", v)}
-          />
-          <AmbienceRow
-            level={ambienceLevel}
-            unavailable={ambienceUnavailable}
-            onChange={onChangeAmbience}
-            ttsEnabled={ttsEnabled}
-            duringNarrationOnly={ambienceDuringNarrationOnly}
-            boostWithTTS={ambienceBoostWithTTS}
-            musicLevel={ambienceMusicLevel}
-            onChangeDuringNarrationOnly={onChangeAmbienceDuringNarrationOnly}
-            onChangeBoostWithTTS={onChangeAmbienceBoostWithTTS}
-            onChangeMusicLevel={onChangeAmbienceMusicLevel}
-          />
-          <TTSRow
-            enabled={ttsEnabled}
-            providerId={ttsProviderId}
-            providerReady={ttsProviderReady}
-            voiceId={ttsVoiceId}
-            ttsModel={ttsModel}
-            browserVoices={ttsBrowserVoices}
-            voxtralVoices={ttsVoxtralVoices}
-            voxtralVoicesError={ttsVoxtralVoicesError}
-            rate={ttsRate}
-            elevenKey={ttsElevenKey}
-            azureKey={ttsAzureKey}
-            azureRegion={ttsAzureRegion}
-            googleKey={ttsGoogleKey}
-            onChangeEnabled={onChangeTtsEnabled}
-            onChangeProvider={onChangeTtsProvider}
-            onChangeVoice={onChangeTtsVoice}
-            onChangeModel={onChangeTtsModel}
-            onChangeRate={onChangeTtsRate}
-            onChangeElevenKey={onChangeTtsElevenKey}
-            onChangeAzureKey={onChangeTtsAzureKey}
-            onChangeAzureRegion={onChangeTtsAzureRegion}
-            onChangeGoogleKey={onChangeTtsGoogleKey}
-          />
-          <CodexSection settings={settings} onChange={onChange} />
-          <ProxyUrlRow value={settings.proxyUrl} onChange={(v) => onChange("proxyUrl", v)} />
-          <div className="settings-toggle" style={{ cursor: "default", opacity: 0.85 }}>
-            <div className="flex-1 min-w-0">
-              <div
+            <p
+              className="body-font italic text-sm"
+              style={{ color: "var(--cream-dim)", lineHeight: 1.6 }}
+            >
+              The hour is told in cream-and-twilight by default. If that's hard on your reading, soften the rules below. Your choices are kept between sessions.
+            </p>
+            <SettingsToggleRow
+              id="setting-high-contrast"
+              label="High contrast"
+              description="Bright text on flat black; no grain, no vignette, no atmospheric haze."
+              value={settings.highContrast}
+              onChange={(v) => onChange("highContrast", v)}
+            />
+            <SettingsToggleRow
+              id="setting-disable-typewriter"
+              label="Reveal at once"
+              description="Skip the typewriter animation. Narration appears all at once, the moment it arrives."
+              value={settings.disableTypewriter}
+              onChange={(v) => onChange("disableTypewriter", v)}
+            />
+            <SettingsToggleRow
+              id="setting-stream-narration"
+              label="Stream the narration"
+              description="Let narration arrive word by word as the narrator writes it, instead of waiting for the whole passage. The opening scene always arrives whole."
+              value={settings.streamNarration}
+              onChange={(v) => onChange("streamNarration", v)}
+            />
+            <div className="settings-toggle" style={{ cursor: "default", opacity: 0.85 }}>
+              <div className="flex-1 min-w-0">
+                <div
+                  className="display-font"
+                  style={{
+                    color: "var(--cream-dim)",
+                    letterSpacing: "0.18em",
+                    fontSize: 11,
+                    textTransform: "uppercase"
+                  }}
+                >
+                  System: reduce motion
+                </div>
+                <div
+                  className="body-font italic"
+                  style={{ color: "var(--cream-faint)", fontSize: 12, marginTop: 4 }}
+                >
+                  {osReducedMotion
+                    ? "On — read from your operating system. Animations are stilled and the typewriter is bypassed."
+                    : "Off — your operating system is not asking for reduced motion."}
+                </div>
+              </div>
+              <span
                 className="display-font"
                 style={{
-                  color: "var(--cream-dim)",
-                  letterSpacing: "0.18em",
-                  fontSize: 11,
-                  textTransform: "uppercase"
+                  color: osReducedMotion ? "var(--rose-gold)" : "var(--cream-faint)",
+                  fontSize: 10,
+                  letterSpacing: "0.3em",
+                  flexShrink: 0
                 }}
               >
-                System: reduce motion
-              </div>
-              <div
-                className="body-font italic"
-                style={{ color: "var(--cream-faint)", fontSize: 12, marginTop: 4 }}
-              >
-                {osReducedMotion
-                  ? "On — read from your operating system. Animations are stilled and the typewriter is bypassed."
-                  : "Off — your operating system is not asking for reduced motion."}
-              </div>
+                {osReducedMotion ? "ACTIVE" : "INACTIVE"}
+              </span>
             </div>
-            <span
-              className="display-font"
-              style={{
-                color: osReducedMotion ? "var(--rose-gold)" : "var(--cream-faint)",
-                fontSize: 10,
-                letterSpacing: "0.3em",
-                flexShrink: 0
-              }}
-            >
-              {osReducedMotion ? "ACTIVE" : "INACTIVE"}
-            </span>
+          </div>
+
+          <div
+            id="settings-panel-audio"
+            role="tabpanel"
+            aria-labelledby="settings-tab-audio"
+            hidden={activeTab !== "audio"}
+            className="space-y-3"
+          >
+            <AmbienceRow
+              level={ambienceLevel}
+              unavailable={ambienceUnavailable}
+              onChange={onChangeAmbience}
+              ttsEnabled={ttsEnabled}
+              duringNarrationOnly={ambienceDuringNarrationOnly}
+              boostWithTTS={ambienceBoostWithTTS}
+              musicLevel={ambienceMusicLevel}
+              onChangeDuringNarrationOnly={onChangeAmbienceDuringNarrationOnly}
+              onChangeBoostWithTTS={onChangeAmbienceBoostWithTTS}
+              onChangeMusicLevel={onChangeAmbienceMusicLevel}
+            />
+            <TTSRow
+              enabled={ttsEnabled}
+              providerId={ttsProviderId}
+              providerReady={ttsProviderReady}
+              voiceId={ttsVoiceId}
+              ttsModel={ttsModel}
+              browserVoices={ttsBrowserVoices}
+              voxtralVoices={ttsVoxtralVoices}
+              voxtralVoicesError={ttsVoxtralVoicesError}
+              rate={ttsRate}
+              elevenKey={ttsElevenKey}
+              azureKey={ttsAzureKey}
+              azureRegion={ttsAzureRegion}
+              googleKey={ttsGoogleKey}
+              onChangeEnabled={onChangeTtsEnabled}
+              onChangeProvider={onChangeTtsProvider}
+              onChangeVoice={onChangeTtsVoice}
+              onChangeModel={onChangeTtsModel}
+              onChangeRate={onChangeTtsRate}
+              onChangeElevenKey={onChangeTtsElevenKey}
+              onChangeAzureKey={onChangeTtsAzureKey}
+              onChangeAzureRegion={onChangeTtsAzureRegion}
+              onChangeGoogleKey={onChangeTtsGoogleKey}
+            />
+          </div>
+
+          <div
+            id="settings-panel-codex"
+            role="tabpanel"
+            aria-labelledby="settings-tab-codex"
+            hidden={activeTab !== "codex"}
+            className="space-y-3"
+          >
+            <CodexSection settings={settings} onChange={onChange} />
+          </div>
+
+          <div
+            id="settings-panel-system"
+            role="tabpanel"
+            aria-labelledby="settings-tab-system"
+            hidden={activeTab !== "system"}
+            className="space-y-3"
+          >
+            <EngineSection settings={settings} onChange={onChange} />
+            <ApiKeysSection />
+          </div>
+
+          <div
+            id="settings-panel-proxy"
+            role="tabpanel"
+            aria-labelledby="settings-tab-proxy"
+            hidden={activeTab !== "proxy"}
+            className="space-y-3"
+          >
+            <ProxyUrlRow value={settings.proxyUrl} onChange={(v) => onChange("proxyUrl", v)} />
           </div>
         </div>
         <div
