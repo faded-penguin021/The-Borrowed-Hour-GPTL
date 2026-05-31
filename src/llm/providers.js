@@ -1,6 +1,6 @@
 // @ts-check
 import { BorrowedError } from "./errors.js";
-import { httpStatusHint, extractApiErrorMessage } from "./errors.js";
+import { httpStatusHint, extractApiErrorMessage, scrubSecrets } from "./errors.js";
 import { LOCAL_DEFAULT_URL } from "../data/constants.js";
 import { ENC_PREFIX, decryptSecret } from "../storage/encryption.js";
 
