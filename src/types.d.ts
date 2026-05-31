@@ -282,6 +282,8 @@ interface AppSettings {
   engineGM: EngineConfig;
   engineNarrator: EngineConfig;
   codex: CodexSettings;
+  /** BYOB proxy endpoint. When set, API calls route through it and browser-held key headers are stripped. */
+  proxyUrl: string;
 }
 
 // ── Storage types ─────────────────────────────────────────────────────────────

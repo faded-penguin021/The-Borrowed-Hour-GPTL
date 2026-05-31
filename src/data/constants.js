@@ -76,7 +76,8 @@ export var DEFAULT_SETTINGS = {
   engineOpening: DEFAULT_ENGINE_OPENING,
   engineGM: DEFAULT_ENGINE_GM,
   engineNarrator: DEFAULT_ENGINE_NARRATOR,
-  codex: DEFAULT_CODEX_SETTINGS
+  codex: DEFAULT_CODEX_SETTINGS,
+  proxyUrl: ""
 };
 
 export var LOCAL_DEFAULT_URL = "http://localhost:11434/v1/chat/completions";

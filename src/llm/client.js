@@ -11,9 +11,34 @@ import { scrubSecrets, extractApiErrorMessage, BorrowedError, httpStatusHint } f
  * @param {{
  *   getDefaultEngine: () => EngineConfig,
  *   onUsage: (input: number, output: number) => void,
+ *   getProxyUrl?: () => (string | undefined),
  * }} deps
  */
-export function createLLMClient({ getDefaultEngine, onUsage }) {
+export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
+  /**
+   * BYOB proxy interceptor. If the user configured a proxy URL, rewrite the
+   * request to route through their backend (`<proxy>?target=<encoded origin>`)
+   * and strip every browser-held key header so the secret never leaves the
+   * device — the proxy is expected to attach its own credentials server-side.
+   * Mutates and returns the same request object. Leaves the body untouched, so
+   * stream requests (`stream: true`) are forwarded verbatim and `streamAPI`'s
+   * SSE parsing keeps reading whatever the proxy pipes back.
+   * @template {{ url: string, headers: Record<string, string> }} T
+   * @param {T} request
+   * @returns {T}
+   */
+  const applyProxy = (request) => {
+    const proxyUrl = getProxyUrl?.()?.trim();
+    if (!proxyUrl) return request;
+    request.url = `${proxyUrl}?target=${encodeURIComponent(request.url)}`;
+    if (request.headers) {
+      delete request.headers["Authorization"];
+      delete request.headers["x-api-key"];
+      delete request.headers["x-goog-api-key"];
+    }
+    return request;
+  };
+
   /** @param {string} sys @param {ChatMessage[]} msgs @param {boolean} [useTool] @param {EngineConfig} [engine] @param {number} [maxTokens] @param {number} [temperature] @param {AbortSignal|null} [signal] @param {ToolDefinition} [tool] @returns {Promise<string>} */
   const callAPI = async (sys, msgs, useTool = false, engine = getDefaultEngine(), maxTokens = 3000, temperature = 0.6, signal = null, tool = GM_TOOL) => {
     const providerId = engine?.provider;
@@ -47,6 +72,7 @@ export function createLLMClient({ getDefaultEngine, onUsage }) {
         if (e instanceof BorrowedError) throw e;
         throw new BorrowedError("The hour falters.", `Could not build the ${meta.name} request${e?.message ? ` (${e.message})` : ""}.`);
       }
+      applyProxy(request);
       try {
         res = await fetch(request.url, {
           method: "POST",
@@ -150,6 +176,7 @@ export function createLLMClient({ getDefaultEngine, onUsage }) {
         if (e instanceof BorrowedError) throw e;
         throw new BorrowedError("The hour falters.", `Could not build the ${meta.name} request${e?.message ? ` (${e.message})` : ""}.`);
       }
+      applyProxy(request);
       let res;
       try {
         res = await fetch(request.url, {

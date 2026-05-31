@@ -78,6 +78,7 @@ export function GameProvider({ children }) {
   if (!clientRef.current) {
     clientRef.current = createLLMClient({
       getDefaultEngine: () => settingsRef.current.engineNarrator,
+      getProxyUrl: () => settingsRef.current.proxyUrl,
       onUsage: (inp, out) => {
         if (!inp && !out) return;
         sessionTokensRef.current = {
