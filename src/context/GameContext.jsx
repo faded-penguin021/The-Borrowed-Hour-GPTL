@@ -1,5 +1,5 @@
 // @ts-check
-import React, { createContext, useContext, useState, useRef, useEffect } from "react";
+import React, { createContext, useContext, useState, useRef, useEffect, useMemo } from "react";
 import { EMPTY_STATE } from "../data/constants.js";
 import { DEFAULT_LANGUAGE } from "../data/languages.js";
 import { PREMISES, NARRATION_LOADING_PHRASES, META_LOADING_PHRASES, OPENING_LOADING_PHRASES, pickPhrase } from "../data/premises.js";
@@ -10,11 +10,17 @@ import { formatError, BorrowedError } from "../llm/errors.js";
 import { createLLMClient } from "../llm/client.js";
 import { useCodex } from "../hooks/useCodex.js";
 import { useSaves } from "../hooks/useSaves.js";
+import { useLatest } from "../hooks/useLatest.js";
+import { useSettingsContext } from "./SettingsContext.jsx";
+import { useAmbienceContext } from "./AmbienceContext.jsx";
+import { useTTSContext } from "./TTSContext.jsx";
 
 const GameContext = createContext(/** @type {any} */ (null));
+const GameRunContext = createContext(/** @type {any} */ (null));
 
 /**
- * Access the core game loop: state and actions. Note that `input` is
+ * Access the low-frequency story state and actions (phase, premise, entries,
+ * history, game state, endings, saves, codex). Note that `input` is
  * deliberately NOT here — it lives locally in the composer so keystrokes never
  * re-render the narration log or any other context consumer.
  * @returns {any}
@@ -24,14 +30,27 @@ export function useGame() {
 }
 
 /**
- * Holds the core game-loop state and orchestrates the multi-agent calls.
- * The domain hooks that are also needed elsewhere (settings, ambience, TTS)
- * are passed in from `App` so they can stay shared; codex and saves are owned
- * here because only the loop drives them.
- *
- * @param {{ settings: AppSettings, ambience: any, tts: any, children: React.ReactNode }} props
+ * Access the high-frequency / transient runtime state (loading, loading phrase,
+ * error, session token tally). Kept apart from `useGame()` so transient runtime
+ * churn doesn't have to re-render consumers that only care about story state.
+ * @returns {any}
  */
-export function GameProvider({ settings, ambience, tts, children }) {
+export function useGameRun() {
+  return useContext(GameRunContext);
+}
+
+/**
+ * Holds the core game-loop state and orchestrates the multi-agent calls.
+ * Settings, ambience, and TTS come from their own contexts; codex and saves are
+ * owned here because only the loop drives them.
+ *
+ * @param {{ children: React.ReactNode }} props
+ */
+export function GameProvider({ children }) {
+  const { settings } = useSettingsContext();
+  const ambience = useAmbienceContext();
+  const tts = useTTSContext();
+
   const [phase, setPhase] = useState("title");
   const [premise, setPremise] = useState(/** @type {Premise | null} */ (null));
   const [entries, setEntries] = useState(/** @type {Entry[]} */ ([]));
@@ -50,8 +69,9 @@ export function GameProvider({ settings, ambience, tts, children }) {
   const sessionTokensRef = useRef({ input: 0, output: 0 });
 
   const abortRef = useRef(/** @type {any} */ (null));
-  const settingsRef = useRef(settings);
-  settingsRef.current = settings;
+  // Mirror settings so the long-lived API client closure always reads the
+  // freshest engine config without re-creating the client.
+  const settingsRef = useLatest(settings);
 
   // ── API layer (shared module; codex reuses callAPI) ───────────────
   const clientRef = useRef(/** @type {ReturnType<typeof createLLMClient> | null} */ (null));
@@ -621,11 +641,23 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setMetaMessages((prev) => prev.map((m, i) => i === index ? { ...m, fullyRevealed: true } : m));
   };
 
+  // High-frequency / transient runtime state. Memoized so run-only consumers
+  // (useGameRun) re-render on runtime churn without dragging the whole story
+  // value along, and vice versa.
+  const runValue = useMemo(
+    () => ({ loading, loadingPhrase, error, sessionTokens }),
+    [loading, loadingPhrase, error, sessionTokens]
+  );
+
+  // Low-frequency story state + actions. Intentionally NOT memoized: the action
+  // closures read live state each render, so rebuilding the object every render
+  // avoids stale-closure hazards. `canUndo` is derived from `loading` here, which
+  // is safe for the same reason (the object is rebuilt whenever `loading` flips).
   const value = {
     // state
     phase, premise, entries, history, gameState, language,
-    loading, error, ended, metaMode, metaMessages,
-    skipNonce, loadingPhrase, recovery, sessionTokens, canUndo,
+    ended, metaMode, metaMessages,
+    skipNonce, recovery, canUndo,
     // saves surface
     saveBanner: saves.saveBanner, setSaveBanner: saves.setSaveBanner,
     showSaves: saves.showSaves, setShowSaves: saves.setShowSaves,
@@ -643,5 +675,9 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     markEntryRevealed, markMetaRevealed,
   };
 
-  return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
+  return (
+    <GameContext.Provider value={value}>
+      <GameRunContext.Provider value={runValue}>{children}</GameRunContext.Provider>
+    </GameContext.Provider>
+  );
 }
