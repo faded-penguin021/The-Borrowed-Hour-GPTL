@@ -8,6 +8,19 @@ import {
 } from "../llm/artDirector.js";
 
 /**
+ * Runtime-tolerant view of the codex settings block. Fields are all optional
+ * because callers fall back to `{}` when `settings.codex` is absent, and `mode`
+ * is widened to `string` to accommodate legacy comparisons (e.g. "always").
+ * @typedef {Object} CodexConfig
+ * @property {string} [mode]
+ * @property {EngineConfig} [artDirectorEngine]
+ * @property {number} [maxPerSession]
+ * @property {ImageProviderId} [provider]
+ * @property {CodexProviderConfig} [providerConfig]
+ * @property {number} [timeoutMs]
+ */
+
+/**
  * @param {{
  *   callAPI: Function,
  *   settings: AppSettings,
@@ -74,6 +87,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
   };
 
   const runArtDirectorBootstrap = async (chosen, signal) => {
+    /** @type {CodexConfig} */
     const codex = settings.codex || {};
     if (codex.mode === "off") return;
     const engine = codex.artDirectorEngine || { provider: "mistral", model: "mistral-small-latest" };
@@ -94,6 +108,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
   const MAX_INFLIGHT = 2;
 
   const runArtDirectorTurn = async ({ entryIndexProvider, gmParsed, signal, opener = false }) => {
+    /** @type {CodexConfig} */
     const codex = settings.codex || {};
     if (codex.mode === "off") return;
     const cap = codex.maxPerSession ?? 12;
