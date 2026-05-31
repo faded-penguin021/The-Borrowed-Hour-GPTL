@@ -27,9 +27,11 @@ export function GameScreen({
   const {
     premise, entries, skipNonce, ended,
     metaMode, metaMessages, recovery, saveBanner, canUndo,
+    revealText, revealLoading, revealError,
     markEntryRevealed, markMetaRevealed, enterMetaMode, exitMetaMode,
     undoLastTurn, skipReveal, cancelRequest, continueNarration, restart,
-    saveCurrent, openSavesModal, exportChronicle, submit
+    saveCurrent, openSavesModal, exportChronicle, submit,
+    startReveal, cancelReveal,
   } = useGame();
   // High-frequency runtime state lives in its own context so it does not
   // re-render story-only consumers.
@@ -340,6 +342,19 @@ export function GameScreen({
                 The chronicle is closed. You may now speak with its author — ask what you missed, point out what felt amiss.
               </div>
               <div className="text-center mt-6 flex justify-center gap-3 flex-wrap">
+                {!revealText && !revealLoading && (
+                  <button
+                    onClick={startReveal}
+                    className="icon-btn"
+                    style={{
+                      padding: "10px 22px",
+                      borderColor: `var(--${premise.realm}-border)`,
+                      color: `var(--${premise.realm})`
+                    }}
+                  >
+                    ✦ UNVEIL THE HIDDEN HOUR
+                  </button>
+                )}
                 <button
                   onClick={enterMetaMode}
                   className="icon-btn"
@@ -358,6 +373,60 @@ export function GameScreen({
                   ❀ BEGIN A NEW HOUR
                 </button>
               </div>
+              {revealLoading && !revealText && (
+                <div
+                  className="mt-8 italic body-font slow-fade-in"
+                  style={{ color: "var(--cream-dim)" }}
+                >
+                  the hidden hour surfaces
+                  <span className="typing-dots">
+                    <span>.</span><span>.</span><span>.</span>
+                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); cancelReveal?.(); }}
+                    className="loading-stop-btn"
+                    aria-label="Stop this request"
+                    title="Stop this request"
+                  >
+                    STOP
+                  </button>
+                </div>
+              )}
+              {revealText && (
+                <div className="mt-8 fade-in">
+                  <div
+                    className="divider-mark display-font"
+                    style={{
+                      color: `var(--${premise.realm})`,
+                      letterSpacing: "0.35em",
+                      fontSize: "10px"
+                    }}
+                  >
+                    <span>✦ THE HIDDEN HOUR ✦</span>
+                  </div>
+                  <div
+                    className="narration-text body-font text-base mt-6"
+                    style={{ lineHeight: 1.75, fontStyle: "italic", color: "var(--cream-dim)" }}
+                  >
+                    <TypewriterText
+                      text={revealText}
+                      instant={true}
+                      scrollRef={scrollRef}
+                    />
+                    {revealLoading && (
+                      <span className="cursor-blink" aria-hidden="true" />
+                    )}
+                  </div>
+                </div>
+              )}
+              {revealError && (
+                <div
+                  className="mt-4 italic body-font"
+                  style={{ color: "var(--rose-ember)", fontSize: "13px" }}
+                >
+                  {revealError.message}
+                </div>
+              )}
             </div>
           )}
           {metaMode && (

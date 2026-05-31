@@ -10,6 +10,7 @@ import { formatError, BorrowedError } from "../llm/errors.js";
 import { createLLMClient } from "../llm/client.js";
 import { useCodex } from "../hooks/useCodex.js";
 import { useSaves } from "../hooks/useSaves.js";
+import { useReveal } from "../hooks/useReveal.js";
 import { useLatest } from "../hooks/useLatest.js";
 import { useSettingsContext } from "./SettingsContext.jsx";
 import { useAmbienceContext } from "./AmbienceContext.jsx";
@@ -94,6 +95,10 @@ export function GameProvider({ children }) {
   // ── Domain hooks owned by the loop ───────────────────────────────
   const codex = useCodex({ callAPI, settings, premise, language, setEntries });
   const saves = useSaves();
+  const reveal = useReveal({
+    streamAPI,
+    getEngine: () => settingsRef.current.engineNarrator,
+  });
 
   const { ensureAmbienceEngine, ambienceRef } = ambience;
 
@@ -587,6 +592,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setGameState(EMPTY_STATE);
     setMetaMode(false);
     setMetaMessages([]);
+    reveal.resetReveal();
     if (ambienceRef.current) ambienceRef.current.applyAmbience(null);
     tts.stopTTS();
     tts.resetTTSCursor(0);
@@ -616,6 +622,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setMetaMessages((save.metaMessages || []).map((m) => ({ ...m, fullyRevealed: true })));
     setMetaMode(!!save.metaMode);
     codex.restoreCodex(save.codex);
+    reveal.resetReveal();
     setPhase("playing");
     saves.setShowSaves(false);
     saves.setSaveBanner({ kind: "ok", text: "The hour resumes." });
@@ -638,6 +645,8 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
 
   const exportChronicle = (includeMeta = false) =>
     saves.exportChronicle({ premise, entries, ended, metaMessages }, includeMeta);
+
+  const startReveal = () => reveal.triggerReveal(premise, entries, gameState, language);
 
   const markEntryRevealed = (index) => {
     setEntries((prev) => prev.map((e, i) => i === index ? { ...e, fullyRevealed: true } : e));
@@ -671,6 +680,10 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     savesTotalBytes: saves.savesTotalBytes,
     exportFallbackText: saves.exportFallbackText, setExportFallbackText: saves.setExportFallbackText,
     openSavesModal: saves.openSavesModal, deleteSave: saves.deleteSave,
+    // reveal
+    revealText: reveal.revealText,
+    revealLoading: reveal.revealLoading,
+    revealError: reveal.revealError,
     // actions
     setLanguage,
     beginAdventure, submit, continueNarration,
@@ -678,6 +691,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     enterMetaMode, exitMetaMode,
     skipReveal, cancelRequest,
     saveCurrent, exportChronicle,
+    startReveal, cancelReveal: reveal.cancelReveal,
     markEntryRevealed, markMetaRevealed,
   };
 
