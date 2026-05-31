@@ -11,6 +11,7 @@ import { createLLMClient } from "../llm/client.js";
 import { useCodex } from "../hooks/useCodex.js";
 import { useSaves } from "../hooks/useSaves.js";
 import { useReveal } from "../hooks/useReveal.js";
+import { useKeepsake } from "../hooks/useKeepsake.js";
 import { useLatest } from "../hooks/useLatest.js";
 import { useSettingsContext } from "./SettingsContext.jsx";
 import { useAmbienceContext } from "./AmbienceContext.jsx";
@@ -99,6 +100,7 @@ export function GameProvider({ children }) {
     streamAPI,
     getEngine: () => settingsRef.current.engineNarrator,
   });
+  const keepsake = useKeepsake({ setExportFallbackText: (text) => saves.setExportFallbackText(text) });
 
   const { ensureAmbienceEngine, ambienceRef } = ambience;
 
@@ -593,6 +595,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setMetaMode(false);
     setMetaMessages([]);
     reveal.resetReveal();
+    keepsake.resetKeepsake();
     if (ambienceRef.current) ambienceRef.current.applyAmbience(null);
     tts.stopTTS();
     tts.resetTTSCursor(0);
@@ -623,6 +626,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setMetaMode(!!save.metaMode);
     codex.restoreCodex(save.codex);
     reveal.resetReveal();
+    keepsake.resetKeepsake();
     setPhase("playing");
     saves.setShowSaves(false);
     saves.setSaveBanner({ kind: "ok", text: "The hour resumes." });
@@ -647,6 +651,14 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     saves.exportChronicle({ premise, entries, ended, metaMessages }, includeMeta);
 
   const startReveal = () => reveal.triggerReveal(premise, entries, gameState, language);
+
+  const startKeepsake = () => keepsake.generateKeepsake({
+    premise, entries, revealText: reveal.revealText, metaMessages, ended
+  });
+
+  const keepsakeFilename = premise
+    ? `the-borrowed-hour-${premise.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "")}.html`
+    : "the-borrowed-hour.html";
 
   const markEntryRevealed = (index) => {
     setEntries((prev) => prev.map((e, i) => i === index ? { ...e, fullyRevealed: true } : e));
@@ -684,6 +696,11 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     revealText: reveal.revealText,
     revealLoading: reveal.revealLoading,
     revealError: reveal.revealError,
+    // keepsake
+    keepsakeBlob: keepsake.keepsakeBlob,
+    keepsakeLoading: keepsake.keepsakeLoading,
+    keepsakeError: keepsake.keepsakeError,
+    keepsakeFilename,
     // actions
     setLanguage,
     beginAdventure, submit, continueNarration,
@@ -692,6 +709,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     skipReveal, cancelRequest,
     saveCurrent, exportChronicle,
     startReveal, cancelReveal: reveal.cancelReveal,
+    startKeepsake, downloadKeepsake: keepsake.downloadKeepsake,
     markEntryRevealed, markMetaRevealed,
   };
 

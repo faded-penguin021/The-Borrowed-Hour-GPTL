@@ -28,10 +28,11 @@ export function GameScreen({
     premise, entries, skipNonce, ended,
     metaMode, metaMessages, recovery, saveBanner, canUndo,
     revealText, revealLoading, revealError,
+    keepsakeBlob, keepsakeLoading, keepsakeError, keepsakeFilename,
     markEntryRevealed, markMetaRevealed, enterMetaMode, exitMetaMode,
     undoLastTurn, skipReveal, cancelRequest, continueNarration, restart,
     saveCurrent, openSavesModal, exportChronicle, submit,
-    startReveal, cancelReveal,
+    startReveal, cancelReveal, startKeepsake, downloadKeepsake,
   } = useGame();
   // High-frequency runtime state lives in its own context so it does not
   // re-render story-only consumers.
@@ -372,6 +373,46 @@ export function GameScreen({
                 <button onClick={restart} className="icon-btn" style={{ padding: "10px 22px" }}>
                   ❀ BEGIN A NEW HOUR
                 </button>
+                {!keepsakeBlob && !keepsakeLoading && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); startKeepsake(); }}
+                    className="icon-btn"
+                    style={{ padding: "10px 22px" }}
+                    title="Generate a self-contained HTML keepsake of this chronicle"
+                  >
+                    ❀ GENERATE BOOK
+                  </button>
+                )}
+                {keepsakeLoading && (
+                  <button disabled className="icon-btn" style={{ padding: "10px 22px", opacity: 0.6 }}>
+                    binding the hour
+                    <span className="typing-dots" style={{ marginLeft: "6px" }}>
+                      <span>.</span><span>.</span><span>.</span>
+                    </span>
+                  </button>
+                )}
+                {keepsakeBlob && !keepsakeLoading && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); downloadKeepsake(keepsakeFilename); }}
+                    className="icon-btn"
+                    style={{
+                      padding: "10px 22px",
+                      borderColor: `var(--${premise.realm}-border)`,
+                      color: `var(--${premise.realm})`
+                    }}
+                    title="Download the HTML keepsake file"
+                  >
+                    ✦ TAP TO SAVE FILE
+                  </button>
+                )}
+                {keepsakeError && (
+                  <div
+                    className="body-font italic"
+                    style={{ fontSize: "12px", color: "var(--rose-ember)", width: "100%", textAlign: "center", marginTop: "4px" }}
+                  >
+                    {keepsakeError}
+                  </div>
+                )}
               </div>
               {revealLoading && !revealText && (
                 <div
