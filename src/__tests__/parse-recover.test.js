@@ -39,6 +39,20 @@ describe("extractJSONBlock", () => {
       .toEqual({ a: "hello" });
   });
 
+  it("repairs trailing commas (bare and fenced)", () => {
+    expect(extractJSONBlock('{"a":1,"b":2,}')).toEqual({ a: 1, b: 2 });
+    expect(extractJSONBlock('```json\n{"a":1,}\n```')).toEqual({ a: 1 });
+  });
+
+  it("repairs smart quotes", () => {
+    expect(extractJSONBlock('{“key”: “value”}')).toEqual({ key: "value" });
+  });
+
+  it("escapes raw newlines inside strings (bare and fenced)", () => {
+    expect(extractJSONBlock('{"text":"line1\nline2"}')).toEqual({ text: "line1\nline2" });
+    expect(extractJSONBlock('```json\n{"text":"a\nb"}\n```')).toEqual({ text: "a\nb" });
+  });
+
   it("returns null for input with no JSON", () => {
     expect(extractJSONBlock("just some random text with no JSON at all")).toBeNull();
   });
