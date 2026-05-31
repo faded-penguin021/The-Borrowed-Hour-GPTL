@@ -1,6 +1,6 @@
 // @ts-check
 import { sanitizeAmbience } from "../ambience/tables.js";
-import { VALID_ENDINGS } from "../data/constants.js";
+import { GMLogicResponseSchema, GMResponseSchema } from "./schemas.js";
 
 /**
  * @param {...unknown} candidates
@@ -29,51 +29,28 @@ export function tryParseJSON(text) {
 }
 
 /**
- * @param {string} text
- * @returns {string}
+ * Simple JSON block extractor: strip markdown fences, attempt a direct parse,
+ * and fall back to slicing from the first `{` to the last `}`. No regex repair
+ * or balanced-brace scanning — malformed payloads are surfaced via Zod instead.
+ * @param {string} rawText
+ * @returns {any}
  */
-export function repairJSON(text) {
-  let t = text;
-  t = t.replace(/,(\s*[}\]])/g, "$1");
-  t = t.replace(/[“”]/g, '"');
-  let out = "";
-  let inStr = false;
-  let escaped = false;
-  for (let i = 0;i < t.length; i++) {
-    const ch = t[i];
-    if (escaped) {
-      out += ch;
-      escaped = false;
-      continue;
-    }
-    if (ch === "\\") {
-      out += ch;
-      escaped = true;
-      continue;
-    }
-    if (ch === '"') {
-      inStr = !inStr;
-      out += ch;
-      continue;
-    }
-    if (inStr) {
-      if (ch === `
-`) {
-        out += "\\n";
-        continue;
-      }
-      if (ch === "\r") {
-        out += "\\r";
-        continue;
-      }
-      if (ch === "\t") {
-        out += "\\t";
-        continue;
-      }
-    }
-    out += ch;
+export function extractJSONBlock(rawText) {
+  let text = (rawText || "").trim();
+  text = text.replace(/^\s*[`~]{3}[ \t]*[a-zA-Z]*[ \t]*\r?\n?/, "");
+  text = text.replace(/\r?\n?[ \t]*[`~]{3}[ \t]*$/, "");
+  text = text.trim();
+
+  let parsed = tryParseJSON(text);
+  if (parsed) return parsed;
+
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first >= 0 && last > first) {
+    parsed = tryParseJSON(text.slice(first, last + 1));
+    if (parsed) return parsed;
   }
-  return out;
+  return null;
 }
 
 /**
@@ -102,96 +79,30 @@ export function buildParseDiagnostic(rawText, parsed, reasonGuess) {
 }
 
 /**
- * @param {unknown} s
- * @returns {GameState}
+ * Render Zod validation issues into a compact, field-keyed diagnostic so the
+ * corrective prompt tells the model exactly which schema field it violated.
+ * @param {import("zod").ZodError} error
+ * @returns {string}
  */
-export function normalizeGameState(s) {
-  const safe = /** @type {any} */ (s && typeof s === "object" ? s : {});
-  return {
-    scene: typeof safe.scene === "string" ? safe.scene : "",
-    time: typeof safe.time === "string" ? safe.time : "",
-    inventory: Array.isArray(safe.inventory) ? safe.inventory.filter((x) => typeof x === "string") : [],
-    npcs: Array.isArray(safe.npcs) ? safe.npcs.filter((x) => x && typeof x === "object").map((x) => ({
-      name: typeof x.name === "string" ? x.name : "",
-      note: typeof x.note === "string" ? x.note : ""
-    })).filter((x) => x.name) : [],
-    clues: Array.isArray(safe.clues) ? safe.clues.filter((x) => typeof x === "string") : [],
-    summary: typeof safe.summary === "string" ? safe.summary : "",
-    hidden_state: typeof safe.hidden_state === "string" ? safe.hidden_state : ""
-  };
+export function formatZodDiagnostic(error) {
+  return error.issues
+    .map((issue) => {
+      const path = issue.path.length ? issue.path.join(".") : "(root)";
+      return `${path}: ${issue.message}`;
+    })
+    .join("; ");
 }
 
 /**
- * @param {string} text
- * @param {number} start
- * @returns {number}
+ * Resolve the explicit-null / present / absent semantics for ambience the same
+ * way the previous parser did, then sanitize any present value.
+ * @param {any} obj
+ * @returns {AmbienceInput | null | undefined}
  */
-export function findBalancedJSONEnd(text, start) {
-  let depth = 0;
-  let inStr = false;
-  let escaped = false;
-  for (let i = start; i < text.length; i++) {
-    const ch = text[i];
-    if (escaped) { escaped = false; continue; }
-    if (inStr) {
-      if (ch === "\\") { escaped = true; continue; }
-      if (ch === '"') { inStr = false; }
-      continue;
-    }
-    if (ch === '"') { inStr = true; continue; }
-    if (ch === "{") depth++;
-    else if (ch === "}") {
-      depth--;
-      if (depth === 0) return i;
-    }
-  }
-  return -1;
-}
-
-const MAX_REPAIR_LENGTH = 200_000;
-
-/**
- * Multi-stage JSON recovery: strip fences → direct parse → balanced extract →
- * last-brace extract → repair pass → repeat extraction on repaired text.
- * @param {string} rawText
- * @returns {{ parsed: any, repaired: boolean }}
- */
-export function recoverJSON(rawText) {
-  let text = (rawText || "").trim();
-  text = text.replace(/^\s*[`~]{3}[ \t]*[a-zA-Z]*[ \t]*\r?\n?/, "");
-  text = text.replace(/\r?\n?[ \t]*[`~]{3}[ \t]*$/, "");
-  text = text.trim();
-
-  let parsed = tryParseJSON(text);
-  if (parsed) return { parsed, repaired: false };
-
-  const first = text.indexOf("{");
-  if (first >= 0) {
-    const end = findBalancedJSONEnd(text, first);
-    if (end > first) parsed = tryParseJSON(text.slice(first, end + 1));
-    if (!parsed) {
-      const last = text.lastIndexOf("}");
-      if (last > first) parsed = tryParseJSON(text.slice(first, last + 1));
-    }
-  }
-  if (parsed) return { parsed, repaired: false };
-
-  if (text.length > MAX_REPAIR_LENGTH) return { parsed: null, repaired: false };
-
-  const repaired = repairJSON(text);
-  parsed = tryParseJSON(repaired);
-  if (!parsed) {
-    const first2 = repaired.indexOf("{");
-    if (first2 >= 0) {
-      const end2 = findBalancedJSONEnd(repaired, first2);
-      if (end2 > first2) parsed = tryParseJSON(repaired.slice(first2, end2 + 1));
-      if (!parsed) {
-        const last2 = repaired.lastIndexOf("}");
-        if (last2 > first2) parsed = tryParseJSON(repaired.slice(first2, last2 + 1));
-      }
-    }
-  }
-  return { parsed: parsed || null, repaired: !!parsed };
+function resolveAmbience(obj) {
+  if (!obj || !("ambience" in obj)) return undefined;
+  if (obj.ambience === null) return null;
+  return sanitizeAmbience(obj.ambience);
 }
 
 /**
@@ -199,26 +110,31 @@ export function recoverJSON(rawText) {
  * @returns {GMLogicParseResult}
  */
 export function parseGMLogicResponse(rawText) {
-  const { parsed } = recoverJSON(rawText);
-
-  if (!parsed || typeof parsed !== "object") {
-    return { narrator_brief: "", state: null, ending: null, raw: rawText, malformed: true, diagnostic: buildParseDiagnostic(rawText, parsed, "Malformed GM logic response — could not parse JSON.") };
+  const obj = extractJSONBlock(rawText);
+  if (!obj || typeof obj !== "object") {
+    return { narrator_brief: "", state: null, ending: null, raw: rawText, malformed: true, diagnostic: buildParseDiagnostic(rawText, obj, "Malformed GM logic response — could not parse JSON.") };
   }
 
-  const narratorBrief = firstString(parsed.narrator_brief, parsed.narration, parsed.brief, parsed.text);
-  const stateOk = parsed.state && typeof parsed.state === "object";
-
-  if (!narratorBrief || !stateOk) {
-    const missing = [];
-    if (!narratorBrief) missing.push("narrator_brief (also tried: narration, brief, text)");
-    if (!stateOk) missing.push("state");
-    return { narrator_brief: "", state: null, ending: null, raw: rawText, malformed: true, diagnostic: buildParseDiagnostic(rawText, parsed, `GM logic response missing required field(s): ${missing.join(", ")}.`) };
+  // Accept the legacy field aliases for the brief before strict validation.
+  const candidate = { ...obj };
+  if (typeof candidate.narrator_brief !== "string" || !candidate.narrator_brief.trim()) {
+    const alt = firstString(obj.narrator_brief, obj.narration, obj.brief, obj.text);
+    if (alt) candidate.narrator_brief = alt;
   }
 
-  const ending = typeof parsed.ending === "string" && parsed.ending.trim() ? parsed.ending.trim() : null;
-  const ambience = "ambience" in parsed ? sanitizeAmbience(parsed.ambience) : undefined;
-  const ambienceExplicitNull = parsed.ambience === null;
-  return { narrator_brief: narratorBrief, state: normalizeGameState(parsed.state), ending, ambience: ambienceExplicitNull ? null : ambience, raw: rawText, malformed: false };
+  const result = GMLogicResponseSchema.safeParse(candidate);
+  if (!result.success) {
+    return { narrator_brief: "", state: null, ending: null, raw: rawText, malformed: true, diagnostic: buildParseDiagnostic(rawText, obj, `GM logic response failed schema validation — ${formatZodDiagnostic(result.error)}`) };
+  }
+
+  return {
+    narrator_brief: result.data.narrator_brief,
+    state: result.data.state,
+    ending: result.data.ending ?? null,
+    ambience: resolveAmbience(obj),
+    raw: rawText,
+    malformed: false
+  };
 }
 
 /**
@@ -226,35 +142,37 @@ export function parseGMLogicResponse(rawText) {
  * @returns {GMParseResult}
  */
 export function parseGMResponse(rawText) {
-  const { parsed, repaired } = recoverJSON(rawText);
-
-  if (repaired && typeof console !== "undefined" && console.warn) {
-    console.warn("[borrowed] GM response recovered via JSON repair pass");
-  }
-  const narration = parsed && typeof parsed === "object"
-    ? firstString(parsed.narration, parsed.narrator_brief, parsed.brief, parsed.text)
-    : "";
-  if (!parsed || typeof parsed !== "object" || !narration) {
+  const obj = extractJSONBlock(rawText);
+  if (!obj || typeof obj !== "object") {
     if (typeof console !== "undefined" && console.warn) {
       console.warn("[borrowed] Malformed GM response", { raw: rawText });
     }
-    const reasonGuess = parsed && typeof parsed === "object" && !narration
-      ? "Parsed object had no usable narration field (tried: narration, narrator_brief, brief, text)."
-      : null;
-    return {
-      narration: "",
-      state: null,
-      ending: null,
-      raw: rawText,
-      malformed: true,
-      diagnostic: buildParseDiagnostic(rawText, parsed, reasonGuess)
-    };
+    return { narration: "", state: null, ending: null, raw: rawText, malformed: true, diagnostic: buildParseDiagnostic(rawText, obj, "Malformed GM response — could not parse JSON.") };
   }
-  const state = normalizeGameState(parsed.state);
-  const ending = VALID_ENDINGS.has(parsed.ending) ? parsed.ending : null;
-  const ambience = "ambience" in parsed ? sanitizeAmbience(parsed.ambience) : undefined;
-  const ambienceExplicitNull = parsed.ambience === null;
-  return { narration, state, ending, ambience: ambienceExplicitNull ? null : ambience, raw: rawText, malformed: false };
+
+  // Accept the legacy field aliases for the narration before strict validation.
+  const candidate = { ...obj };
+  if (typeof candidate.narration !== "string" || !candidate.narration.trim()) {
+    const alt = firstString(obj.narration, obj.narrator_brief, obj.brief, obj.text);
+    if (alt) candidate.narration = alt;
+  }
+
+  const result = GMResponseSchema.safeParse(candidate);
+  if (!result.success) {
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn("[borrowed] Malformed GM response", { raw: rawText });
+    }
+    return { narration: "", state: null, ending: null, raw: rawText, malformed: true, diagnostic: buildParseDiagnostic(rawText, obj, `GM response failed schema validation — ${formatZodDiagnostic(result.error)}`) };
+  }
+
+  return {
+    narration: result.data.narration,
+    state: result.data.state,
+    ending: result.data.ending ?? null,
+    ambience: resolveAmbience(obj),
+    raw: rawText,
+    malformed: false
+  };
 }
 
 /**

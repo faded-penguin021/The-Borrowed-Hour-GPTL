@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
-  recoverJSON, repairJSON, tryParseJSON,
-  findBalancedJSONEnd, normalizeGameState, parseGMResponse, parseGMLogicResponse
+  tryParseJSON, extractJSONBlock,
+  parseGMResponse, parseGMLogicResponse, isStateEmpty
 } from "../llm/parse.js";
+import { GameStateSchema, GMLogicResponseSchema } from "../llm/schemas.js";
 
 describe("tryParseJSON", () => {
   it("returns parsed object for valid JSON", () => {
@@ -14,86 +15,42 @@ describe("tryParseJSON", () => {
   });
 });
 
-describe("repairJSON", () => {
-  it("strips trailing commas", () => {
-    expect(JSON.parse(repairJSON('{"a":1,}'))).toEqual({ a: 1 });
-    expect(JSON.parse(repairJSON('[1,2,]'))).toEqual([1, 2]);
-  });
-  it("normalizes smart quotes", () => {
-    const input = '{“key”: “value”}';
-    expect(JSON.parse(repairJSON(input))).toEqual({ key: "value" });
-  });
-  it("escapes raw newlines inside strings", () => {
-    const input = '{"text":"line1\nline2"}';
-    const result = repairJSON(input);
-    expect(JSON.parse(result)).toEqual({ text: "line1\nline2" });
-  });
-  it("leaves valid JSON unchanged (structurally)", () => {
-    const valid = '{"a":"b","c":[1,2]}';
-    expect(JSON.parse(repairJSON(valid))).toEqual(JSON.parse(valid));
-  });
-});
-
-describe("findBalancedJSONEnd", () => {
-  it("finds the closing brace of a simple object", () => {
-    const text = '{"a":1}';
-    expect(findBalancedJSONEnd(text, 0)).toBe(6);
-  });
-  it("handles nested objects", () => {
-    const text = '{"a":{"b":2}}';
-    expect(findBalancedJSONEnd(text, 0)).toBe(12);
-  });
-  it("ignores braces inside strings", () => {
-    const text = '{"a":"{}"}';
-    expect(findBalancedJSONEnd(text, 0)).toBe(9);
-  });
-  it("returns -1 for unterminated object", () => {
-    expect(findBalancedJSONEnd('{"a":1', 0)).toBe(-1);
-  });
-});
-
-describe("recoverJSON", () => {
+describe("extractJSONBlock", () => {
   it("parses clean JSON directly", () => {
-    const { parsed, repaired } = recoverJSON('{"narration":"hello","state":{}}');
-    expect(parsed).toEqual({ narration: "hello", state: {} });
-    expect(repaired).toBe(false);
+    expect(extractJSONBlock('{"narration":"hello","state":{}}'))
+      .toEqual({ narration: "hello", state: {} });
   });
 
   it("strips markdown fences", () => {
-    const { parsed } = recoverJSON('```json\n{"a":1}\n```');
-    expect(parsed).toEqual({ a: 1 });
+    expect(extractJSONBlock('```json\n{"a":1}\n```')).toEqual({ a: 1 });
   });
 
   it("extracts JSON embedded in prose", () => {
-    const { parsed } = recoverJSON('Here is the response:\n{"key":"value"}\nEnd.');
-    expect(parsed).toEqual({ key: "value" });
+    expect(extractJSONBlock('Here is the response:\n{"key":"value"}\nEnd.'))
+      .toEqual({ key: "value" });
   });
 
-  it("recovers via repair pass (trailing comma)", () => {
-    const { parsed, repaired } = recoverJSON('Some text {"a":1, "b":2,}');
-    expect(parsed).toEqual({ a: 1, b: 2 });
-    expect(repaired).toBe(true);
-  });
-
-  it("returns null for truly broken input", () => {
-    const { parsed } = recoverJSON("just some random text with no JSON at all");
-    expect(parsed).toBeNull();
+  it("returns null for input with no JSON", () => {
+    expect(extractJSONBlock("just some random text with no JSON at all")).toBeNull();
   });
 
   it("returns null for empty input", () => {
-    const { parsed } = recoverJSON("");
-    expect(parsed).toBeNull();
-  });
-
-  it("handles truncated JSON via last-brace fallback", () => {
-    const { parsed } = recoverJSON('{"a":"hello"} extra garbage } more');
-    expect(parsed).toEqual({ a: "hello" });
+    expect(extractJSONBlock("")).toBeNull();
   });
 });
 
-describe("normalizeGameState", () => {
-  it("normalizes a complete state", () => {
-    const state = normalizeGameState({
+describe("GameStateSchema", () => {
+  it("defaults missing arrays to empty", () => {
+    const state = GameStateSchema.parse({ scene: "room", time: "noon" });
+    expect(state.inventory).toEqual([]);
+    expect(state.npcs).toEqual([]);
+    expect(state.clues).toEqual([]);
+    expect(state.summary).toBe("");
+    expect(state.hidden_state).toBe("");
+  });
+
+  it("parses a complete state", () => {
+    const state = GameStateSchema.parse({
       scene: "A dark room", time: "midnight",
       inventory: ["key", "torch"], npcs: [{ name: "Elias", note: "guard" }],
       clues: ["footprints"], summary: "ongoing", hidden_state: "secret"
@@ -103,21 +60,19 @@ describe("normalizeGameState", () => {
     expect(state.npcs[0].name).toBe("Elias");
   });
 
-  it("handles null/undefined gracefully", () => {
-    const state = normalizeGameState(null);
-    expect(state.scene).toBe("");
-    expect(state.inventory).toEqual([]);
-    expect(state.npcs).toEqual([]);
+  it("rejects a non-string inventory item", () => {
+    expect(GameStateSchema.safeParse({ inventory: ["torch", 42] }).success).toBe(false);
   });
+});
 
-  it("filters non-string inventory items", () => {
-    const state = normalizeGameState({ inventory: ["torch", 42, null, "key"] });
-    expect(state.inventory).toEqual(["torch", "key"]);
+describe("GMLogicResponseSchema", () => {
+  it("requires a non-empty narrator_brief", () => {
+    expect(GMLogicResponseSchema.safeParse({ narrator_brief: "", state: {} }).success).toBe(false);
   });
-
-  it("filters NPCs without names", () => {
-    const state = normalizeGameState({ npcs: [{ name: "Ada", note: "x" }, { note: "no name" }] });
-    expect(state.npcs).toHaveLength(1);
+  it("coerces an unknown ending to null", () => {
+    const r = GMLogicResponseSchema.safeParse({ narrator_brief: "b", state: {}, ending: "weird" });
+    expect(r.success).toBe(true);
+    expect(r.data.ending).toBeNull();
   });
 });
 
@@ -131,6 +86,7 @@ describe("parseGMResponse", () => {
     expect(result.malformed).toBe(false);
     expect(result.narration).toBe("The door creaks open.");
     expect(result.state.scene).toBe("hallway");
+    expect(result.state.inventory).toEqual([]);
   });
 
   it("marks missing narration as malformed", () => {
@@ -159,6 +115,7 @@ describe("parseGMLogicResponse", () => {
     const result = parseGMLogicResponse(raw);
     expect(result.malformed).toBe(false);
     expect(result.narrator_brief).toBe("The guard steps forward.");
+    expect(result.state.npcs).toEqual([]);
   });
 
   it("tries alternate field names for narrator_brief", () => {
@@ -176,5 +133,15 @@ describe("parseGMLogicResponse", () => {
     const result = parseGMLogicResponse(raw);
     expect(result.malformed).toBe(true);
     expect(result.diagnostic).toContain("state");
+  });
+});
+
+describe("isStateEmpty", () => {
+  it("treats null and a blank state as empty", () => {
+    expect(isStateEmpty(null)).toBe(true);
+    expect(isStateEmpty(GameStateSchema.parse({}))).toBe(true);
+  });
+  it("treats a populated state as non-empty", () => {
+    expect(isStateEmpty(GameStateSchema.parse({ scene: "room" }))).toBe(false);
   });
 });
