@@ -3,6 +3,7 @@ import { BorrowedError } from "./errors.js";
 import { httpStatusHint, extractApiErrorMessage, scrubSecrets } from "./errors.js";
 import { LOCAL_DEFAULT_URL } from "../data/constants.js";
 import { ENC_PREFIX, decryptSecret } from "../storage/encryption.js";
+import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase } from "../passphrase.js";
 
 // GM_TOOL circular-dependency break: tools.js imports from providers.js, and
 // providers.js needs GM_TOOL (defined in tools.js) only inside buildStreamRequest
@@ -223,16 +224,17 @@ export var getProviderKey = async (id) => {
   if (stored) {
     if (!stored.startsWith(ENC_PREFIX))
       return stored.trim();
-    if (!window.__sessionPassphrase) {
+    if (!getSessionPassphrase()) {
       const { requestPassphrase } = await import("../passphrase.js");
-      window.__sessionPassphrase = await requestPassphrase("Enter your session passphrase to unlock API keys:");
+      setSessionPassphrase(await requestPassphrase("Enter your session passphrase to unlock API keys:"));
     }
-    if (!window.__sessionPassphrase)
+    const passphrase = getSessionPassphrase();
+    if (!passphrase)
       throw new BorrowedError("The hour cannot open yet.", "A session passphrase is required to unlock your API key.");
     try {
-      return (await decryptSecret(stored, window.__sessionPassphrase)).trim();
+      return (await decryptSecret(stored, passphrase)).trim();
     } catch {
-      window.__sessionPassphrase = null;
+      clearSessionPassphrase();
       throw new BorrowedError("The hour cannot open yet.", "Could not unlock the API key — wrong passphrase. Try again.");
     }
   }

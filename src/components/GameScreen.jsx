@@ -29,9 +29,9 @@ export function GameScreen({
     metaMode, metaMessages, recovery, saveBanner, canUndo,
     revealText, revealLoading, revealError,
     keepsakeBlob, keepsakeLoading, keepsakeError, keepsakeFilename,
-    markEntryRevealed, markMetaRevealed, enterMetaMode, exitMetaMode,
+    markEntryRevealed, markMetaRevealed, enterMetaMode,
     undoLastTurn, skipReveal, cancelRequest, continueNarration, restart,
-    saveCurrent, openSavesModal, exportChronicle, submit,
+    saveCurrent, openSavesModal, exportChronicle,
     startReveal, cancelReveal, startKeepsake, downloadKeepsake,
   } = useGame();
   // High-frequency runtime state lives in its own context so it does not
@@ -592,14 +592,7 @@ export function GameScreen({
           )}
         </div>
       </div>
-      <GameComposer
-        onSubmit={submit}
-        premise={premise}
-        metaMode={metaMode}
-        ended={ended}
-        loading={loading}
-        onExitMeta={exitMetaMode}
-      />
+      <GameComposer />
     </div>
   );
 }

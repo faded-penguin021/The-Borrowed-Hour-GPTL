@@ -35,7 +35,7 @@ import {
 
 export class AmbienceEngine {
   constructor() {
-    const AC = window.AudioContext || window.webkitAudioContext;
+    const AC = window.AudioContext || /** @type {any} */ (window).webkitAudioContext;
     if (!AC) throw new Error("Web Audio API unavailable");
     this.ctx = new AC();
     this.intensity = "off";

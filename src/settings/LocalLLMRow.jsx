@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { LOCAL_DEFAULT_URL } from "../data/constants.js";
 import { encryptSecret } from "../storage/encryption.js";
 import { PROVIDER_META } from "../llm/providers.js";
-import { requestPassphrase } from "../passphrase.js";
+import { requestPassphrase, getSessionPassphrase, setSessionPassphrase } from "../passphrase.js";
 
 /** No props. */
 export function LocalLLMRow() {
@@ -27,11 +27,11 @@ export function LocalLLMRow() {
   const saveKey = async () => {
     const trimmed = key.trim();
     if (!trimmed) return;
-    let passphrase = window.__sessionPassphrase;
+    let passphrase = getSessionPassphrase();
     if (!passphrase) {
       passphrase = await requestPassphrase("Set a session passphrase to encrypt your API keys:");
       if (!passphrase) return;
-      window.__sessionPassphrase = passphrase;
+      setSessionPassphrase(passphrase);
     }
     localStorage.setItem(meta.keyStorage, await encryptSecret(trimmed, passphrase));
     setKey("");

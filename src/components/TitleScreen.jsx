@@ -3,12 +3,14 @@ import React from "react";
 import { realmGlyph, PREMISES } from "../data/premises.js";
 import { TOTAL_ENDINGS } from "../hooks/useProgress.js";
 import { LANGUAGES } from "../data/languages.js";
-import { useGame, useGameRun } from "../context/GameContext.jsx";
+import { useGameActions, useGameStory, useGameRun } from "../context/GameContext.jsx";
 import { ErrorRawDetail } from "./ErrorRawDetail.jsx";
 
 /**
- * Modal toggles come from `App`; the rest (premise choice, language, saves,
- * loading/error) comes from `useGame()`.
+ * Modal toggles come from `App`; the rest comes from the narrow game hooks:
+ * actions (premise choice, saves, language setter, endings) from
+ * `useGameActions()`, `language` from `useGameStory()`, loading/error from
+ * `useGameRun()`.
  *
  * @param {Object} props
  * @param {() => void} props.onOpenCustom
@@ -18,10 +20,10 @@ export function TitleScreen({ onOpenCustom, onOpenSettings }) {
   const {
     beginAdventure: onChoose,
     openSavesModal: onOpenSaves,
-    language,
     setLanguage: onChangeLanguage,
     getDiscoveredEndings,
-  } = useGame();
+  } = useGameActions();
+  const { language } = useGameStory();
   const { loading, error } = useGameRun();
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center px-6 py-16">

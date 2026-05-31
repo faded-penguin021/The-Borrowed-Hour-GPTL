@@ -1,6 +1,7 @@
 // @ts-check
 import { useState } from "react";
 import { SAVE_PREFIX, SAVE_CAP, estimateSize, formatKB, formatTokens } from "../data/constants.js";
+import { putImage, deleteImagesForSave } from "../storage/imageStore";
 
 /**
  * @returns {{
@@ -67,30 +68,6 @@ export function useSaves() {
     if (!premise || entries.length === 0) return;
     const id = Date.now().toString(36);
     const key = SAVE_PREFIX + id;
-    const payload = {
-      id,
-      premiseId: premise.id,
-      premise,
-      title: premise.title,
-      realm: premise.realm,
-      realmLabel: premise.realmLabel,
-      isCustom: !!premise.isCustom,
-      savedAt: Date.now(),
-      turns: entries.filter((e) => e.type === "action").length,
-      ended,
-      gameState,
-      entries: entries.map((e) => {
-        const ill = e.illustration && e.illustration.status === "ready" && typeof e.illustration.url === "string" && e.illustration.url.startsWith("data:")
-          ? e.illustration
-          : undefined;
-        return { ...e, fullyRevealed: true, illustration: ill };
-      }),
-      history,
-      metaMessages: metaMessages.map((m) => ({ ...m, fullyRevealed: true })),
-      metaMode,
-      language,
-      codex
-    };
     try {
       const existing = await window.storage.list(SAVE_PREFIX);
       const existingCount = existing?.keys?.length || 0;
@@ -103,6 +80,54 @@ export function useSaves() {
         return;
       }
     } catch {}
+    // Persist illustration bytes as Blobs in IndexedDB (keyed `${id}:${index}`),
+    // leaving only a tiny `idb:` marker in the save JSON. This keeps the
+    // localStorage record small so a few illustrated saves can't blow the 5MB
+    // cap. Falls back to inlining `data:` (today's behavior) if a write fails.
+    const processedEntries = await Promise.all(entries.map(async (e, i) => {
+      const ill = e.illustration;
+      const base = { ...e, fullyRevealed: true };
+      if (!ill || ill.status !== "ready" || typeof ill.url !== "string") {
+        return { ...base, illustration: undefined };
+      }
+      if (ill.url.startsWith("idb:")) {
+        // Already persisted (re-saving a save that never rehydrated); keep marker.
+        return base;
+      }
+      if (ill.url.startsWith("blob:") || ill.url.startsWith("data:")) {
+        try {
+          const res = await fetch(ill.url);
+          const blob = await res.blob();
+          const imgKey = `${id}:${i}`;
+          await putImage(imgKey, blob);
+          return { ...base, illustration: { ...ill, url: `idb:${imgKey}` } };
+        } catch {
+          // IndexedDB unavailable/failed: inline `data:` as before; a `blob:`
+          // can't be persisted as text, so drop it rather than bloat the save.
+          return { ...base, illustration: ill.url.startsWith("data:") ? ill : undefined };
+        }
+      }
+      return { ...base, illustration: undefined };
+    }));
+    const payload = {
+      id,
+      premiseId: premise.id,
+      premise,
+      title: premise.title,
+      realm: premise.realm,
+      realmLabel: premise.realmLabel,
+      isCustom: !!premise.isCustom,
+      savedAt: Date.now(),
+      turns: entries.filter((e) => e.type === "action").length,
+      ended,
+      gameState,
+      entries: processedEntries,
+      history,
+      metaMessages: metaMessages.map((m) => ({ ...m, fullyRevealed: true })),
+      metaMode,
+      language,
+      codex
+    };
     const serialized = JSON.stringify(payload);
     const size = estimateSize(serialized);
     try {
@@ -113,6 +138,9 @@ export function useSaves() {
       });
       await loadSaveList();
     } catch (e) {
+      // The text record failed to land; release any blobs we just wrote for it
+      // so they don't linger orphaned in IndexedDB.
+      deleteImagesForSave(id);
       const msg = e && e.message || "";
       const looksQuota = /quota|limit|too large|size|5\s*mb/i.test(msg);
       setSaveBanner({
@@ -126,6 +154,9 @@ export function useSaves() {
     e.stopPropagation();
     try {
       await window.storage.delete(key);
+      // Free the released hour's illustration blobs. The save id is the key tail.
+      const saveId = key.startsWith(SAVE_PREFIX) ? key.slice(SAVE_PREFIX.length) : key;
+      deleteImagesForSave(saveId);
       await loadSaveList();
     } catch {}
   };

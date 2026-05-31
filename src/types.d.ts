@@ -320,7 +320,6 @@ interface StorageShim {
 
 interface Window {
   storage: StorageShim;
-  __sessionPassphrase?: string;
   puter?: any;
 }
 
