@@ -16,7 +16,7 @@ import { useTTSContext } from "../../context/TTSContext.jsx";
  * @param {{ onClose: () => void }} props
  */
 export function SettingsModal({ onClose }) {
-  const { settings, updateSetting } = useSettingsContext();
+  const { settings, updateSetting, osReducedMotion } = useSettingsContext();
   const onChange = updateSetting;
   const ambience = useAmbienceContext();
   const tts = useTTSContext();
