@@ -107,6 +107,10 @@ describe("AmbienceEngine — procedural bed", () => {
     eng._fireKick(0.5);
     eng._fireSnare(0.3);
     eng._fireHat(0.2);
+    eng._fireTom(0.4);
+    eng._fireRim(0.2);
+    eng._fireShaker(0.15);
+    eng._fireBrush(0.12);
     eng.destroy();
     expect(true).toBe(true);
   });

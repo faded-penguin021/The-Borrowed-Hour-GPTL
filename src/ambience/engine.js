@@ -20,6 +20,7 @@ import {
   AMBIENCE_MOOD_INSTRUMENTATION,
   AMBIENCE_MOOD_DRUM_PATTERN,
   AMBIENCE_MOOD_DRUM_GAIN,
+  AMBIENCE_MOOD_DRUM_BPM,
   AMBIENCE_SPACE_RECIPES,
   AMBIENCE_POPULATION_RECIPES,
   AMBIENCE_EVENT_RECIPES,
@@ -340,7 +341,7 @@ export class AmbienceEngine {
   }
   _fireBow(freq, dur) { this._fireStringNote(freq, "bow", dur); }
   _firePizz(freq)     { this._fireStringNote(freq, "pizz", 0.4); }
-  // ── Drums: kick, snare, hat ──────────────────────────────────────
+  // ── Drums: kick, snare, hat, tom, rim, shaker, brush ───────────
   _fireKick(peak) {
     if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
     const ctx = this.ctx;
@@ -353,7 +354,6 @@ export class AmbienceEngine {
     g.gain.setValueAtTime(0, now);
     g.gain.linearRampToValueAtTime(p, now + 0.005);
     g.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
-    // Kick stays dry — route past the lane wet send.
     o.connect(g); g.connect(this.drums.dry);
     o.onended = () => { try { g.disconnect(); } catch (_) {} };
     o.start(now); o.stop(now + 0.22);
@@ -392,6 +392,76 @@ export class AmbienceEngine {
     src.onended = () => { try { hp.disconnect(); } catch (_) {} try { g.disconnect(); } catch (_) {} };
     src.start(now); src.stop(now + 0.08);
   }
+  _fireTom(peak) {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const o = ctx.createOscillator(); o.type = "sine";
+    o.frequency.setValueAtTime(90, now);
+    o.frequency.exponentialRampToValueAtTime(50, now + 0.35);
+    const g = ctx.createGain();
+    const p = peak || 0.5;
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(p, now + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.40);
+    o.connect(g); g.connect(this.drums.out);
+    o.onended = () => { try { g.disconnect(); } catch (_) {} };
+    o.start(now); o.stop(now + 0.42);
+  }
+  _fireRim(peak) {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const o = ctx.createOscillator(); o.type = "triangle";
+    o.frequency.value = 800;
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass"; bp.frequency.value = 900; bp.Q.value = 3;
+    const g = ctx.createGain();
+    const p = peak || 0.3;
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(p, now + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    o.connect(bp); bp.connect(g); g.connect(this.drums.out);
+    o.onended = () => { try { bp.disconnect(); } catch (_) {} try { g.disconnect(); } catch (_) {} };
+    o.start(now); o.stop(now + 0.06);
+  }
+  _fireShaker(peak) {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this._noiseBuffer(0.12, "pink");
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass"; bp.frequency.value = 3500; bp.Q.value = 1.5;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass"; lp.frequency.value = 3800;
+    const g = ctx.createGain();
+    const p = peak || 0.2;
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(p, now + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.10);
+    src.connect(bp); bp.connect(lp); lp.connect(g); g.connect(this.drums.out);
+    src.onended = () => { try { bp.disconnect(); } catch (_) {} try { lp.disconnect(); } catch (_) {} try { g.disconnect(); } catch (_) {} };
+    src.start(now); src.stop(now + 0.12);
+  }
+  _fireBrush(peak) {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this._noiseBuffer(0.25, "brown");
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass"; lp.frequency.value = 1800;
+    const g = ctx.createGain();
+    const p = peak || 0.18;
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(p, now + AMBIENCE_ATTACK_FLOOR);
+    g.gain.linearRampToValueAtTime(p * 0.3, now + 0.12);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+    src.connect(lp); lp.connect(g); g.connect(this.drums.out);
+    src.onended = () => { try { lp.disconnect(); } catch (_) {} try { g.disconnect(); } catch (_) {} };
+    src.start(now); src.stop(now + 0.25);
+  }
   _scheduleDrums(gen) {
     if (this.destroyed || gen !== this._gen) return;
     const mood = this.current.mood;
@@ -401,13 +471,17 @@ export class AmbienceEngine {
       this.drumScheduled = setTimeout(() => this._scheduleDrums(gen), 1500);
       return;
     }
-    const bpm = AMBIENCE_MOOD_PULSE_BPM[mood] || 70;
+    const bpm = AMBIENCE_MOOD_PULSE_BPM[mood] || AMBIENCE_MOOD_DRUM_BPM[mood] || 70;
     const sixteenthMs = (60000 / bpm) / 4;
     const slot = pattern[this.drumStep % pattern.length] || {};
     const gainOv = AMBIENCE_MOOD_DRUM_GAIN[mood] || {};
-    if (slot.k) this._fireKick(gainOv.kick != null ? gainOv.kick * 6 : 0.9);
-    if (slot.s) this._fireSnare(gainOv.snare != null ? gainOv.snare * 6 : 0.5);
-    if (slot.h) this._fireHat(gainOv.hat != null ? gainOv.hat * 6 : 0.35);
+    if (slot.k)  this._fireKick(gainOv.kick != null ? gainOv.kick * 6 : 0.9);
+    if (slot.s)  this._fireSnare(gainOv.snare != null ? gainOv.snare * 6 : 0.5);
+    if (slot.h)  this._fireHat(gainOv.hat != null ? gainOv.hat * 6 : 0.35);
+    if (slot.t)  this._fireTom(gainOv.tom != null ? gainOv.tom * 6 : 0.5);
+    if (slot.r)  this._fireRim(gainOv.rim != null ? gainOv.rim * 6 : 0.3);
+    if (slot.sh) this._fireShaker(gainOv.shaker != null ? gainOv.shaker * 6 : 0.2);
+    if (slot.br) this._fireBrush(gainOv.brush != null ? gainOv.brush * 6 : 0.18);
     this.drumStep = (this.drumStep + 1) % pattern.length;
     this.drumScheduled = setTimeout(() => this._scheduleDrums(gen), sixteenthMs);
   }
