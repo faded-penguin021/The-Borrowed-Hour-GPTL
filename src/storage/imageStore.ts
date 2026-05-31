@@ -47,6 +47,7 @@ function openDB(): Promise<IDBDatabase> {
     };
     req.onerror = () => reject(req.error);
     req.onblocked = () => reject(new Error("IndexedDB open blocked"));
+  });
   // If the open fails, drop the cached promise so a later call can retry.
   _dbPromise.catch(() => { _dbPromise = null; });
   return _dbPromise;
