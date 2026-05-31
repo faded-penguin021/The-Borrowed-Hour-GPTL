@@ -36,10 +36,17 @@ function openDB(): Promise<IDBDatabase> {
         db.createObjectStore(STORE);
       }
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      // Best-effort: ask the browser to persist this origin's storage so the
+      // WebKit 7-day purge policy (iOS PWA) is less likely to evict blobs.
+      // Fire-and-forget — no await, no error handling; browsers can say no.
+      if (typeof navigator !== "undefined" && navigator.storage?.persist) {
+        navigator.storage.persist();
+      }
+      resolve(req.result);
+    };
     req.onerror = () => reject(req.error);
     req.onblocked = () => reject(new Error("IndexedDB open blocked"));
-  });
   // If the open fails, drop the cached promise so a later call can retry.
   _dbPromise.catch(() => { _dbPromise = null; });
   return _dbPromise;
