@@ -12,21 +12,13 @@ import { IllustrationPlate } from "./IllustrationPlate.jsx";
 import { GameComposer } from "./GameComposer.jsx";
 
 /**
- * Reading/audio preferences come from `App` as props; everything about the
- * game loop comes from `useGame()`. The input lives inside `GameComposer`.
+ * Story state comes from `useGame()`, runtime state from `useGameRun()`, and
+ * the cross-cutting systems (reading prefs, ambience, TTS) are read straight
+ * from their own contexts. The input lives inside `GameComposer`.
  *
  * @param {Object} props
- * @param {boolean} props.instantReveal
  * @param {() => void} props.onOpenLedger
  * @param {() => void} props.onOpenSettings
- * @param {boolean} props.ambienceEnabled
- * @param {boolean} props.ambienceMuted
- * @param {() => void} props.onToggleAmbienceMute
- * @param {boolean} props.ttsEnabled
- * @param {boolean} props.ttsMuted
- * @param {any} props.ttsPlayback
- * @param {() => void} props.onToggleTtsMute
- * @param {(idx: number) => void} props.onPlayEntry
  */
 export function GameScreen({
   onOpenLedger,
