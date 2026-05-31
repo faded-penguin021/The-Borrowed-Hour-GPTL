@@ -10,6 +10,7 @@
 import { BorrowedError, scrubSecrets } from "./errors.js";
 import { ENC_PREFIX, decryptSecret } from "../storage/encryption.js";
 import { getProviderKey } from "./providers.js";
+import { getSessionPassphrase } from "../passphrase.js";
 
 export const POLLINATIONS_DEFAULT_MODEL = "flux";
 export const REPLICATE_DEFAULT_MODEL = "black-forest-labs/flux-schnell";
@@ -77,8 +78,9 @@ const getReplicateKey = async () => {
   const stored = localStorage.getItem(m.keyStorage);
   if (!stored) throw new BorrowedError("The plate cannot be drawn.", "No Replicate API key is saved. Open ⚙ Settings → Codex → Replicate to paste your key.");
   if (!stored.startsWith(ENC_PREFIX)) return stored.trim();
-  if (!window.__sessionPassphrase) throw new BorrowedError("The plate cannot be drawn.", "Session passphrase missing for encrypted Replicate key.");
-  try { return (await decryptSecret(stored, window.__sessionPassphrase)).trim(); }
+  const passphrase = getSessionPassphrase();
+  if (!passphrase) throw new BorrowedError("The plate cannot be drawn.", "Session passphrase missing for encrypted Replicate key.");
+  try { return (await decryptSecret(stored, passphrase)).trim(); }
   catch { throw new BorrowedError("The plate cannot be drawn.", "Could not unlock the Replicate API key."); }
 };
 

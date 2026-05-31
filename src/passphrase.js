@@ -1,5 +1,28 @@
 // @ts-check
 
+// Closure-scoped session passphrase. Held in module-private state rather than on
+// `window.__sessionPassphrase`, so a stray in-page script can't trivially scrape
+// it off the global object. This is NOT a guarantee against a determined
+// in-page attacker (the secret is still in memory and reachable by code that can
+// import this module), but it removes the cheapest XSS exfiltration vector and
+// gives the secret a single owner.
+/** @type {string | null} */
+let _sessionPassphrase = null;
+
+/** @param {string | null} value */
+export function setSessionPassphrase(value) {
+  _sessionPassphrase = value || null;
+}
+
+/** @returns {string | null} */
+export function getSessionPassphrase() {
+  return _sessionPassphrase;
+}
+
+export function clearSessionPassphrase() {
+  _sessionPassphrase = null;
+}
+
 /** @type {((value: string | null) => void) | null} */
 let _pendingResolve = null;
 

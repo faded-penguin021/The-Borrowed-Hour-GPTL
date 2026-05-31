@@ -1,10 +1,37 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+/**
+ * Dev-only CSP relaxation. The production CSP in index.html omits
+ * `'unsafe-inline'` from `script-src` (hardening against script injection), but
+ * Vite's dev server + React Fast Refresh inject an inline preamble/HMR script
+ * that a strict policy would block. This re-adds `'unsafe-inline'` for the dev
+ * server only; the built output keeps the strict policy untouched.
+ */
+function devCspRelax() {
+  return {
+    name: "dev-csp-relax",
+    apply: "serve",
+    transformIndexHtml(html) {
+      return html.replace(
+        "script-src 'self' https://js.puter.com",
+        "script-src 'self' 'unsafe-inline' https://js.puter.com"
+      );
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), devCspRelax()],
   base: "./",
-  build: { outDir: "dist", emptyOutDir: true },
+  build: {
+    outDir: "dist",
+    emptyOutDir: true,
+    // Don't inline the modulepreload polyfill: it would be an inline <script>,
+    // which the strict production script-src (no 'unsafe-inline') forbids.
+    // Native modulepreload is supported by all current target browsers.
+    modulePreload: { polyfill: false },
+  },
   test: {
     environment: "node",
     globals: true,

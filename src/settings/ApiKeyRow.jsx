@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { encryptSecret } from "../storage/encryption.js";
 import { PROVIDER_META, resetProviderKey, checkProviderHealth } from "../llm/providers.js";
-import { requestPassphrase } from "../passphrase.js";
+import { requestPassphrase, getSessionPassphrase, setSessionPassphrase } from "../passphrase.js";
 
 /**
  * @param {Object} props
@@ -18,11 +18,11 @@ export function ApiKeyRow({ providerId }) {
   const saveKey = async () => {
     const trimmed = value.trim();
     if (!trimmed) return;
-    let passphrase = window.__sessionPassphrase;
+    let passphrase = getSessionPassphrase();
     if (!passphrase) {
       passphrase = await requestPassphrase("Set a session passphrase to encrypt your API keys:");
       if (!passphrase) return;
-      window.__sessionPassphrase = passphrase;
+      setSessionPassphrase(passphrase);
     }
     localStorage.setItem(meta.keyStorage, await encryptSecret(trimmed, passphrase));
     setValue("");

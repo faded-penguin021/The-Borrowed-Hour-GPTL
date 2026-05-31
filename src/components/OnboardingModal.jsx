@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { encryptSecret } from "../storage/encryption.js";
 import { ONBOARDING_KEY } from "../data/constants.js";
 import { PROVIDER_META } from "../llm/providers.js";
+import { setSessionPassphrase } from "../passphrase.js";
 
 /** The provider offered during onboarding — the default free engine. */
 const ONBOARD_PROVIDER = "mistral";
@@ -15,8 +16,9 @@ const ONBOARD_PROVIDER = "mistral";
  * Three slides: a welcome, an explanation of the bring-your-own-key model, and
  * a setup step where the reader picks a session passphrase and (optionally)
  * pastes a first key. The key is encrypted with `encryptSecret` — the same
- * primitive the settings rows use — and the chosen passphrase is held in memory
- * on `window.__sessionPassphrase` so nothing has to be re-entered this session.
+ * primitive the settings rows use — and the chosen passphrase is held in
+ * closure-scoped memory (via `setSessionPassphrase`, not on `window`) so nothing
+ * has to be re-entered this session.
  *
  * @param {{ onComplete: () => void }} props
  */
@@ -40,7 +42,7 @@ export function OnboardingModal({ onComplete }) {
     }
     setSaving(true);
     try {
-      if (pass) window.__sessionPassphrase = pass;
+      if (pass) setSessionPassphrase(pass);
       if (key && pass) {
         localStorage.setItem(meta.keyStorage, await encryptSecret(key, pass));
       }
