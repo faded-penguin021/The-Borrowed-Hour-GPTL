@@ -2,7 +2,7 @@
 import React from "react";
 import { realmGlyph, PREMISES } from "../data/premises.js";
 import { LANGUAGES } from "../data/languages.js";
-import { useGame } from "../context/GameContext.jsx";
+import { useGame, useGameRun } from "../context/GameContext.jsx";
 import { ErrorRawDetail } from "./ErrorRawDetail.jsx";
 
 /**
@@ -19,9 +19,8 @@ export function TitleScreen({ onOpenCustom, onOpenSettings }) {
     openSavesModal: onOpenSaves,
     language,
     setLanguage: onChangeLanguage,
-    loading,
-    error
   } = useGame();
+  const { loading, error } = useGameRun();
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center px-6 py-16">
       <div className="text-center mb-14 max-w-3xl fade-in">

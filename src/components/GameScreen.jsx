@@ -2,7 +2,10 @@
 import React, { useRef, useEffect } from "react";
 import { realmGlyph } from "../data/premises.js";
 import { formatTokens } from "../data/constants.js";
-import { useGame } from "../context/GameContext.jsx";
+import { useGame, useGameRun } from "../context/GameContext.jsx";
+import { useSettingsContext } from "../context/SettingsContext.jsx";
+import { useAmbienceContext } from "../context/AmbienceContext.jsx";
+import { useTTSContext } from "../context/TTSContext.jsx";
 import { TypewriterText } from "./TypewriterText.jsx";
 import { ErrorRawDetail } from "./ErrorRawDetail.jsx";
 import { IllustrationPlate } from "./IllustrationPlate.jsx";
@@ -26,25 +29,30 @@ import { GameComposer } from "./GameComposer.jsx";
  * @param {(idx: number) => void} props.onPlayEntry
  */
 export function GameScreen({
-  instantReveal,
   onOpenLedger,
   onOpenSettings,
-  ambienceEnabled,
-  ambienceMuted,
-  onToggleAmbienceMute,
-  ttsEnabled,
-  ttsMuted,
-  ttsPlayback,
-  onToggleTtsMute,
-  onPlayEntry
 }) {
   const {
-    premise, entries, skipNonce, loading, loadingPhrase, error, ended,
-    metaMode, metaMessages, recovery, saveBanner, sessionTokens, canUndo,
+    premise, entries, skipNonce, ended,
+    metaMode, metaMessages, recovery, saveBanner, canUndo,
     markEntryRevealed, markMetaRevealed, enterMetaMode, exitMetaMode,
     undoLastTurn, skipReveal, cancelRequest, continueNarration, restart,
     saveCurrent, openSavesModal, exportChronicle, submit
   } = useGame();
+  // High-frequency runtime state lives in its own context so it does not
+  // re-render story-only consumers.
+  const { loading, loadingPhrase, error, sessionTokens } = useGameRun();
+
+  // Cross-cutting systems are read straight from their contexts; the locals
+  // below keep the existing JSX (header controls, per-entry play) unchanged.
+  const { instantReveal } = useSettingsContext();
+  const { ambienceLevel, ambienceUnavailable, ambienceMuted, setAmbienceMuted } = useAmbienceContext();
+  const tts = useTTSContext();
+  const { ttsEnabled, ttsMuted, ttsPlayback } = tts;
+  const ambienceEnabled = ambienceLevel !== "off" && !ambienceUnavailable;
+  const onToggleAmbienceMute = () => setAmbienceMuted((m) => !m);
+  const onToggleTtsMute = () => tts.setTtsMuted((m) => !m);
+  const onPlayEntry = (idx) => tts.playEntry(entries, idx);
 
   const scrollRef = useRef(/** @type {HTMLDivElement | null} */ (null));
 

@@ -6,52 +6,56 @@ import { AmbienceRow } from "../../settings/AmbienceRow.jsx";
 import { TTSRow } from "../../settings/TTSRow.jsx";
 import { SettingsToggleRow } from "../../settings/SettingsToggleRow.jsx";
 import { CodexSection } from "../../settings/CodexSection.jsx";
+import { useSettingsContext } from "../../context/SettingsContext.jsx";
+import { useAmbienceContext } from "../../context/AmbienceContext.jsx";
+import { useTTSContext } from "../../context/TTSContext.jsx";
 
 /**
- * @param {Object} props
- * @param {AppSettings} props.settings
- * @param {(key: string, value: any) => void} props.onChange
- * @param {() => void} props.onClose
- * @param {boolean} props.osReducedMotion
- * @param {string} props.ambienceLevel
- * @param {boolean} props.ambienceUnavailable
- * @param {boolean} props.ambienceDuringNarrationOnly
- * @param {boolean} props.ambienceBoostWithTTS
- * @param {string} props.ambienceMusicLevel
- * @param {(v: string) => void} props.onChangeAmbience
- * @param {(v: boolean) => void} props.onChangeAmbienceDuringNarrationOnly
- * @param {(v: boolean) => void} props.onChangeAmbienceBoostWithTTS
- * @param {(v: string) => void} props.onChangeAmbienceMusicLevel
- * @param {boolean} props.ttsEnabled
- * @param {string} props.ttsProviderId
- * @param {Record<string, boolean>} props.ttsProviderReady
- * @param {string} props.ttsVoiceId
- * @param {string} props.ttsModel
- * @param {any[]} props.ttsBrowserVoices
- * @param {any[]} props.ttsVoxtralVoices
- * @param {string|null} props.ttsVoxtralVoicesError
- * @param {number} props.ttsRate
- * @param {string} props.ttsElevenKey
- * @param {string} props.ttsAzureKey
- * @param {string} props.ttsAzureRegion
- * @param {string} props.ttsGoogleKey
- * @param {(v: boolean) => void} props.onChangeTtsEnabled
- * @param {(v: string) => void} props.onChangeTtsProvider
- * @param {(v: string) => void} props.onChangeTtsVoice
- * @param {(v: string) => void} props.onChangeTtsModel
- * @param {(v: number) => void} props.onChangeTtsRate
- * @param {(key: string) => Promise<void>} props.onChangeTtsElevenKey
- * @param {(key: string) => Promise<void>} props.onChangeTtsAzureKey
- * @param {(region: string) => void} props.onChangeTtsAzureRegion
- * @param {(key: string) => Promise<void>} props.onChangeTtsGoogleKey
+ * Reads reading/display settings, ambience, and TTS straight from their
+ * contexts; the only prop is the modal close handler.
+ * @param {{ onClose: () => void }} props
  */
-export function SettingsModal({ settings, onChange, onClose, osReducedMotion,
-  ambienceLevel, ambienceUnavailable, ambienceDuringNarrationOnly, ambienceBoostWithTTS, ambienceMusicLevel,
-  onChangeAmbience, onChangeAmbienceDuringNarrationOnly, onChangeAmbienceBoostWithTTS, onChangeAmbienceMusicLevel,
-  ttsEnabled, ttsProviderId, ttsProviderReady, ttsVoiceId, ttsModel, ttsBrowserVoices, ttsVoxtralVoices, ttsVoxtralVoicesError, ttsRate, ttsElevenKey,
-  ttsAzureKey, ttsAzureRegion, ttsGoogleKey,
-  onChangeTtsEnabled, onChangeTtsProvider, onChangeTtsVoice, onChangeTtsModel, onChangeTtsRate, onChangeTtsElevenKey,
-  onChangeTtsAzureKey, onChangeTtsAzureRegion, onChangeTtsGoogleKey }) {
+export function SettingsModal({ onClose }) {
+  const { settings, updateSetting } = useSettingsContext();
+  const onChange = updateSetting;
+  const ambience = useAmbienceContext();
+  const tts = useTTSContext();
+
+  const {
+    ambienceLevel, ambienceUnavailable, ambienceDuringNarrationOnly,
+    ambienceBoostWithTTS, ambienceMusicLevel,
+    setAmbienceLevel, setAmbienceDuringNarrationOnly, setAmbienceBoostWithTTS, setAmbienceMusicLevel,
+  } = ambience;
+  const onChangeAmbience = setAmbienceLevel;
+  const onChangeAmbienceDuringNarrationOnly = setAmbienceDuringNarrationOnly;
+  const onChangeAmbienceBoostWithTTS = setAmbienceBoostWithTTS;
+  const onChangeAmbienceMusicLevel = setAmbienceMusicLevel;
+
+  const {
+    ttsEnabled, ttsProviderId, ttsProviderReady, ttsVoiceId,
+    ttsBrowserVoices, ttsVoxtralVoices, ttsVoxtralVoicesError, ttsRate,
+    ttsElevenKey, ttsAzureKey, ttsAzureRegion, ttsGoogleKey, ttsModelOverrides,
+    setTtsEnabled, setTtsProviderId, setTtsVoiceId, setTtsRate,
+    setTtsElevenKey, setTtsAzureKey, setTtsAzureRegion, setTtsGoogleKey, setTtsModelOverrides,
+    detectTtsProviderReady, saveTtsElevenLabsKey, saveTtsAzureKey, saveTtsAzureRegion, saveTtsGoogleKey,
+  } = tts;
+  const ttsModel = ttsProviderId ? (ttsModelOverrides[ttsProviderId] || null) : null;
+  const onChangeTtsEnabled = setTtsEnabled;
+  const onChangeTtsProvider = setTtsProviderId;
+  const onChangeTtsVoice = setTtsVoiceId;
+  const onChangeTtsRate = setTtsRate;
+  const onChangeTtsModel = (m) => {
+    if (!ttsProviderId) return;
+    setTtsModelOverrides((prev) => {
+      const next = { ...prev };
+      if (m) next[ttsProviderId] = m; else delete next[ttsProviderId];
+      return next;
+    });
+  };
+  const onChangeTtsElevenKey = async (k) => { setTtsElevenKey(k); await saveTtsElevenLabsKey(k); detectTtsProviderReady(); };
+  const onChangeTtsAzureKey = async (k) => { setTtsAzureKey(k); await saveTtsAzureKey(k); detectTtsProviderReady(); };
+  const onChangeTtsAzureRegion = (r) => { setTtsAzureRegion(r); saveTtsAzureRegion(r); };
+  const onChangeTtsGoogleKey = async (k) => { setTtsGoogleKey(k); await saveTtsGoogleKey(k); detectTtsProviderReady(); };
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
