@@ -30,6 +30,15 @@ describe("extractJSONBlock", () => {
       .toEqual({ key: "value" });
   });
 
+  it("drops a stray trailing brace after a balanced object", () => {
+    expect(extractJSONBlock('{"a":{"b":1}}}')).toEqual({ a: { b: 1 } });
+  });
+
+  it("handles trailing garbage via last-brace fallback", () => {
+    expect(extractJSONBlock('{"a":"hello"} extra } text'))
+      .toEqual({ a: "hello" });
+  });
+
   it("returns null for input with no JSON", () => {
     expect(extractJSONBlock("just some random text with no JSON at all")).toBeNull();
   });

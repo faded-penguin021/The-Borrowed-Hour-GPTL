@@ -29,9 +29,42 @@ export function tryParseJSON(text) {
 }
 
 /**
- * Simple JSON block extractor: strip markdown fences, attempt a direct parse,
- * and fall back to slicing from the first `{` to the last `}`. No regex repair
- * or balanced-brace scanning — malformed payloads are surfaced via Zod instead.
+ * Scan from `start` (which must point at an opening `{`) to the matching close
+ * brace, ignoring braces inside strings. Returns the index of the closing brace,
+ * or -1 if the object never closes. Used to slice off trailing garbage (e.g. a
+ * stray extra `}`) before parsing — this is structural extraction, not repair.
+ * @param {string} text
+ * @param {number} start
+ * @returns {number}
+ */
+export function findBalancedJSONEnd(text, start) {
+  let depth = 0;
+  let inStr = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) { escaped = false; continue; }
+    if (inStr) {
+      if (ch === "\\") { escaped = true; continue; }
+      if (ch === '"') { inStr = false; }
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * JSON block extractor: strip markdown fences, attempt a direct parse, then fall
+ * back to slicing the first balanced `{...}` object (dropping any trailing
+ * garbage such as a stray extra brace), and finally to a first-`{`-to-last-`}`
+ * slice. No regex repair of the contents — malformed payloads that survive this
+ * extraction are surfaced via Zod instead.
  * @param {string} rawText
  * @returns {any}
  */
@@ -45,10 +78,17 @@ export function extractJSONBlock(rawText) {
   if (parsed) return parsed;
 
   const first = text.indexOf("{");
-  const last = text.lastIndexOf("}");
-  if (first >= 0 && last > first) {
-    parsed = tryParseJSON(text.slice(first, last + 1));
-    if (parsed) return parsed;
+  if (first >= 0) {
+    const end = findBalancedJSONEnd(text, first);
+    if (end > first) {
+      parsed = tryParseJSON(text.slice(first, end + 1));
+      if (parsed) return parsed;
+    }
+    const last = text.lastIndexOf("}");
+    if (last > first) {
+      parsed = tryParseJSON(text.slice(first, last + 1));
+      if (parsed) return parsed;
+    }
   }
   return null;
 }
