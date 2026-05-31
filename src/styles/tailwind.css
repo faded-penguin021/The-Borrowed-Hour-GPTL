@@ -22,4 +22,89 @@
     color: var(--cream-bright);
     font-family: "JetBrains Mono", monospace;
   }
+
+  /* ── Premise cards (title screen) ── */
+  .premise-card {
+    border: 1px solid rgba(232, 222, 197, 0.1);
+    background: linear-gradient(180deg, rgba(28, 22, 44, 0.55) 0%, rgba(10, 8, 20, 0.55) 100%);
+    transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    text-align: left;
+  }
+  .premise-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.6s;
+    pointer-events: none;
+  }
+  .premise-card[data-realm="echo"]::before  { background: radial-gradient(circle at 50% 0%, rgba(184, 200, 216, 0.13), transparent 60%); }
+  .premise-card[data-realm="neon"]::before  { background: radial-gradient(circle at 50% 0%, rgba(232, 127, 170, 0.13), transparent 60%); }
+  .premise-card[data-realm="omen"]::before  { background: radial-gradient(circle at 50% 0%, rgba(212, 165, 116, 0.13), transparent 60%); }
+  .premise-card[data-realm="dream"]::before { background: radial-gradient(circle at 50% 0%, rgba(200, 168, 224, 0.13), transparent 60%); }
+  .premise-card[data-realm="wild"]::before  { background: radial-gradient(circle at 50% 0%, rgba(184, 200, 150, 0.13), transparent 60%); }
+
+  .premise-card:hover { transform: translateY(-3px); }
+  .premise-card:hover::before { opacity: 1; }
+  .premise-card[data-realm="echo"]:hover  { border-color: var(--echo-border);  box-shadow: 0 20px 60px -25px rgba(184, 200, 216, 0.22); }
+  .premise-card[data-realm="neon"]:hover  { border-color: var(--neon-border);  box-shadow: 0 20px 60px -25px rgba(232, 127, 170, 0.22); }
+  .premise-card[data-realm="omen"]:hover  { border-color: var(--omen-border);  box-shadow: 0 20px 60px -25px rgba(212, 165, 116, 0.22); }
+  .premise-card[data-realm="dream"]:hover { border-color: var(--dream-border); box-shadow: 0 20px 60px -25px rgba(200, 168, 224, 0.22); }
+  .premise-card[data-realm="wild"]:hover  { border-color: var(--wild-border);  box-shadow: 0 20px 60px -25px rgba(184, 200, 150, 0.22); }
+
+  .premise-card:disabled { cursor: wait; opacity: 0.5; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .premise-card {
+      transition: border-color 0.2s, box-shadow 0.2s !important;
+    }
+    .premise-card:hover {
+      transform: none !important;
+    }
+  }
+
+  /* ── Save rows (saves modal) ── */
+  .save-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    border: 1px solid rgba(232, 222, 197, 0.08);
+    background: rgba(28, 22, 44, 0.4);
+    transition: all 0.3s;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+  }
+  .save-row:hover {
+    border-color: rgba(212, 165, 116, 0.3);
+    background: rgba(28, 22, 44, 0.7);
+  }
+
+  /* ── Icon buttons (game header + modals) ── */
+  .icon-btn {
+    background: transparent;
+    border: 1px solid rgba(232, 222, 197, 0.2);
+    color: var(--cream-dim);
+    padding: 6px 14px;
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .icon-btn:hover:not(:disabled) {
+    border-color: rgba(212, 165, 116, 0.5);
+    color: var(--cream-bright);
+  }
+  .icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .icon-btn-danger:hover:not(:disabled) {
+    border-color: rgba(217, 122, 122, 0.5);
+    color: var(--rose-ember);
+  }
 }
