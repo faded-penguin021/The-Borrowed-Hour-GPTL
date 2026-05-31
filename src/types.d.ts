@@ -56,6 +56,9 @@ interface GameState {
 
 type EndingType = "good" | "bittersweet" | "pyrrhic" | "ambiguous" | "bad";
 
+// Per-premise discovered-endings map: premiseId -> { endingType: true }.
+type EndingsByPremise = Record<string, Record<string, boolean>>;
+
 interface NarrationEntry {
   type: "narration";
   text: string;
