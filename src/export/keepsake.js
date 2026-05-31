@@ -25,6 +25,13 @@ async function toBase64Capped(src) {
     if (src.startsWith("blob:")) {
       const res = await fetch(src);
       blob = await res.blob();
+    } else if (src.startsWith("idb:")) {
+      // Export ran before rehydration swapped the marker for a blob: URL —
+      // pull the bytes straight from IndexedDB.
+      const { getImage } = await import("../storage/imageStore");
+      const stored = await getImage(src.slice("idb:".length));
+      if (!stored) return src;
+      blob = stored;
     } else if (src.startsWith("data:")) {
       return src;
     } else {

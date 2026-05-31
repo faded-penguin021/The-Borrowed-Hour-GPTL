@@ -11,6 +11,6 @@
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
-  "include": ["src/**/*.js", "src/**/*.jsx", "src/types.d.ts"],
+  "include": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/types.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

@@ -623,7 +623,24 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     }
     codex.revokeAllPlates(entries);
     setPremise(found);
-    setEntries((save.entries || []).map((e) => ({ ...e, fullyRevealed: true })));
+    // Rehydrate illustrations: entries whose url is an `idb:` marker have their
+    // bytes in IndexedDB. Pull each Blob, mint a live `blob:` URL, and swap it
+    // in. `useCodex.revokeAllPlates`/`setEntryIllustration` already revoke
+    // `blob:` URLs on the next swap or reset, so this introduces no leak.
+    const rawEntries = (save.entries || []).map((e) => ({ ...e, fullyRevealed: true }));
+    setEntries(rawEntries);
+    (async () => {
+      const { getImage } = await import("../storage/imageStore");
+      const rehydrated = await Promise.all(rawEntries.map(async (e) => {
+        const ill = e.illustration;
+        if (!ill || typeof ill.url !== "string" || !ill.url.startsWith("idb:")) return e;
+        const imgKey = ill.url.slice("idb:".length);
+        const blob = await getImage(imgKey);
+        if (!blob) return { ...e, illustration: { ...ill, status: "failed", url: undefined } };
+        return { ...e, illustration: { ...ill, url: URL.createObjectURL(blob) } };
+      }));
+      setEntries(rehydrated);
+    })();
     setHistory(save.history || []);
     setError(null);
     setRecovery(null);
