@@ -5,6 +5,7 @@ import { EngineSection } from "../../settings/EngineSection.jsx";
 import { AmbienceRow } from "../../settings/AmbienceRow.jsx";
 import { TTSRow } from "../../settings/TTSRow.jsx";
 import { SettingsToggleRow } from "../../settings/SettingsToggleRow.jsx";
+import { ProxyUrlRow } from "../../settings/ProxyUrlRow.jsx";
 import { CodexSection } from "../../settings/CodexSection.jsx";
 import { useSettingsContext } from "../../context/SettingsContext.jsx";
 import { useAmbienceContext } from "../../context/AmbienceContext.jsx";
@@ -153,6 +154,7 @@ export function SettingsModal({ onClose }) {
             onChangeGoogleKey={onChangeTtsGoogleKey}
           />
           <CodexSection settings={settings} onChange={onChange} />
+          <ProxyUrlRow value={settings.proxyUrl} onChange={(v) => onChange("proxyUrl", v)} />
           <div className="settings-toggle" style={{ cursor: "default", opacity: 0.85 }}>
             <div className="flex-1 min-w-0">
               <div
