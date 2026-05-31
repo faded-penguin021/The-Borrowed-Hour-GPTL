@@ -19,6 +19,7 @@ export function TitleScreen({ onOpenCustom, onOpenSettings }) {
     openSavesModal: onOpenSaves,
     language,
     setLanguage: onChangeLanguage,
+    discoveredEndings,
   } = useGame();
   const { loading, error } = useGameRun();
   return (
@@ -159,6 +160,15 @@ export function TitleScreen({ onOpenCustom, onOpenSettings }) {
           ⚙ READING
         </button>
       </div>
+      {discoveredEndings.length > 0 && (
+        <div
+          className="mt-5 display-font text-[10px]"
+          style={{ color: "var(--cream-faint)", letterSpacing: "0.4em" }}
+          aria-label={`${discoveredEndings.length} of 5 endings discovered`}
+        >
+          {discoveredEndings.length} / 5 ENDINGS DISCOVERED
+        </div>
+      )}
       {loading && (
         <div
           className="mt-12 body-font italic text-lg slow-fade-in"

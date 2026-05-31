@@ -12,6 +12,7 @@ import { useCodex } from "../hooks/useCodex.js";
 import { useSaves } from "../hooks/useSaves.js";
 import { useReveal } from "../hooks/useReveal.js";
 import { useKeepsake } from "../hooks/useKeepsake.js";
+import { useProgress } from "../hooks/useProgress.js";
 import { useLatest } from "../hooks/useLatest.js";
 import { useSettingsContext } from "./SettingsContext.jsx";
 import { useAmbienceContext } from "./AmbienceContext.jsx";
@@ -101,6 +102,7 @@ export function GameProvider({ children }) {
     getEngine: () => settingsRef.current.engineNarrator,
   });
   const keepsake = useKeepsake({ setExportFallbackText: (text) => saves.setExportFallbackText(text) });
+  const progress = useProgress();
 
   const { ensureAmbienceEngine, ambienceRef } = ambience;
 
@@ -165,7 +167,10 @@ export function GameProvider({ children }) {
     if (gmParsed.state && !(isStateEmpty(gmParsed.state) && !isStateEmpty(gameState))) {
       setGameState(gmParsed.state);
     }
-    if (gmParsed.ending) setEnded(true);
+    if (gmParsed.ending) {
+      setEnded(true);
+      progress.recordEnding(gmParsed.ending);
+    }
   };
 
   /** @param {Premise} chosen @returns {Promise<void>} */
@@ -221,7 +226,10 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
       setHistory([...msgs, { role: "assistant", content: openingRaw }]);
       setEntries([{ type: "narration", text: parsed.narration, fullyRevealed: false }]);
       if (parsed.state) setGameState(parsed.state);
-      if (parsed.ending) setEnded(true);
+      if (parsed.ending) {
+        setEnded(true);
+        progress.recordEnding(parsed.ending);
+      }
       if (ambienceRef.current) {
         const { defaultAmbienceForRealm, deriveAmbienceFromSeed } = await import("../ambience/tables.js");
         const bed = (chosen.realm === "wild" && chosen.seed)
@@ -701,6 +709,8 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     keepsakeLoading: keepsake.keepsakeLoading,
     keepsakeError: keepsake.keepsakeError,
     keepsakeFilename,
+    // progress
+    discoveredEndings: progress.discoveredEndings,
     // actions
     setLanguage,
     beginAdventure, submit, continueNarration,
