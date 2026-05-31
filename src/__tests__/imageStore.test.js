@@ -90,8 +90,8 @@ describe("imageStore", () => {
     let store;
     beforeEach(async () => {
       vi.resetModules();
-      globalThis.indexedDB = makeMockIndexedDB();
-      store = await import("../storage/imageStore.ts");
+      globalThis.indexedDB = /** @type {any} */ (makeMockIndexedDB());
+      store = await import("../storage/imageStore");
     });
     afterEach(() => {
       delete globalThis.indexedDB;
@@ -142,7 +142,7 @@ describe("imageStore", () => {
     beforeEach(async () => {
       vi.resetModules();
       delete globalThis.indexedDB;
-      store = await import("../storage/imageStore.ts");
+      store = await import("../storage/imageStore");
     });
 
     it("reports the store as unavailable", () => {

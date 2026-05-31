@@ -1,3 +1,4 @@
+// @ts-nocheck — intentional partial mocks (Web Audio / TTS adapter / ledger); burn down per Work Item 3c
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   AMBIENCE_SPACE_VALUES,

@@ -2,14 +2,14 @@ export const ENC_PREFIX = "enc:v1:";
 const KDF = { name: "PBKDF2", hash: "SHA-256", iterations: 310000 };
 const AES = { name: "AES-GCM", length: 256 };
 
-/** @param {ArrayBuffer} b @returns {string} */
+/** @param {ArrayBuffer | Uint8Array} b @returns {string} */
 const toB64 = (b) => btoa(String.fromCharCode(...new Uint8Array(b)));
-/** @param {string} s @returns {Uint8Array} */
-const fromB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+/** @param {string} s @returns {Uint8Array<ArrayBuffer>} */
+const fromB64 = (s) => /** @type {Uint8Array<ArrayBuffer>} */ (Uint8Array.from(atob(s), (c) => c.charCodeAt(0)));
 
 /**
  * @param {string} passphrase
- * @param {Uint8Array} salt
+ * @param {BufferSource} salt
  * @returns {Promise<CryptoKey>}
  */
 async function deriveKey(passphrase, salt) {
