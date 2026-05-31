@@ -190,6 +190,7 @@ export function createLLMClient({ getDefaultEngine, onUsage }) {
         throw new BorrowedError("The hour falters.", `${meta.name} returned no readable stream body.`);
       }
       let full = "";
+      /** @type {{ input?: number, output?: number } | null} */
       let usage = null;
       const reader = res.body.getReader();
       const decoder = new TextDecoder;
@@ -237,6 +238,7 @@ export function createLLMClient({ getDefaultEngine, onUsage }) {
       } catch (e) {
         try { reader.cancel(); } catch {}
         if (stalled) {
+          /** @type {BorrowedError & { partial?: string }} */
           const err = new BorrowedError("The hour falters.", `The ${meta.name} narration stream went silent for ${Math.round(STALL_MS/1000)}s — likely the connection was dropped while the tab was in the background. Try again.`);
           if (full) err.partial = full;
           throw err;
@@ -244,6 +246,7 @@ export function createLLMClient({ getDefaultEngine, onUsage }) {
         if (e && e.name === "AbortError" || signal && signal.aborted) {
           throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
         }
+        /** @type {BorrowedError & { partial?: string }} */
         const err = e instanceof BorrowedError ? e : new BorrowedError("The hour falters.", `The ${meta.name} narration stream broke${e?.message ? ` (${e.message})` : ""}.`);
         if (full) err.partial = full;
         throw err;
