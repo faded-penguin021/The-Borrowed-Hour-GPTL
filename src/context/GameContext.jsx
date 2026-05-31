@@ -182,6 +182,7 @@ export function GameProvider({ children }) {
     abortRef.current = { controller, rollback, startedAt: Date.now() };
     try {
       const sys = buildSystem(chosen, language);
+      /** @type {ChatMessage[]} */
       const msgs = [{ role: "user", content: "Begin." }];
       const bootstrapPromise = codex.runArtDirectorBootstrap(chosen, controller.signal);
       const firstRaw = await callAPI(sys, msgs, true, settings.engineOpening, 4500, 0.7, controller.signal);
@@ -191,6 +192,7 @@ export function GameProvider({ children }) {
       let parsed = parseGMResponse(openingRaw);
       if (parsed.malformed) {
         const priorAssistant = (openingRaw && openingRaw.trim()) ? openingRaw : "(empty response)";
+        /** @type {ChatMessage[]} */
         const correctiveMsgs = [
           ...msgs,
           { role: "assistant", content: priorAssistant },
@@ -380,6 +382,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     }
     const previousEntries = entries;
     const previousHistory = history;
+    /** @type {Entry[]} */
     const newEntries = [...entries, { type: "action", text, fullyRevealed: true }];
     setEntries(newEntries);
     if (tts.ttsRef.current) tts.ttsRef.current.stop();
@@ -389,6 +392,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     parts.push(`[Player action]\n${text}`);
     if (privateBlock) parts.push(privateBlock);
     const playerMessage = parts.join("\n\n");
+    /** @type {ChatMessage[]} */
     const newHistory = [...history, { role: "user", content: playerMessage }];
     const tailStart = newHistory.length - 1;
     let apiHistory = newHistory.map((msg, i) => {
@@ -437,6 +441,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
       let gmParsed = parseGMLogicResponse(gmReply);
       if (gmParsed.malformed) {
         const priorAssistant = (gmReply && gmReply.trim()) ? gmReply : "(empty response)";
+        /** @type {ChatMessage[]} */
         const correctiveHistory = [
           ...apiHistory,
           { role: "assistant", content: priorAssistant },
@@ -470,7 +475,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
         let acc = "";
         setEntries((prev) => {
           const existing = prev[narrationIndex];
-          const entry = { type: "narration", text: "", streaming: true };
+          const entry = /** @type {NarrationEntry} */ ({ type: "narration", text: "", streaming: true });
           if (existing && existing.illustration) entry.illustration = existing.illustration;
           return [...newEntries, entry];
         });
