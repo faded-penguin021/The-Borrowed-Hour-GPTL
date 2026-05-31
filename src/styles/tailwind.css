@@ -66,6 +66,35 @@
     }
   }
 
+  /* ── Settings modal tab strip ── */
+  /* Roving-tabindex tablist; the active tab gets the rose-gold underline. The
+   * strip scrolls horizontally on narrow viewports so the five labels never
+   * wrap or clip. */
+  .settings-tablist {
+    @apply flex gap-[2px] overflow-x-auto;
+    scrollbar-width: none;
+  }
+  .settings-tablist::-webkit-scrollbar { display: none; }
+  .settings-tab {
+    @apply px-[14px] py-[10px] text-[10px] uppercase cursor-pointer whitespace-nowrap;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--cream-faint);
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.22em;
+    transition: color 0.25s, border-color 0.25s;
+  }
+  .settings-tab:hover { color: var(--cream-dim); }
+  .settings-tab[aria-selected="true"] {
+    color: var(--cream-bright);
+    border-bottom-color: var(--rose-gold);
+  }
+  .settings-tab:focus-visible {
+    outline: 1px solid rgba(212, 165, 116, 0.6);
+    outline-offset: -2px;
+  }
+
   /* ── Save rows (saves modal) ── */
   .save-row {
     display: flex;

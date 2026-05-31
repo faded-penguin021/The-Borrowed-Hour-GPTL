@@ -1,6 +1,6 @@
 // @ts-check
 import React, { useState } from "react";
-import { SAVE_CAP } from "./data/constants.js";
+import { SAVE_CAP, ONBOARDING_KEY } from "./data/constants.js";
 import { buildCustomPremise } from "./data/premises.js";
 import { GameProvider, useGame, useGameRun } from "./context/GameContext.jsx";
 import { SettingsProvider, useSettingsContext } from "./context/SettingsContext.jsx";
@@ -13,6 +13,7 @@ import { SettingsModal } from "./components/modals/SettingsModal.jsx";
 import { LedgerModal } from "./components/modals/LedgerModal.jsx";
 import { ExportFallbackModal } from "./components/modals/ExportFallbackModal.jsx";
 import { PassphraseModal } from "./components/PassphraseModal.jsx";
+import { OnboardingModal } from "./components/OnboardingModal.jsx";
 import { CustomModal } from "./components/modals/CustomModal.jsx";
 import { useViewport } from "./hooks/useViewport.js";
 
@@ -119,6 +120,20 @@ export function App() {
   const [showLedger, setShowLedger] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  // Resolve onboarding synchronously on first render so we never mount the
+  // provider tree before deciding. If GameProvider mounted first it could fire
+  // a background health check, find no passphrase, and spawn the global
+  // PassphraseModal on top of the OnboardingModal — two modals racing the same
+  // first paint. Gate the whole tree behind this until onboarding is done.
+  const [onboarded, setOnboarded] = useState(() => {
+    try { return !!localStorage.getItem(ONBOARDING_KEY); }
+    catch { return true; }
+  });
+
+  if (!onboarded) {
+    return <OnboardingModal onComplete={() => setOnboarded(true)} />;
+  }
 
   return (
     <SettingsProvider>
