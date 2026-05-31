@@ -1,6 +1,7 @@
 // @ts-check
 import React from "react";
 import { realmGlyph, PREMISES } from "../data/premises.js";
+import { TOTAL_ENDINGS } from "../hooks/useProgress.js";
 import { LANGUAGES } from "../data/languages.js";
 import { useGame, useGameRun } from "../context/GameContext.jsx";
 import { ErrorRawDetail } from "./ErrorRawDetail.jsx";
@@ -19,7 +20,7 @@ export function TitleScreen({ onOpenCustom, onOpenSettings }) {
     openSavesModal: onOpenSaves,
     language,
     setLanguage: onChangeLanguage,
-    discoveredEndings,
+    getDiscoveredEndings,
   } = useGame();
   const { loading, error } = useGameRun();
   return (
@@ -50,7 +51,9 @@ export function TitleScreen({ onOpenCustom, onOpenSettings }) {
         </div>
       </div>
       <div className="grid md:grid-cols-2 gap-5 max-w-5xl w-full">
-        {PREMISES.map((p, i) => (
+        {PREMISES.map((p, i) => {
+          const discovered = getDiscoveredEndings(p.id).length;
+          return (
           <button
             key={p.id}
             onClick={() => !loading && onChoose(p)}
@@ -87,8 +90,18 @@ export function TitleScreen({ onOpenCustom, onOpenSettings }) {
             >
               {p.teaser}
             </p>
+            {discovered > 0 && (
+              <div
+                className="mt-5 display-font text-[10px]"
+                style={{ color: "var(--cream-faint)", letterSpacing: "0.4em" }}
+                aria-label={`${discovered} of ${TOTAL_ENDINGS} endings discovered`}
+              >
+                {discovered} / {TOTAL_ENDINGS} ENDINGS DISCOVERED
+              </div>
+            )}
           </button>
-        ))}
+          );
+        })}
         <button
           onClick={() => !loading && onOpenCustom()}
           disabled={loading}
@@ -160,15 +173,6 @@ export function TitleScreen({ onOpenCustom, onOpenSettings }) {
           ⚙ READING
         </button>
       </div>
-      {discoveredEndings.length > 0 && (
-        <div
-          className="mt-5 display-font text-[10px]"
-          style={{ color: "var(--cream-faint)", letterSpacing: "0.4em" }}
-          aria-label={`${discoveredEndings.length} of 5 endings discovered`}
-        >
-          {discoveredEndings.length} / 5 ENDINGS DISCOVERED
-        </div>
-      )}
       {loading && (
         <div
           className="mt-12 body-font italic text-lg slow-fade-in"

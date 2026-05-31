@@ -169,7 +169,7 @@ export function GameProvider({ children }) {
     }
     if (gmParsed.ending) {
       setEnded(true);
-      progress.recordEnding(gmParsed.ending);
+      progress.recordEnding(premise?.id, gmParsed.ending);
     }
   };
 
@@ -228,7 +228,7 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
       if (parsed.state) setGameState(parsed.state);
       if (parsed.ending) {
         setEnded(true);
-        progress.recordEnding(parsed.ending);
+        progress.recordEnding(chosen.id, parsed.ending);
       }
       if (ambienceRef.current) {
         const { defaultAmbienceForRealm, deriveAmbienceFromSeed } = await import("../ambience/tables.js");
@@ -710,7 +710,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     keepsakeError: keepsake.keepsakeError,
     keepsakeFilename,
     // progress
-    discoveredEndings: progress.discoveredEndings,
+    getDiscoveredEndings: progress.getDiscoveredEndings,
     // actions
     setLanguage,
     beginAdventure, submit, continueNarration,
