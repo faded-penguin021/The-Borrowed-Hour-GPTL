@@ -38,7 +38,7 @@ export function useTTS({ showSettings }) {
     };
     for (const id of ["openai", "voxtral"]) {
       const meta = TTS_PROVIDER_META[id];
-      try { const k = await getProviderKey(meta.reusesLLMKey); out[id] = !!k; }
+      try { const k = await getProviderKey(/** @type {ProviderId} */ (meta.reusesLLMKey)); out[id] = !!k; }
       catch { out[id] = false; }
     }
     out.elevenlabs = !!(ttsElevenKey || await getTtsElevenLabsKey());
@@ -102,7 +102,7 @@ export function useTTS({ showSettings }) {
     if (meta) {
       let key = null;
       let region = null;
-      if (meta.reusesLLMKey) { try { key = await getProviderKey(meta.reusesLLMKey); } catch {} }
+      if (meta.reusesLLMKey) { try { key = await getProviderKey(/** @type {ProviderId} */ (meta.reusesLLMKey)); } catch {} }
       else if (providerId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => null));
       else if (providerId === "azure") {
         key = ttsAzureKey || (await getTtsAzureKey().catch(() => null));
@@ -141,7 +141,7 @@ export function useTTS({ showSettings }) {
       if (!meta) return;
       let key = null;
       let region = null;
-      if (meta.reusesLLMKey) { try { key = await getProviderKey(meta.reusesLLMKey); } catch {} }
+      if (meta.reusesLLMKey) { try { key = await getProviderKey(/** @type {ProviderId} */ (meta.reusesLLMKey)); } catch {} }
       else if (ttsProviderId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => null));
       else if (ttsProviderId === "azure") {
         key = ttsAzureKey || (await getTtsAzureKey().catch(() => null));
