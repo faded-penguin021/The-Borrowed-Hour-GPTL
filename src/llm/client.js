@@ -39,7 +39,7 @@ export function createLLMClient({ getDefaultEngine, onUsage }) {
       let request;
       let apiKey = null;
       try {
-        apiKey = await getProviderKey(providerId);
+        apiKey = await getProviderKey(/** @type {ProviderId} */ (providerId));
         request = provider.buildRequest({
           sys, msgs, useTool, model, maxTokens, temperature: temp, tool, apiKey
         });
@@ -144,7 +144,7 @@ export function createLLMClient({ getDefaultEngine, onUsage }) {
       let request;
       let apiKey = null;
       try {
-        apiKey = await getProviderKey(providerId);
+        apiKey = await getProviderKey(/** @type {ProviderId} */ (providerId));
         request = provider.buildStreamRequest({ sys, msgs, model, maxTokens, temperature: temp, apiKey });
       } catch (e) {
         if (e instanceof BorrowedError) throw e;
