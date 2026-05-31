@@ -1,20 +1,22 @@
 // @ts-check
 import React, { useState, useRef, useEffect } from "react";
+import { useGameActions, useGameStory, useGameRun } from "../context/GameContext.jsx";
 
 /**
  * The input row. Owns `input` and the per-session input history locally so a
  * keystroke only re-renders this component — never the narration log or any
  * other game-context consumer.
  *
- * @param {Object} props
- * @param {(text: string) => (boolean | Promise<boolean>)} props.onSubmit
- * @param {Premise} props.premise
- * @param {boolean} props.metaMode
- * @param {string | null} props.ended
- * @param {boolean} props.loading
- * @param {() => void} props.onExitMeta
+ * Takes no props and reads only the stable action surface (`useGameActions`),
+ * the low-churn story slice (`useGameStory`), and runtime `loading`
+ * (`useGameRun`). None of those change identity on a streaming delta, so wrapped
+ * in `React.memo` the composer no longer re-renders while narration streams —
+ * the render thrash this split was made to kill.
  */
-export function GameComposer({ onSubmit, premise, metaMode, ended, loading, onExitMeta }) {
+export const GameComposer = React.memo(function GameComposer() {
+  const { submit, exitMetaMode } = useGameActions();
+  const { premise, metaMode, ended } = useGameStory();
+  const { loading } = useGameRun();
   const [input, setInput] = useState("");
   const [inputHistory, setInputHistory] = useState(/** @type {string[]} */ ([]));
   const [inputHistoryIndex, setInputHistoryIndex] = useState(-1);
@@ -41,7 +43,7 @@ export function GameComposer({ onSubmit, premise, metaMode, ended, loading, onEx
     setInputHistory((h) => h[h.length - 1] === text ? h : [...h, text]);
     setInputHistoryIndex(-1);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
-    const ok = await onSubmit(text);
+    const ok = await submit(text);
     if (ok === false) {
       setInput(text);
       requestAnimationFrame(autosize);
@@ -139,7 +141,7 @@ export function GameComposer({ onSubmit, premise, metaMode, ended, loading, onEx
           <span>click the page to skip the writing</span>
           {metaMode && (
             <button
-              onClick={onExitMeta}
+              onClick={exitMetaMode}
               className="ml-auto"
               style={{
                 background: "transparent",
@@ -160,4 +162,4 @@ export function GameComposer({ onSubmit, premise, metaMode, ended, loading, onEx
       </div>
     </div>
   );
-}
+});
