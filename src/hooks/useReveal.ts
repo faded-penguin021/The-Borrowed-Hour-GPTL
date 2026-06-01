@@ -1,42 +1,28 @@
-// @ts-check
-/**
- * @import { ChatMessage, EngineConfig, Entry, GameState, Premise } from "../types"
- */
 import { useState, useRef } from "react";
+import type { EngineConfig, Entry, GameState, Premise } from "../types";
+import type { StreamAPI } from "../llm/client";
 import { buildRevealSystem } from "../prompts/reveal.js";
 import { BorrowedError, formatError } from "../llm/errors";
+
+type RevealError = ReturnType<typeof formatError>;
+
+interface RevealDeps {
+  streamAPI: StreamAPI;
+  getEngine: () => EngineConfig;
+}
 
 /**
  * Manages the post-ending hidden-state reveal stream. Encapsulates
  * `revealText`, `revealLoading`, the `AbortController`, and the `streamAPI`
  * call so `GameContext` stays a pure coordinator.
- *
- * @param {{
- *   streamAPI: (
- *     sys: string,
- *     msgs: ChatMessage[],
- *     engine: EngineConfig,
- *     maxTokens: number,
- *     temperature: number,
- *     signal: AbortSignal,
- *     onDelta: (delta: string) => void
- *   ) => Promise<string>,
- *   getEngine: () => EngineConfig,
- * }} deps
  */
-export function useReveal({ streamAPI, getEngine }) {
+export function useReveal({ streamAPI, getEngine }: RevealDeps) {
   const [revealText, setRevealText] = useState("");
   const [revealLoading, setRevealLoading] = useState(false);
-  const [revealError, setRevealError] = useState(/** @type {any} */ (null));
-  const abortRef = useRef(/** @type {AbortController | null} */ (null));
+  const [revealError, setRevealError] = useState<RevealError | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  /**
-   * @param {Premise} premise
-   * @param {Entry[]} entries
-   * @param {GameState} gameState
-   * @param {string} language
-   */
-  const triggerReveal = async (premise, entries, gameState, language) => {
+  const triggerReveal = async (premise: Premise, entries: Entry[], gameState: GameState, language: string) => {
     if (abortRef.current) return;
     setRevealLoading(true);
     setRevealText("");
@@ -46,7 +32,7 @@ export function useReveal({ streamAPI, getEngine }) {
     abortRef.current = controller;
 
     const sys = buildRevealSystem(premise, language, gameState);
-    const lines = [];
+    const lines: string[] = [];
     for (const e of entries) {
       if (e.type === "narration") lines.push(`[SCENE]\n${e.text}`);
       else if (e.text) lines.push(`[PLAYER]\n${e.text}`);

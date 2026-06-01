@@ -1,7 +1,6 @@
-// @ts-check
 import { useEffect } from "react";
 
-export function useViewport() {
+export function useViewport(): void {
   useEffect(() => {
     let lastH = -1;
     let rafId = 0;

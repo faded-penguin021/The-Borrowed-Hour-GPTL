@@ -3,7 +3,7 @@
  * @import { Provider } from "../types"
  */
 import React, { createContext, useContext, useEffect } from "react";
-import { useTTS } from "../hooks/useTTS.js";
+import { useTTS } from "../hooks/useTTS";
 import { useAmbienceContext } from "./AmbienceContext.jsx";
 
 /** @type {React.Context<ReturnType<typeof useTTS> | null>} */

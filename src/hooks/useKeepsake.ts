@@ -1,9 +1,18 @@
-// @ts-check
-/**
- * @import { Entry, Premise } from "../types"
- */
 import { useState, useRef } from "react";
+import type { Entry, MetaMessage, Premise } from "../types";
 import { buildKeepsakeHTML, inlineImages } from "../export/keepsake.js";
+
+interface KeepsakeDeps {
+  setExportFallbackText: (text: string) => void;
+}
+
+interface GenerateKeepsakeArgs {
+  premise: Premise;
+  entries: Entry[];
+  revealText?: string;
+  metaMessages?: MetaMessage[];
+  ended: boolean;
+}
 
 /**
  * Two-tap keepsake download flow.
@@ -20,16 +29,12 @@ import { buildKeepsakeHTML, inlineImages } from "../export/keepsake.js";
  * iOS PWA standalone fallback: if `window.navigator.standalone === true`, the
  *   anchor API is also blocked. In that case `downloadKeepsake` passes the HTML
  *   text to `setExportFallbackText` so the copy-paste modal can surface it.
- *
- * @param {{
- *   setExportFallbackText: (text: string) => void,
- * }} deps
  */
-export function useKeepsake({ setExportFallbackText }) {
-  const [keepsakeBlob, setKeepsakeBlob] = useState(/** @type {Blob | null} */ (null));
+export function useKeepsake({ setExportFallbackText }: KeepsakeDeps) {
+  const [keepsakeBlob, setKeepsakeBlob] = useState<Blob | null>(null);
   const [keepsakeLoading, setKeepsakeLoading] = useState(false);
-  const [keepsakeError, setKeepsakeError] = useState(/** @type {string | null} */ (null));
-  const pendingBlobUrlRef = useRef(/** @type {string | null} */ (null));
+  const [keepsakeError, setKeepsakeError] = useState<string | null>(null);
+  const pendingBlobUrlRef = useRef<string | null>(null);
 
   const revokePending = () => {
     if (pendingBlobUrlRef.current) {
@@ -41,15 +46,8 @@ export function useKeepsake({ setExportFallbackText }) {
   /**
    * Tap 1: Inline images and assemble the HTML Blob. Stores the result in state;
    * does not trigger a download.
-   * @param {{
-   *   premise: Premise,
-   *   entries: Entry[],
-   *   revealText?: string,
-   *   metaMessages?: any[],
-   *   ended: boolean,
-   * }} args
    */
-  const generateKeepsake = async ({ premise, entries, revealText, metaMessages, ended }) => {
+  const generateKeepsake = async ({ premise, entries, revealText, metaMessages, ended }: GenerateKeepsakeArgs) => {
     if (keepsakeLoading) return;
     setKeepsakeLoading(true);
     setKeepsakeError(null);
@@ -71,14 +69,13 @@ export function useKeepsake({ setExportFallbackText }) {
   /**
    * Tap 2: Trigger the file download. Must be called synchronously from an
    * onClick — no await before this call or iOS will block the download.
-   * @param {string} filename
    */
-  const downloadKeepsake = (filename) => {
+  const downloadKeepsake = (filename: string) => {
     if (!keepsakeBlob) return;
 
     // iOS Safari in PWA standalone mode blocks <a download> even with a fresh
     // user gesture. Fall back to the copy-paste modal.
-    if (typeof window !== "undefined" && /** @type {any} */ (window.navigator).standalone === true) {
+    if (typeof window !== "undefined" && (window.navigator as Navigator & { standalone?: boolean }).standalone === true) {
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === "string") setExportFallbackText(reader.result);

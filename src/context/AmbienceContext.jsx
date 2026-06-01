@@ -3,7 +3,7 @@
  * @import { Provider } from "../types"
  */
 import React, { createContext, useContext, useMemo } from "react";
-import { useAmbience } from "../hooks/useAmbience.js";
+import { useAmbience } from "../hooks/useAmbience";
 
 /** @type {React.Context<ReturnType<typeof useAmbience> | null>} */
 const AmbienceContext = createContext(/** @type {ReturnType<typeof useAmbience> | null} */ (null));

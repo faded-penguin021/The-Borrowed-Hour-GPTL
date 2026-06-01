@@ -1,7 +1,7 @@
 // @ts-check
 import React from "react";
 import { realmGlyph, PREMISES } from "../data/premises";
-import { TOTAL_ENDINGS } from "../hooks/useProgress.js";
+import { TOTAL_ENDINGS } from "../hooks/useProgress";
 import { LANGUAGES } from "../data/languages";
 import { useGameActions, useGameStory, useGameRun } from "../context/GameContext.jsx";
 import { ErrorRawDetail } from "./ErrorRawDetail.jsx";

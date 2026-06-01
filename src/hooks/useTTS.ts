@@ -1,8 +1,5 @@
-// @ts-check
-/**
- * @import { ProviderId, TTSModelEntry, TTSVoiceEntry, ThrownError } from "../types"
- */
 import { useState, useRef, useEffect } from "react";
+import type { Entry, ProviderId, TTSVoiceEntry } from "../types";
 import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "../tts/catalogue";
 import { TTSController } from "../tts/controller";
 import { getTtsElevenLabsKey, saveTtsElevenLabsKey } from "../tts/elevenLabsKey";
@@ -11,51 +8,57 @@ import { getTtsGoogleKey, saveTtsGoogleKey } from "../tts/googleKey";
 import { fetchVoxtralVoices } from "../tts/adapters/voxtral";
 import { getProviderKey } from "../llm/providers";
 
-/**
- * @param {{ showSettings: boolean }} opts
- */
-export function useTTS({ showSettings }) {
+interface TtsPlayback {
+  speaking: boolean;
+  paused: boolean;
+  loading: boolean;
+  loadingTurnId: number | null;
+  activeTurnId: number | null;
+  lastError: string | null;
+  lastErrorTurnId: number | null;
+}
+
+export function useTTS({ showSettings }: { showSettings: boolean }) {
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [ttsMuted, setTtsMuted] = useState(false);
-  const [ttsProviderId, setTtsProviderId] = useState(/** @type {string | null} */ (null));
-  const [ttsVoiceId, setTtsVoiceId] = useState(/** @type {string | null} */ (null));
-  const [ttsModelOverrides, setTtsModelOverrides] = useState(/** @type {Record<string, string>} */ ({}));
+  const [ttsProviderId, setTtsProviderId] = useState<string | null>(null);
+  const [ttsVoiceId, setTtsVoiceId] = useState<string | null>(null);
+  const [ttsModelOverrides, setTtsModelOverrides] = useState<Record<string, string>>({});
   const [ttsRate, setTtsRate] = useState(1.0);
   const [ttsElevenKey, setTtsElevenKey] = useState("");
   const [ttsAzureKey, setTtsAzureKey] = useState("");
   const [ttsAzureRegion, setTtsAzureRegion] = useState("eastus");
   const [ttsGoogleKey, setTtsGoogleKey] = useState("");
-  const [ttsBrowserVoices, setTtsBrowserVoices] = useState(/** @type {SpeechSynthesisVoice[]} */ ([]));
-  const [ttsVoxtralVoices, setTtsVoxtralVoices] = useState(/** @type {TTSVoiceEntry[]} */ ([]));
-  const [ttsVoxtralVoicesError, setTtsVoxtralVoicesError] = useState(/** @type {string | null} */ (null));
-  const [ttsProviderReady, setTtsProviderReady] = useState(/** @type {Record<string, boolean>} */ ({ browser: true, puter: true }));
-  const [ttsPlayback, setTtsPlayback] = useState(/** @type {{ speaking: boolean, paused: boolean, loading: boolean, loadingTurnId: number | null, activeTurnId: number | null, lastError: string | null, lastErrorTurnId: number | null }} */ ({ speaking: false, paused: false, loading: false, loadingTurnId: null, activeTurnId: null, lastError: null, lastErrorTurnId: null }));
+  const [ttsBrowserVoices, setTtsBrowserVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [ttsVoxtralVoices, setTtsVoxtralVoices] = useState<TTSVoiceEntry[]>([]);
+  const [ttsVoxtralVoicesError, setTtsVoxtralVoicesError] = useState<string | null>(null);
+  const [ttsProviderReady, setTtsProviderReady] = useState<Record<string, boolean>>({ browser: true, puter: true });
+  const [ttsPlayback, setTtsPlayback] = useState<TtsPlayback>({ speaking: false, paused: false, loading: false, loadingTurnId: null, activeTurnId: null, lastError: null, lastErrorTurnId: null });
   const loadedRef = useRef(false);
-  const ttsRef = useRef(/** @type {TTSController | null} */ (null));
+  const ttsRef = useRef<TTSController | null>(null);
   const ttsNextRef = useRef(0);
 
-  const detectTtsProviderReady = async () => {
-    /** @type {Record<string, boolean>} */
-    const out = {
+  const detectTtsProviderReady = async (): Promise<Record<string, boolean>> => {
+    const out: Record<string, boolean> = {
       browser: typeof window !== "undefined" && "speechSynthesis" in window,
       puter: true
     };
     for (const id of ["openai", "voxtral"]) {
       const meta = TTS_PROVIDER_META[id];
-      try { const k = await getProviderKey(/** @type {ProviderId} */ (meta.reusesLLMKey)); out[id] = !!k; }
+      try { const k = await getProviderKey(meta.reusesLLMKey as ProviderId); out[id] = !!k; }
       catch { out[id] = false; }
     }
     out.elevenlabs = !!(ttsElevenKey || await getTtsElevenLabsKey());
-    out.azure = !!(ttsAzureKey || await getTtsAzureKey().catch(() => /** @type {null} */ (null)));
-    out.google = !!(ttsGoogleKey || await getTtsGoogleKey().catch(() => /** @type {null} */ (null)));
+    out.azure = !!(ttsAzureKey || await getTtsAzureKey().catch(() => null));
+    out.google = !!(ttsGoogleKey || await getTtsGoogleKey().catch(() => null));
     setTtsProviderReady(out);
     return out;
   };
 
-  const pickBestReadyProvider = (/** @type {Record<string, boolean>} */ ready) =>
-    TTS_PROVIDER_ORDER.find((/** @type {string} */ id) => ready[id]) || "browser";
+  const pickBestReadyProvider = (ready: Record<string, boolean>) =>
+    TTS_PROVIDER_ORDER.find((id) => ready[id]) || "browser";
 
-  const ensureTTSController = () => {
+  const ensureTTSController = (): TTSController => {
     let ctrl = ttsRef.current;
     if (!ctrl) {
       ctrl = new TTSController();
@@ -79,11 +82,7 @@ export function useTTS({ showSettings }) {
     return ctrl;
   };
 
-  /**
-   * @param {any[]} entries
-   * @param {number} idx
-   */
-  const playEntry = async (entries, idx) => {
+  const playEntry = async (entries: Entry[], idx: number) => {
     const ctrl = ensureTTSController();
     const e = entries[idx];
     if (!e || e.type !== "narration" || !e.fullyRevealed) return;
@@ -106,22 +105,21 @@ export function useTTS({ showSettings }) {
     }
     const meta = TTS_PROVIDER_META[providerId];
     if (meta) {
-      let key = null;
-      let region = null;
-      if (meta.reusesLLMKey) { try { key = await getProviderKey(/** @type {ProviderId} */ (meta.reusesLLMKey)); } catch {} }
-      else if (providerId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => /** @type {null} */ (null)));
+      let key: string | null = null;
+      let region: string | null = null;
+      if (meta.reusesLLMKey) { try { key = await getProviderKey(meta.reusesLLMKey as ProviderId); } catch {} }
+      else if (providerId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => null));
       else if (providerId === "azure") {
-        key = ttsAzureKey || (await getTtsAzureKey().catch(() => /** @type {null} */ (null)));
+        key = ttsAzureKey || (await getTtsAzureKey().catch(() => null));
         region = ttsAzureRegion;
       }
-      else if (providerId === "google") key = ttsGoogleKey || (await getTtsGoogleKey().catch(() => /** @type {null} */ (null)));
+      else if (providerId === "google") key = ttsGoogleKey || (await getTtsGoogleKey().catch(() => null));
       ctrl.setProvider(providerId, { voiceId: ttsVoiceId, key, model: ttsModelOverrides[providerId] || null, region });
     }
     ctrl.speak(e.text, { turnId: idx });
   };
 
-  /** @param {any[]} entries */
-  const togglePlayPause = (entries) => {
+  const togglePlayPause = (entries: Entry[]) => {
     const ctrl = ensureTTSController();
     if (ctrl.isPaused()) { ctrl.resume(); return; }
     if (ctrl.isSpeaking()) { ctrl.pause(); return; }
@@ -145,15 +143,15 @@ export function useTTS({ showSettings }) {
       const ctrl = ensureTTSController();
       const meta = TTS_PROVIDER_META[ttsProviderId];
       if (!meta) return;
-      let key = null;
-      let region = null;
-      if (meta.reusesLLMKey) { try { key = await getProviderKey(/** @type {ProviderId} */ (meta.reusesLLMKey)); } catch {} }
-      else if (ttsProviderId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => /** @type {null} */ (null)));
+      let key: string | null = null;
+      let region: string | null = null;
+      if (meta.reusesLLMKey) { try { key = await getProviderKey(meta.reusesLLMKey as ProviderId); } catch {} }
+      else if (ttsProviderId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => null));
       else if (ttsProviderId === "azure") {
-        key = ttsAzureKey || (await getTtsAzureKey().catch(() => /** @type {null} */ (null)));
+        key = ttsAzureKey || (await getTtsAzureKey().catch(() => null));
         region = ttsAzureRegion;
       }
-      else if (ttsProviderId === "google") key = ttsGoogleKey || (await getTtsGoogleKey().catch(() => /** @type {null} */ (null)));
+      else if (ttsProviderId === "google") key = ttsGoogleKey || (await getTtsGoogleKey().catch(() => null));
       ctrl.setProvider(ttsProviderId, { voiceId: ttsVoiceId, key, model: ttsModelOverrides[ttsProviderId] || null, region });
     })();
   }, [ttsProviderId, ttsVoiceId, ttsElevenKey, ttsAzureKey, ttsAzureRegion, ttsGoogleKey, ttsModelOverrides]);
@@ -172,12 +170,11 @@ export function useTTS({ showSettings }) {
             if (typeof p.voiceId === "string") setTtsVoiceId(p.voiceId);
             if (typeof p.rate === "number") setTtsRate(p.rate);
             if (p.modelOverrides && typeof p.modelOverrides === "object") {
-              /** @type {Record<string, string>} */
-              const clean = {};
+              const clean: Record<string, string> = {};
               for (const [provId, modelId] of Object.entries(p.modelOverrides)) {
                 const meta = TTS_PROVIDER_META[provId];
                 if (!meta || typeof modelId !== "string") continue;
-                const inPresets = (meta.models || []).some((/** @type {TTSModelEntry} */ m) => m.id === modelId);
+                const inPresets = (meta.models || []).some((m) => m.id === modelId);
                 if (inPresets) clean[provId] = modelId;
               }
               setTtsModelOverrides(clean);
@@ -190,17 +187,17 @@ export function useTTS({ showSettings }) {
     })();
     detectTtsProviderReady();
     (async () => {
-      const k = await getTtsElevenLabsKey().catch(() => /** @type {null} */ (null));
+      const k = await getTtsElevenLabsKey().catch(() => null);
       if (k) setTtsElevenKey(k);
     })();
     (async () => {
-      const k = await getTtsAzureKey().catch(() => /** @type {null} */ (null));
+      const k = await getTtsAzureKey().catch(() => null);
       if (k) setTtsAzureKey(k);
       const r = getTtsAzureRegion();
       setTtsAzureRegion(r || "eastus");
     })();
     (async () => {
-      const k = await getTtsGoogleKey().catch(() => /** @type {null} */ (null));
+      const k = await getTtsGoogleKey().catch(() => null);
       if (k) setTtsGoogleKey(k);
     })();
   }, []);
@@ -228,24 +225,21 @@ export function useTTS({ showSettings }) {
     if (!showSettings && ttsVoxtralVoices.length > 0) return;
     let cancelled = false;
     (async () => {
-      let key = null;
+      let key: string | null = null;
       try { key = await getProviderKey("mistral"); } catch {}
       if (!key) return;
       try {
         const voices = await fetchVoxtralVoices(key);
         if (!cancelled) { setTtsVoxtralVoices(voices); setTtsVoxtralVoicesError(null); }
       } catch (e) {
-        if (!cancelled) setTtsVoxtralVoicesError(/** @type {ThrownError} */ (e)?.message || String(e));
+        if (!cancelled) setTtsVoxtralVoicesError((e as { message?: string })?.message || String(e));
       }
     })();
     return () => { cancelled = true; };
   }, [ttsProviderId, showSettings]);
 
-  /**
-   * Walk entries and auto-speak newly revealed narration.
-   * @param {any[]} entries
-   */
-  const autoSpeak = (entries) => {
+  /** Walk entries and auto-speak newly revealed narration. */
+  const autoSpeak = (entries: Entry[]) => {
     if (!ttsEnabled || ttsMuted) {
       ttsNextRef.current = entries.length;
       return;
@@ -271,7 +265,7 @@ export function useTTS({ showSettings }) {
     if (ttsRef.current) ttsRef.current.stop();
   };
 
-  const resetTTSCursor = (/** @type {number} */ position) => {
+  const resetTTSCursor = (position: number) => {
     ttsNextRef.current = position;
   };
 

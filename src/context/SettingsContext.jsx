@@ -3,7 +3,7 @@
  * @import { AppSettings, Provider } from "../types"
  */
 import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
-import { useSettings } from "../hooks/useSettings.js";
+import { useSettings } from "../hooks/useSettings";
 
 /**
  * @typedef {{

@@ -2,7 +2,7 @@
  * @import { CodexMode } from "../types"
  */
 import { describe, it, expect } from "vitest";
-import useCodexSource from "../hooks/useCodex.js?raw";
+import useCodexSource from "../hooks/useCodex.ts?raw";
 import { CODEX_MODE_OPTIONS, DEFAULT_CODEX_SETTINGS } from "../data/constants";
 
 // Regression coverage for the "codex mode ghost" bug: the `CodexMode` type once
