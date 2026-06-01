@@ -3,8 +3,8 @@
  * @import { Entry } from "../types"
  */
 import React, { useRef, useEffect } from "react";
-import { realmGlyph } from "../data/premises.js";
-import { formatTokens } from "../data/constants.js";
+import { realmGlyph } from "../data/premises";
+import { formatTokens } from "../data/constants";
 import { useGame, useGameRun } from "../context/GameContext.jsx";
 import { useSettingsContext } from "../context/SettingsContext.jsx";
 import { useAmbienceContext } from "../context/AmbienceContext.jsx";

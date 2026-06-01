@@ -4,7 +4,7 @@
  */
 import { PROVIDERS, PROVIDER_META, getProviderKey } from "./providers.js";
 import { GM_TOOL } from "./tools.js";
-import { scrubSecrets, extractApiErrorMessage, BorrowedError, httpStatusHint } from "./errors.js";
+import { scrubSecrets, extractApiErrorMessage, BorrowedError, httpStatusHint } from "./errors";
 
 /**
  * Build the API layer (callAPI / streamAPI). Kept free of React so the game

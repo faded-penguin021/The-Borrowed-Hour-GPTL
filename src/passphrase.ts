@@ -1,44 +1,34 @@
-// @ts-check
-
 // Closure-scoped session passphrase. Held in module-private state rather than on
 // `window.__sessionPassphrase`, so a stray in-page script can't trivially scrape
 // it off the global object. This is NOT a guarantee against a determined
 // in-page attacker (the secret is still in memory and reachable by code that can
 // import this module), but it removes the cheapest XSS exfiltration vector and
 // gives the secret a single owner.
-/** @type {string | null} */
-let _sessionPassphrase = null;
+let _sessionPassphrase: string | null = null;
 
-/** @param {string | null} value */
-export function setSessionPassphrase(value) {
+export function setSessionPassphrase(value: string | null): void {
   _sessionPassphrase = value || null;
 }
 
-/** @returns {string | null} */
-export function getSessionPassphrase() {
+export function getSessionPassphrase(): string | null {
   return _sessionPassphrase;
 }
 
-export function clearSessionPassphrase() {
+export function clearSessionPassphrase(): void {
   _sessionPassphrase = null;
 }
 
-/** @type {((value: string | null) => void) | null} */
-let _pendingResolve = null;
+let _pendingResolve: ((value: string | null) => void) | null = null;
 
-/** @type {string | null} */
-let _pendingPrompt = null;
+let _pendingPrompt: string | null = null;
 
-/** @type {(() => void) | null} */
-let _listener = null;
+let _listener: (() => void) | null = null;
 
 /**
  * Request a passphrase from the user via in-app modal.
  * Returns null if the user cancels.
- * @param {string} prompt
- * @returns {Promise<string | null>}
  */
-export function requestPassphrase(prompt) {
+export function requestPassphrase(prompt: string): Promise<string | null> {
   if (_pendingResolve) return Promise.resolve(null);
   _pendingPrompt = prompt;
   return new Promise((resolve) => {
@@ -48,7 +38,7 @@ export function requestPassphrase(prompt) {
 }
 
 /** Resolve the pending request. Called by the modal component. */
-export function resolvePassphrase(/** @type {string | null} */ value) {
+export function resolvePassphrase(value: string | null): void {
   const r = _pendingResolve;
   _pendingResolve = null;
   _pendingPrompt = null;
@@ -56,13 +46,14 @@ export function resolvePassphrase(/** @type {string | null} */ value) {
   r?.(value);
 }
 
-/** @returns {{ prompt: string | null, pending: boolean }} */
-export function getPassphraseState() {
+export function getPassphraseState(): { prompt: string | null; pending: boolean } {
   return { prompt: _pendingPrompt, pending: !!_pendingResolve };
 }
 
 /** Subscribe to state changes. Returns unsubscribe function. */
-export function onPassphraseChange(/** @type {() => void} */ fn) {
+export function onPassphraseChange(fn: () => void): () => void {
   _listener = fn;
-  return () => { if (_listener === fn) _listener = null; };
+  return () => {
+    if (_listener === fn) _listener = null;
+  };
 }

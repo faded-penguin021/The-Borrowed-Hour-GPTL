@@ -2,7 +2,7 @@
 /**
  * @import { TTSHandle, ThrownError } from "../types"
  */
-import { BorrowedError } from "../llm/errors.js";
+import { BorrowedError } from "../llm/errors";
 
 /**
  * @param {string} url

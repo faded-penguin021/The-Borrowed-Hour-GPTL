@@ -1,6 +1,6 @@
 // @ts-check
-import { ENC_PREFIX, decryptSecret, encryptSecret } from "../storage/encryption.js";
-import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase } from "../passphrase.js";
+import { ENC_PREFIX, decryptSecret, encryptSecret } from "../storage/encryption";
+import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase } from "../passphrase";
 
 /** @returns {Promise<string | null>} */
 export async function getTtsElevenLabsKey() {
@@ -8,7 +8,7 @@ export async function getTtsElevenLabsKey() {
   if (!stored) return null;
   if (!stored.startsWith(ENC_PREFIX)) return stored.trim();
   if (!getSessionPassphrase()) {
-    const { requestPassphrase } = await import("../passphrase.js");
+    const { requestPassphrase } = await import("../passphrase");
     setSessionPassphrase(await requestPassphrase("Enter your session passphrase to unlock API keys:"));
   }
   const passphrase = getSessionPassphrase();

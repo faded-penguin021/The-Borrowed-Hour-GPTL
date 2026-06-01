@@ -3,9 +3,9 @@
  * @import { ProviderId } from "../types"
  */
 import React from "react";
-import { encryptSecret } from "../storage/encryption.js";
+import { encryptSecret } from "../storage/encryption";
 import { PROVIDER_META, resetProviderKey, checkProviderHealth } from "../llm/providers.js";
-import { requestPassphrase, getSessionPassphrase, setSessionPassphrase } from "../passphrase.js";
+import { requestPassphrase, getSessionPassphrase, setSessionPassphrase } from "../passphrase";
 
 /**
  * @param {Object} props

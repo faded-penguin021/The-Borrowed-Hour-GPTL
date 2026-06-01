@@ -2,7 +2,7 @@
 /**
  * @import { TTSAdapterOptions, TTSHandle, TTSVoiceEntry } from "../../types"
  */
-import { BorrowedError } from "../../llm/errors.js";
+import { BorrowedError } from "../../llm/errors";
 import { _fetchAudioBlob, _blobHandle } from "../shared.js";
 // Uses Mistral's OpenAI-compatible /v1/audio/speech endpoint with model
 // voxtral-mini-tts-2603. Body uses voice_id (NOT voice), distinguishing

@@ -1,10 +1,7 @@
-// @ts-check
-/**
- * @import { StorageShim, ThrownError } from "../types"
- */
+import type { StorageShim, ThrownError } from "../types";
+
 if (!window.storage) {
-  /** @type {StorageShim} */
-  window.storage = {
+  const shim: StorageShim = {
     async get(key) {
       const value = localStorage.getItem(key);
       return value === null ? null : { key, value };
@@ -13,7 +10,7 @@ if (!window.storage) {
       try {
         localStorage.setItem(key, value);
       } catch (e) {
-        const caught = /** @type {ThrownError} */ (e);
+        const caught = e as ThrownError;
         const msg = caught?.message || "";
         if (/quota|storage/i.test(msg) || caught?.name === "QuotaExceededError") {
           const wrapped = new Error(`Storage quota exceeded while saving "${key}" (${Math.round(value.length / 1024)} KB).`);
@@ -29,8 +26,7 @@ if (!window.storage) {
       return { key };
     },
     async list(prefix = "") {
-      /** @type {string[]} */
-      const keys = [];
+      const keys: string[] = [];
       for (let i = 0; i < localStorage.length; i += 1) {
         const key = localStorage.key(i);
         if (key !== null && (!prefix || key.startsWith(prefix)))
@@ -40,4 +36,5 @@ if (!window.storage) {
       return { keys };
     }
   };
+  window.storage = shim;
 }

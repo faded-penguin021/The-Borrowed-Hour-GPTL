@@ -1,10 +1,6 @@
-// @ts-check
-/**
- * @import { LanguageEntry } from "../types"
- */
+import type { LanguageEntry } from "../types";
 
-/** @type {LanguageEntry[]} */
-export var LANGUAGES = [
+export const LANGUAGES: LanguageEntry[] = [
   { code: "en", label: "English", name: "English" },
   { code: "es", label: "Español", name: "Spanish" },
   { code: "fr", label: "Français", name: "French" },
@@ -19,10 +15,7 @@ export var LANGUAGES = [
   { code: "ko", label: "한국어", name: "Korean" }
 ];
 
-export var DEFAULT_LANGUAGE = "en";
+export const DEFAULT_LANGUAGE = "en";
 
-/**
- * @param {string} code
- * @returns {string}
- */
-export var languageNameFor = (code) => (LANGUAGES.find((l) => l.code === code) || LANGUAGES[0]).name;
+export const languageNameFor = (code: string): string =>
+  (LANGUAGES.find((l) => l.code === code) || LANGUAGES[0]).name;
