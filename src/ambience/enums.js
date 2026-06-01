@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { AmbienceEvent, AmbienceMood, AmbiencePalette, AmbiencePopulation, AmbienceSpace } from "../types"
+ */
 // Single source of truth for the ambience taxonomy.
 // Consumed by both the engine (ambience/tables.js validation Sets) and the
 // GM tool schemas (llm/tools.js enum arrays). Adding a new value here makes

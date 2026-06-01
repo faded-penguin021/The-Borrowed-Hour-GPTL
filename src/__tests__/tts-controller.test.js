@@ -1,3 +1,6 @@
+/**
+ * @import { TTSAdapter, TTSAdapterOptions, TTSHandle } from "../types"
+ */
 import { describe, it, expect, vi } from "vitest";
 import { TTSController } from "../tts/controller.js";
 

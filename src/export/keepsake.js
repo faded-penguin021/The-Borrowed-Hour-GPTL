@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { Entry, Premise } from "../types"
+ */
 
 /** @param {string} str @returns {string} */
 export function escapeHtml(str) {

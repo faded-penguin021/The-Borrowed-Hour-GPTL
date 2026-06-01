@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { TTSAdapterOptions, TTSHandle, TTSVoiceEntry } from "../../types"
+ */
 import { BorrowedError } from "../../llm/errors.js";
 import { _fetchAudioBlob, _blobHandle } from "../shared.js";
 // Uses Mistral's OpenAI-compatible /v1/audio/speech endpoint with model

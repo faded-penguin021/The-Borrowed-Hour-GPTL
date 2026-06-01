@@ -1,3 +1,6 @@
+/**
+ * @import { Entry, ThrownError } from "../types"
+ */
 import { describe, it, expect } from "vitest";
 
 describe("abort / cancellation contract", () => {

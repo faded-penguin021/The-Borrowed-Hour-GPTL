@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { TTSAdapterOptions, TTSHandle } from "../../types"
+ */
 import { BorrowedError } from "../../llm/errors.js";
 import { _blobHandle } from "../shared.js";
 

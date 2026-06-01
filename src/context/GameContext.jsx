@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { ChatMessage, Entry, GameState, NarrationEntry, Premise, Provider, ThrownError } from "../types"
+ */
 import React, { createContext, useContext, useState, useRef, useEffect, useMemo } from "react";
 import { EMPTY_STATE } from "../data/constants.js";
 import { DEFAULT_LANGUAGE } from "../data/languages.js";

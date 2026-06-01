@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { Entry } from "../types"
+ */
 import React, { useRef, useEffect } from "react";
 import { realmGlyph } from "../data/premises.js";
 import { formatTokens } from "../data/constants.js";

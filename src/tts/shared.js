@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { TTSHandle, ThrownError } from "../types"
+ */
 import { BorrowedError } from "../llm/errors.js";
 
 /**

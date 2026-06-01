@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { ThrownError } from "../types"
+ */
 import { useState } from "react";
 import { SAVE_PREFIX, SAVE_CAP, estimateSize, formatKB, formatTokens } from "../data/constants.js";
 import { putImage, deleteImagesForSave } from "../storage/imageStore";

@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { AppSettings, ProviderId } from "../types"
+ */
 import React from "react";
 import { EngineSelector } from "./EngineSelector.jsx";
 import { EngineRoleDisplay } from "./EngineRoleDisplay.jsx";

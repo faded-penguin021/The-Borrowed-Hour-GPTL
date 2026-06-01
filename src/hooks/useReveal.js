@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { ChatMessage, EngineConfig, Entry, GameState, Premise } from "../types"
+ */
 import { useState, useRef } from "react";
 import { buildRevealSystem } from "../prompts/reveal.js";
 import { BorrowedError, formatError } from "../llm/errors.js";

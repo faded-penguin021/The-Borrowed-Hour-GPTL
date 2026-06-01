@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { AppSettings, CodexMode, CodexSettings, EndingType, EngineConfig, GameState, SizeEstimate } from "../types"
+ */
 export var SAVE_PREFIX = "borrowed:save:";
 export var SETTINGS_KEY = "borrowed:settings:v1";
 export var ONBOARDING_KEY = "borrowed:onboarding:v1";

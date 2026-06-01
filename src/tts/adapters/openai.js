@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { TTSAdapterOptions, TTSHandle } from "../../types"
+ */
 import { _fetchAudioBlob, _blobHandle } from "../shared.js";
 
 export class OpenAITTSAdapter {

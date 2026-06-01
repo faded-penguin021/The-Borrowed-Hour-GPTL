@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { Provider } from "../types"
+ */
 import React, { createContext, useContext, useMemo } from "react";
 import { useAmbience } from "../hooks/useAmbience.js";
 

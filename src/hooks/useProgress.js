@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { EndingsByPremise } from "../types"
+ */
 import { useState, useEffect, useCallback } from "react";
 
 const ENDINGS_KEY = "borrowed:endings:v2";

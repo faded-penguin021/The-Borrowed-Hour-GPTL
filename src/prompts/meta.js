@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { Premise } from "../types"
+ */
 import { languageNameFor } from "../data/languages.js";
 
 /**

@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { TTSAdapter, TTSHandle, ThrownError } from "../types"
+ */
 import { TTS_PROVIDER_META } from "./catalogue.js";
 
 export class TTSController {

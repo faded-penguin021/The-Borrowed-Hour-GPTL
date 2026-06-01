@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { GameState, Premise } from "../types"
+ */
 
 /**
  * System prompt for the post-ending hidden-state reveal.

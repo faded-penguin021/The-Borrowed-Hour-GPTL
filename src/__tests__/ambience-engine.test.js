@@ -1,3 +1,6 @@
+/**
+ * @import { AmbienceInput } from "../types"
+ */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   AMBIENCE_SPACE_VALUES,

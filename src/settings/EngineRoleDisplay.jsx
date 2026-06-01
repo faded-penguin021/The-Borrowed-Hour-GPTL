@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { EngineConfig, ProviderId } from "../types"
+ */
 import React from "react";
 import { PROVIDER_META } from "../llm/providers.js";
 

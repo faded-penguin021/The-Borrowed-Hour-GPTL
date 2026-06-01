@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { NPC, Premise } from "../types"
+ */
 import { languageNameFor, DEFAULT_LANGUAGE } from "../data/languages.js";
 
 /**

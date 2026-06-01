@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { BuildRequestParams, ChatCompletionsProviderConfig, ChatMessage, StreamEvent, ToolDefinition } from "../types"
+ */
 import { BorrowedError } from "./errors.js";
 
 /**

@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { NPC, ToolDefinition } from "../types"
+ */
 import { setGMTool } from "./providers.js";
 export { buildSystem } from "../prompts/system.js";
 export { buildNarratorSystem } from "../prompts/narrator.js";

@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { GeneratedImage, ImageProviderId, ImageProviderMeta } from "../types"
+ */
 // Image provider abstraction for the Prestige Codex. Parallel to providers.js
 // (LLM providers) but kept separate because image APIs are fewer, simpler, and
 // have different lifecycle (single shot, sometimes polled).

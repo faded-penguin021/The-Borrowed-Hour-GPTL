@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { Provider } from "../types"
+ */
 import React, { createContext, useContext, useEffect } from "react";
 import { useTTS } from "../hooks/useTTS.js";
 import { useAmbienceContext } from "./AmbienceContext.jsx";

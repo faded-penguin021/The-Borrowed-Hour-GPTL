@@ -1,3 +1,6 @@
+/**
+ * @import { ProviderId } from "../types"
+ */
 import { describe, it, expect } from "vitest";
 import { PROVIDER_META, PROVIDER_ORDER } from "../llm/providers.js";
 

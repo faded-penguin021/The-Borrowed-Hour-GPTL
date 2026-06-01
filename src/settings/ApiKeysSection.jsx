@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { ProviderId } from "../types"
+ */
 import React from "react";
 import { ApiKeyRow } from "./ApiKeyRow.jsx";
 import { LocalLLMRow } from "./LocalLLMRow.jsx";

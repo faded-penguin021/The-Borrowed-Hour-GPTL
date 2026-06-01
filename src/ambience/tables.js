@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { AmbienceInput } from "../types"
+ */
 // ─────────────────────────────────────────────────────────────────────────
 // Procedural synthesis recipes adapted from Hermes Agent Music (MIT)
 //   https://github.com/jlaiii/hermes-agent-music

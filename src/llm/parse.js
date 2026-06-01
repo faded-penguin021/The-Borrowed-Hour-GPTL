@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { AmbienceInput, GMLogicParseResult, GMParseResult, GameState } from "../types"
+ */
 import { sanitizeAmbience } from "../ambience/tables.js";
 import { GMLogicResponseSchema, GMResponseSchema } from "./schemas.js";
 

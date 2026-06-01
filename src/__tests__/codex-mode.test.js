@@ -1,3 +1,6 @@
+/**
+ * @import { CodexMode } from "../types"
+ */
 import { describe, it, expect } from "vitest";
 import useCodexSource from "../hooks/useCodex.js?raw";
 import { CODEX_MODE_OPTIONS, DEFAULT_CODEX_SETTINGS } from "../data/constants.js";

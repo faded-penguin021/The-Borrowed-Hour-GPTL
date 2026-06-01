@@ -1,26 +1,30 @@
-// Ambient type definitions for The Borrowed Hour.
-// All types are globally available — no import needed in JS files.
-// Add // @ts-check to any .js file to opt in to type checking.
+// Domain type definitions for The Borrowed Hour.
+//
+// These are explicit ES-module exports: import the types you need
+// (`import type { GameState } from "../types"` in TS, or a JSDoc
+// `@import { GameState } from "../types"` block in JS). The lone remaining
+// ambient declaration — the `Window` augmentation — lives in `src/global.d.ts`,
+// because global augmentation genuinely belongs in an ambient `.d.ts`.
 
 // ── Ambience ─────────────────────────────────────────────────────────────────
 
-type AmbienceSpace =
+export type AmbienceSpace =
   | "intimate" | "chamber" | "hall" | "cavern"
   | "street" | "field" | "forest" | "vehicle" | "void";
 
-type AmbiencePopulation =
+export type AmbiencePopulation =
   | "solitary" | "sparse_voices" | "crowd" | "machinery"
   | "nature" | "ceremony" | "creature" | "wild";
 
-type AmbienceMood =
+export type AmbienceMood =
   | "calm" | "tender" | "tense" | "ominous"
   | "joyous" | "melancholy" | "urgent" | "mysterious";
 
-type AmbiencePalette =
+export type AmbiencePalette =
   | "strings" | "piano" | "synth" | "glass"
   | "choir" | "reed" | "brass" | "guitar";
 
-type AmbienceEvent =
+export type AmbienceEvent =
   | "bell_toll" | "bell_distant" | "clock_chime"
   | "door_close" | "door_creak"
   | "footsteps_close" | "footsteps_recede"
@@ -29,7 +33,7 @@ type AmbienceEvent =
   | "crowd_hush" | "cough_distant" | "breath_held"
   | "metal_clang" | "whisper_close";
 
-interface AmbienceInput {
+export interface AmbienceInput {
   space?: AmbienceSpace;
   population?: AmbiencePopulation;
   mood?: AmbienceMood;
@@ -43,7 +47,7 @@ interface AmbienceInput {
 // a caught value is `unknown`; thrown values may be a BorrowedError, a native
 // Error/DOMException, or an arbitrary object. The app reads these fields
 // defensively (always guarded or optional-chained), so model them all as optional.
-interface ThrownError {
+export interface ThrownError {
   name?: string;
   message?: string;
   detail?: string;
@@ -55,12 +59,12 @@ interface ThrownError {
 
 // ── Core game types ───────────────────────────────────────────────────────────
 
-interface NPC {
+export interface NPC {
   name: string;
   note: string;
 }
 
-interface GameState {
+export interface GameState {
   scene: string;
   time: string;
   inventory: string[];
@@ -70,12 +74,12 @@ interface GameState {
   hidden_state: string;
 }
 
-type EndingType = "good" | "bittersweet" | "pyrrhic" | "ambiguous" | "bad";
+export type EndingType = "good" | "bittersweet" | "pyrrhic" | "ambiguous" | "bad";
 
 // Per-premise discovered-endings map: premiseId -> { endingType: true }.
-type EndingsByPremise = Record<string, Record<string, boolean>>;
+export type EndingsByPremise = Record<string, Record<string, boolean>>;
 
-interface NarrationEntry {
+export interface NarrationEntry {
   type: "narration";
   text: string;
   fullyRevealed: boolean;
@@ -83,7 +87,7 @@ interface NarrationEntry {
   illustration?: Illustration;
 }
 
-interface ActionEntry {
+export interface ActionEntry {
   type: "action";
   text: string;
   fullyRevealed: boolean;
@@ -92,9 +96,9 @@ interface ActionEntry {
   illustration?: Illustration;
 }
 
-type Entry = NarrationEntry | ActionEntry;
+export type Entry = NarrationEntry | ActionEntry;
 
-interface Premise {
+export interface Premise {
   id: string;
   realm: string;
   realmLabel: string;
@@ -107,19 +111,19 @@ interface Premise {
 
 // ── LLM provider types ────────────────────────────────────────────────────────
 
-interface ModelEntry {
+export interface ModelEntry {
   id: string;
   label?: string;
   tier?: string;
   isFree?: boolean;
 }
 
-type ProviderId =
+export type ProviderId =
   | "gemini" | "openai" | "anthropic" | "deepseek"
   | "qwen" | "kimi" | "ernie" | "mistral"
   | "groq" | "openrouter" | "cerebras" | "local";
 
-interface ProviderMeta {
+export interface ProviderMeta {
   name: string;
   keyStorage: string;
   windowKey: string;
@@ -129,30 +133,30 @@ interface ProviderMeta {
   urlStorage?: string;
 }
 
-interface EngineConfig {
+export interface EngineConfig {
   provider: string;
   model: string;
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
 }
 
-interface ToolDefinition {
+export interface ToolDefinition {
   name: string;
   description: string;
   input_schema?: Record<string, unknown>;
   parameters?: Record<string, unknown>;
 }
 
-interface StreamEvent {
+export interface StreamEvent {
   text?: string;
   usage?: { input: number; output: number };
   error?: string;
 }
 
-interface BuildRequestParams {
+export interface BuildRequestParams {
   sys: string;
   msgs: ChatMessage[];
   useTool?: boolean;
@@ -163,7 +167,7 @@ interface BuildRequestParams {
   apiKey?: string;
 }
 
-interface Provider {
+export interface Provider {
   buildRequest(params: BuildRequestParams): { url: string; init: RequestInit };
   buildStreamRequest(params: BuildRequestParams): { url: string; init: RequestInit };
   parseStreamEvent(rawEvent: string): StreamEvent;
@@ -173,7 +177,7 @@ interface Provider {
 
 // ── TTS types ─────────────────────────────────────────────────────────────────
 
-interface TTSHandle {
+export interface TTSHandle {
   play(): void;
   pause(): void;
   resume(): void;
@@ -181,7 +185,7 @@ interface TTSHandle {
   set onended(cb: (() => void) | null);
 }
 
-interface TTSAdapterOptions {
+export interface TTSAdapterOptions {
   voiceId?: string | null;
   rate?: number;
   key?: string | null;
@@ -189,22 +193,22 @@ interface TTSAdapterOptions {
   region?: string | null;
 }
 
-interface TTSAdapter {
+export interface TTSAdapter {
   synthesize(text: string, signal?: AbortSignal, onError?: (msg: string) => void): Promise<TTSHandle>;
   destroy(): void;
 }
 
-interface TTSVoiceEntry {
+export interface TTSVoiceEntry {
   id: string;
   label: string;
 }
 
-interface TTSModelEntry {
+export interface TTSModelEntry {
   id: string;
   tier: string;
 }
 
-interface TTSProviderMeta {
+export interface TTSProviderMeta {
   id: string;
   name: string;
   requiresKey: boolean;
@@ -219,7 +223,7 @@ interface TTSProviderMeta {
 
 // ── Art director / codex types ────────────────────────────────────────────────
 
-interface StyleBible {
+export interface StyleBible {
   era: string;
   medium: string;
   palette: string[];
@@ -227,14 +231,14 @@ interface StyleBible {
   negatives: string[];
 }
 
-interface VisualLedgerEntry {
+export interface VisualLedgerEntry {
   id: string;
   tags: string[];
 }
 
-type IllustrationStatus = "pending" | "ready" | "failed";
+export type IllustrationStatus = "pending" | "ready" | "failed";
 
-interface Illustration {
+export interface Illustration {
   status: IllustrationStatus;
   url?: string;
   prompt?: string;
@@ -245,15 +249,15 @@ interface Illustration {
 
 // ── Image provider types ──────────────────────────────────────────────────────
 
-type ImageProviderId = "pollinations" | "replicate" | "openai" | "local";
+export type ImageProviderId = "pollinations" | "replicate" | "openai" | "local";
 
-interface ImageModelEntry {
+export interface ImageModelEntry {
   id: string;
   label?: string;
   tier?: string;
 }
 
-interface ImageProviderMeta {
+export interface ImageProviderMeta {
   name: string;
   keyless: boolean;
   keyStorage?: string;
@@ -265,7 +269,7 @@ interface ImageProviderMeta {
   models: ImageModelEntry[];
 }
 
-interface GeneratedImage {
+export interface GeneratedImage {
   url: string;
   provider: string;
 }
@@ -276,9 +280,9 @@ interface GeneratedImage {
 // by the settings UI and read by the codex runtime (src/hooks/useCodex.js):
 // "off" disables plates, "always" requests one every turn, and "key_moments"
 // (the default non-off mode) lets the Art Director gate plates to milestones.
-type CodexMode = "off" | "key_moments" | "always";
+export type CodexMode = "off" | "key_moments" | "always";
 
-interface CodexProviderConfig {
+export interface CodexProviderConfig {
   pollinations?: { model: string };
   replicate?: { model: string };
   openai?: { model: string };
@@ -286,7 +290,7 @@ interface CodexProviderConfig {
   [key: string]: { model?: string } | undefined;
 }
 
-interface CodexSettings {
+export interface CodexSettings {
   mode: CodexMode;
   provider: ImageProviderId;
   providerConfig: CodexProviderConfig;
@@ -295,7 +299,7 @@ interface CodexSettings {
   timeoutMs: number;
 }
 
-interface AppSettings {
+export interface AppSettings {
   highContrast: boolean;
   disableTypewriter: boolean;
   streamNarration: boolean;
@@ -311,44 +315,34 @@ interface AppSettings {
 
 // ── Storage types ─────────────────────────────────────────────────────────────
 
-interface StorageGetResult {
+export interface StorageGetResult {
   key: string;
   value: string;
 }
 
-interface StorageSetResult {
+export interface StorageSetResult {
   key: string;
   value: string;
 }
 
-interface StorageDeleteResult {
+export interface StorageDeleteResult {
   key: string;
 }
 
-interface StorageListResult {
+export interface StorageListResult {
   keys: string[];
 }
 
-interface StorageShim {
+export interface StorageShim {
   get(key: string): Promise<StorageGetResult | null>;
   set(key: string, value: string): Promise<StorageSetResult>;
   delete(key: string): Promise<StorageDeleteResult>;
   list(prefix?: string): Promise<StorageListResult>;
 }
 
-// ── Window augmentation ───────────────────────────────────────────────────────
-
-interface Window {
-  storage: StorageShim;
-  // External script-loaded SDK (js.puter.com) with no published types — `any` is
-  // the honest type for this untyped boundary; app code confines its use.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  puter?: any;
-}
-
 // ── Size / token estimate types ───────────────────────────────────────────────
 
-interface SizeEstimate {
+export interface SizeEstimate {
   bytes: number;
   kb: number;
   tokens: number;
@@ -356,7 +350,7 @@ interface SizeEstimate {
 
 // ── Language types ────────────────────────────────────────────────────────────
 
-interface LanguageEntry {
+export interface LanguageEntry {
   code: string;
   label: string;
   name: string;
@@ -364,7 +358,7 @@ interface LanguageEntry {
 
 // ── Parse result types ───────────────────────────────────────────────────────
 
-interface GMParseResult {
+export interface GMParseResult {
   narration: string;
   state: GameState | null;
   ending: string | null;
@@ -374,7 +368,7 @@ interface GMParseResult {
   diagnostic?: string;
 }
 
-interface GMLogicParseResult {
+export interface GMLogicParseResult {
   narrator_brief: string;
   state: GameState | null;
   ending: string | null;
@@ -384,7 +378,7 @@ interface GMLogicParseResult {
   diagnostic?: string;
 }
 
-interface BootstrapParseResult {
+export interface BootstrapParseResult {
   style_bible?: StyleBible;
   visual_ledger?: VisualLedgerEntry[];
   malformed?: boolean;
@@ -392,7 +386,7 @@ interface BootstrapParseResult {
   raw?: string;
 }
 
-interface TurnParseResult {
+export interface TurnParseResult {
   warrants_illustration?: boolean;
   milestone_reason?: string;
   caption?: string;
@@ -407,7 +401,7 @@ interface TurnParseResult {
 
 // ── Stream factory types ─────────────────────────────────────────────────────
 
-interface ChatCompletionsProviderConfig {
+export interface ChatCompletionsProviderConfig {
   url: string | (() => string);
   label: string;
   jsonSchema?: boolean;
@@ -415,14 +409,14 @@ interface ChatCompletionsProviderConfig {
   extraBody?: Record<string, unknown>;
 }
 
-interface StatePromptBlocks {
+export interface StatePromptBlocks {
   publicBlock: string;
   privateBlock: string;
 }
 
 // ── Art director types ───────────────────────────────────────────────────────
 
-interface RealmAestheticSeed {
+export interface RealmAestheticSeed {
   era: string;
   medium: string;
   palette: string[];
@@ -430,7 +424,7 @@ interface RealmAestheticSeed {
   negatives: string[];
 }
 
-interface ComposedImagePrompt {
+export interface ComposedImagePrompt {
   prompt: string;
   negatives: string[];
 }
