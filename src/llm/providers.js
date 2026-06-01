@@ -18,20 +18,17 @@ function _getGMTool() { return _gmTool; }
 
 import {
   normalizeContent,
-  normalizeChatMessages,
-  extractChatText,
-  extractChatToolCallArgs,
   extractOpenAIText,
   extractGeminiText,
   extractClaudeText,
   sseEventData,
-  parseChatStreamEvent,
   makeChatCompletionsProvider
 } from "./stream.js";
 
 /** @type {(opts: any) => any} */
 var _mkCCP = makeChatCompletionsProvider;
 
+/** @param {string} sys @param {ChatMessage[]} msgs */
 var normalizeOpenAIMessages = (sys, msgs) => [
   { role: "developer", content: sys },
   ...msgs.map((m) => ({
@@ -39,10 +36,12 @@ var normalizeOpenAIMessages = (sys, msgs) => [
     content: normalizeContent(m.content)
   }))
 ];
+/** @param {ChatMessage[]} msgs */
 var normalizeGeminiMessages = (msgs) => msgs.map((m) => ({
   role: m.role === "assistant" ? "model" : "user",
   parts: [{ text: normalizeContent(m.content) }]
 }));
+/** @param {ChatMessage[]} msgs */
 var normalizeClaudeMessages = (msgs) => msgs.map((m) => ({
   role: m.role === "assistant" ? "assistant" : "user",
   content: normalizeContent(m.content)
@@ -191,6 +190,7 @@ export var PROVIDER_META = {
     ]
   }
 };
+/** @type {ProviderId[]} */
 export var PROVIDER_ORDER = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie", "mistral", "groq", "openrouter", "cerebras", "local"];
 export var FREE_MODELS_BY_PROVIDER = {
   free:       { provider: "mistral",    opener: "mistral-large-latest",                gm: "mistral-medium-latest",             narrator: "mistral-medium-latest" },
@@ -208,7 +208,7 @@ export var FREE_MODELS_BY_PROVIDER = {
   local:      { opener: "llama3.2",                 gm: "llama3.1",                   narrator: "llama3.2" }
 };
 /** @returns {string} */
-export var getLocalUrl = () => localStorage.getItem(PROVIDER_META.local.urlStorage)?.trim() || LOCAL_DEFAULT_URL;
+export var getLocalUrl = () => localStorage.getItem(/** @type {string} */ (PROVIDER_META.local.urlStorage))?.trim() || LOCAL_DEFAULT_URL;
 /**
  * @param {ProviderId} id
  * @returns {Promise<string>}
@@ -217,7 +217,7 @@ export var getProviderKey = async (id) => {
   const m = PROVIDER_META[id];
   if (!m)
     throw new BorrowedError("The hour cannot open yet.", `Unknown API provider "${id}".`);
-  const injected = window[m.windowKey] || /** @type {HTMLMetaElement | null} */ (document.querySelector(`meta[name="${m.metaName}"]`))?.content;
+  const injected = /** @type {Record<string, any>} */ (window)[m.windowKey] || /** @type {HTMLMetaElement | null} */ (document.querySelector(`meta[name="${m.metaName}"]`))?.content;
   if (injected)
     return injected.trim();
   const stored = localStorage.getItem(m.keyStorage);
@@ -290,8 +290,9 @@ export var checkProviderHealth = async (id, model) => {
     const apiMsg = extractApiErrorMessage(snip);
     return { ok: false, detail: apiMsg ? `${hint} ${apiMsg}` : hint };
   } catch (e) {
-    if (e?.name === "AbortError") return { ok: false, detail: `${m.name} did not respond within 10 seconds.` };
-    const msg = e?.message || String(e);
+    const caught = /** @type {ThrownError} */ (e);
+    if (caught?.name === "AbortError") return { ok: false, detail: `${m.name} did not respond within 10 seconds.` };
+    const msg = caught?.message || String(e);
     const isCORS = /failed to fetch|networkerror|cors|load failed/i.test(msg);
     if (isCORS && id === "local") {
       return { ok: false, detail: `Could not reach the local LLM endpoint. If using Ollama, set OLLAMA_ORIGINS to your app's origin (e.g. http://localhost:5173). For LM Studio, enable CORS in the server settings.` };
@@ -305,7 +306,9 @@ export var PROVIDERS = {
   openai: {
     toolUse: true,
     retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
+    /** @param {BuildRequestParams} params */
     buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
+      /** @type {Record<string, any>} */
       const body = {
         model,
         input: normalizeOpenAIMessages(sys, msgs),
@@ -314,11 +317,12 @@ export var PROVIDERS = {
       if (temperature !== undefined)
         body.temperature = temperature;
       if (useTool) {
+        const t = /** @type {ToolDefinition} */ (tool);
         body.text = {
           format: {
             type: "json_schema",
-            name: tool.name,
-            schema: tool.input_schema,
+            name: t.name,
+            schema: t.input_schema,
             strict: false
           }
         };
@@ -329,6 +333,7 @@ export var PROVIDERS = {
         body
       };
     },
+    /** @param {any} data @param {string} model */
     logUsage(data, model) {
       if (!data.usage)
         return;
@@ -341,11 +346,13 @@ export var PROVIDERS = {
         total: u.total_tokens || 0
       });
     },
+    /** @param {BuildRequestParams} params */
     buildStreamRequest(params) {
       const request = this.buildRequest({ ...params, useTool: false, tool: _getGMTool() });
       request.body.stream = true;
       return request;
     },
+    /** @param {string} rawEvent @returns {StreamEvent | null} */
     parseStreamEvent(rawEvent) {
       const data = sseEventData(rawEvent);
       if (!data || data === "[DONE]")
@@ -356,6 +363,7 @@ export var PROVIDERS = {
       } catch {
         return null;
       }
+      /** @type {StreamEvent} */
       const out = {};
       if (json.type === "response.output_text.delta" && typeof json.delta === "string")
         out.text = json.delta;
@@ -368,6 +376,7 @@ export var PROVIDERS = {
         out.error = json.response?.error?.message || json.message || "stream error";
       return out;
     },
+    /** @param {any} data */
     extract(data) {
       const text = extractOpenAIText(data);
       if (!text) {
@@ -381,13 +390,15 @@ export var PROVIDERS = {
   gemini: {
     toolUse: true,
     retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
+    /** @param {BuildRequestParams} params */
     buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
+      /** @type {Record<string, any>} */
       const generationConfig = { maxOutputTokens: maxTokens };
       if (temperature !== undefined)
         generationConfig.temperature = temperature;
       if (useTool) {
         generationConfig.responseMimeType = "application/json";
-        generationConfig.responseJsonSchema = tool.input_schema;
+        generationConfig.responseJsonSchema = /** @type {ToolDefinition} */ (tool).input_schema;
       }
       return {
         url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -399,6 +410,7 @@ export var PROVIDERS = {
         }
       };
     },
+    /** @param {any} data @param {string} model */
     logUsage(data, model) {
       if (!data.usageMetadata)
         return;
@@ -411,11 +423,13 @@ export var PROVIDERS = {
         total: u.totalTokenCount || 0
       });
     },
+    /** @param {BuildRequestParams} params */
     buildStreamRequest({ sys, msgs, model, maxTokens, temperature, apiKey }) {
       const request = this.buildRequest({ sys, msgs, useTool: false, model, maxTokens, temperature, tool: _getGMTool(), apiKey });
       request.url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`;
       return request;
     },
+    /** @param {string} rawEvent @returns {StreamEvent | null} */
     parseStreamEvent(rawEvent) {
       const data = sseEventData(rawEvent);
       if (!data)
@@ -426,6 +440,7 @@ export var PROVIDERS = {
       } catch {
         return null;
       }
+      /** @type {StreamEvent} */
       const out = {};
       let text = "";
       for (const candidate of json.candidates || []) {
@@ -445,6 +460,7 @@ export var PROVIDERS = {
         out.error = json.error.message || String(json.error);
       return out;
     },
+    /** @param {any} data */
     extract(data) {
       const text = extractGeminiText(data);
       if (!text) {
@@ -457,7 +473,9 @@ export var PROVIDERS = {
   anthropic: {
     toolUse: true,
     retryable: new Set([408, 409, 429, 500, 502, 503, 504, 529]),
+    /** @param {BuildRequestParams} params */
     buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
+      /** @type {Record<string, any>} */
       const body = {
         model,
         max_tokens: maxTokens,
@@ -467,8 +485,9 @@ export var PROVIDERS = {
       if (temperature !== undefined)
         body.temperature = temperature;
       if (useTool) {
-        body.tools = [tool];
-        body.tool_choice = { type: "tool", name: tool.name };
+        const t = /** @type {ToolDefinition} */ (tool);
+        body.tools = [t];
+        body.tool_choice = { type: "tool", name: t.name };
       }
       return {
         url: "https://api.anthropic.com/v1/messages",
@@ -481,6 +500,7 @@ export var PROVIDERS = {
         body
       };
     },
+    /** @param {any} data @param {string} model */
     logUsage(data, model) {
       if (!data.usage)
         return;
@@ -493,11 +513,13 @@ export var PROVIDERS = {
         output: u.output_tokens || 0
       });
     },
+    /** @param {BuildRequestParams} params */
     buildStreamRequest(params) {
       const request = this.buildRequest({ ...params, useTool: false, tool: _getGMTool() });
       request.body.stream = true;
       return request;
     },
+    /** @param {string} rawEvent @returns {StreamEvent | null} */
     parseStreamEvent(rawEvent) {
       const data = sseEventData(rawEvent);
       if (!data)
@@ -508,6 +530,7 @@ export var PROVIDERS = {
       } catch {
         return null;
       }
+      /** @type {StreamEvent} */
       const out = {};
       if (json.type === "content_block_delta" && json.delta?.type === "text_delta" && typeof json.delta.text === "string")
         out.text = json.delta.text;
@@ -517,14 +540,19 @@ export var PROVIDERS = {
           output: json.message.usage.output_tokens || 0
         };
       if (json.type === "message_delta" && json.usage)
-        out.usage = { output: json.usage.output_tokens || 0 };
+        // Anthropic's message_delta reports only output tokens; input was
+        // already emitted by message_start and is preserved by the consumer's
+        // Object.assign merge. Cast keeps that runtime shape (no `input` key).
+        out.usage = /** @type {StreamEvent["usage"]} */ ({ output: json.usage.output_tokens || 0 });
       if (json.type === "error")
         out.error = json.error?.message || "stream error";
       return out;
     },
+    /** @param {any} data @param {boolean} [useTool] @param {ToolDefinition} [tool] @param {number} [maxTokens] */
     extract(data, useTool, tool, maxTokens) {
       if (useTool) {
-        const toolUse = (data.content || []).find((part) => part.type === "tool_use" && part.name === tool.name);
+        const t = /** @type {ToolDefinition} */ (tool);
+        const toolUse = (data.content || []).find((/** @type {any} */ part) => part.type === "tool_use" && part.name === t.name);
         if (toolUse) {
           if (data.stop_reason === "max_tokens") {
             throw new BorrowedError("The hour falters.", `Tool input was truncated mid-JSON by max_tokens (currently ${maxTokens}). Increase max_tokens or shorten the prompt.`);

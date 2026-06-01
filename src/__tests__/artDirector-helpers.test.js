@@ -1,4 +1,3 @@
-// @ts-nocheck — intentional partial mocks (Web Audio / TTS adapter / ledger); burn down per Work Item 3c
 import { describe, it, expect } from "vitest";
 import {
   mergeLedger, composeImagePrompt,
@@ -11,7 +10,9 @@ describe("mergeLedger", () => {
     const updates = [{ id: "location:gate", tags: ["iron", "moss"] }];
     const result = mergeLedger(current, updates);
     expect(result).toHaveLength(2);
-    expect(result.find((e) => e.id === "location:gate").tags).toEqual(["iron", "moss"]);
+    const found = result.find((e) => e.id === "location:gate");
+    if (!found) throw new Error("unreachable");
+    expect(found.tags).toEqual(["iron", "moss"]);
   });
 
   it("updates existing entries by id", () => {
@@ -23,13 +24,15 @@ describe("mergeLedger", () => {
   });
 
   it("filters non-string tags", () => {
-    const result = mergeLedger([], [{ id: "npc:x", tags: ["ok", 42, null, "fine"] }]);
+    // Deliberately malformed tags to exercise the string-only filter.
+    const result = mergeLedger([], /** @type {VisualLedgerEntry[]} */ ([{ id: "npc:x", tags: ["ok", 42, null, "fine"] }]));
     expect(result[0].tags).toEqual(["ok", "fine"]);
   });
 
   it("skips invalid updates (no id, no tags array)", () => {
     const current = [{ id: "a", tags: ["x"] }];
-    const result = mergeLedger(current, [null, { tags: ["y"] }, { id: "b" }]);
+    // Deliberately invalid entries (null, missing id, missing tags) to exercise the skip path.
+    const result = mergeLedger(current, /** @type {VisualLedgerEntry[]} */ (/** @type {unknown} */ ([null, { tags: ["y"] }, { id: "b" }])));
     expect(result).toHaveLength(1);
   });
 
@@ -90,13 +93,15 @@ describe("parseBootstrapResponse", () => {
     });
     const result = parseBootstrapResponse(raw);
     expect(result.malformed).toBeUndefined();
+    expect(result.style_bible).toBeDefined();
+    if (!result.style_bible) throw new Error("unreachable");
     expect(result.style_bible.era).toBe("x");
     expect(result.visual_ledger).toHaveLength(1);
   });
 
   it("marks empty input as malformed", () => {
     expect(parseBootstrapResponse("").malformed).toBe(true);
-    expect(parseBootstrapResponse(null).malformed).toBe(true);
+    expect(parseBootstrapResponse(/** @type {any} */ (null)).malformed).toBe(true);
   });
 
   it("marks response without style_bible as malformed", () => {

@@ -13,7 +13,7 @@ import React, { useState } from "react";
 export function ProxyUrlRow({ value, onChange }) {
   const [draft, setDraft] = useState(value || "");
 
-  const commit = (raw) => {
+  const commit = (/** @type {string} */ raw) => {
     const trimmed = raw.trim();
     if (trimmed && !/^https?:\/\//i.test(trimmed)) {
       alert("Proxy URL must start with http:// or https://");

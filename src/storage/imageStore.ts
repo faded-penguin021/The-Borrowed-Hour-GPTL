@@ -76,7 +76,7 @@ function runStore<T>(
 export function putImage(key: string, blob: Blob): Promise<void> {
   if (!hasImageStore) return Promise.reject(new Error("IndexedDB unavailable"));
   return runStore<IDBValidKey>("readwrite", (store) => store.put(blob, key)).then(
-    () => undefined
+    (): void => undefined
   );
 }
 
@@ -84,16 +84,16 @@ export function putImage(key: string, blob: Blob): Promise<void> {
 export function getImage(key: string): Promise<Blob | null> {
   if (!hasImageStore) return Promise.resolve(null);
   return runStore<Blob | undefined>("readonly", (store) => store.get(key))
-    .then((v) => (v instanceof Blob ? v : null))
-    .catch(() => null);
+    .then((v): Blob | null => (v instanceof Blob ? v : null))
+    .catch((): Blob | null => null);
 }
 
 /** List every stored key. Returns `[]` if IndexedDB is unavailable. */
 export function listKeys(): Promise<string[]> {
   if (!hasImageStore) return Promise.resolve([]);
   return runStore<IDBValidKey[]>("readonly", (store) => store.getAllKeys())
-    .then((keys) => keys.map((k) => String(k)))
-    .catch(() => []);
+    .then((keys): string[] => keys.map((k) => String(k)))
+    .catch((): string[] => []);
 }
 
 /**
@@ -120,13 +120,13 @@ export function deleteImagesForSave(saveId: string): Promise<void> {
           tx.onerror = () => reject(tx.error);
         })
     )
-    .catch(() => undefined);
+    .catch((): void => undefined);
 }
 
 /** Delete a single plate by key. Best-effort. */
 export function deleteImage(key: string): Promise<void> {
   if (!hasImageStore) return Promise.resolve();
   return runStore<undefined>("readwrite", (store) => store.delete(key))
-    .then(() => undefined)
-    .catch(() => undefined);
+    .then((): void => undefined)
+    .catch((): void => undefined);
 }

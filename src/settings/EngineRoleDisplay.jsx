@@ -8,7 +8,7 @@ import { PROVIDER_META } from "../llm/providers.js";
  * @param {EngineConfig} props.engine
  */
 export function EngineRoleDisplay({ label, engine }) {
-  const providerName = PROVIDER_META[engine?.provider]?.name || engine?.provider || "—";
+  const providerName = PROVIDER_META[/** @type {ProviderId} */ (engine?.provider)]?.name || engine?.provider || "—";
   const model = engine?.model || "—";
   const fieldStyle = {
     width: "100%",

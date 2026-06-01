@@ -73,9 +73,12 @@ export const IMAGE_PROVIDER_ORDER = ["pollinations", "replicate", "openai", "loc
 
 const getReplicateKey = async () => {
   const m = IMAGE_PROVIDER_META.replicate;
-  const injected = window[m.windowKey] || /** @type {HTMLMetaElement | null} */ (document.querySelector(`meta[name="replicate-api-key"]`))?.content;
+  // windowKey & keyStorage are defined on the `replicate` literal above.
+  const windowKey = /** @type {string} */ (m.windowKey);
+  const keyStorage = /** @type {string} */ (m.keyStorage);
+  const injected = /** @type {Record<string, any>} */ (window)[windowKey] || /** @type {HTMLMetaElement | null} */ (document.querySelector(`meta[name="replicate-api-key"]`))?.content;
   if (injected) return injected.trim();
-  const stored = localStorage.getItem(m.keyStorage);
+  const stored = localStorage.getItem(keyStorage);
   if (!stored) throw new BorrowedError("The plate cannot be drawn.", "No Replicate API key is saved. Open ⚙ Settings → Codex → Replicate to paste your key.");
   if (!stored.startsWith(ENC_PREFIX)) return stored.trim();
   const passphrase = getSessionPassphrase();
@@ -85,16 +88,23 @@ const getReplicateKey = async () => {
 };
 
 export const getLocalImageUrl = () => {
-  const stored = localStorage.getItem(IMAGE_PROVIDER_META.local.urlStorage);
+  const urlStorage = /** @type {string} */ (IMAGE_PROVIDER_META.local.urlStorage);
+  const stored = localStorage.getItem(urlStorage);
   return (stored && stored.trim()) || LOCAL_IMAGE_DEFAULT_URL;
 };
 
 // Compose "prompt --no negatives" or pass through as object — depends on
 // provider. For Pollinations we pass a `negative_prompt` query param.
+/** @param {string[] | undefined} negatives */
 const joinNegatives = (negatives) => Array.isArray(negatives) ? negatives.join(", ") : "";
 
 // Fetch a remote image URL and convert it to a blob: URL. This works around
 // CSP img-src restrictions and gives us an abortable, retryable lifecycle.
+/**
+ * @param {string} url
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<string>}
+ */
 const blobify = async (url, signal) => {
   const res = await fetch(url, { signal });
   if (!res.ok) throw new BorrowedError("The plate cannot be drawn.", `Image fetch failed (HTTP ${res.status}).`);
@@ -102,7 +112,17 @@ const blobify = async (url, signal) => {
   return URL.createObjectURL(blob);
 };
 
+/**
+ * @typedef {object} ImageAdapterArgs
+ * @property {string} prompt
+ * @property {string[]} [negatives]
+ * @property {Record<string, any>} [providerConfig]
+ * @property {AbortSignal} [signal]
+ */
+
+/** @type {Record<ImageProviderId, (args: ImageAdapterArgs) => Promise<GeneratedImage>>} */
 const adapters = {
+  /** @param {ImageAdapterArgs} args */
   async pollinations({ prompt, negatives, providerConfig, signal }) {
     const model = providerConfig?.model || POLLINATIONS_DEFAULT_MODEL;
     const seed = Math.floor(Math.random() * 1e9);
@@ -117,6 +137,7 @@ const adapters = {
     return { url: await blobify(url, signal), provider: "pollinations" };
   },
 
+  /** @param {ImageAdapterArgs} args */
   async replicate({ prompt, negatives, providerConfig, signal }) {
     const apiKey = await getReplicateKey();
     const version = providerConfig?.model || REPLICATE_DEFAULT_MODEL;
@@ -155,6 +176,7 @@ const adapters = {
     return { url: await blobify(out, signal), provider: "replicate" };
   },
 
+  /** @param {ImageAdapterArgs} args */
   async openai({ prompt, providerConfig, signal }) {
     const apiKey = await getProviderKey("openai");
     const model = providerConfig?.model || OPENAI_IMAGE_DEFAULT_MODEL;
@@ -165,6 +187,7 @@ const adapters = {
     //   gpt-image-1 / 1.5 / 2: quality "low" pinned by default since
     //     "auto"/"high" can run >$0.05/image. gpt-image-1 needs OpenAI
     //     organization verification on the key.
+    /** @type {Record<string, any>} */
     const body = { model, prompt, n: 1, size: "1024x1024" };
     const isMini = model === "gpt-image-1-mini";
     body.quality = providerConfig?.quality || (isMini ? "medium" : "low");
@@ -186,6 +209,7 @@ const adapters = {
     throw new BorrowedError("The plate cannot be drawn.", "OpenAI image response had no payload.");
   },
 
+  /** @param {ImageAdapterArgs} args */
   async local({ prompt, negatives, providerConfig, signal }) {
     const url = (providerConfig?.url && providerConfig.url.trim()) || getLocalImageUrl();
     const body = {
@@ -236,16 +260,20 @@ export const generateImage = async ({ providerId, providerConfig, prompt, negati
   }
 };
 
+/** @param {string} raw */
 export const setReplicateKey = (raw) => {
-  if (!raw) localStorage.removeItem(IMAGE_PROVIDER_META.replicate.keyStorage);
-  else localStorage.setItem(IMAGE_PROVIDER_META.replicate.keyStorage, raw.trim());
+  const keyStorage = /** @type {string} */ (IMAGE_PROVIDER_META.replicate.keyStorage);
+  if (!raw) localStorage.removeItem(keyStorage);
+  else localStorage.setItem(keyStorage, raw.trim());
 };
 export const getReplicateKeyPlaintext = () => {
-  const v = localStorage.getItem(IMAGE_PROVIDER_META.replicate.keyStorage);
+  const v = localStorage.getItem(/** @type {string} */ (IMAGE_PROVIDER_META.replicate.keyStorage));
   if (!v || v.startsWith(ENC_PREFIX)) return "";
   return v;
 };
+/** @param {string} raw */
 export const setLocalImageUrl = (raw) => {
-  if (!raw) localStorage.removeItem(IMAGE_PROVIDER_META.local.urlStorage);
-  else localStorage.setItem(IMAGE_PROVIDER_META.local.urlStorage, raw.trim());
+  const urlStorage = /** @type {string} */ (IMAGE_PROVIDER_META.local.urlStorage);
+  if (!raw) localStorage.removeItem(urlStorage);
+  else localStorage.setItem(urlStorage, raw.trim());
 };

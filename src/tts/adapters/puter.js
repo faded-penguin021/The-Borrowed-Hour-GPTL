@@ -1,5 +1,4 @@
 // @ts-check
-import { BorrowedError } from "../../llm/errors.js";
 import { _fetchAudioBlob, _blobHandle } from "../shared.js";
 
 /** @type {Promise<any> | null} */
@@ -27,6 +26,7 @@ export class PuterTTSAdapter {
   }
   /** @param {string} text @param {AbortSignal} [signal] @param {(msg: string) => void} [onError] @returns {Promise<TTSHandle>} */
   async synthesize(text, signal, onError) {
+    /** @param {string} m */
     const report = (m) => { try { onError?.(m); } catch (_) {} };
     if (signal?.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
     const puter = await _loadPuter();
@@ -34,12 +34,15 @@ export class PuterTTSAdapter {
     // Puter.js v2 expects an options object as the second arg.
     const audio = await puter.ai.txt2speech(text.trim(), { voice: this.voiceId, engine: this.engine });
     if (signal?.aborted) { try { audio.pause(); } catch (_) {} throw Object.assign(new Error("Aborted"), { name: "AbortError" }); }
+    /** @type {(() => void) | null} */
     let _onended = null;
     const finish = () => { if (_onended) _onended(); };
     audio.onended = finish;
     audio.onerror = () => {
-      const code = audio.error?.code, msg = audio.error?.message;
-      const codeName = ({ 1: "ABORTED", 2: "NETWORK", 3: "DECODE", 4: "SRC_NOT_SUPPORTED" })[code] || `code=${code}`;
+      /** @type {number | undefined} */
+      const code = audio.error?.code;
+      const msg = audio.error?.message;
+      const codeName = (/** @type {Record<number, string>} */ ({ 1: "ABORTED", 2: "NETWORK", 3: "DECODE", 4: "SRC_NOT_SUPPORTED" }))[code ?? -1] || `code=${code}`;
       const info = `puter audio ${codeName}${msg ? ` — ${msg}` : ""}`;
       if (typeof console !== "undefined") console.warn("[tts]", info);
       report(info);
@@ -48,13 +51,13 @@ export class PuterTTSAdapter {
     const tryPlay = () => {
       let p;
       try { p = audio.play(); } catch (e) {
-        const info = `puter play() threw: ${e?.message || e}`;
+        const info = `puter play() threw: ${/** @type {ThrownError} */ (e)?.message || e}`;
         if (typeof console !== "undefined") console.warn("[tts]", info);
         report(info);
         return;
       }
       if (p && typeof p.catch === "function") {
-        p.catch((e) => {
+        p.catch((/** @type {any} */ e) => {
           const info = `puter play() rejected: ${e?.name || ""}${e?.message ? ` — ${e.message}` : ""}`;
           if (typeof console !== "undefined") console.warn("[tts]", info);
           report(info);
@@ -62,12 +65,13 @@ export class PuterTTSAdapter {
         });
       }
     };
+    /** @type {TTSHandle} */
     const handle = {
       play: tryPlay,
       pause: () => { try { audio.pause(); } catch (_) {} },
       resume: tryPlay,
       stop: () => { try { audio.pause(); audio.currentTime = 0; } catch (_) {} },
-      set onended(cb) { _onended = cb; }
+      set onended(/** @type {(() => void) | null} */ cb) { _onended = cb; }
     };
     signal?.addEventListener("abort", handle.stop);
     return handle;

@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useMemo 
 import { EMPTY_STATE } from "../data/constants.js";
 import { DEFAULT_LANGUAGE } from "../data/languages.js";
 import { PREMISES, NARRATION_LOADING_PHRASES, META_LOADING_PHRASES, OPENING_LOADING_PHRASES, pickPhrase } from "../data/premises.js";
-import { GM_TOOL, GM_LOGIC_TOOL, buildSystem, buildNarratorSystem, buildMetaSystem } from "../llm/tools.js";
+import { GM_LOGIC_TOOL, buildSystem, buildNarratorSystem, buildMetaSystem } from "../llm/tools.js";
 import { parseGMResponse, parseGMLogicResponse, isStateEmpty } from "../llm/parse.js";
 import { formatStateForPrompt, stripHistoricalUser, stripHistoricalAssistant, serializeStatePublic } from "../llm/prompt.js";
 import { formatError, BorrowedError } from "../llm/errors.js";
@@ -18,6 +18,112 @@ import { useSettingsContext } from "./SettingsContext.jsx";
 import { useAmbienceContext } from "./AmbienceContext.jsx";
 import { useTTSContext } from "./TTSContext.jsx";
 
+/**
+ * A meta-mode (director's commentary) message. `role` mirrors a chat turn;
+ * `text` is the prose; `fullyRevealed` drives the typewriter reveal.
+ * @typedef {{ role: "user" | "assistant", text: string, fullyRevealed: boolean }} MetaMessage
+ */
+
+/**
+ * Snapshot captured when a narration stream is interrupted, so the player can
+ * resume it via `continueNarration`. `gmParsed` carries the parsed GM/logic
+ * result whose shape varies by caller, hence `any`.
+ * @typedef {{
+ *   narratorSys: string,
+ *   narratorPrompt: string,
+ *   gmParsed: any,
+ *   baseEntries: Entry[],
+ *   baseHistory: ChatMessage[],
+ *   partial: string,
+ * }} Recovery
+ */
+
+/** @typedef {ReturnType<typeof import("../hooks/useSaves.js").useSaves>} SavesHook */
+/** @typedef {ReturnType<typeof import("../hooks/useReveal.js").useReveal>} RevealHook */
+/** @typedef {ReturnType<typeof import("../hooks/useKeepsake.js").useKeepsake>} KeepsakeHook */
+
+/**
+ * The stable dispatch surface. Every member's identity is fixed for the life of
+ * the provider, so a dispatch-only consumer never re-renders on state churn.
+ * @typedef {{
+ *   setLanguage: React.Dispatch<React.SetStateAction<string>>,
+ *   beginAdventure: (chosen: Premise) => Promise<void>,
+ *   submit: (text: string) => Promise<boolean>,
+ *   continueNarration: () => Promise<void>,
+ *   undoLastTurn: () => void,
+ *   restart: () => void,
+ *   loadSave: (save: any) => Promise<void>,
+ *   enterMetaMode: () => void,
+ *   exitMetaMode: () => void,
+ *   skipReveal: () => void,
+ *   cancelRequest: () => void,
+ *   saveCurrent: () => Promise<void>,
+ *   exportChronicle: (includeMeta?: boolean) => Promise<void>,
+ *   startReveal: () => Promise<void> | undefined,
+ *   startKeepsake: () => Promise<void> | undefined,
+ *   markEntryRevealed: (index: number) => void,
+ *   markMetaRevealed: (index: number) => void,
+ *   cancelReveal: RevealHook["cancelReveal"],
+ *   downloadKeepsake: KeepsakeHook["downloadKeepsake"],
+ *   openSavesModal: SavesHook["openSavesModal"],
+ *   deleteSave: SavesHook["deleteSave"],
+ *   getDiscoveredEndings: (premiseId: string | null | undefined) => string[],
+ *   setSaveBanner: SavesHook["setSaveBanner"],
+ *   setShowSaves: SavesHook["setShowSaves"],
+ *   setExportFallbackText: SavesHook["setExportFallbackText"],
+ * }} GameActions
+ */
+
+/**
+ * Low-churn story state. Stays referentially stable across streaming deltas.
+ * @typedef {{
+ *   phase: string,
+ *   premise: Premise | null,
+ *   language: string,
+ *   ended: boolean,
+ *   metaMode: boolean,
+ *   canUndo: boolean,
+ *   entriesCount: number,
+ *   hasMeta: boolean,
+ *   keepsakeFilename: string,
+ * }} GameStoryValue
+ */
+
+/**
+ * High-churn live state plus the saves/reveal/keepsake reactive surfaces.
+ * @typedef {{
+ *   entries: Entry[],
+ *   gameState: GameState,
+ *   history: ChatMessage[],
+ *   metaMessages: MetaMessage[],
+ *   skipNonce: number,
+ *   recovery: Recovery | null,
+ *   saveBanner: SavesHook["saveBanner"],
+ *   showSaves: SavesHook["showSaves"],
+ *   saveList: SavesHook["saveList"],
+ *   saveListLoading: SavesHook["saveListLoading"],
+ *   savesTotalBytes: SavesHook["savesTotalBytes"],
+ *   exportFallbackText: SavesHook["exportFallbackText"],
+ *   revealText: RevealHook["revealText"],
+ *   revealLoading: RevealHook["revealLoading"],
+ *   revealError: RevealHook["revealError"],
+ *   keepsakeBlob: KeepsakeHook["keepsakeBlob"],
+ *   keepsakeLoading: KeepsakeHook["keepsakeLoading"],
+ *   keepsakeError: KeepsakeHook["keepsakeError"],
+ * }} GameLiveValue
+ */
+
+/**
+ * Transient runtime state, kept apart so its churn doesn't re-render story-only
+ * consumers.
+ * @typedef {{
+ *   loading: boolean,
+ *   loadingPhrase: string,
+ *   error: any,
+ *   sessionTokens: { input: number, output: number },
+ * }} GameRunValue
+ */
+
 // Four contexts, split by churn rate so a consumer only re-renders on the slice
 // it actually reads:
 //   • Actions  — stable dispatch surface; its identity never changes, so
@@ -28,45 +134,57 @@ import { useTTSContext } from "./TTSContext.jsx";
 //   • Live     — high-churn state (entries, gameState, history, metaMessages)
 //                and the saves/reveal/keepsake reactive surfaces.
 //   • Run      — transient runtime state (loading, phrase, error, tokens).
-const GameActionsContext = createContext(/** @type {any} */ (null));
-const GameStoryContext = createContext(/** @type {any} */ (null));
-const GameLiveContext = createContext(/** @type {any} */ (null));
-const GameRunContext = createContext(/** @type {any} */ (null));
+/** @type {React.Context<GameActions | null>} */
+const GameActionsContext = createContext(/** @type {GameActions | null} */ (null));
+/** @type {React.Context<GameStoryValue | null>} */
+const GameStoryContext = createContext(/** @type {GameStoryValue | null} */ (null));
+/** @type {React.Context<GameLiveValue | null>} */
+const GameLiveContext = createContext(/** @type {GameLiveValue | null} */ (null));
+/** @type {React.Context<GameRunValue | null>} */
+const GameRunContext = createContext(/** @type {GameRunValue | null} */ (null));
 
 /**
  * Stable game actions (submit, beginAdventure, save/reveal/keepsake, setters…).
  * Their identities never change, so a component that only dispatches won't
- * re-render when story/live state churns. @returns {any}
+ * re-render when story/live state churns.
  */
 export function useGameActions() {
-  return useContext(GameActionsContext);
+  const ctx = useContext(GameActionsContext);
+  if (!ctx) throw new Error("useGameActions must be used within a <GameProvider>");
+  return ctx;
 }
 
 /**
  * Low-churn story state: phase, premise, language, ended, metaMode, canUndo,
  * entriesCount, hasMeta, keepsakeFilename. Stays referentially stable across
- * streaming deltas. @returns {any}
+ * streaming deltas.
  */
 export function useGameStory() {
-  return useContext(GameStoryContext);
+  const ctx = useContext(GameStoryContext);
+  if (!ctx) throw new Error("useGameStory must be used within a <GameProvider>");
+  return ctx;
 }
 
 /**
  * High-churn state: entries, gameState, history, metaMessages, plus the
  * saves/reveal/keepsake reactive surfaces. Re-renders on narration churn — use
- * only where that's expected (e.g. the narration log). @returns {any}
+ * only where that's expected (e.g. the narration log).
  */
 export function useGameLive() {
-  return useContext(GameLiveContext);
+  const ctx = useContext(GameLiveContext);
+  if (!ctx) throw new Error("useGameLive must be used within a <GameProvider>");
+  return ctx;
 }
 
 /**
  * Access the high-frequency / transient runtime state (loading, loading phrase,
  * error, session token tally). Kept apart so transient runtime churn doesn't
- * re-render consumers that only care about story state. @returns {any}
+ * re-render consumers that only care about story state.
  */
 export function useGameRun() {
-  return useContext(GameRunContext);
+  const ctx = useContext(GameRunContext);
+  if (!ctx) throw new Error("useGameRun must be used within a <GameProvider>");
+  return ctx;
 }
 
 /**
@@ -76,12 +194,12 @@ export function useGameRun() {
  * hot-path code should reach for the narrow hooks above so it only re-renders
  * on the slice it reads. Note `input` is deliberately not here — it lives
  * locally in the composer so keystrokes never re-render any consumer.
- * @returns {any}
+ * @returns {GameStoryValue & GameLiveValue & GameActions}
  */
 export function useGame() {
-  const actions = useContext(GameActionsContext);
-  const story = useContext(GameStoryContext);
-  const live = useContext(GameLiveContext);
+  const actions = useGameActions();
+  const story = useGameStory();
+  const live = useGameLive();
   return useMemo(() => ({ ...story, ...live, ...actions }), [story, live, actions]);
 }
 
@@ -198,12 +316,19 @@ export function GameProvider({ children }) {
   // ── Game actions ─────────────────────────────────────────────────
   const skipReveal = () => setSkipNonce((n) => n + 1);
 
+  /**
+   * @param {string} narration
+   * @param {any} gmParsed parsed GM/logic result (shape varies by caller)
+   * @param {Entry[]} baseEntries
+   * @param {ChatMessage[]} baseHistory
+   * @param {boolean} fullyRevealed
+   */
   const finalizeNarration = (narration, gmParsed, baseEntries, baseHistory, fullyRevealed) => {
     const assistantPayload = JSON.stringify({ gm_scratchpad: "", narration, state: gmParsed.state, ending: gmParsed.ending });
     setHistory([...baseHistory, { role: "assistant", content: assistantPayload }]);
     setEntries((prev) => {
       const existing = prev[baseEntries.length];
-      const entry = { type: "narration", text: narration, fullyRevealed };
+      const entry = /** @type {NarrationEntry} */ ({ type: "narration", text: narration, fullyRevealed });
       if (existing && existing.illustration) entry.illustration = existing.illustration;
       return [...baseEntries, entry];
     });
@@ -327,7 +452,7 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
 ${rec.partial}
 
 The narration above was interrupted and cut off before it finished. Continue it seamlessly from exactly where it stops — do not repeat or restate any of it, do not open a new scene. Write only the continuation, carrying the same passage to a natural close.`;
-    const onDelta = (chunk) => {
+    const onDelta = (/** @type {string} */ chunk) => {
       acc += chunk;
       setEntries((prev) => {
         if (!prev[narrationIndex] || prev[narrationIndex].type !== "narration") return prev;
@@ -364,6 +489,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     text = (text || "").trim();
     if (!text || loading) return true;
     if (!metaMode && ended) return true;
+    if (!premise) return true;
     skipReveal();
     setRecovery(null);
     if (!metaMode) await ensureAmbienceEngine();
@@ -461,7 +587,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     const TRIM_THRESHOLD = 60;
     const KEEP_RECENT = 44;
     const CHAR_CAP = settings.engineGM?.provider === "groq" ? 60000 : 80000;
-    const charsOf = (msgs) => msgs.reduce((sum, m) => sum + (typeof m.content === "string" ? m.content.length : 0), 0);
+    const charsOf = (/** @type {ChatMessage[]} */ msgs) => msgs.reduce((/** @type {number} */ sum, /** @type {ChatMessage} */ m) => sum + (typeof m.content === "string" ? m.content.length : 0), 0);
     if (apiHistory.length > TRIM_THRESHOLD) {
       const head = apiHistory.slice(0, 2);
       const tail = apiHistory.slice(-KEEP_RECENT);
@@ -538,7 +664,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
           if (existing && existing.illustration) entry.illustration = existing.illustration;
           return [...newEntries, entry];
         });
-        const onDelta = (chunk) => {
+        const onDelta = (/** @type {string} */ chunk) => {
           acc += chunk;
           setEntries((prev) => {
             if (!prev[narrationIndex] || prev[narrationIndex].type !== "narration") return prev;
@@ -553,13 +679,14 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
         } catch (e) {
           if (controller.signal.aborted) return false;
           if (e instanceof BorrowedError && e.detail === "Request cancelled by the player.") return false;
-          if (e && typeof e.partial === "string" && e.partial) {
-            finalizeNarration(e.partial, gmParsed, newEntries, newHistory, true);
+          const caught = /** @type {ThrownError} */ (e);
+          if (caught && typeof caught.partial === "string" && caught.partial) {
+            finalizeNarration(caught.partial, gmParsed, newEntries, newHistory, true);
             setError(formatError(e));
             setRecovery({
               narratorSys, narratorPrompt, gmParsed,
               baseEntries: newEntries, baseHistory: newHistory,
-              partial: e.partial
+              partial: caught.partial
             });
             return true;
           }
@@ -653,7 +780,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     codex.resetCodex();
   };
 
-  const loadSave = async (save) => {
+  const loadSave = async (/** @type {any} */ save) => {
     let found = null;
     if (save.isCustom && save.premise) {
       found = save.premise;
@@ -670,11 +797,11 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     // bytes in IndexedDB. Pull each Blob, mint a live `blob:` URL, and swap it
     // in. `useCodex.revokeAllPlates`/`setEntryIllustration` already revoke
     // `blob:` URLs on the next swap or reset, so this introduces no leak.
-    const rawEntries = (save.entries || []).map((e) => ({ ...e, fullyRevealed: true }));
+    const rawEntries = (save.entries || []).map((/** @type {any} */ e) => ({ ...e, fullyRevealed: true }));
     setEntries(rawEntries);
     (async () => {
       const { getImage } = await import("../storage/imageStore");
-      const rehydrated = await Promise.all(rawEntries.map(async (e) => {
+      const rehydrated = await Promise.all(rawEntries.map(async (/** @type {any} */ e) => {
         const ill = e.illustration;
         if (!ill || typeof ill.url !== "string" || !ill.url.startsWith("idb:")) return e;
         const imgKey = ill.url.slice("idb:".length);
@@ -690,7 +817,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setEnded(!!save.ended);
     setGameState(save.gameState || EMPTY_STATE);
     setLanguage(save.language || DEFAULT_LANGUAGE);
-    setMetaMessages((save.metaMessages || []).map((m) => ({ ...m, fullyRevealed: true })));
+    setMetaMessages((save.metaMessages || []).map((/** @type {any} */ m) => ({ ...m, fullyRevealed: true })));
     setMetaMode(!!save.metaMode);
     codex.restoreCodex(save.codex);
     reveal.resetReveal();
@@ -718,21 +845,27 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   const exportChronicle = (includeMeta = false) =>
     saves.exportChronicle({ premise, entries, ended, metaMessages }, includeMeta);
 
-  const startReveal = () => reveal.triggerReveal(premise, entries, gameState, language);
+  const startReveal = () => {
+    if (!premise) return;
+    return reveal.triggerReveal(premise, entries, gameState, language);
+  };
 
-  const startKeepsake = () => keepsake.generateKeepsake({
-    premise, entries, revealText: reveal.revealText, metaMessages, ended
-  });
+  const startKeepsake = () => {
+    if (!premise) return;
+    return keepsake.generateKeepsake({
+      premise, entries, revealText: reveal.revealText, metaMessages, ended
+    });
+  };
 
   const keepsakeFilename = premise
     ? `the-borrowed-hour-${premise.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "")}.html`
     : "the-borrowed-hour.html";
 
-  const markEntryRevealed = (index) => {
+  const markEntryRevealed = (/** @type {number} */ index) => {
     setEntries((prev) => prev.map((e, i) => i === index ? { ...e, fullyRevealed: true } : e));
   };
 
-  const markMetaRevealed = (index) => {
+  const markMetaRevealed = (/** @type {number} */ index) => {
     setMetaMessages((prev) => prev.map((m, i) => i === index ? { ...m, fullyRevealed: true } : m));
   };
 
@@ -745,6 +878,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   // closures from a ref. The wrappers' identities never change, so the actions
   // object can be memoized once — dispatch-only consumers (e.g. the composer)
   // stop re-rendering on narration churn, with no stale-closure hazard.
+  /** @type {GameActions} */
   const liveActions = {
     setLanguage, beginAdventure, submit, continueNarration,
     undoLastTurn, restart, loadSave,
@@ -766,22 +900,25 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   const actions = useMemo(() => {
     /** @type {Record<string, (...args: any[]) => any>} */
     const out = {};
-    for (const name of Object.keys(liveActionsRef.current)) {
-      out[name] = (...args) => liveActionsRef.current[name](...args);
+    const live = /** @type {Record<string, (...args: any[]) => any>} */ (/** @type {unknown} */ (liveActionsRef.current));
+    for (const name of Object.keys(live)) {
+      out[name] = (/** @type {any[]} */ ...args) => live[name](...args);
     }
-    return out;
+    return /** @type {GameActions} */ (/** @type {unknown} */ (out));
   }, []);
 
   // ── Low-churn story state ────────────────────────────────────────────────
   // `entriesCount`/`hasMeta`/`canUndo` are derived but only change per turn, so
   // memoizing on the derived values (not the array identities) keeps this stable
   // across the per-delta `entries`/`metaMessages` updates during streaming.
+  /** @type {GameStoryValue} */
   const story = useMemo(() => ({
     phase, premise, language, ended, metaMode,
     canUndo, entriesCount, hasMeta, keepsakeFilename,
   }), [phase, premise, language, ended, metaMode, canUndo, entriesCount, hasMeta, keepsakeFilename]);
 
   // ── High-churn live state + saves/reveal/keepsake surfaces ───────────────
+  /** @type {GameLiveValue} */
   const live = useMemo(() => ({
     entries, gameState, history, metaMessages, skipNonce, recovery,
     saveBanner: saves.saveBanner,
@@ -805,6 +942,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   ]);
 
   // ── Transient runtime state ──────────────────────────────────────────────
+  /** @type {GameRunValue} */
   const runValue = useMemo(
     () => ({ loading, loadingPhrase, error, sessionTokens }),
     [loading, loadingPhrase, error, sessionTokens]

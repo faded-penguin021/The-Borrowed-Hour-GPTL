@@ -29,7 +29,7 @@ export class GoogleTTSAdapter {
       try { detail = (await resp.text()).slice(0, 200); } catch (_) {}
       throw new BorrowedError(`Google TTS failed (HTTP ${resp.status})`, detail);
     }
-    const data = await resp.json().catch(() => null);
+    const data = await resp.json().catch(() => /** @type {any} */ (null));
     const b64 = data?.audioContent;
     if (typeof b64 !== "string") {
       throw new BorrowedError("Google TTS returned no audio", JSON.stringify(data).slice(0, 200));

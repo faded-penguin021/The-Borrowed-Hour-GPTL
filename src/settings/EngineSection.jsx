@@ -23,17 +23,17 @@ export function EngineSection({ settings, onChange }) {
     background: "rgba(22,18,21,0.9)",
     color: "var(--cream-bright)"
   };
-  const handleStackChange = (newStack) => {
-    const preset = FREE_MODELS_BY_PROVIDER[newStack];
+  const handleStackChange = (/** @type {string} */ newStack) => {
+    const preset = FREE_MODELS_BY_PROVIDER[/** @type {keyof typeof FREE_MODELS_BY_PROVIDER} */ (newStack)];
     onChange("engineStack", newStack);
     if (preset) {
-      const prov = preset.provider || newStack;
+      const prov = /** @type {{ provider?: string }} */ (preset).provider || newStack;
       onChange("engineOpening",  { provider: prov, model: preset.opener });
       onChange("engineGM",       { provider: prov, model: preset.gm });
       onChange("engineNarrator", { provider: prov, model: preset.narrator });
     }
   };
-  const handleFreeSelection = (enabled) => {
+  const handleFreeSelection = (/** @type {boolean} */ enabled) => {
     onChange("freeModelSelection", enabled);
     if (!enabled) {
       handleStackChange(stack);
@@ -69,7 +69,7 @@ export function EngineSection({ settings, onChange }) {
           >
             <option key="free" value="free">Free (Mistral)</option>
             {TOOL_USE_PROVIDER_ORDER.map((id) => (
-              <option key={id} value={id}>{PROVIDER_META[id].name}</option>
+              <option key={id} value={id}>{PROVIDER_META[/** @type {ProviderId} */ (id)].name}</option>
             ))}
           </select>
           <EngineRoleDisplay label="Opening scene" engine={settings.engineOpening} />

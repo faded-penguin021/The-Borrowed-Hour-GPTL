@@ -1,5 +1,4 @@
 // @ts-check
-import { BorrowedError } from "../../llm/errors.js";
 import { _fetchAudioBlob, _blobHandle } from "../shared.js";
 
 export class OpenAITTSAdapter {

@@ -5,6 +5,7 @@ import { getPassphraseState, onPassphraseChange, resolvePassphrase } from "../pa
 export function PassphraseModal() {
   const [state, setState] = useState(getPassphraseState);
   const [value, setValue] = useState("");
+  /** @type {React.RefObject<HTMLInputElement>} */
   const inputRef = useRef(null);
 
   useEffect(() => onPassphraseChange(() => {

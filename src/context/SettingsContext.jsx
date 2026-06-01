@@ -2,20 +2,27 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
 import { useSettings } from "../hooks/useSettings.js";
 
-const SettingsContext = createContext(/** @type {any} */ (null));
-
 /**
- * Reading/display preferences, owned by a single provider so the settings modal
- * and the screens read them straight from context instead of a prop chain.
- * @returns {{
+ * @typedef {{
  *   settings: AppSettings,
  *   updateSetting: (key: string, value: any) => void,
  *   osReducedMotion: boolean,
  *   instantReveal: boolean,
- * }}
+ * }} SettingsContextValue
+ */
+
+/** @type {React.Context<SettingsContextValue | null>} */
+const SettingsContext = createContext(/** @type {SettingsContextValue | null} */ (null));
+
+/**
+ * Reading/display preferences, owned by a single provider so the settings modal
+ * and the screens read them straight from context instead of a prop chain.
+ * Throws if used outside a <SettingsProvider>.
  */
 export function useSettingsContext() {
-  return useContext(SettingsContext);
+  const ctx = useContext(SettingsContext);
+  if (!ctx) throw new Error("useSettingsContext must be used within a <SettingsProvider>");
+  return ctx;
 }
 
 /** @param {{ children: React.ReactNode }} props */
@@ -29,7 +36,7 @@ export function SettingsProvider({ children }) {
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const handler = (e) => setOsReducedMotion(e.matches);
+    const handler = (/** @type {MediaQueryListEvent} */ e) => setOsReducedMotion(e.matches);
     if (mq.addEventListener) mq.addEventListener("change", handler);
     else if (mq.addListener) mq.addListener(handler);
     return () => {

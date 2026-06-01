@@ -8,6 +8,21 @@
 // population taxonomy.
 // ─────────────────────────────────────────────────────────────────────────
 
+/**
+ * Minimal shape of the ambience engine passed to recipe/event factories.
+ * @typedef {Object} AmbienceEngine
+ * @property {AudioContext} ctx
+ * @property {AudioNode} master
+ * @property {(seconds: number, color: "pink" | "brown" | "white") => AudioBuffer} _noiseBuffer
+ */
+
+/**
+ * Disposable set of audio nodes and timers returned by a scene layer.
+ * @typedef {Object} LayerResult
+ * @property {AudioNode[]} nodes
+ * @property {ReturnType<typeof setInterval>[]} timers
+ */
+
 export var AMBIENCE_INTENSITY_GAIN = { off: 0, subtle: 0.10, present: 0.22 };
 export var AMBIENCE_HARD_CEILING = 0.30;
 
@@ -90,6 +105,7 @@ export var AMBIENCE_MOOD_PROGRESSION = {
   mysterious: [[0,"min"],[2,"min"],[10,"maj"],[5,"min"]]
 };
 // Pulse tempo (BPM). null disables pulse for the mood.
+/** @type {Record<string, number | null>} */
 export var AMBIENCE_MOOD_PULSE_BPM = {
   calm: 40, tender: null, melancholy: 48, joyous: 62,
   tense: 70, urgent: 90, ominous: 50, mysterious: null
@@ -200,6 +216,7 @@ export var AMBIENCE_MOOD_DRUM_GAIN = {
 // fields — space, mood, palette, population — are live and applied by the
 // engine; palette sets the master LPF cutoff and lane weights for each realm's
 // distinct opening timbre.
+/** @type {Record<string, AmbienceInput>} */
 export var AMBIENCE_REALM_DEFAULTS = {
   neon:  { space: "street",  mood: "mysterious", palette: "synth",   population: "machinery" },
   dream: { space: "void",    mood: "mysterious", palette: "glass",   population: "solitary"  },
@@ -207,6 +224,7 @@ export var AMBIENCE_REALM_DEFAULTS = {
   omen:  { space: "cavern",  mood: "ominous",    palette: "choir",   population: "solitary"  },
   wild:  { space: "forest",  mood: "calm",       palette: "strings", population: "nature"    }
 };
+/** @type {AmbienceInput} */
 export var AMBIENCE_REALM_FALLBACK = { space: "intimate", mood: "calm", palette: "piano", population: "solitary" };
 /** @param {string} realm @returns {AmbienceInput} */
 export var defaultAmbienceForRealm = (realm) =>
@@ -259,7 +277,7 @@ export var sanitizeAmbience = (raw) => {
   }
   if (Array.isArray(r.events)) {
     const evts = r.events
-      .filter((e) => typeof e === "string" && /** @type {Set<string>} */ (/** @type {unknown} */ (AMBIENCE_EVENTS)).has(e))
+      .filter((/** @type {unknown} */ e) => typeof e === "string" && /** @type {Set<string>} */ (/** @type {unknown} */ (AMBIENCE_EVENTS)).has(e))
       .slice(0, 4);
     if (evts.length) out.events = evts;
   }
@@ -269,6 +287,7 @@ export var sanitizeAmbience = (raw) => {
 // ─── Scene ingredient factories (composable layers) ────────────────────
 // Each returns { nodes:[...], timers:[...] } compatible with the
 // scene-voice disposal protocol in engine._disposeSceneVoice.
+/** @param {AmbienceEngine} eng @param {AudioNode} dest @param {number} [density] @returns {LayerResult} */
 function _layerCrickets(eng, dest, density) {
   const ctx = eng.ctx;
   const period = 1200 / (density || 1);
@@ -292,6 +311,7 @@ function _layerCrickets(eng, dest, density) {
   }, period);
   return { nodes: [], timers: [iv] };
 }
+/** @param {AmbienceEngine} eng @param {AudioNode} dest @param {number} [peak] @returns {LayerResult} */
 function _layerOceanSwell(eng, dest, peak) {
   const ctx = eng.ctx;
   const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
@@ -312,6 +332,7 @@ function _layerOceanSwell(eng, dest, peak) {
   const iv = setInterval(cycle, 8000 + Math.random() * 4000);
   return { nodes: [src, f, g], timers: [iv] };
 }
+/** @param {AmbienceEngine} eng @param {AudioNode} dest @param {number} [peak] @returns {LayerResult} */
 function _layerStreamDrip(eng, dest, peak) {
   const ctx = eng.ctx;
   const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
@@ -325,6 +346,7 @@ function _layerStreamDrip(eng, dest, peak) {
   }, 1200);
   return { nodes: [src, f, g], timers: [iv] };
 }
+/** @param {AmbienceEngine} eng @param {AudioNode} dest @param {number} [peak] @returns {LayerResult} */
 function _layerCafeMurmur(eng, dest, peak) {
   const ctx = eng.ctx;
   const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
@@ -338,6 +360,7 @@ function _layerCafeMurmur(eng, dest, peak) {
   }, 2400);
   return { nodes: [src, f, g], timers: [iv] };
 }
+/** @param {AmbienceEngine} eng @param {AudioNode} dest @returns {LayerResult} */
 function _layerWindGust(eng, dest) {
   const ctx = eng.ctx;
   const iv = setInterval(() => {
@@ -357,8 +380,11 @@ function _layerWindGust(eng, dest) {
   return { nodes: [], timers: [iv] };
 }
 // Merge children's nodes/timers into the recipe's return value.
+/** @param {LayerResult[]} layers @returns {LayerResult} */
 function _mergeLayers(...layers) {
+  /** @type {AudioNode[]} */
   const nodes = [];
+  /** @type {ReturnType<typeof setInterval>[]} */
   const timers = [];
   layers.forEach((l) => {
     if (l.nodes) nodes.push(...l.nodes);
@@ -367,6 +393,7 @@ function _mergeLayers(...layers) {
   return { nodes, timers };
 }
 
+/** @type {Record<string, (eng: AmbienceEngine, dest: AudioNode) => LayerResult>} */
 export var AMBIENCE_SPACE_RECIPES = {
   intimate: (eng, dest) => {
     const ctx = eng.ctx;
@@ -404,6 +431,7 @@ export var AMBIENCE_SPACE_RECIPES = {
     const lpf = ctx.createBiquadFilter(); lpf.type = "lowpass"; lpf.frequency.value = 220;
     lpf.connect(out);
     const freqs = [44, 46, 54.5, 65.4];
+    /** @type {AudioNode[]} */
     const oscs = [];
     freqs.forEach((f) => {
       const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f;
@@ -500,6 +528,7 @@ export var AMBIENCE_SPACE_RECIPES = {
     const lpf = ctx.createBiquadFilter(); lpf.type = "lowpass"; lpf.frequency.value = 700;
     lpf.connect(out);
     const freqs = [110, 112, 164.8, 166.2];
+    /** @type {AudioNode[]} */
     const oscs = [];
     freqs.forEach((f, i) => {
       const o = ctx.createOscillator(); o.type = i % 2 ? "triangle" : "sine"; o.frequency.value = f;
@@ -515,6 +544,7 @@ export var AMBIENCE_SPACE_RECIPES = {
   }
 };
 
+/** @type {Record<string, (eng: AmbienceEngine, dest: AudioNode) => LayerResult>} */
 export var AMBIENCE_POPULATION_RECIPES = {
   solitary: (eng, dest) => {
     const ctx = eng.ctx;
@@ -629,6 +659,7 @@ export var AMBIENCE_POPULATION_RECIPES = {
     const lpf = ctx.createBiquadFilter(); lpf.type = "lowpass"; lpf.frequency.value = 500;
     lpf.connect(out);
     const freqs = [130, 195, 260];
+    /** @type {AudioNode[]} */
     const oscs = [];
     freqs.forEach((f, i) => {
       const o = ctx.createOscillator(); o.type = i % 2 ? "triangle" : "sine"; o.frequency.value = f;
@@ -697,6 +728,7 @@ export var AMBIENCE_POPULATION_RECIPES = {
   }
 };
 
+/** @type {Record<string, (eng: AmbienceEngine, startAt: number) => void>} */
 export var AMBIENCE_EVENT_RECIPES = {
   bell_toll: (eng, startAt) => {
     const ctx = eng.ctx, dest = eng.master;

@@ -1,18 +1,18 @@
 // @ts-check
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "../tts/catalogue.js";
 import { ModelPicker } from "./ModelPicker.jsx";
 
 /**
  * @param {Object} props
  * @param {boolean} props.enabled
- * @param {string} props.providerId
+ * @param {string|null} props.providerId
  * @param {Record<string, boolean>} props.providerReady
  * @param {string|null} props.voiceId
- * @param {string} [props.ttsModel]
+ * @param {string|null} [props.ttsModel]
  * @param {SpeechSynthesisVoice[]} [props.browserVoices]
  * @param {Array<{id: string, label: string}>} [props.voxtralVoices]
- * @param {string} [props.voxtralVoicesError]
+ * @param {string|null} [props.voxtralVoicesError]
  * @param {number} props.rate
  * @param {string} [props.elevenKey]
  * @param {string} [props.azureKey]
@@ -39,7 +39,7 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, 
   const [googleSaved, setGoogleSaved] = React.useState(false);
   const providers = TTS_PROVIDER_ORDER.map((id) => TTS_PROVIDER_META[id]);
   const ready = providerReady || {};
-  const activeMeta = TTS_PROVIDER_META[providerId] || null;
+  const activeMeta = providerId ? TTS_PROVIDER_META[providerId] || null : null;
   const voices = providerId === "browser"
     ? (browserVoices || []).map((v) => ({ id: v.name, label: `${v.name} — ${v.lang}` }))
     : providerId === "voxtral"
@@ -228,7 +228,7 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, 
               VOICE
             </span>
             <select
-              value={voices.some((v) => v.id === voiceId) ? voiceId : ""}
+              value={voiceId && voices.some((v) => v.id === voiceId) ? voiceId : ""}
               onChange={(e) => onChangeVoice(e.target.value || null)}
               className="body-font"
               style={{ background: "rgba(0,0,0,0.3)", color: "var(--cream-bright)", border: "1px solid rgba(232,222,197,0.2)", padding: "6px 10px", fontSize: 13, maxWidth: "100%" }}
@@ -265,12 +265,12 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, 
             />
           </label>
         )}
-        {enabled && activeMeta?.models?.length > 0 && (
+        {enabled && (activeMeta?.models?.length ?? 0) > 0 && (
           <div style={{ marginBottom: 8 }}>
             <ModelPicker
               label="Model"
-              presets={activeMeta.models}
-              value={ttsModel || activeMeta.model || ""}
+              presets={activeMeta?.models || []}
+              value={ttsModel || activeMeta?.model || ""}
               onChange={onChangeModel}
             />
           </div>

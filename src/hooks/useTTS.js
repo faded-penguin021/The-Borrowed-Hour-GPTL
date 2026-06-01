@@ -14,24 +14,25 @@ import { getProviderKey } from "../llm/providers.js";
 export function useTTS({ showSettings }) {
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [ttsMuted, setTtsMuted] = useState(false);
-  const [ttsProviderId, setTtsProviderId] = useState(null);
-  const [ttsVoiceId, setTtsVoiceId] = useState(null);
-  const [ttsModelOverrides, setTtsModelOverrides] = useState({});
+  const [ttsProviderId, setTtsProviderId] = useState(/** @type {string | null} */ (null));
+  const [ttsVoiceId, setTtsVoiceId] = useState(/** @type {string | null} */ (null));
+  const [ttsModelOverrides, setTtsModelOverrides] = useState(/** @type {Record<string, string>} */ ({}));
   const [ttsRate, setTtsRate] = useState(1.0);
   const [ttsElevenKey, setTtsElevenKey] = useState("");
   const [ttsAzureKey, setTtsAzureKey] = useState("");
   const [ttsAzureRegion, setTtsAzureRegion] = useState("eastus");
   const [ttsGoogleKey, setTtsGoogleKey] = useState("");
-  const [ttsBrowserVoices, setTtsBrowserVoices] = useState([]);
-  const [ttsVoxtralVoices, setTtsVoxtralVoices] = useState([]);
-  const [ttsVoxtralVoicesError, setTtsVoxtralVoicesError] = useState(null);
-  const [ttsProviderReady, setTtsProviderReady] = useState({ browser: true, puter: true });
-  const [ttsPlayback, setTtsPlayback] = useState({ speaking: false, paused: false, loading: false, loadingTurnId: null, activeTurnId: null, lastError: null, lastErrorTurnId: null });
+  const [ttsBrowserVoices, setTtsBrowserVoices] = useState(/** @type {SpeechSynthesisVoice[]} */ ([]));
+  const [ttsVoxtralVoices, setTtsVoxtralVoices] = useState(/** @type {TTSVoiceEntry[]} */ ([]));
+  const [ttsVoxtralVoicesError, setTtsVoxtralVoicesError] = useState(/** @type {string | null} */ (null));
+  const [ttsProviderReady, setTtsProviderReady] = useState(/** @type {Record<string, boolean>} */ ({ browser: true, puter: true }));
+  const [ttsPlayback, setTtsPlayback] = useState(/** @type {{ speaking: boolean, paused: boolean, loading: boolean, loadingTurnId: number | null, activeTurnId: number | null, lastError: string | null, lastErrorTurnId: number | null }} */ ({ speaking: false, paused: false, loading: false, loadingTurnId: null, activeTurnId: null, lastError: null, lastErrorTurnId: null }));
   const loadedRef = useRef(false);
-  const ttsRef = useRef(null);
+  const ttsRef = useRef(/** @type {TTSController | null} */ (null));
   const ttsNextRef = useRef(0);
 
   const detectTtsProviderReady = async () => {
+    /** @type {Record<string, boolean>} */
     const out = {
       browser: typeof window !== "undefined" && "speechSynthesis" in window,
       puter: true
@@ -42,26 +43,28 @@ export function useTTS({ showSettings }) {
       catch { out[id] = false; }
     }
     out.elevenlabs = !!(ttsElevenKey || await getTtsElevenLabsKey());
-    out.azure = !!(ttsAzureKey || await getTtsAzureKey().catch(() => null));
-    out.google = !!(ttsGoogleKey || await getTtsGoogleKey().catch(() => null));
+    out.azure = !!(ttsAzureKey || await getTtsAzureKey().catch(() => /** @type {null} */ (null)));
+    out.google = !!(ttsGoogleKey || await getTtsGoogleKey().catch(() => /** @type {null} */ (null)));
     setTtsProviderReady(out);
     return out;
   };
 
-  const pickBestReadyProvider = (ready) =>
-    TTS_PROVIDER_ORDER.find((id) => ready[id]) || "browser";
+  const pickBestReadyProvider = (/** @type {Record<string, boolean>} */ ready) =>
+    TTS_PROVIDER_ORDER.find((/** @type {string} */ id) => ready[id]) || "browser";
 
   const ensureTTSController = () => {
-    if (!ttsRef.current) {
-      const ctrl = new TTSController();
-      ctrl.onStateChange(() => setTtsPlayback({
-        speaking: ctrl.isSpeaking(),
-        paused: ctrl.isPaused(),
-        loading: ctrl.isLoading(),
-        loadingTurnId: ctrl.loadingFor(),
-        activeTurnId: ctrl.activeTurnId,
-        lastError: ctrl.lastError,
-        lastErrorTurnId: ctrl.lastErrorTurnId
+    let ctrl = ttsRef.current;
+    if (!ctrl) {
+      ctrl = new TTSController();
+      const c = ctrl;
+      c.onStateChange(() => setTtsPlayback({
+        speaking: c.isSpeaking(),
+        paused: c.isPaused(),
+        loading: c.isLoading(),
+        loadingTurnId: c.loadingFor(),
+        activeTurnId: c.activeTurnId,
+        lastError: c.lastError,
+        lastErrorTurnId: c.lastErrorTurnId
       }));
       ttsRef.current = ctrl;
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -70,7 +73,7 @@ export function useTTS({ showSettings }) {
         window.speechSynthesis.onvoiceschanged = reload;
       }
     }
-    return ttsRef.current;
+    return ctrl;
   };
 
   /**
@@ -103,12 +106,12 @@ export function useTTS({ showSettings }) {
       let key = null;
       let region = null;
       if (meta.reusesLLMKey) { try { key = await getProviderKey(/** @type {ProviderId} */ (meta.reusesLLMKey)); } catch {} }
-      else if (providerId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => null));
+      else if (providerId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => /** @type {null} */ (null)));
       else if (providerId === "azure") {
-        key = ttsAzureKey || (await getTtsAzureKey().catch(() => null));
+        key = ttsAzureKey || (await getTtsAzureKey().catch(() => /** @type {null} */ (null)));
         region = ttsAzureRegion;
       }
-      else if (providerId === "google") key = ttsGoogleKey || (await getTtsGoogleKey().catch(() => null));
+      else if (providerId === "google") key = ttsGoogleKey || (await getTtsGoogleKey().catch(() => /** @type {null} */ (null)));
       ctrl.setProvider(providerId, { voiceId: ttsVoiceId, key, model: ttsModelOverrides[providerId] || null, region });
     }
     ctrl.speak(e.text, { turnId: idx });
@@ -142,12 +145,12 @@ export function useTTS({ showSettings }) {
       let key = null;
       let region = null;
       if (meta.reusesLLMKey) { try { key = await getProviderKey(/** @type {ProviderId} */ (meta.reusesLLMKey)); } catch {} }
-      else if (ttsProviderId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => null));
+      else if (ttsProviderId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => /** @type {null} */ (null)));
       else if (ttsProviderId === "azure") {
-        key = ttsAzureKey || (await getTtsAzureKey().catch(() => null));
+        key = ttsAzureKey || (await getTtsAzureKey().catch(() => /** @type {null} */ (null)));
         region = ttsAzureRegion;
       }
-      else if (ttsProviderId === "google") key = ttsGoogleKey || (await getTtsGoogleKey().catch(() => null));
+      else if (ttsProviderId === "google") key = ttsGoogleKey || (await getTtsGoogleKey().catch(() => /** @type {null} */ (null)));
       ctrl.setProvider(ttsProviderId, { voiceId: ttsVoiceId, key, model: ttsModelOverrides[ttsProviderId] || null, region });
     })();
   }, [ttsProviderId, ttsVoiceId, ttsElevenKey, ttsAzureKey, ttsAzureRegion, ttsGoogleKey, ttsModelOverrides]);
@@ -166,11 +169,12 @@ export function useTTS({ showSettings }) {
             if (typeof p.voiceId === "string") setTtsVoiceId(p.voiceId);
             if (typeof p.rate === "number") setTtsRate(p.rate);
             if (p.modelOverrides && typeof p.modelOverrides === "object") {
+              /** @type {Record<string, string>} */
               const clean = {};
               for (const [provId, modelId] of Object.entries(p.modelOverrides)) {
                 const meta = TTS_PROVIDER_META[provId];
                 if (!meta || typeof modelId !== "string") continue;
-                const inPresets = (meta.models || []).some((m) => m.id === modelId);
+                const inPresets = (meta.models || []).some((/** @type {TTSModelEntry} */ m) => m.id === modelId);
                 if (inPresets) clean[provId] = modelId;
               }
               setTtsModelOverrides(clean);
@@ -183,17 +187,17 @@ export function useTTS({ showSettings }) {
     })();
     detectTtsProviderReady();
     (async () => {
-      const k = await getTtsElevenLabsKey().catch(() => null);
+      const k = await getTtsElevenLabsKey().catch(() => /** @type {null} */ (null));
       if (k) setTtsElevenKey(k);
     })();
     (async () => {
-      const k = await getTtsAzureKey().catch(() => null);
+      const k = await getTtsAzureKey().catch(() => /** @type {null} */ (null));
       if (k) setTtsAzureKey(k);
       const r = getTtsAzureRegion();
       setTtsAzureRegion(r || "eastus");
     })();
     (async () => {
-      const k = await getTtsGoogleKey().catch(() => null);
+      const k = await getTtsGoogleKey().catch(() => /** @type {null} */ (null));
       if (k) setTtsGoogleKey(k);
     })();
   }, []);
@@ -228,7 +232,7 @@ export function useTTS({ showSettings }) {
         const voices = await fetchVoxtralVoices(key);
         if (!cancelled) { setTtsVoxtralVoices(voices); setTtsVoxtralVoicesError(null); }
       } catch (e) {
-        if (!cancelled) setTtsVoxtralVoicesError(e?.message || String(e));
+        if (!cancelled) setTtsVoxtralVoicesError(/** @type {ThrownError} */ (e)?.message || String(e));
       }
     })();
     return () => { cancelled = true; };

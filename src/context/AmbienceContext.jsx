@@ -2,14 +2,17 @@
 import React, { createContext, useContext, useMemo } from "react";
 import { useAmbience } from "../hooks/useAmbience.js";
 
-const AmbienceContext = createContext(/** @type {any} */ (null));
+/** @type {React.Context<ReturnType<typeof useAmbience> | null>} */
+const AmbienceContext = createContext(/** @type {ReturnType<typeof useAmbience> | null} */ (null));
 
 /**
  * The ambience bed (intensity, mute, music) plus the imperative engine ref.
- * @returns {ReturnType<typeof useAmbience>}
+ * Throws if used outside an <AmbienceProvider>.
  */
 export function useAmbienceContext() {
-  return useContext(AmbienceContext);
+  const ctx = useContext(AmbienceContext);
+  if (!ctx) throw new Error("useAmbienceContext must be used within an <AmbienceProvider>");
+  return ctx;
 }
 
 /** @param {{ children: React.ReactNode }} props */

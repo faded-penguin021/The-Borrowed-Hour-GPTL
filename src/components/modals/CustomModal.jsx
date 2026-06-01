@@ -9,6 +9,7 @@ import React, { useState, useRef, useEffect } from "react";
  */
 export function CustomModal({ onClose, onBegin, disabled }) {
   const [text, setText] = useState("");
+  /** @type {React.RefObject<HTMLTextAreaElement>} */
   const ref = useRef(null);
   useEffect(() => {
     if (ref.current)

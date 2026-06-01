@@ -1,4 +1,3 @@
-// @ts-nocheck — intentional partial mocks (Web Audio / TTS adapter / ledger); burn down per Work Item 3c
 import { describe, it, expect, vi } from "vitest";
 import { TTSController } from "../tts/controller.js";
 
@@ -12,8 +11,9 @@ vi.mock("../tts/catalogue.js", () => ({
       adapterLoader: async () => {
         // return a minimal fake adapter class
         return class MockAdapter {
+          /** @param {TTSAdapterOptions} opts */
           constructor(opts) { this.opts = opts; }
-          async synthesize() { return { play: () => {}, pause: () => {}, resume: () => {}, stop: () => {}, set onended(cb) {} }; }
+          async synthesize() { return /** @type {TTSHandle} */ ({ play: () => {}, pause: () => {}, resume: () => {}, stop: () => {}, set onended(/** @type {(() => void) | null} */ cb) {} }); }
           destroy() {}
         };
       }
@@ -28,7 +28,7 @@ describe("TTSController", () => {
   });
   it("setModel updates model and clears adapter", () => {
     const ctrl = new TTSController();
-    ctrl.adapter = {}; // fake non-null adapter
+    ctrl.adapter = /** @type {TTSAdapter} */ ({}); // fake non-null adapter
     ctrl.setModel("my-model");
     expect(ctrl.model).toBe("my-model");
     expect(ctrl.adapter).toBeNull();
@@ -50,7 +50,7 @@ describe("TTSController", () => {
   });
   it("setProvider no-ops when nothing changes", () => {
     const ctrl = new TTSController();
-    const fakeAdapter = {};
+    const fakeAdapter = /** @type {TTSAdapter} */ ({});
     ctrl.providerId = "mock";
     ctrl.adapter = fakeAdapter;
     ctrl.key = "k1";

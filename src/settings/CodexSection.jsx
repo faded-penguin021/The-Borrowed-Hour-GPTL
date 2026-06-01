@@ -33,8 +33,8 @@ export function CodexSection({ settings, onChange }) {
   const [replicateKey, setReplicateKeyState] = useState(() => getReplicateKeyPlaintext());
   const [localUrl, setLocalUrl] = useState(() => getLocalImageUrl());
 
-  const update = (patch) => onChange("codex", { ...codex, ...patch });
-  const updateProviderCfg = (provId, patch) => onChange("codex", {
+  const update = (/** @type {Partial<CodexSettings>} */ patch) => onChange("codex", { ...codex, ...patch });
+  const updateProviderCfg = (/** @type {string} */ provId, /** @type {{ model?: string }} */ patch) => onChange("codex", {
     ...codex,
     providerConfig: {
       ...(codex.providerConfig || {}),
@@ -75,7 +75,7 @@ export function CodexSection({ settings, onChange }) {
             type="button"
             role="radio"
             aria-checked={mode === opt.id ? "true" : "false"}
-            onClick={() => update({ mode: opt.id })}
+            onClick={() => update({ mode: /** @type {CodexMode} */ (opt.id) })}
             className="icon-btn"
             title={opt.hint}
             style={{
@@ -98,11 +98,11 @@ export function CodexSection({ settings, onChange }) {
           <select
             value={providerId}
             aria-label="Image provider"
-            onChange={(e) => update({ provider: e.target.value })}
+            onChange={(e) => update({ provider: /** @type {ImageProviderId} */ (e.target.value) })}
             style={fieldStyle}
           >
             {IMAGE_PROVIDER_ORDER.map((id) => (
-              <option key={id} value={id}>{IMAGE_PROVIDER_META[id].name}</option>
+              <option key={id} value={id}>{IMAGE_PROVIDER_META[/** @type {ImageProviderId} */ (id)].name}</option>
             ))}
           </select>
           <div
@@ -175,18 +175,18 @@ export function CodexSection({ settings, onChange }) {
             aria-label="Art Director provider"
             onChange={(e) => {
               const prov = e.target.value;
-              const model = PROVIDER_META[prov]?.models?.[0]?.id || ad.model;
+              const model = PROVIDER_META[/** @type {ProviderId} */ (prov)]?.models?.[0]?.id || ad.model;
               update({ artDirectorEngine: { provider: prov, model } });
             }}
             style={fieldStyle}
           >
             {TOOL_USE_PROVIDER_ORDER.map((id) => (
-              <option key={id} value={id}>{PROVIDER_META[id].name}</option>
+              <option key={id} value={id}>{PROVIDER_META[/** @type {ProviderId} */ (id)].name}</option>
             ))}
           </select>
           <ModelPicker
             label="Art Director — model"
-            presets={PROVIDER_META[ad.provider]?.models || []}
+            presets={PROVIDER_META[/** @type {ProviderId} */ (ad.provider)]?.models || []}
             value={ad.model}
             onChange={(m) => update({ artDirectorEngine: { ...ad, model: m } })}
           />

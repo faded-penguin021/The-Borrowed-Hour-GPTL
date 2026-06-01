@@ -13,7 +13,7 @@
 // LLM cannot drift away from the locked aesthetic or invent new appearances
 // for recurring NPCs.
 // @ts-check
-import { languageNameFor, DEFAULT_LANGUAGE } from "../data/languages.js";
+import { DEFAULT_LANGUAGE } from "../data/languages.js";
 
 /** @type {Record<string, RealmAestheticSeed>} */
 export const REALM_AESTHETIC_SEEDS = {
@@ -150,10 +150,10 @@ const realmKey = (premise) => {
 
 /**
  * @param {Premise} premise
- * @param {string} [language]
+ * @param {string} [_language]
  * @returns {string}
  */
-export const buildBootstrapSystem = (premise, language = DEFAULT_LANGUAGE) => {
+export const buildBootstrapSystem = (premise, _language = DEFAULT_LANGUAGE) => {
   if (premise?.isCustom) {
     return `You are the Art Director of an immersive text adventure called "The Borrowed Hour". Illustrations in this codex are RARE plates in a manuscript. Your job on this very first turn is to LOCK IN the aesthetic for the whole chronicle based on the player's custom scenario, and to seed an initial Visual Ledger of recurring subjects.
 
@@ -192,10 +192,10 @@ Write tag values plainly in English (these are prompt fragments for an image mod
  * @param {Premise} premise
  * @param {StyleBible} styleBible
  * @param {VisualLedgerEntry[]} visualLedger
- * @param {string} [language]
+ * @param {string} [_language]
  * @returns {string}
  */
-export const buildTurnSystem = (premise, styleBible, visualLedger, language = DEFAULT_LANGUAGE) => {
+export const buildTurnSystem = (premise, styleBible, visualLedger, _language = DEFAULT_LANGUAGE) => {
   const ledgerLines = (visualLedger || []).map((e) => `  - ${e.id}: ${(e.tags || []).join(", ")}`).join("\n") || "  (empty)";
   const sb = /** @type {Partial<StyleBible>} */ (styleBible || {});
   return `You are the Art Director of an immersive text adventure. The narrative text is sovereign — your job is to CURATE rare illustration plates that feel like inserts in a leather-bound manuscript. Most turns DO NOT warrant a plate; the default answer is no.
@@ -265,7 +265,7 @@ export const composeImagePrompt = ({ styleBible, visualLedger, subjectIds, scene
   const ledgerById = new Map((visualLedger || []).map((e) => [e.id, e]));
   const subjectFragments = (subjectIds || [])
     .map((id) => ledgerById.get(id))
-    .filter(Boolean)
+    .filter(/** @returns {e is VisualLedgerEntry} */ (e) => Boolean(e))
     .map((e) => `[${e.id.split(":").slice(1).join(":") || e.id}: ${(e.tags || []).join(", ")}]`);
   const styleParts = [
     sb.era,
@@ -314,17 +314,17 @@ export const parseBootstrapResponse = (raw) => {
   }
   if (!parsed || typeof parsed !== "object") return { malformed: true };
   const sb = parsed.style_bible;
-  const ledger = Array.isArray(parsed.visual_ledger) ? parsed.visual_ledger.filter((e) => e && typeof e.id === "string" && Array.isArray(e.tags)) : [];
+  const ledger = Array.isArray(parsed.visual_ledger) ? parsed.visual_ledger.filter((/** @type {any} */ e) => e && typeof e.id === "string" && Array.isArray(e.tags)) : [];
   if (!sb || typeof sb !== "object") return { malformed: true };
   return {
     style_bible: {
       era: typeof sb.era === "string" ? sb.era : "",
       medium: typeof sb.medium === "string" ? sb.medium : "",
-      palette: Array.isArray(sb.palette) ? sb.palette.filter((s) => typeof s === "string") : [],
+      palette: Array.isArray(sb.palette) ? sb.palette.filter((/** @type {any} */ s) => typeof s === "string") : [],
       composition: typeof sb.composition === "string" ? sb.composition : "",
-      negatives: Array.isArray(sb.negatives) ? sb.negatives.filter((s) => typeof s === "string") : []
+      negatives: Array.isArray(sb.negatives) ? sb.negatives.filter((/** @type {any} */ s) => typeof s === "string") : []
     },
-    visual_ledger: ledger.map((e) => ({ id: e.id, tags: e.tags.filter((t) => typeof t === "string") }))
+    visual_ledger: ledger.map((/** @type {any} */ e) => ({ id: e.id, tags: e.tags.filter((/** @type {any} */ t) => typeof t === "string") }))
   };
 };
 
@@ -346,9 +346,9 @@ export const parseTurnResponse = (raw) => {
     warrants_illustration: !!parsed.warrants_illustration,
     milestone_reason: typeof parsed.milestone_reason === "string" ? parsed.milestone_reason : "",
     caption: typeof parsed.caption === "string" ? parsed.caption : "",
-    subject_ids: Array.isArray(parsed.subject_ids) ? parsed.subject_ids.filter((s) => typeof s === "string") : [],
+    subject_ids: Array.isArray(parsed.subject_ids) ? parsed.subject_ids.filter((/** @type {any} */ s) => typeof s === "string") : [],
     scene_clause: typeof parsed.scene_clause === "string" ? parsed.scene_clause : "",
-    extra_negatives: Array.isArray(parsed.extra_negatives) ? parsed.extra_negatives.filter((s) => typeof s === "string") : [],
-    ledger_updates: Array.isArray(parsed.ledger_updates) ? parsed.ledger_updates.filter((e) => e && typeof e.id === "string" && Array.isArray(e.tags)) : []
+    extra_negatives: Array.isArray(parsed.extra_negatives) ? parsed.extra_negatives.filter((/** @type {any} */ s) => typeof s === "string") : [],
+    ledger_updates: Array.isArray(parsed.ledger_updates) ? parsed.ledger_updates.filter((/** @type {any} */ e) => e && typeof e.id === "string" && Array.isArray(e.tags)) : []
   };
 };

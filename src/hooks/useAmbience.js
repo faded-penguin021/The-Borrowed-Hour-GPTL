@@ -27,7 +27,7 @@ export function useAmbience() {
   const [ambienceBoostWithTTS, setAmbienceBoostWithTTS] = useState(false);
   const [ambienceMusicLevel, setAmbienceMusicLevel] = useState("full");
   const loadedRef = useRef(false);
-  const ambienceRef = useRef(null);
+  const ambienceRef = useRef(/** @type {any} */ (null));
   const [ambienceEngineNonce, setAmbienceEngineNonce] = useState(0);
 
   useEffect(() => {

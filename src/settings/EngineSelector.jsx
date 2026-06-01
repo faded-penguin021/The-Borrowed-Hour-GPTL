@@ -1,6 +1,6 @@
 // @ts-check
 import React from "react";
-import { PROVIDER_META, PROVIDER_ORDER, FREE_MODELS_BY_PROVIDER, providerSupportsToolUse, TOOL_USE_PROVIDER_ORDER } from "../llm/providers.js";
+import { PROVIDER_META, PROVIDER_ORDER, providerSupportsToolUse, TOOL_USE_PROVIDER_ORDER } from "../llm/providers.js";
 
 /**
  * @param {Object} props
@@ -12,11 +12,11 @@ import { PROVIDER_META, PROVIDER_ORDER, FREE_MODELS_BY_PROVIDER, providerSupport
  */
 export function EngineSelector({ label, hint, engine, onChange, requireToolUse = false }) {
   const allowedProviders = requireToolUse ? TOOL_USE_PROVIDER_ORDER : PROVIDER_ORDER;
-  const providerValid = PROVIDER_META[engine?.provider] && (!requireToolUse || providerSupportsToolUse(/** @type {ProviderId} */ (engine.provider)));
+  const providerValid = PROVIDER_META[/** @type {ProviderId} */ (engine?.provider)] && (!requireToolUse || providerSupportsToolUse(/** @type {ProviderId} */ (engine.provider)));
   const provider = providerValid ? engine.provider : allowedProviders[0];
-  const meta = PROVIDER_META[provider];
+  const meta = PROVIDER_META[/** @type {ProviderId} */ (provider)];
   const model = engine?.model || "";
-  const isCustom = !meta.models.some((m) => m.id === model);
+  const isCustom = !meta.models.some((/** @type {ModelEntry} */ m) => m.id === model);
   const fieldStyle = {
     width: "100%",
     marginTop: 6,
@@ -46,12 +46,12 @@ export function EngineSelector({ label, hint, engine, onChange, requireToolUse =
         aria-label={`${label} — provider`}
         onChange={(e) => {
           const np = e.target.value;
-          onChange({ provider: np, model: PROVIDER_META[np].models[0].id });
+          onChange({ provider: np, model: PROVIDER_META[/** @type {ProviderId} */ (np)].models[0].id });
         }}
         style={fieldStyle}
       >
         {allowedProviders.map((id) => (
-          <option key={id} value={id}>{PROVIDER_META[id].name}</option>
+          <option key={id} value={id}>{PROVIDER_META[/** @type {ProviderId} */ (id)].name}</option>
         ))}
       </select>
       <select
@@ -63,7 +63,7 @@ export function EngineSelector({ label, hint, engine, onChange, requireToolUse =
         }}
         style={fieldStyle}
       >
-        {meta.models.map((m) => (
+        {meta.models.map((/** @type {ModelEntry} */ m) => (
           <option key={m.id} value={m.id}>{`${m.id} · ${m.tier}`}</option>
         ))}
         <option key="__custom__" value="__custom__">Custom…</option>

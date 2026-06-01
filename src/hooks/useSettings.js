@@ -67,7 +67,8 @@ export function useSettings() {
     })();
   }, [settings]);
 
-  const updateSetting = (key, value) => setSettings((s) => ({ ...s, [key]: value }));
+  const updateSetting = (/** @type {string} */ key, /** @type {any} */ value) =>
+    setSettings((s) => ({ ...s, [key]: value }));
 
   return { settings, updateSetting };
 }

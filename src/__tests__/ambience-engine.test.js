@@ -1,4 +1,3 @@
-// @ts-nocheck — intentional partial mocks (Web Audio / TTS adapter / ledger); burn down per Work Item 3c
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   AMBIENCE_SPACE_VALUES,
@@ -43,7 +42,7 @@ class MockAudioContext {
     });
   }
   createDelay() { return audioNode({ delayTime: makeParam() }); }
-  createBuffer(channels, len) {
+  createBuffer(/** @type {number} */ channels, /** @type {number} */ len) {
     const data = new Float32Array(len);
     return { getChannelData: () => data, length: len };
   }
@@ -52,15 +51,17 @@ class MockAudioContext {
   close() { this.state = "closed"; return Promise.resolve(); }
 }
 
+/** @type {typeof import("../ambience/engine.js").AmbienceEngine} */
 let AmbienceEngine;
 beforeEach(async () => {
   vi.useFakeTimers();
-  globalThis.window = { AudioContext: MockAudioContext };
+  // Partial browser-global mock: only AudioContext is needed by the engine.
+  globalThis.window = /** @type {any} */ ({ AudioContext: MockAudioContext });
   ({ AmbienceEngine } = await import("../ambience/engine.js"));
 });
 afterEach(() => {
   vi.useRealTimers();
-  delete globalThis.window;
+  delete (/** @type {any} */ (globalThis)).window;
 });
 
 describe("AmbienceEngine — procedural bed", () => {
@@ -172,7 +173,7 @@ describe("palette", () => {
     const eng = new AmbienceEngine();
     eng.setIntensity("present");
     eng.applyAmbience({ palette: "synth" });
-    eng.applyAmbience({ palette: null });
+    eng.applyAmbience(/** @type {any} */ ({ palette: null }));
     expect(eng.current.palette).toBe(null);
     eng.destroy();
   });
@@ -181,7 +182,7 @@ describe("palette", () => {
     const eng = new AmbienceEngine();
     eng.setIntensity("present");
     eng.applyAmbience({ palette: "synth" });
-    eng.applyAmbience({ palette: "banjo" });
+    eng.applyAmbience(/** @type {any} */ ({ palette: "banjo" }));
     expect(eng.current.palette).toBe("synth");
     eng.destroy();
   });
@@ -321,11 +322,12 @@ describe("realm-derived opening ambience", () => {
   it("every realm default uses only valid enum values", async () => {
     const { AMBIENCE_REALM_DEFAULTS, AMBIENCE_REALM_FALLBACK } =
       await import("../ambience/tables.js");
-    const spaces = new Set(AMBIENCE_SPACE_VALUES);
-    const moods = new Set(AMBIENCE_MOOD_VALUES);
-    const palettes = new Set(AMBIENCE_PALETTE_VALUES);
-    const populations = new Set(AMBIENCE_POPULATION_VALUES);
-    for (const bed of [...Object.values(AMBIENCE_REALM_DEFAULTS), AMBIENCE_REALM_FALLBACK]) {
+    const spaces = /** @type {Set<string>} */ (new Set(AMBIENCE_SPACE_VALUES));
+    const moods = /** @type {Set<string>} */ (new Set(AMBIENCE_MOOD_VALUES));
+    const palettes = /** @type {Set<string>} */ (new Set(AMBIENCE_PALETTE_VALUES));
+    const populations = /** @type {Set<string>} */ (new Set(AMBIENCE_POPULATION_VALUES));
+    for (const rawBed of [...Object.values(AMBIENCE_REALM_DEFAULTS), AMBIENCE_REALM_FALLBACK]) {
+      const bed = /** @type {Required<AmbienceInput>} */ (rawBed);
       expect(spaces.has(bed.space)).toBe(true);
       expect(moods.has(bed.mood)).toBe(true);
       expect(palettes.has(bed.palette)).toBe(true);

@@ -44,10 +44,11 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
     const providerId = engine?.provider;
     const model = engine?.model;
     const provider = PROVIDERS[providerId];
-    const meta = PROVIDER_META[providerId];
+    const meta = PROVIDER_META[/** @type {ProviderId} */ (providerId)];
     if (!provider || !meta || !model || !String(model).trim()) {
       throw new BorrowedError("The hour cannot open yet.", "No story engine is selected. Open Settings → Story engines and choose a provider and a model.");
     }
+    /** @type {number | undefined} */
     let temp = temperature;
     const RETRYABLE = provider.retryable;
     const MAX_RETRIES = 2;
@@ -70,7 +71,8 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
         });
       } catch (e) {
         if (e instanceof BorrowedError) throw e;
-        throw new BorrowedError("The hour falters.", `Could not build the ${meta.name} request${e?.message ? ` (${e.message})` : ""}.`);
+        const caught = /** @type {ThrownError} */ (e);
+        throw new BorrowedError("The hour falters.", `Could not build the ${meta.name} request${caught?.message ? ` (${caught.message})` : ""}.`);
       }
       applyProxy(request);
       try {
@@ -100,11 +102,12 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
         lastErr = new BorrowedError("The hour falters.", attempt < MAX_RETRIES ? `${detailedHint} Retrying…` : `${detailedHint} Retried ${MAX_RETRIES} times without success.`);
         res = null;
       } catch (e) {
-        if (e && e.name === "AbortError" || signal && signal.aborted) {
+        const caught = /** @type {ThrownError} */ (e);
+        if (caught && caught.name === "AbortError" || signal && signal.aborted) {
           throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
         }
         if (e instanceof BorrowedError) throw e;
-        const netMsg = e?.message || "";
+        const netMsg = caught?.message || "";
         const isCORS = /failed to fetch|networkerror|cors|load failed/i.test(netMsg);
         const corsHint = isCORS && providerId === "local"
           ? ` If using Ollama, set OLLAMA_ORIGINS to this page's origin (e.g. ${location.origin}). For LM Studio, enable CORS in server settings.`
@@ -120,7 +123,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
       throw lastErr || new BorrowedError("The hour falters.", "Unknown failure.");
     }
     const data = await res.json();
-    if (typeof console !== "undefined" && console.debug) {
+    if (typeof console !== "undefined" && typeof console.debug === "function") {
       try { provider.logUsage(data, model); } catch {}
     }
     try {
@@ -148,7 +151,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
     const providerId = engine?.provider;
     const model = engine?.model;
     const provider = PROVIDERS[providerId];
-    const meta = PROVIDER_META[providerId];
+    const meta = PROVIDER_META[/** @type {ProviderId} */ (providerId)];
     if (!provider || !meta || !model || !String(model).trim()) {
       throw new BorrowedError("The hour cannot open yet.", "No story engine is selected. Open Settings → Story engines and choose a provider and a model.");
     }
@@ -157,6 +160,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
       if (fallback) onDelta(fallback);
       return fallback;
     }
+    /** @type {number | undefined} */
     let temp = temperature;
     const RETRYABLE = provider.retryable;
     const MAX_RETRIES = 2;
@@ -174,7 +178,8 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
         request = provider.buildStreamRequest({ sys, msgs, model, maxTokens, temperature: temp, apiKey });
       } catch (e) {
         if (e instanceof BorrowedError) throw e;
-        throw new BorrowedError("The hour falters.", `Could not build the ${meta.name} request${e?.message ? ` (${e.message})` : ""}.`);
+        const caught = /** @type {ThrownError} */ (e);
+        throw new BorrowedError("The hour falters.", `Could not build the ${meta.name} request${caught?.message ? ` (${caught.message})` : ""}.`);
       }
       applyProxy(request);
       let res;
@@ -186,10 +191,11 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
           signal: signal || undefined
         });
       } catch (e) {
-        if (e && e.name === "AbortError" || signal && signal.aborted) {
+        const caught = /** @type {ThrownError} */ (e);
+        if (caught && caught.name === "AbortError" || signal && signal.aborted) {
           throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
         }
-        const netMsg = e?.message || "";
+        const netMsg = caught?.message || "";
         const isCORS = /failed to fetch|networkerror|cors|load failed/i.test(netMsg);
         const corsHint = isCORS && providerId === "local"
           ? ` If using Ollama, set OLLAMA_ORIGINS to this page's origin (e.g. ${location.origin}). For LM Studio, enable CORS in server settings.`
@@ -218,12 +224,13 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
       }
       let full = "";
       /** @type {{ input?: number, output?: number } | null} */
-      let usage = null;
+      let usage = /** @type {{ input?: number, output?: number } | null} */ (null);
       const reader = res.body.getReader();
       const decoder = new TextDecoder;
       let buffer = "";
       const STALL_MS = 60000;
       let stalled = false;
+      /** @type {ReturnType<typeof setTimeout> | null} */
       let stallTimer = null;
       const armStall = () => {
         if (stallTimer) clearTimeout(stallTimer);
@@ -235,11 +242,12 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
       const clearStall = () => {
         if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; }
       };
+      /** @param {string} rawEvent */
       const handleEvent = (rawEvent) => {
         if (!rawEvent.trim()) return;
         const parsed = provider.parseStreamEvent(rawEvent);
         if (!parsed) return;
-        if (parsed.usage) usage = Object.assign(usage || {}, parsed.usage);
+        if (parsed.usage) usage = /** @type {{ input?: number, output?: number }} */ (Object.assign(usage || {}, parsed.usage));
         if (parsed.error)
           throw new BorrowedError("The hour falters.", `${meta.name} reported an error mid-stream: ${parsed.error}`);
         if (parsed.text) {
@@ -264,17 +272,18 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
         handleEvent(buffer);
       } catch (e) {
         try { reader.cancel(); } catch {}
+        const caught = /** @type {ThrownError} */ (e);
         if (stalled) {
           /** @type {BorrowedError & { partial?: string }} */
           const err = new BorrowedError("The hour falters.", `The ${meta.name} narration stream went silent for ${Math.round(STALL_MS/1000)}s — likely the connection was dropped while the tab was in the background. Try again.`);
           if (full) err.partial = full;
           throw err;
         }
-        if (e && e.name === "AbortError" || signal && signal.aborted) {
+        if (caught && caught.name === "AbortError" || signal && signal.aborted) {
           throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
         }
         /** @type {BorrowedError & { partial?: string }} */
-        const err = e instanceof BorrowedError ? e : new BorrowedError("The hour falters.", `The ${meta.name} narration stream broke${e?.message ? ` (${e.message})` : ""}.`);
+        const err = e instanceof BorrowedError ? e : new BorrowedError("The hour falters.", `The ${meta.name} narration stream broke${caught?.message ? ` (${caught.message})` : ""}.`);
         if (full) err.partial = full;
         throw err;
       } finally {

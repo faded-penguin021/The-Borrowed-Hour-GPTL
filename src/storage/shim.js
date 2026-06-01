@@ -10,8 +10,9 @@ if (!window.storage) {
       try {
         localStorage.setItem(key, value);
       } catch (e) {
-        const msg = e?.message || "";
-        if (/quota|storage/i.test(msg) || e?.name === "QuotaExceededError") {
+        const caught = /** @type {ThrownError} */ (e);
+        const msg = caught?.message || "";
+        if (/quota|storage/i.test(msg) || caught?.name === "QuotaExceededError") {
           const wrapped = new Error(`Storage quota exceeded while saving "${key}" (${Math.round(value.length / 1024)} KB).`);
           wrapped.name = "QuotaExceededError";
           throw wrapped;
@@ -25,10 +26,11 @@ if (!window.storage) {
       return { key };
     },
     async list(prefix = "") {
+      /** @type {string[]} */
       const keys = [];
       for (let i = 0; i < localStorage.length; i += 1) {
         const key = localStorage.key(i);
-        if (!prefix || key.startsWith(prefix))
+        if (key !== null && (!prefix || key.startsWith(prefix)))
           keys.push(key);
       }
       keys.sort();

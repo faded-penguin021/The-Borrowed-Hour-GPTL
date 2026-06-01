@@ -4,32 +4,40 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 // Just enough surface for imageStore.ts to exercise put/get/getAllKeys/delete
 // and the cursor-driven deleteImagesForSave, without a real IndexedDB. Requests
 // settle on microtasks, mirroring the async request/transaction model.
+/** @returns {any} */
 function mkReq() {
   return { onsuccess: null, onerror: null, result: undefined, error: null };
 }
 
 function makeMockIndexedDB() {
+  /** @type {Map<string, Map<IDBValidKey, any>>} */
   const stores = new Map(); // storeName -> Map(key -> value)
   const db = {
-    objectStoreNames: { contains: (n) => stores.has(n) },
-    createObjectStore: (n) => { stores.set(n, new Map()); return {}; },
-    transaction: (name) => makeTx(stores.get(name)),
+    objectStoreNames: { contains: (/** @type {string} */ n) => stores.has(n) },
+    createObjectStore: (/** @type {string} */ n) => { stores.set(n, new Map()); return {}; },
+    transaction: (/** @type {string} */ name) => makeTx(stores.get(name)),
   };
 
+  /** @param {any} store */
   function makeTx(store) {
+    /** @type {any} */
     const tx = { oncomplete: null, onerror: null, error: null };
     tx.objectStore = () => makeStore(store, tx);
     return tx;
   }
 
+  /**
+   * @param {any} store
+   * @param {any} tx
+   */
   function makeStore(store, tx) {
     return {
-      put: (value, key) => {
+      put: (/** @type {any} */ value, /** @type {IDBValidKey} */ key) => {
         const req = mkReq();
         queueMicrotask(() => { store.set(key, value); req.result = key; req.onsuccess?.(); });
         return req;
       },
-      get: (key) => {
+      get: (/** @type {IDBValidKey} */ key) => {
         const req = mkReq();
         queueMicrotask(() => { req.result = store.get(key); req.onsuccess?.(); });
         return req;
@@ -39,7 +47,7 @@ function makeMockIndexedDB() {
         queueMicrotask(() => { req.result = [...store.keys()]; req.onsuccess?.(); });
         return req;
       },
-      delete: (key) => {
+      delete: (/** @type {IDBValidKey} */ key) => {
         const req = mkReq();
         queueMicrotask(() => { store.delete(key); req.result = undefined; req.onsuccess?.(); });
         return req;
@@ -72,6 +80,7 @@ function makeMockIndexedDB() {
   return {
     _stores: stores,
     open: () => {
+      /** @type {any} */
       const req = { onupgradeneeded: null, onsuccess: null, onerror: null, onblocked: null, result: null, error: null };
       queueMicrotask(() => {
         req.result = db;
@@ -83,10 +92,11 @@ function makeMockIndexedDB() {
   };
 }
 
-const blobOf = (text) => new Blob([text], { type: "image/png" });
+const blobOf = (/** @type {string} */ text) => new Blob([text], { type: "image/png" });
 
 describe("imageStore", () => {
   describe("with IndexedDB available", () => {
+    /** @type {typeof import("../storage/imageStore")} */
     let store;
     beforeEach(async () => {
       vi.resetModules();
@@ -94,7 +104,7 @@ describe("imageStore", () => {
       store = await import("../storage/imageStore");
     });
     afterEach(() => {
-      delete globalThis.indexedDB;
+      delete (/** @type {any} */ (globalThis)).indexedDB;
     });
 
     it("reports the store as available", () => {
@@ -105,6 +115,7 @@ describe("imageStore", () => {
       await store.putImage("s1:0", blobOf("hello"));
       const got = await store.getImage("s1:0");
       expect(got).toBeInstanceOf(Blob);
+      if (!got) throw new Error("unreachable");
       expect(await got.text()).toBe("hello");
     });
 
@@ -138,10 +149,11 @@ describe("imageStore", () => {
   });
 
   describe("without IndexedDB (fallback path)", () => {
+    /** @type {typeof import("../storage/imageStore")} */
     let store;
     beforeEach(async () => {
       vi.resetModules();
-      delete globalThis.indexedDB;
+      delete (/** @type {any} */ (globalThis)).indexedDB;
       store = await import("../storage/imageStore");
     });
 

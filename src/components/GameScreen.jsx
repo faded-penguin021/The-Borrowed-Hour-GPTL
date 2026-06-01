@@ -47,7 +47,7 @@ export function GameScreen({
   const ambienceEnabled = ambienceLevel !== "off" && !ambienceUnavailable;
   const onToggleAmbienceMute = () => setAmbienceMuted((m) => !m);
   const onToggleTtsMute = () => tts.setTtsMuted((m) => !m);
-  const onPlayEntry = (idx) => tts.playEntry(entries, idx);
+  const onPlayEntry = (/** @type {number} */ idx) => tts.playEntry(entries, idx);
 
   const scrollRef = useRef(/** @type {HTMLDivElement | null} */ (null));
 
@@ -65,6 +65,9 @@ export function GameScreen({
   const lastEntry = entries[entries.length - 1];
   const showResolution = ended && lastEntry && lastEntry.type === "narration" && lastEntry.fullyRevealed && !metaMode;
   const hasMeta = metaMessages.length > 0;
+  // This screen only mounts during play, where a premise is always set. Guard
+  // anyway so `premise` narrows to non-null for the JSX below.
+  if (!premise) return null;
   return (
     <div
       className="relative flex flex-col"
@@ -241,7 +244,7 @@ export function GameScreen({
               </button>
             </div>
           )}
-          {entries.map((entry, i) => {
+          {entries.map((/** @type {Entry} */ entry, /** @type {number} */ i) => {
             if (entry.type === "narration") {
               const showPlay = ttsEnabled && entry.fullyRevealed && !entry.streaming && typeof entry.text === "string" && entry.text.trim();
               const isLoading = ttsPlayback?.loading && ttsPlayback?.loadingTurnId === i;
@@ -503,7 +506,7 @@ export function GameScreen({
                 </div>
               )}
               <div className="space-y-6 mt-6">
-                {metaMessages.map((m, i) => {
+                {metaMessages.map((/** @type {{ role: string, text: string, fullyRevealed?: boolean }} */ m, /** @type {number} */ i) => {
                   if (m.role === "user") {
                     return (
                       <div

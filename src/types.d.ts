@@ -37,6 +37,22 @@ interface AmbienceInput {
   events?: AmbienceEvent[];
 }
 
+// ── Error handling ────────────────────────────────────────────────────────────
+
+// Loose shape for values caught in a `catch` clause. Under `useUnknownInCatchVariables`
+// a caught value is `unknown`; thrown values may be a BorrowedError, a native
+// Error/DOMException, or an arbitrary object. The app reads these fields
+// defensively (always guarded or optional-chained), so model them all as optional.
+interface ThrownError {
+  name?: string;
+  message?: string;
+  detail?: string;
+  partial?: string;
+  raw?: string;
+  status?: number;
+  code?: number;
+}
+
 // ── Core game types ───────────────────────────────────────────────────────────
 
 interface NPC {
@@ -320,6 +336,9 @@ interface StorageShim {
 
 interface Window {
   storage: StorageShim;
+  // External script-loaded SDK (js.puter.com) with no published types — `any` is
+  // the honest type for this untyped boundary; app code confines its use.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   puter?: any;
 }
 

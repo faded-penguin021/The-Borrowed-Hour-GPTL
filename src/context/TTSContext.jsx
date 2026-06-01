@@ -3,14 +3,17 @@ import React, { createContext, useContext, useEffect } from "react";
 import { useTTS } from "../hooks/useTTS.js";
 import { useAmbienceContext } from "./AmbienceContext.jsx";
 
-const TTSContext = createContext(/** @type {any} */ (null));
+/** @type {React.Context<ReturnType<typeof useTTS> | null>} */
+const TTSContext = createContext(/** @type {ReturnType<typeof useTTS> | null} */ (null));
 
 /**
  * Narration-aloud (text-to-speech) state and controls.
- * @returns {ReturnType<typeof useTTS>}
+ * Throws if used outside a <TTSProvider>.
  */
 export function useTTSContext() {
-  return useContext(TTSContext);
+  const ctx = useContext(TTSContext);
+  if (!ctx) throw new Error("useTTSContext must be used within a <TTSProvider>");
+  return ctx;
 }
 
 /**

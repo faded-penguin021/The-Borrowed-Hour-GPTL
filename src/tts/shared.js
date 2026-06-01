@@ -23,10 +23,12 @@ export async function _fetchAudioBlob(url, init, signal) {
  * @returns {TTSHandle}
  */
 export function _blobHandle(blob, signal, onError) {
+  /** @param {string} m */
   const report = (m) => { try { onError?.(m); } catch (_) {} };
   // Sniff the first bytes so we can report the actual audio format, not
   // just the (often wrong or missing) Content-Type header.
   let magic = "";
+  /** @type {string | null} */
   let sniffed = null;
   const sniffPromise = blob.slice(0, 12).arrayBuffer().then((buf) => {
     const b = new Uint8Array(buf);
@@ -50,6 +52,7 @@ export function _blobHandle(blob, signal, onError) {
   let url = URL.createObjectURL(typed);
   const audio = new Audio(url);
   audio.preload = "auto";
+  /** @type {(() => void) | null} */
   let _onended = null;
   const cleanup = () => { try { URL.revokeObjectURL(url); } catch (_) {} };
   // If sniff finishes after Audio is created, re-point the element so the
@@ -66,7 +69,7 @@ export function _blobHandle(blob, signal, onError) {
   audio.onerror = () => {
     const err = audio.error;
     const code = err?.code, msg = err?.message;
-    const codeName = ({ 1: "ABORTED", 2: "NETWORK", 3: "DECODE", 4: "SRC_NOT_SUPPORTED" })[code] || `code=${code}`;
+    const codeName = ({ 1: "ABORTED", 2: "NETWORK", 3: "DECODE", 4: "SRC_NOT_SUPPORTED" })[code ?? 0] || `code=${code}`;
     const info = `audio ${codeName}${msg ? ` — ${msg}` : ""} (${fmtBlobInfo()})`;
     if (typeof console !== "undefined") console.warn("[tts]", info);
     report(info);
@@ -80,7 +83,7 @@ export function _blobHandle(blob, signal, onError) {
     try { await sniffPromise; } catch (_) {}
     let p;
     try { p = audio.play(); } catch (e) {
-      const info = `play() threw: ${e?.message || e} (${fmtBlobInfo()})`;
+      const info = `play() threw: ${/** @type {ThrownError} */ (e)?.message || e} (${fmtBlobInfo()})`;
       if (typeof console !== "undefined") console.warn("[tts]", info);
       report(info);
       return;
@@ -95,12 +98,13 @@ export function _blobHandle(blob, signal, onError) {
       });
     }
   };
+  /** @type {TTSHandle} */
   const handle = {
     play: tryPlay,
     pause: () => { try { audio.pause(); } catch (_) {} },
     resume: tryPlay,
     stop: () => { try { audio.pause(); audio.currentTime = 0; } catch (_) {} cleanup(); },
-    set onended(cb) { _onended = cb; }
+    set onended(/** @type {(() => void) | null} */ cb) { _onended = cb; }
   };
   signal?.addEventListener("abort", handle.stop);
   return handle;
