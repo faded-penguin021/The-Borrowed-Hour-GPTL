@@ -13,6 +13,13 @@ const MAX = 400;
 const buffer: DebugEntry[] = [];
 const listeners = new Set<() => void>();
 
+// Cached immutable snapshot for useSyncExternalStore. getSnapshot MUST return a
+// stable reference between mutations, or React re-renders forever (error #185).
+let snapshot: DebugEntry[] = [];
+function refreshSnapshot() {
+  snapshot = buffer.slice();
+}
+
 function safeStringify(v: unknown): string {
   if (typeof v === "string") return v;
   if (v instanceof Error) return `${v.name}: ${v.message}`;
@@ -27,6 +34,7 @@ function push(level: string, args: unknown[]) {
   const msg = args.map(safeStringify).join(" ");
   buffer.push({ t: Date.now(), level, msg });
   if (buffer.length > MAX) buffer.shift();
+  refreshSnapshot();
   listeners.forEach((fn) => {
     try { fn(); } catch { /* ignore */ }
   });
@@ -38,11 +46,12 @@ export function dlog(...args: unknown[]) {
 }
 
 export function getDebugEntries(): DebugEntry[] {
-  return buffer.slice();
+  return snapshot;
 }
 
 export function clearDebug() {
   buffer.length = 0;
+  refreshSnapshot();
   listeners.forEach((fn) => { try { fn(); } catch { /* ignore */ } });
 }
 
