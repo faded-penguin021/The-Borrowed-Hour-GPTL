@@ -48,6 +48,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
     if (!provider || !meta || !model || !String(model).trim()) {
       throw new BorrowedError("The hour cannot open yet.", "No story engine is selected. Open Settings → Story engines and choose a provider and a model.");
     }
+    /** @type {number | undefined} */
     let temp = temperature;
     const RETRYABLE = provider.retryable;
     const MAX_RETRIES = 2;
@@ -120,7 +121,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
       throw lastErr || new BorrowedError("The hour falters.", "Unknown failure.");
     }
     const data = await res.json();
-    if (typeof console !== "undefined" && console.debug) {
+    if (typeof console !== "undefined" && typeof console.debug === "function") {
       try { provider.logUsage(data, model); } catch {}
     }
     try {
@@ -157,6 +158,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
       if (fallback) onDelta(fallback);
       return fallback;
     }
+    /** @type {number | undefined} */
     let temp = temperature;
     const RETRYABLE = provider.retryable;
     const MAX_RETRIES = 2;
@@ -218,7 +220,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
       }
       let full = "";
       /** @type {{ input?: number, output?: number } | null} */
-      let usage = null;
+      let usage = /** @type {{ input?: number, output?: number } | null} */ (null);
       const reader = res.body.getReader();
       const decoder = new TextDecoder;
       let buffer = "";
@@ -241,7 +243,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
         if (!rawEvent.trim()) return;
         const parsed = provider.parseStreamEvent(rawEvent);
         if (!parsed) return;
-        if (parsed.usage) usage = Object.assign(usage || {}, parsed.usage);
+        if (parsed.usage) usage = /** @type {{ input?: number, output?: number }} */ (Object.assign(usage || {}, parsed.usage));
         if (parsed.error)
           throw new BorrowedError("The hour falters.", `${meta.name} reported an error mid-stream: ${parsed.error}`);
         if (parsed.text) {

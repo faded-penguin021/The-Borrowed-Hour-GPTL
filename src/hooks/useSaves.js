@@ -23,12 +23,12 @@ import { putImage, deleteImagesForSave } from "../storage/imageStore";
  * }}
  */
 export function useSaves() {
-  const [saveList, setSaveList] = useState([]);
+  const [saveList, setSaveList] = useState(/** @type {any[]} */ ([]));
   const [saveListLoading, setSaveListLoading] = useState(false);
-  const [saveBanner, setSaveBanner] = useState(null);
+  const [saveBanner, setSaveBanner] = useState(/** @type {{kind: string, text: string} | null} */ (null));
   const [savesTotalBytes, setSavesTotalBytes] = useState(0);
   const [showSaves, setShowSaves] = useState(false);
-  const [exportFallbackText, setExportFallbackText] = useState(null);
+  const [exportFallbackText, setExportFallbackText] = useState(/** @type {string | null} */ (null));
 
   const loadSaveList = async () => {
     setSaveListLoading(true);

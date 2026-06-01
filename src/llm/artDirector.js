@@ -265,7 +265,7 @@ export const composeImagePrompt = ({ styleBible, visualLedger, subjectIds, scene
   const ledgerById = new Map((visualLedger || []).map((e) => [e.id, e]));
   const subjectFragments = (subjectIds || [])
     .map((id) => ledgerById.get(id))
-    .filter(Boolean)
+    .filter(/** @returns {e is VisualLedgerEntry} */ (e) => Boolean(e))
     .map((e) => `[${e.id.split(":").slice(1).join(":") || e.id}: ${(e.tags || []).join(", ")}]`);
   const styleParts = [
     sb.era,

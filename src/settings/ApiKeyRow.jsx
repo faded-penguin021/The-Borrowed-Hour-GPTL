@@ -14,7 +14,7 @@ export function ApiKeyRow({ providerId }) {
   const [editing, setEditing] = React.useState(false);
   const [value, setValue] = React.useState("");
   const [testing, setTesting] = React.useState(false);
-  const [testResult, setTestResult] = React.useState(null);
+  const [testResult, setTestResult] = React.useState(/** @type {{ ok: boolean; detail: string } | null} */ (null));
   const saveKey = async () => {
     const trimmed = value.trim();
     if (!trimmed) return;

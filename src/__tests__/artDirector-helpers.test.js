@@ -10,7 +10,9 @@ describe("mergeLedger", () => {
     const updates = [{ id: "location:gate", tags: ["iron", "moss"] }];
     const result = mergeLedger(current, updates);
     expect(result).toHaveLength(2);
-    expect(result.find((e) => e.id === "location:gate").tags).toEqual(["iron", "moss"]);
+    const found = result.find((e) => e.id === "location:gate");
+    if (!found) throw new Error("unreachable");
+    expect(found.tags).toEqual(["iron", "moss"]);
   });
 
   it("updates existing entries by id", () => {
@@ -30,7 +32,7 @@ describe("mergeLedger", () => {
   it("skips invalid updates (no id, no tags array)", () => {
     const current = [{ id: "a", tags: ["x"] }];
     // Deliberately invalid entries (null, missing id, missing tags) to exercise the skip path.
-    const result = mergeLedger(current, /** @type {VisualLedgerEntry[]} */ ([null, { tags: ["y"] }, { id: "b" }]));
+    const result = mergeLedger(current, /** @type {VisualLedgerEntry[]} */ (/** @type {unknown} */ ([null, { tags: ["y"] }, { id: "b" }])));
     expect(result).toHaveLength(1);
   });
 
@@ -91,13 +93,15 @@ describe("parseBootstrapResponse", () => {
     });
     const result = parseBootstrapResponse(raw);
     expect(result.malformed).toBeUndefined();
+    expect(result.style_bible).toBeDefined();
+    if (!result.style_bible) throw new Error("unreachable");
     expect(result.style_bible.era).toBe("x");
     expect(result.visual_ledger).toHaveLength(1);
   });
 
   it("marks empty input as malformed", () => {
     expect(parseBootstrapResponse("").malformed).toBe(true);
-    expect(parseBootstrapResponse(null).malformed).toBe(true);
+    expect(parseBootstrapResponse(/** @type {any} */ (null)).malformed).toBe(true);
   });
 
   it("marks response without style_bible as malformed", () => {

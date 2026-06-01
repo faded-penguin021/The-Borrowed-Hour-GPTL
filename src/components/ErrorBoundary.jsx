@@ -13,6 +13,7 @@ export class ErrorBoundary extends React.Component {
   /** @param {ErrorBoundaryProps} props */
   constructor(props) {
     super(props);
+    /** @type {ErrorBoundaryState} */
     this.state = { error: null };
   }
   /** @param {Error} error */

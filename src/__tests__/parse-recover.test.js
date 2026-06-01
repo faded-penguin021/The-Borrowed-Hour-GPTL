@@ -95,6 +95,7 @@ describe("GMLogicResponseSchema", () => {
   it("coerces an unknown ending to null", () => {
     const r = GMLogicResponseSchema.safeParse({ narrator_brief: "b", state: {}, ending: "weird" });
     expect(r.success).toBe(true);
+    if (!r.success) throw new Error("unreachable");
     expect(r.data.ending).toBeNull();
   });
 });
@@ -108,6 +109,8 @@ describe("parseGMResponse", () => {
     const result = parseGMResponse(raw);
     expect(result.malformed).toBe(false);
     expect(result.narration).toBe("The door creaks open.");
+    expect(result.state).not.toBeNull();
+    if (!result.state) throw new Error("unreachable");
     expect(result.state.scene).toBe("hallway");
     expect(result.state.inventory).toEqual([]);
   });
@@ -138,6 +141,8 @@ describe("parseGMLogicResponse", () => {
     const result = parseGMLogicResponse(raw);
     expect(result.malformed).toBe(false);
     expect(result.narrator_brief).toBe("The guard steps forward.");
+    expect(result.state).not.toBeNull();
+    if (!result.state) throw new Error("unreachable");
     expect(result.state.npcs).toEqual([]);
   });
 

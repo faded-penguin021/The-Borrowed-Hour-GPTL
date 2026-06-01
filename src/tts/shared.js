@@ -69,7 +69,7 @@ export function _blobHandle(blob, signal, onError) {
   audio.onerror = () => {
     const err = audio.error;
     const code = err?.code, msg = err?.message;
-    const codeName = ({ 1: "ABORTED", 2: "NETWORK", 3: "DECODE", 4: "SRC_NOT_SUPPORTED" })[code] || `code=${code}`;
+    const codeName = ({ 1: "ABORTED", 2: "NETWORK", 3: "DECODE", 4: "SRC_NOT_SUPPORTED" })[code ?? 0] || `code=${code}`;
     const info = `audio ${codeName}${msg ? ` — ${msg}` : ""} (${fmtBlobInfo()})`;
     if (typeof console !== "undefined") console.warn("[tts]", info);
     report(info);

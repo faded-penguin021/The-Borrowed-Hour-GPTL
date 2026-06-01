@@ -104,7 +104,7 @@ describe("imageStore", () => {
       store = await import("../storage/imageStore");
     });
     afterEach(() => {
-      delete globalThis.indexedDB;
+      delete (/** @type {any} */ (globalThis)).indexedDB;
     });
 
     it("reports the store as available", () => {
@@ -115,6 +115,7 @@ describe("imageStore", () => {
       await store.putImage("s1:0", blobOf("hello"));
       const got = await store.getImage("s1:0");
       expect(got).toBeInstanceOf(Blob);
+      if (!got) throw new Error("unreachable");
       expect(await got.text()).toBe("hello");
     });
 
@@ -152,7 +153,7 @@ describe("imageStore", () => {
     let store;
     beforeEach(async () => {
       vi.resetModules();
-      delete globalThis.indexedDB;
+      delete (/** @type {any} */ (globalThis)).indexedDB;
       store = await import("../storage/imageStore");
     });
 

@@ -61,7 +61,7 @@ beforeEach(async () => {
 });
 afterEach(() => {
   vi.useRealTimers();
-  delete globalThis.window;
+  delete (/** @type {any} */ (globalThis)).window;
 });
 
 describe("AmbienceEngine — procedural bed", () => {
@@ -173,7 +173,7 @@ describe("palette", () => {
     const eng = new AmbienceEngine();
     eng.setIntensity("present");
     eng.applyAmbience({ palette: "synth" });
-    eng.applyAmbience({ palette: null });
+    eng.applyAmbience(/** @type {any} */ ({ palette: null }));
     expect(eng.current.palette).toBe(null);
     eng.destroy();
   });
@@ -326,7 +326,8 @@ describe("realm-derived opening ambience", () => {
     const moods = /** @type {Set<string>} */ (new Set(AMBIENCE_MOOD_VALUES));
     const palettes = /** @type {Set<string>} */ (new Set(AMBIENCE_PALETTE_VALUES));
     const populations = /** @type {Set<string>} */ (new Set(AMBIENCE_POPULATION_VALUES));
-    for (const bed of [...Object.values(AMBIENCE_REALM_DEFAULTS), AMBIENCE_REALM_FALLBACK]) {
+    for (const rawBed of [...Object.values(AMBIENCE_REALM_DEFAULTS), AMBIENCE_REALM_FALLBACK]) {
+      const bed = /** @type {Required<AmbienceInput>} */ (rawBed);
       expect(spaces.has(bed.space)).toBe(true);
       expect(moods.has(bed.mood)).toBe(true);
       expect(palettes.has(bed.palette)).toBe(true);

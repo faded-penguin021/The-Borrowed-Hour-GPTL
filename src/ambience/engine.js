@@ -522,7 +522,7 @@ export class AmbienceEngine {
     if (this.destroyed || gen !== this._gen) return;
     const mood = this.current.mood;
     const pattern = mood ? AMBIENCE_MOOD_DRUM_PATTERN[mood] : null;
-    if (!pattern || this.intensity === "off" || this.muted || this.musicLevel !== "full") {
+    if (!mood || !pattern || this.intensity === "off" || this.muted || this.musicLevel !== "full") {
       this.drumStep = 0;
       this.drumScheduled = setTimeout(() => this._scheduleDrums(gen), 1500);
       return;
@@ -757,7 +757,7 @@ export class AmbienceEngine {
     const peak = 0.08 + Math.random() * 0.03;
     const ctx = this.ctx;
     const osc = ctx.createOscillator();
-    osc.type = this._paletteWeights?.melodyOsc || "triangle";
+    osc.type = /** @type {OscillatorType} */ (this._paletteWeights?.melodyOsc || "triangle");
     osc.frequency.value = freq;
     const g = ctx.createGain();
     const now = ctx.currentTime;

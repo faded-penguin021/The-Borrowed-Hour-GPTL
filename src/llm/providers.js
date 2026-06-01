@@ -207,7 +207,7 @@ export var FREE_MODELS_BY_PROVIDER = {
   local:      { opener: "llama3.2",                 gm: "llama3.1",                   narrator: "llama3.2" }
 };
 /** @returns {string} */
-export var getLocalUrl = () => localStorage.getItem(PROVIDER_META.local.urlStorage)?.trim() || LOCAL_DEFAULT_URL;
+export var getLocalUrl = () => localStorage.getItem(/** @type {string} */ (PROVIDER_META.local.urlStorage))?.trim() || LOCAL_DEFAULT_URL;
 /**
  * @param {ProviderId} id
  * @returns {Promise<string>}

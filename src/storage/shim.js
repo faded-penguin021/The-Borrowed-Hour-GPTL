@@ -25,10 +25,11 @@ if (!window.storage) {
       return { key };
     },
     async list(prefix = "") {
+      /** @type {string[]} */
       const keys = [];
       for (let i = 0; i < localStorage.length; i += 1) {
         const key = localStorage.key(i);
-        if (!prefix || key.startsWith(prefix))
+        if (key !== null && (!prefix || key.startsWith(prefix)))
           keys.push(key);
       }
       keys.sort();

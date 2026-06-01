@@ -8,7 +8,9 @@ import { requestPassphrase, getSessionPassphrase, setSessionPassphrase } from ".
 /** No props. */
 export function LocalLLMRow() {
   const meta = PROVIDER_META.local;
-  const [url, setUrl] = React.useState(() => localStorage.getItem(meta.urlStorage) || "");
+  // The local provider always defines urlStorage (see PROVIDER_META.local).
+  const urlStorage = /** @type {string} */ (meta.urlStorage);
+  const [url, setUrl] = React.useState(() => localStorage.getItem(urlStorage) || "");
   const [key, setKey] = React.useState("");
   const [keyStored, setKeyStored] = React.useState(() => !!localStorage.getItem(meta.keyStorage));
   const [editingKey, setEditingKey] = React.useState(false);
@@ -20,9 +22,9 @@ export function LocalLLMRow() {
         alert("Local LLM URL must point to localhost or 127.0.0.1 for security.");
         return;
       }
-      localStorage.setItem(meta.urlStorage, trimmed);
+      localStorage.setItem(urlStorage, trimmed);
     } else
-      localStorage.removeItem(meta.urlStorage);
+      localStorage.removeItem(urlStorage);
   };
   const saveKey = async () => {
     const trimmed = key.trim();

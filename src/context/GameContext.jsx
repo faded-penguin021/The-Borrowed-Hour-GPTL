@@ -371,6 +371,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     text = (text || "").trim();
     if (!text || loading) return true;
     if (!metaMode && ended) return true;
+    if (!premise) return true;
     skipReveal();
     setRecovery(null);
     if (!metaMode) await ensureAmbienceEngine();
@@ -725,11 +726,17 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   const exportChronicle = (includeMeta = false) =>
     saves.exportChronicle({ premise, entries, ended, metaMessages }, includeMeta);
 
-  const startReveal = () => reveal.triggerReveal(premise, entries, gameState, language);
+  const startReveal = () => {
+    if (!premise) return;
+    return reveal.triggerReveal(premise, entries, gameState, language);
+  };
 
-  const startKeepsake = () => keepsake.generateKeepsake({
-    premise, entries, revealText: reveal.revealText, metaMessages, ended
-  });
+  const startKeepsake = () => {
+    if (!premise) return;
+    return keepsake.generateKeepsake({
+      premise, entries, revealText: reveal.revealText, metaMessages, ended
+    });
+  };
 
   const keepsakeFilename = premise
     ? `the-borrowed-hour-${premise.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "")}.html`

@@ -15,7 +15,7 @@ import { realmGlyph } from "../../data/premises.js";
  * @param {boolean} props.inGame
  */
 export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onClose, onLoad, onDelete, inGame }) {
-  const [armedKey, setArmedKey] = useState(null);
+  const [armedKey, setArmedKey] = useState(/** @type {string | null} */ (null));
   useEffect(() => {
     if (!armedKey)
       return;

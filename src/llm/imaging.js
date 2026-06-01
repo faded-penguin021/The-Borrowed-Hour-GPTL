@@ -73,9 +73,12 @@ export const IMAGE_PROVIDER_ORDER = ["pollinations", "replicate", "openai", "loc
 
 const getReplicateKey = async () => {
   const m = IMAGE_PROVIDER_META.replicate;
-  const injected = /** @type {Record<string, any>} */ (window)[m.windowKey] || /** @type {HTMLMetaElement | null} */ (document.querySelector(`meta[name="replicate-api-key"]`))?.content;
+  // windowKey & keyStorage are defined on the `replicate` literal above.
+  const windowKey = /** @type {string} */ (m.windowKey);
+  const keyStorage = /** @type {string} */ (m.keyStorage);
+  const injected = /** @type {Record<string, any>} */ (window)[windowKey] || /** @type {HTMLMetaElement | null} */ (document.querySelector(`meta[name="replicate-api-key"]`))?.content;
   if (injected) return injected.trim();
-  const stored = localStorage.getItem(m.keyStorage);
+  const stored = localStorage.getItem(keyStorage);
   if (!stored) throw new BorrowedError("The plate cannot be drawn.", "No Replicate API key is saved. Open ⚙ Settings → Codex → Replicate to paste your key.");
   if (!stored.startsWith(ENC_PREFIX)) return stored.trim();
   const passphrase = getSessionPassphrase();
@@ -85,7 +88,8 @@ const getReplicateKey = async () => {
 };
 
 export const getLocalImageUrl = () => {
-  const stored = localStorage.getItem(IMAGE_PROVIDER_META.local.urlStorage);
+  const urlStorage = /** @type {string} */ (IMAGE_PROVIDER_META.local.urlStorage);
+  const stored = localStorage.getItem(urlStorage);
   return (stored && stored.trim()) || LOCAL_IMAGE_DEFAULT_URL;
 };
 
@@ -258,16 +262,18 @@ export const generateImage = async ({ providerId, providerConfig, prompt, negati
 
 /** @param {string} raw */
 export const setReplicateKey = (raw) => {
-  if (!raw) localStorage.removeItem(IMAGE_PROVIDER_META.replicate.keyStorage);
-  else localStorage.setItem(IMAGE_PROVIDER_META.replicate.keyStorage, raw.trim());
+  const keyStorage = /** @type {string} */ (IMAGE_PROVIDER_META.replicate.keyStorage);
+  if (!raw) localStorage.removeItem(keyStorage);
+  else localStorage.setItem(keyStorage, raw.trim());
 };
 export const getReplicateKeyPlaintext = () => {
-  const v = localStorage.getItem(IMAGE_PROVIDER_META.replicate.keyStorage);
+  const v = localStorage.getItem(/** @type {string} */ (IMAGE_PROVIDER_META.replicate.keyStorage));
   if (!v || v.startsWith(ENC_PREFIX)) return "";
   return v;
 };
 /** @param {string} raw */
 export const setLocalImageUrl = (raw) => {
-  if (!raw) localStorage.removeItem(IMAGE_PROVIDER_META.local.urlStorage);
-  else localStorage.setItem(IMAGE_PROVIDER_META.local.urlStorage, raw.trim());
+  const urlStorage = /** @type {string} */ (IMAGE_PROVIDER_META.local.urlStorage);
+  if (!raw) localStorage.removeItem(urlStorage);
+  else localStorage.setItem(urlStorage, raw.trim());
 };

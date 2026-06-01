@@ -7,6 +7,7 @@ import React, { useRef, useEffect } from "react";
  * @param {() => void} props.onClose
  */
 export function ExportFallbackModal({ text, onClose }) {
+  /** @type {React.RefObject<HTMLTextAreaElement>} */
   const ref = useRef(null);
   useEffect(() => {
     if (ref.current) {

@@ -14,21 +14,21 @@ import { getProviderKey } from "../llm/providers.js";
 export function useTTS({ showSettings }) {
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [ttsMuted, setTtsMuted] = useState(false);
-  const [ttsProviderId, setTtsProviderId] = useState(null);
-  const [ttsVoiceId, setTtsVoiceId] = useState(null);
+  const [ttsProviderId, setTtsProviderId] = useState(/** @type {string | null} */ (null));
+  const [ttsVoiceId, setTtsVoiceId] = useState(/** @type {string | null} */ (null));
   const [ttsModelOverrides, setTtsModelOverrides] = useState(/** @type {Record<string, string>} */ ({}));
   const [ttsRate, setTtsRate] = useState(1.0);
   const [ttsElevenKey, setTtsElevenKey] = useState("");
   const [ttsAzureKey, setTtsAzureKey] = useState("");
   const [ttsAzureRegion, setTtsAzureRegion] = useState("eastus");
   const [ttsGoogleKey, setTtsGoogleKey] = useState("");
-  const [ttsBrowserVoices, setTtsBrowserVoices] = useState([]);
-  const [ttsVoxtralVoices, setTtsVoxtralVoices] = useState([]);
-  const [ttsVoxtralVoicesError, setTtsVoxtralVoicesError] = useState(null);
+  const [ttsBrowserVoices, setTtsBrowserVoices] = useState(/** @type {SpeechSynthesisVoice[]} */ ([]));
+  const [ttsVoxtralVoices, setTtsVoxtralVoices] = useState(/** @type {TTSVoiceEntry[]} */ ([]));
+  const [ttsVoxtralVoicesError, setTtsVoxtralVoicesError] = useState(/** @type {string | null} */ (null));
   const [ttsProviderReady, setTtsProviderReady] = useState(/** @type {Record<string, boolean>} */ ({ browser: true, puter: true }));
-  const [ttsPlayback, setTtsPlayback] = useState({ speaking: false, paused: false, loading: false, loadingTurnId: null, activeTurnId: null, lastError: null, lastErrorTurnId: null });
+  const [ttsPlayback, setTtsPlayback] = useState(/** @type {{ speaking: boolean, paused: boolean, loading: boolean, loadingTurnId: number | null, activeTurnId: number | null, lastError: string | null, lastErrorTurnId: number | null }} */ ({ speaking: false, paused: false, loading: false, loadingTurnId: null, activeTurnId: null, lastError: null, lastErrorTurnId: null }));
   const loadedRef = useRef(false);
-  const ttsRef = useRef(null);
+  const ttsRef = useRef(/** @type {TTSController | null} */ (null));
   const ttsNextRef = useRef(0);
 
   const detectTtsProviderReady = async () => {
@@ -53,16 +53,18 @@ export function useTTS({ showSettings }) {
     TTS_PROVIDER_ORDER.find((/** @type {string} */ id) => ready[id]) || "browser";
 
   const ensureTTSController = () => {
-    if (!ttsRef.current) {
-      const ctrl = new TTSController();
-      ctrl.onStateChange(() => setTtsPlayback({
-        speaking: ctrl.isSpeaking(),
-        paused: ctrl.isPaused(),
-        loading: ctrl.isLoading(),
-        loadingTurnId: ctrl.loadingFor(),
-        activeTurnId: ctrl.activeTurnId,
-        lastError: ctrl.lastError,
-        lastErrorTurnId: ctrl.lastErrorTurnId
+    let ctrl = ttsRef.current;
+    if (!ctrl) {
+      ctrl = new TTSController();
+      const c = ctrl;
+      c.onStateChange(() => setTtsPlayback({
+        speaking: c.isSpeaking(),
+        paused: c.isPaused(),
+        loading: c.isLoading(),
+        loadingTurnId: c.loadingFor(),
+        activeTurnId: c.activeTurnId,
+        lastError: c.lastError,
+        lastErrorTurnId: c.lastErrorTurnId
       }));
       ttsRef.current = ctrl;
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -71,7 +73,7 @@ export function useTTS({ showSettings }) {
         window.speechSynthesis.onvoiceschanged = reload;
       }
     }
-    return ttsRef.current;
+    return ctrl;
   };
 
   /**

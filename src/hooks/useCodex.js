@@ -30,11 +30,11 @@ import {
  * }} deps
  */
 export function useCodex({ callAPI, settings, premise, language, setEntries }) {
-  const [styleBible, setStyleBible] = useState(null);
-  const [visualLedger, setVisualLedger] = useState([]);
+  const [styleBible, setStyleBible] = useState(/** @type {StyleBible | null} */ (null));
+  const [visualLedger, setVisualLedger] = useState(/** @type {VisualLedgerEntry[]} */ ([]));
   const [plateCount, setPlateCount] = useState(0);
-  const styleBibleRef = useRef(null);
-  const visualLedgerRef = useRef([]);
+  const styleBibleRef = useRef(/** @type {StyleBible | null} */ (null));
+  const visualLedgerRef = useRef(/** @type {VisualLedgerEntry[]} */ ([]));
   const plateCountRef = useRef(0);
   const turnIdRef = useRef(0);
   const inflightRef = useRef(0);
@@ -98,7 +98,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
       if (signal?.aborted) return;
       const parsed = parseBootstrapResponse(raw);
       if (parsed.malformed) return;
-      setStyleBible(parsed.style_bible);
+      setStyleBible(parsed.style_bible || null);
       setVisualLedger(parsed.visual_ledger || []);
     } catch (e) {
       if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Art Director bootstrap failed:", e?.detail || e?.message || e);
@@ -168,7 +168,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
 
     const idx = entryIndexProvider();
     if (idx == null || idx < 0) return;
-    setEntryIllustration(idx, { status: "pending", caption: cleanPlateCaption(ad.caption), milestoneReason: ad.milestone_reason || "" });
+    setEntryIllustration(idx, { status: "pending", caption: cleanPlateCaption(ad.caption || ""), milestoneReason: ad.milestone_reason || "" });
     plateCountRef.current = plateCountRef.current + 1;
     setPlateCount(plateCountRef.current);
 
