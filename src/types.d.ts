@@ -336,6 +336,9 @@ interface StorageShim {
 
 interface Window {
   storage: StorageShim;
+  // External script-loaded SDK (js.puter.com) with no published types — `any` is
+  // the honest type for this untyped boundary; app code confines its use.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   puter?: any;
 }
 

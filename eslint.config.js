@@ -47,8 +47,9 @@ export default tseslint.config(
       ],
       // Empty `catch (_) {}` blocks are deliberate best-effort fallbacks.
       "no-empty": ["error", { allowEmptyCatch: true }],
-      // Flip to "error" after Phase 2 once the remaining `any` casts are gone.
-      "@typescript-eslint/no-explicit-any": "warn",
+      // Enforced now that strict mode lands: no new TS-syntax `any`. The sole
+      // sanctioned exception (the external `window.puter` SDK) is disabled inline.
+      "@typescript-eslint/no-explicit-any": "error",
     },
   },
   {
