@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useMemo } from "react";
 import type { ChatMessage, Entry, GameState, MetaMessage, NarrationEntry, Premise, SaveRecord, ThrownError } from "../types";
+import { dlog } from "../debug/debugLog"; // TEMPORARY
 import { EMPTY_STATE } from "../data/constants";
 import { DEFAULT_LANGUAGE } from "../data/languages";
 import { PREMISES, NARRATION_LOADING_PHRASES, META_LOADING_PHRASES, OPENING_LOADING_PHRASES, pickPhrase } from "../data/premises";
@@ -473,9 +474,11 @@ The narration above was interrupted and cut off before it finished. Continue it 
    */
   const submit = async (text: string): Promise<boolean> => {
     text = (text || "").trim();
-    if (!text || loading) return true;
-    if (!metaMode && ended) return true;
-    if (!premise) return true;
+    dlog("ctx.submit: enter", { textLen: text.length, loading, metaMode, ended, hasPremise: !!premise, phase });
+    if (!text || loading) { dlog("ctx.submit: GUARD empty-or-loading", { loading }); return true; }
+    if (!metaMode && ended) { dlog("ctx.submit: GUARD ended"); return true; }
+    if (!premise) { dlog("ctx.submit: GUARD no-premise"); return true; }
+    dlog("ctx.submit: guards passed, proceeding", { metaMode });
     skipReveal();
     setRecovery(null);
     if (!metaMode) await ensureAmbienceEngine();
@@ -554,6 +557,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     const previousEntries = entries;
     const previousHistory = history;
     const newEntries: Entry[] = [...entries, { type: "action", text, fullyRevealed: true }];
+    dlog("ctx.submit: appending action entry, setEntries", { prevCount: entries.length });
     setEntries(newEntries);
     if (tts.ttsRef.current) tts.ttsRef.current.stop();
     const { publicBlock, privateBlock } = formatStateForPrompt(gameState);
@@ -604,7 +608,9 @@ The narration above was interrupted and cut off before it finished. Continue it 
     abortRef.current = { controller, rollback, startedAt: Date.now() };
     try {
       const gmSys = buildSystem(premise, language, { split: true });
+      dlog("ctx.submit: calling GM callAPI", { provider: settings.engineGM?.provider, model: settings.engineGM?.model });
       const firstGmReply = await callAPI(gmSys, apiHistory, true, settings.engineGM, 2600, 0.35, controller.signal, GM_LOGIC_TOOL);
+      dlog("ctx.submit: GM callAPI returned", { len: firstGmReply?.length ?? 0 });
       if (controller.signal.aborted) return false;
       let gmReply = firstGmReply;
       let gmParsed = parseGMLogicResponse(gmReply);
@@ -684,12 +690,14 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       }
       return true;
     } catch (e) {
+      dlog("ctx.submit: CAUGHT error in turn", { aborted: controller.signal.aborted, err: e });
       if (controller.signal.aborted) return false;
       const cancelled = e instanceof BorrowedError && e.detail === "Request cancelled by the player.";
       if (!cancelled) setError(formatError(e));
       rollback();
       return false;
     } finally {
+      dlog("ctx.submit: finally (turn complete)");
       if (abortRef.current?.controller === controller) {
         setLoading(false);
         abortRef.current = null;
