@@ -4,7 +4,7 @@
  */
 import { useState, useRef } from "react";
 import { buildRevealSystem } from "../prompts/reveal.js";
-import { BorrowedError, formatError } from "../llm/errors.js";
+import { BorrowedError, formatError } from "../llm/errors";
 
 /**
  * Manages the post-ending hidden-state reveal stream. Encapsulates

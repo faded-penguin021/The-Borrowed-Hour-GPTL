@@ -1,5 +1,3 @@
-// @ts-check
-
 /**
  * Redact secrets from a string before it reaches a log or the UI.
  *
@@ -8,13 +6,10 @@
  * holds the actual secret it should pass it as `literalSecret` — that gets a
  * verbatim replacement, which covers any provider regardless of shape.
  *
- * @param {string} s
- * @param {string | null} [literalSecret] the exact key used for this request
- * @returns {string}
+ * @param literalSecret the exact key used for this request
  */
-export var scrubSecrets = (s, literalSecret) => {
-  if (typeof s !== "string")
-    return s;
+export const scrubSecrets = (s: string, literalSecret?: string | null): string => {
+  if (typeof s !== "string") return s;
   let out = s;
   if (typeof literalSecret === "string" && literalSecret.length >= 8) {
     out = out.split(literalSecret).join("[REDACTED]");
@@ -22,13 +17,8 @@ export var scrubSecrets = (s, literalSecret) => {
   return out.replace(/(sk-[A-Za-z0-9_-]{16,})|(AIza[A-Za-z0-9_-]{20,})/g, "[REDACTED]");
 };
 
-/**
- * @param {string | null | undefined} snippet
- * @returns {string}
- */
-export var extractApiErrorMessage = (snippet) => {
-  if (!snippet || typeof snippet !== "string")
-    return "";
+export const extractApiErrorMessage = (snippet: string | null | undefined): string => {
+  if (!snippet || typeof snippet !== "string") return "";
   try {
     const parsed = JSON.parse(snippet);
     const err = parsed?.error;
@@ -44,26 +34,18 @@ export var extractApiErrorMessage = (snippet) => {
 };
 
 export class BorrowedError extends Error {
-  /**
-   * @param {string} message
-   * @param {string | null} [detail]
-   */
-  constructor(message, detail) {
+  detail: string | null;
+  raw: unknown;
+
+  constructor(message: string, detail?: string | null) {
     super(message);
     this.name = "BorrowedError";
-    /** @type {string | null} */
     this.detail = detail || null;
-    /** @type {unknown} */
     this.raw = null;
   }
 }
 
-/**
- * @param {number} status
- * @param {string} [providerName]
- * @returns {string}
- */
-export var httpStatusHint = (status, providerName = "the API") => {
+export const httpStatusHint = (status: number, providerName = "the API"): string => {
   switch (status) {
     case 400:
       return "API rejected the request (HTTP 400 — likely a malformed prompt or schema).";
@@ -92,16 +74,20 @@ export var httpStatusHint = (status, providerName = "the API") => {
   }
 };
 
-/**
- * @param {unknown} e
- * @returns {{ message: string, detail: string | null, raw: unknown }}
- */
-export var formatError = (e) => {
+export const formatError = (
+  e: unknown
+): { message: string; detail: string | null; raw: unknown } => {
   if (e instanceof BorrowedError) {
     return { message: e.message, detail: e.detail, raw: e.raw || null };
   }
-  if (e && typeof e === "object" && typeof (/** @type {any} */(e)).message === "string") {
-    return { message: (/** @type {any} */(e)).message, detail: null, raw: (/** @type {any} */(e)).raw || null };
+  if (
+    e &&
+    typeof e === "object" &&
+    "message" in e &&
+    typeof (e as { message: unknown }).message === "string"
+  ) {
+    const obj = e as { message: string; raw?: unknown };
+    return { message: obj.message, detail: null, raw: obj.raw ?? null };
   }
   return { message: String(e), detail: null, raw: null };
 };

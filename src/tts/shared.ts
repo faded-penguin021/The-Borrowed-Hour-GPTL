@@ -1,16 +1,7 @@
-// @ts-check
-/**
- * @import { TTSHandle, ThrownError } from "../types"
- */
-import { BorrowedError } from "../llm/errors.js";
+import type { TTSHandle, ThrownError } from "../types";
+import { BorrowedError } from "../llm/errors";
 
-/**
- * @param {string} url
- * @param {RequestInit} init
- * @param {AbortSignal} [signal]
- * @returns {Promise<Blob>}
- */
-export async function _fetchAudioBlob(url, init, signal) {
+export async function _fetchAudioBlob(url: string, init: RequestInit, signal?: AbortSignal): Promise<Blob> {
   const resp = await fetch(url, { ...init, signal });
   if (!resp.ok) {
     let detail = "";
@@ -19,20 +10,12 @@ export async function _fetchAudioBlob(url, init, signal) {
   }
   return resp.blob();
 }
-/**
- * @param {Blob} blob
- * @param {AbortSignal} [signal]
- * @param {(msg: string) => void} [onError]
- * @returns {TTSHandle}
- */
-export function _blobHandle(blob, signal, onError) {
-  /** @param {string} m */
-  const report = (m) => { try { onError?.(m); } catch (_) {} };
+export function _blobHandle(blob: Blob, signal?: AbortSignal, onError?: (msg: string) => void): TTSHandle {
+  const report = (m: string) => { try { onError?.(m); } catch (_) {} };
   // Sniff the first bytes so we can report the actual audio format, not
   // just the (often wrong or missing) Content-Type header.
   let magic = "";
-  /** @type {string | null} */
-  let sniffed = null;
+  let sniffed: string | null = null;
   const sniffPromise = blob.slice(0, 12).arrayBuffer().then((buf) => {
     const b = new Uint8Array(buf);
     magic = Array.from(b.slice(0, 4)).map((x) => x.toString(16).padStart(2, "0")).join(" ");
@@ -55,8 +38,7 @@ export function _blobHandle(blob, signal, onError) {
   let url = URL.createObjectURL(typed);
   const audio = new Audio(url);
   audio.preload = "auto";
-  /** @type {(() => void) | null} */
-  let _onended = null;
+  let _onended: (() => void) | null = null;
   const cleanup = () => { try { URL.revokeObjectURL(url); } catch (_) {} };
   // If sniff finishes after Audio is created, re-point the element so the
   // right MIME type reaches the decoder.
@@ -72,7 +54,7 @@ export function _blobHandle(blob, signal, onError) {
   audio.onerror = () => {
     const err = audio.error;
     const code = err?.code, msg = err?.message;
-    const codeName = ({ 1: "ABORTED", 2: "NETWORK", 3: "DECODE", 4: "SRC_NOT_SUPPORTED" })[code ?? 0] || `code=${code}`;
+    const codeName = (({ 1: "ABORTED", 2: "NETWORK", 3: "DECODE", 4: "SRC_NOT_SUPPORTED" }) as Record<number, string>)[code ?? 0] || `code=${code}`;
     const info = `audio ${codeName}${msg ? ` — ${msg}` : ""} (${fmtBlobInfo()})`;
     if (typeof console !== "undefined") console.warn("[tts]", info);
     report(info);
@@ -86,13 +68,13 @@ export function _blobHandle(blob, signal, onError) {
     try { await sniffPromise; } catch (_) {}
     let p;
     try { p = audio.play(); } catch (e) {
-      const info = `play() threw: ${/** @type {ThrownError} */ (e)?.message || e} (${fmtBlobInfo()})`;
+      const info = `play() threw: ${(e as ThrownError)?.message || e} (${fmtBlobInfo()})`;
       if (typeof console !== "undefined") console.warn("[tts]", info);
       report(info);
       return;
     }
     if (p && typeof p.catch === "function") {
-      p.catch((e) => {
+      p.catch((e: ThrownError) => {
         const info = `play() rejected: ${e?.name || ""}${e?.message ? ` — ${e.message}` : ""} (${fmtBlobInfo()})`;
         if (typeof console !== "undefined") console.warn("[tts]", info);
         report(info);
@@ -101,13 +83,12 @@ export function _blobHandle(blob, signal, onError) {
       });
     }
   };
-  /** @type {TTSHandle} */
-  const handle = {
+  const handle: TTSHandle = {
     play: tryPlay,
     pause: () => { try { audio.pause(); } catch (_) {} },
     resume: tryPlay,
     stop: () => { try { audio.pause(); audio.currentTime = 0; } catch (_) {} cleanup(); },
-    set onended(/** @type {(() => void) | null} */ cb) { _onended = cb; }
+    set onended(cb: (() => void) | null) { _onended = cb; }
   };
   signal?.addEventListener("abort", handle.stop);
   return handle;

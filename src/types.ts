@@ -167,12 +167,36 @@ export interface BuildRequestParams {
   apiKey?: string;
 }
 
-export interface Provider {
-  buildRequest(params: BuildRequestParams): { url: string; init: RequestInit };
-  buildStreamRequest(params: BuildRequestParams): { url: string; init: RequestInit };
-  parseStreamEvent(rawEvent: string): StreamEvent;
-  extract(data: unknown): string;
+export interface ProviderRequest {
+  url: string;
+  headers: Record<string, string>;
+  body: Record<string, unknown>;
+}
+
+/**
+ * The runtime shape of every entry in the PROVIDERS registry (src/llm/providers.js)
+ * — both the hand-written adapters (openai/gemini/anthropic) and the ones produced
+ * by makeChatCompletionsProvider. `buildStreamRequest`/`parseStreamEvent` are absent
+ * on adapters that don't stream, so they're optional; `extract` takes optional
+ * tool-related params used only by the Anthropic adapter.
+ */
+export interface ProviderAdapter {
+  toolUse: boolean;
+  retryable: Set<number>;
+  buildRequest(params: BuildRequestParams): ProviderRequest;
+  buildStreamRequest?(params: BuildRequestParams): ProviderRequest;
+  parseStreamEvent?(rawEvent: string): StreamEvent | null;
+  extract(data: unknown, useTool?: boolean, tool?: ToolDefinition | null, maxTokens?: number): string;
   logUsage(data: unknown, model: string): void;
+}
+
+/** Config accepted by makeChatCompletionsProvider (src/llm/stream.js). */
+export interface ChatCompletionsProviderConfig {
+  url: string | (() => string);
+  label: string;
+  tools?: boolean;
+  jsonSchema?: boolean;
+  extraBody?: Record<string, unknown>;
 }
 
 // ── TTS types ─────────────────────────────────────────────────────────────────

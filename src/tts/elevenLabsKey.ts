@@ -1,14 +1,12 @@
-// @ts-check
-import { ENC_PREFIX, decryptSecret, encryptSecret } from "../storage/encryption.js";
-import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase } from "../passphrase.js";
+import { ENC_PREFIX, decryptSecret, encryptSecret } from "../storage/encryption";
+import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase } from "../passphrase";
 
-/** @returns {Promise<string | null>} */
-export async function getTtsElevenLabsKey() {
+export async function getTtsElevenLabsKey(): Promise<string | null> {
   const stored = localStorage.getItem("borrowed:tts_elevenlabs_key:v1");
   if (!stored) return null;
   if (!stored.startsWith(ENC_PREFIX)) return stored.trim();
   if (!getSessionPassphrase()) {
-    const { requestPassphrase } = await import("../passphrase.js");
+    const { requestPassphrase } = await import("../passphrase");
     setSessionPassphrase(await requestPassphrase("Enter your session passphrase to unlock API keys:"));
   }
   const passphrase = getSessionPassphrase();
@@ -16,8 +14,7 @@ export async function getTtsElevenLabsKey() {
   try { return (await decryptSecret(stored, passphrase)).trim(); }
   catch { clearSessionPassphrase(); return null; }
 }
-/** @param {string | null} plain @returns {Promise<void>} */
-export async function saveTtsElevenLabsKey(plain) {
+export async function saveTtsElevenLabsKey(plain: string | null): Promise<void> {
   if (!plain) { localStorage.removeItem("borrowed:tts_elevenlabs_key:v1"); return; }
   const passphrase = getSessionPassphrase();
   if (passphrase) {

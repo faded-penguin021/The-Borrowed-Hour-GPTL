@@ -3,13 +3,13 @@
  * @import { ProviderId, TTSModelEntry, TTSVoiceEntry, ThrownError } from "../types"
  */
 import { useState, useRef, useEffect } from "react";
-import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "../tts/catalogue.js";
-import { TTSController } from "../tts/controller.js";
-import { getTtsElevenLabsKey, saveTtsElevenLabsKey } from "../tts/elevenLabsKey.js";
-import { getTtsAzureKey, saveTtsAzureKey, getTtsAzureRegion, saveTtsAzureRegion } from "../tts/azureKey.js";
-import { getTtsGoogleKey, saveTtsGoogleKey } from "../tts/googleKey.js";
-import { fetchVoxtralVoices } from "../tts/adapters/voxtral.js";
-import { getProviderKey } from "../llm/providers.js";
+import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "../tts/catalogue";
+import { TTSController } from "../tts/controller";
+import { getTtsElevenLabsKey, saveTtsElevenLabsKey } from "../tts/elevenLabsKey";
+import { getTtsAzureKey, saveTtsAzureKey, getTtsAzureRegion, saveTtsAzureRegion } from "../tts/azureKey";
+import { getTtsGoogleKey, saveTtsGoogleKey } from "../tts/googleKey";
+import { fetchVoxtralVoices } from "../tts/adapters/voxtral";
+import { getProviderKey } from "../llm/providers";
 
 /**
  * @param {{ showSettings: boolean }} opts

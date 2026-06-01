@@ -5,7 +5,7 @@ import { describe, it, expect } from "vitest";
 import {
   mergeLedger, composeImagePrompt,
   parseBootstrapResponse, parseTurnResponse
-} from "../llm/artDirector.js";
+} from "../llm/artDirector";
 
 describe("mergeLedger", () => {
   it("adds new entries", () => {

@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   tryParseJSON, extractJSONBlock,
   parseGMResponse, parseGMLogicResponse, isStateEmpty
-} from "../llm/parse.js";
-import { GameStateSchema, GMLogicResponseSchema } from "../llm/schemas.js";
+} from "../llm/parse";
+import { GameStateSchema, GMLogicResponseSchema } from "../llm/schemas";
 
 describe("tryParseJSON", () => {
   it("returns parsed object for valid JSON", () => {

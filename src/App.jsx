@@ -1,7 +1,7 @@
 // @ts-check
 import React, { useState } from "react";
-import { SAVE_CAP, ONBOARDING_KEY } from "./data/constants.js";
-import { buildCustomPremise } from "./data/premises.js";
+import { SAVE_CAP, ONBOARDING_KEY } from "./data/constants";
+import { buildCustomPremise } from "./data/premises";
 import { GameProvider, useGame, useGameRun } from "./context/GameContext.jsx";
 import { SettingsProvider, useSettingsContext } from "./context/SettingsContext.jsx";
 import { AmbienceProvider } from "./context/AmbienceContext.jsx";

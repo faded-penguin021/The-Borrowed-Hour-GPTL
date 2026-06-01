@@ -1,9 +1,9 @@
 // @ts-check
 import React, { useState } from "react";
-import { encryptSecret } from "../storage/encryption.js";
-import { ONBOARDING_KEY } from "../data/constants.js";
-import { PROVIDER_META } from "../llm/providers.js";
-import { setSessionPassphrase } from "../passphrase.js";
+import { encryptSecret } from "../storage/encryption";
+import { ONBOARDING_KEY } from "../data/constants";
+import { PROVIDER_META } from "../llm/providers";
+import { setSessionPassphrase } from "../passphrase";
 
 /** The provider offered during onboarding — the default free engine. */
 const ONBOARD_PROVIDER = "mistral";

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cleanPlateCaption } from "../llm/artDirector.js";
+import { cleanPlateCaption } from "../llm/artDirector";
 
 describe("cleanPlateCaption — epistemic-leak guard", () => {
   it("keeps clean descriptive captions, trimming quotes/punctuation", () => {

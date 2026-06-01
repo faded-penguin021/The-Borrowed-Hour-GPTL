@@ -1,15 +1,8 @@
-// @ts-check
-/**
- * @import { AmbienceInput, GMLogicParseResult, GMParseResult, GameState } from "../types"
- */
+import type { AmbienceInput, GMLogicParseResult, GMParseResult, GameState } from "../types";
 import { sanitizeAmbience } from "../ambience/tables.js";
-import { GMLogicResponseSchema, GMResponseSchema } from "./schemas.js";
+import { GMLogicResponseSchema, GMResponseSchema } from "./schemas";
 
-/**
- * @param {...unknown} candidates
- * @returns {string}
- */
-export function firstString(...candidates) {
+export function firstString(...candidates: unknown[]): string {
   for (const c of candidates) {
     if (typeof c === "string") {
       const trimmed = c.trim();
@@ -19,11 +12,7 @@ export function firstString(...candidates) {
   return "";
 }
 
-/**
- * @param {string} text
- * @returns {any}
- */
-export function tryParseJSON(text) {
+export function tryParseJSON(text: string): unknown {
   try {
     return JSON.parse(text);
   } catch {
@@ -36,10 +25,8 @@ export function tryParseJSON(text) {
  * normalize smart quotes, and escape raw control characters inside strings.
  * Operates on the JSON *string* (Layer 1) — orthogonal to Zod schema validation
  * (Layer 2), which only runs on an already-parsed object.
- * @param {string} text
- * @returns {string}
  */
-export function repairJSON(text) {
+export function repairJSON(text: string): string {
   let t = text;
   t = t.replace(/,(\s*[}\]])/g, "$1");
   t = t.replace(/[“”]/g, '"');
@@ -87,11 +74,8 @@ export function repairJSON(text) {
  * brace, ignoring braces inside strings. Returns the index of the closing brace,
  * or -1 if the object never closes. Used to slice off trailing garbage (e.g. a
  * stray extra `}`) before parsing — this is structural extraction, not repair.
- * @param {string} text
- * @param {number} start
- * @returns {number}
  */
-export function findBalancedJSONEnd(text, start) {
+export function findBalancedJSONEnd(text: string, start: number): number {
   let depth = 0;
   let inStr = false;
   let escaped = false;
@@ -119,10 +103,8 @@ const MAX_REPAIR_LENGTH = 200_000;
  * Slice the first balanced `{...}` object out of `text` (dropping trailing
  * garbage such as a stray extra brace), falling back to a first-`{`-to-last-`}`
  * slice. Returns the parsed object or null.
- * @param {string} text
- * @returns {any}
  */
-function extractObject(text) {
+function extractObject(text: string): unknown {
   const first = text.indexOf("{");
   if (first < 0) return null;
   const end = findBalancedJSONEnd(text, first);
@@ -144,10 +126,8 @@ function extractObject(text) {
  * (trailing commas, smart quotes, raw control chars) and re-extract. Returns the
  * parsed object, or null if nothing JSON-shaped survives. Schema *validation* is
  * a separate concern handled by Zod (Layer 2) on the returned object.
- * @param {string} rawText
- * @returns {any}
  */
-export function extractJSONBlock(rawText) {
+export function extractJSONBlock(rawText: string): unknown {
   let text = (rawText || "").trim();
   text = text.replace(/^\s*[`~]{3}[ \t]*[a-zA-Z]*[ \t]*\r?\n?/, "");
   text = text.replace(/\r?\n?[ \t]*[`~]{3}[ \t]*$/, "");
@@ -168,13 +148,7 @@ export function extractJSONBlock(rawText) {
   return extractObject(repaired);
 }
 
-/**
- * @param {string} rawText
- * @param {unknown} [parsed]
- * @param {string | null} [reasonGuess]
- * @returns {string}
- */
-export function buildParseDiagnostic(rawText, parsed, reasonGuess) {
+export function buildParseDiagnostic(rawText: string, parsed?: unknown, reasonGuess?: string | null): string {
   const raw = rawText || "";
   const len = raw.length;
   const head = raw.slice(0, 200).replace(/\s+/g, " ");
@@ -196,10 +170,8 @@ export function buildParseDiagnostic(rawText, parsed, reasonGuess) {
 /**
  * Render Zod validation issues into a compact, field-keyed diagnostic so the
  * corrective prompt tells the model exactly which schema field it violated.
- * @param {import("zod").ZodError} error
- * @returns {string}
  */
-export function formatZodDiagnostic(error) {
+export function formatZodDiagnostic(error: import("zod").ZodError): string {
   return error.issues
     .map((issue) => {
       const path = issue.path.length ? issue.path.join(".") : "(root)";
@@ -208,32 +180,37 @@ export function formatZodDiagnostic(error) {
     .join("; ");
 }
 
-/**
- * Resolve the explicit-null / present / absent semantics for ambience the same
- * way the previous parser did, then sanitize any present value.
- * @param {any} obj
- * @returns {AmbienceInput | null | undefined}
- */
-function resolveAmbience(obj) {
-  if (!obj || !("ambience" in obj)) return undefined;
-  if (obj.ambience === null) return null;
-  return sanitizeAmbience(obj.ambience);
+// Minimal shape for the raw, untyped LLM payload before schema validation.
+interface RawGMObject {
+  ambience?: unknown;
+  narrator_brief?: unknown;
+  narration?: unknown;
+  brief?: unknown;
+  text?: unknown;
 }
 
 /**
- * @param {string} rawText
- * @returns {GMLogicParseResult}
+ * Resolve the explicit-null / present / absent semantics for ambience the same
+ * way the previous parser did, then sanitize any present value.
  */
-export function parseGMLogicResponse(rawText) {
+function resolveAmbience(obj: unknown): AmbienceInput | null | undefined {
+  if (!obj || typeof obj !== "object" || !("ambience" in obj)) return undefined;
+  const ambience = (obj as RawGMObject).ambience;
+  if (ambience === null) return null;
+  return sanitizeAmbience(ambience);
+}
+
+export function parseGMLogicResponse(rawText: string): GMLogicParseResult {
   const obj = extractJSONBlock(rawText);
   if (!obj || typeof obj !== "object") {
     return { narrator_brief: "", state: null, ending: null, raw: rawText, malformed: true, diagnostic: buildParseDiagnostic(rawText, obj, "Malformed GM logic response — could not parse JSON.") };
   }
 
   // Accept the legacy field aliases for the brief before strict validation.
-  const candidate = { ...obj };
+  const raw = obj as RawGMObject;
+  const candidate: Record<string, unknown> = { ...raw };
   if (typeof candidate.narrator_brief !== "string" || !candidate.narrator_brief.trim()) {
-    const alt = firstString(obj.narrator_brief, obj.narration, obj.brief, obj.text);
+    const alt = firstString(raw.narrator_brief, raw.narration, raw.brief, raw.text);
     if (alt) candidate.narrator_brief = alt;
   }
 
@@ -252,11 +229,7 @@ export function parseGMLogicResponse(rawText) {
   };
 }
 
-/**
- * @param {string} rawText
- * @returns {GMParseResult}
- */
-export function parseGMResponse(rawText) {
+export function parseGMResponse(rawText: string): GMParseResult {
   const obj = extractJSONBlock(rawText);
   if (!obj || typeof obj !== "object") {
     if (typeof console !== "undefined" && console.warn) {
@@ -266,9 +239,10 @@ export function parseGMResponse(rawText) {
   }
 
   // Accept the legacy field aliases for the narration before strict validation.
-  const candidate = { ...obj };
+  const raw = obj as RawGMObject;
+  const candidate: Record<string, unknown> = { ...raw };
   if (typeof candidate.narration !== "string" || !candidate.narration.trim()) {
-    const alt = firstString(obj.narration, obj.narrator_brief, obj.brief, obj.text);
+    const alt = firstString(raw.narration, raw.narrator_brief, raw.brief, raw.text);
     if (alt) candidate.narration = alt;
   }
 
@@ -290,11 +264,7 @@ export function parseGMResponse(rawText) {
   };
 }
 
-/**
- * @param {GameState | null | undefined} s
- * @returns {boolean}
- */
-export function isStateEmpty(s) {
+export function isStateEmpty(s: GameState | null | undefined): boolean {
   if (!s)
     return true;
   return !s.scene && !s.time && !s.summary && !s.hidden_state && (!s.inventory || s.inventory.length === 0) && (!s.npcs || s.npcs.length === 0) && (!s.clues || s.clues.length === 0);

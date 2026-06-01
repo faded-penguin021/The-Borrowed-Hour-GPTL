@@ -1,14 +1,12 @@
-// @ts-check
-import { ENC_PREFIX, decryptSecret, encryptSecret } from "../storage/encryption.js";
-import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase } from "../passphrase.js";
+import { ENC_PREFIX, decryptSecret, encryptSecret } from "../storage/encryption";
+import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase } from "../passphrase";
 
-/** @returns {Promise<string | null>} */
-export async function getTtsAzureKey() {
+export async function getTtsAzureKey(): Promise<string | null> {
   const stored = localStorage.getItem("borrowed:tts_azure_key:v1");
   if (!stored) return null;
   if (!stored.startsWith(ENC_PREFIX)) return stored.trim();
   if (!getSessionPassphrase()) {
-    const { requestPassphrase } = await import("../passphrase.js");
+    const { requestPassphrase } = await import("../passphrase");
     setSessionPassphrase(await requestPassphrase("Enter your session passphrase to unlock API keys:"));
   }
   const passphrase = getSessionPassphrase();
@@ -16,8 +14,7 @@ export async function getTtsAzureKey() {
   try { return (await decryptSecret(stored, passphrase)).trim(); }
   catch { clearSessionPassphrase(); return null; }
 }
-/** @param {string | null} plain @returns {Promise<void>} */
-export async function saveTtsAzureKey(plain) {
+export async function saveTtsAzureKey(plain: string | null): Promise<void> {
   if (!plain) { localStorage.removeItem("borrowed:tts_azure_key:v1"); return; }
   const passphrase = getSessionPassphrase();
   if (passphrase) {
@@ -26,12 +23,10 @@ export async function saveTtsAzureKey(plain) {
     localStorage.setItem("borrowed:tts_azure_key:v1", plain.trim());
   }
 }
-/** @returns {string} */
-export function getTtsAzureRegion() {
+export function getTtsAzureRegion(): string {
   return localStorage.getItem("borrowed:tts_azure_region:v1") || "eastus";
 }
-/** @param {string | null} region @returns {void} */
-export function saveTtsAzureRegion(region) {
+export function saveTtsAzureRegion(region: string | null): void {
   if (!region) { localStorage.removeItem("borrowed:tts_azure_region:v1"); return; }
   localStorage.setItem("borrowed:tts_azure_region:v1", region.trim());
 }

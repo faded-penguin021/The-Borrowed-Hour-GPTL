@@ -1,7 +1,7 @@
 // @ts-check
 import React, { useState, useEffect } from "react";
-import { SAVE_CAP, APPROX_CHARS_PER_TOKEN, formatKB, formatTokens } from "../../data/constants.js";
-import { realmGlyph } from "../../data/premises.js";
+import { SAVE_CAP, APPROX_CHARS_PER_TOKEN, formatKB, formatTokens } from "../../data/constants";
+import { realmGlyph } from "../../data/premises";
 
 /**
  * @param {Object} props
