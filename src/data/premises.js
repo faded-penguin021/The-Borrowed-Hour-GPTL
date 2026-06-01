@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { Premise } from "../types"
+ */
 import { gmNote as echoTrainGmNote } from "../prompts/premises/echo-train.js";
 import { gmNote as neonSpireGmNote } from "../prompts/premises/neon-spire.js";
 import { gmNote as omenSolsticeGmNote } from "../prompts/premises/omen-solstice.js";

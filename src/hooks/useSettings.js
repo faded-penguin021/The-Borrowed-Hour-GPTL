@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { AppSettings } from "../types"
+ */
 import { useState, useRef, useEffect } from "react";
 import { DEFAULT_SETTINGS, SETTINGS_KEY } from "../data/constants.js";
 import { providerSupportsToolUse, FREE_MODELS_BY_PROVIDER } from "../llm/providers.js";

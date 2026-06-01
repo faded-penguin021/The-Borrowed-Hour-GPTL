@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { GameState, StatePromptBlocks } from "../types"
+ */
 
 /**
  * @param {GameState | null | undefined} state

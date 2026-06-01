@@ -1,3 +1,6 @@
+/**
+ * @import { AmbienceEvent, AmbienceInput, AmbienceMood, AmbiencePalette, AmbiencePopulation, AmbienceSpace } from "../types"
+ */
 // ─────────────────────────────────────────────────────────────────────────
 // Procedural synthesis recipes adapted from Hermes Agent Music (MIT)
 //   https://github.com/jlaiii/hermes-agent-music

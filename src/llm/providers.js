@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { BuildRequestParams, ChatMessage, ProviderId, ProviderMeta, StreamEvent, ThrownError, ToolDefinition } from "../types"
+ */
 import { BorrowedError } from "./errors.js";
 import { httpStatusHint, extractApiErrorMessage, scrubSecrets } from "./errors.js";
 import { LOCAL_DEFAULT_URL } from "../data/constants.js";

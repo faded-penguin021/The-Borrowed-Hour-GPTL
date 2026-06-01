@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { Entry, Premise } from "../types"
+ */
 import { useState, useRef } from "react";
 import { buildKeepsakeHTML, inlineImages } from "../export/keepsake.js";
 

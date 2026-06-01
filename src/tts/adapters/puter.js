@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { TTSHandle, ThrownError } from "../../types"
+ */
 import { _fetchAudioBlob, _blobHandle } from "../shared.js";
 
 /** @type {Promise<any> | null} */

@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { ChatMessage, EngineConfig, ProviderId, ThrownError, ToolDefinition } from "../types"
+ */
 import { PROVIDERS, PROVIDER_META, getProviderKey } from "./providers.js";
 import { GM_TOOL } from "./tools.js";
 import { scrubSecrets, extractApiErrorMessage, BorrowedError, httpStatusHint } from "./errors.js";

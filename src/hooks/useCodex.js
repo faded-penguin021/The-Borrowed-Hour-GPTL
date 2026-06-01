@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { AppSettings, CodexProviderConfig, EngineConfig, Entry, Illustration, ImageProviderId, NPC, Premise, StyleBible, ThrownError, VisualLedgerEntry } from "../types"
+ */
 import { useState, useRef, useEffect } from "react";
 import {
   ART_DIRECTOR_BOOTSTRAP_TOOL, ART_DIRECTOR_TURN_TOOL,

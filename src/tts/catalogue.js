@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { Provider, TTSProviderMeta } from "../types"
+ */
 // ── Provider catalogue ───────────────────────────────────────────────────
 /** @type {Record<string, TTSProviderMeta>} */
 export var TTS_PROVIDER_META = {

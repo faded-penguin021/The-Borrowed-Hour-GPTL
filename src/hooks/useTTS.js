@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { ProviderId, TTSModelEntry, TTSVoiceEntry, ThrownError } from "../types"
+ */
 import { useState, useRef, useEffect } from "react";
 import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "../tts/catalogue.js";
 import { TTSController } from "../tts/controller.js";

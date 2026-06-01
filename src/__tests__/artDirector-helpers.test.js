@@ -1,3 +1,6 @@
+/**
+ * @import { VisualLedgerEntry } from "../types"
+ */
 import { describe, it, expect } from "vitest";
 import {
   mergeLedger, composeImagePrompt,

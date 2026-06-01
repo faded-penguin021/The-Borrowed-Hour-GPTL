@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { GameState, Premise } from "../../types"
+ */
 import React from "react";
 
 /**

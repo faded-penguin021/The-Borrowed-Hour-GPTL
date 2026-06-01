@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { StorageShim, ThrownError } from "../types"
+ */
 if (!window.storage) {
   /** @type {StorageShim} */
   window.storage = {

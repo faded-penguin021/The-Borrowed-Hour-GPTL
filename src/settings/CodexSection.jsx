@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { AppSettings, CodexSettings, Illustration, ImageProviderId, ProviderId } from "../types"
+ */
 import React, { useState } from "react";
 import { IMAGE_PROVIDER_META, IMAGE_PROVIDER_ORDER, setReplicateKey, getReplicateKeyPlaintext, setLocalImageUrl, getLocalImageUrl, LOCAL_IMAGE_DEFAULT_URL } from "../llm/imaging.js";
 import { PROVIDER_META, TOOL_USE_PROVIDER_ORDER } from "../llm/providers.js";

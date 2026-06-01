@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { ProviderId } from "../types"
+ */
 import React from "react";
 import { encryptSecret } from "../storage/encryption.js";
 import { PROVIDER_META, resetProviderKey, checkProviderHealth } from "../llm/providers.js";

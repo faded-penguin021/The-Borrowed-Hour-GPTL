@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { LanguageEntry } from "../types"
+ */
 
 /** @type {LanguageEntry[]} */
 export var LANGUAGES = [

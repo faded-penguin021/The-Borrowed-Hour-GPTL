@@ -1,8 +1,11 @@
 // @ts-check
+/**
+ * @import { GMLogicParseResult, GameState, NPC } from "../types"
+ */
 import { z } from "zod";
 
-// Runtime validation contracts for LLM JSON output. These mirror the ambient
-// `GameState` / `GMLogicParseResult` interfaces in `src/types.d.ts`. Arrays use
+// Runtime validation contracts for LLM JSON output. These mirror the
+// `GameState` / `GMLogicParseResult` interfaces in `src/types.ts`. Arrays use
 // `.default([])` and strings use `.default("")` so a partial response from the
 // model resolves to a safe, fully-populated object instead of crashing the app.
 
@@ -58,7 +61,7 @@ export const GMResponseSchema = z.object({
   ambience: z.any().nullable().optional()
 });
 
-// JSDoc typedef exports — keep parity with the ambient `src/types.d.ts` names so
+// JSDoc typedef exports — keep parity with the `src/types.ts` names so
 // JS consumers retain inferred types without importing the runtime schemas.
 
 /** @typedef {z.infer<typeof GameStateSchema>} ParsedGameState */

@@ -1,3 +1,6 @@
+/**
+ * @import { BootstrapParseResult, ComposedImagePrompt, Premise, RealmAestheticSeed, StyleBible, ToolDefinition, TurnParseResult, VisualLedgerEntry } from "../types"
+ */
 // The Art Director — a 4th LLM role that gates and structures image generation.
 //
 // Two distinct tools:

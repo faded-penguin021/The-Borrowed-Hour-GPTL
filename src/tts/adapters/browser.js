@@ -1,4 +1,7 @@
 // @ts-check
+/**
+ * @import { TTSAdapterOptions, TTSHandle } from "../../types"
+ */
 export class BrowserTTSAdapter {
   /** @param {TTSAdapterOptions} opts */
   constructor({ voiceId, rate }) {
