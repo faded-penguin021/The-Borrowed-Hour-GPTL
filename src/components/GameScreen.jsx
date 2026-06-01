@@ -65,6 +65,9 @@ export function GameScreen({
   const lastEntry = entries[entries.length - 1];
   const showResolution = ended && lastEntry && lastEntry.type === "narration" && lastEntry.fullyRevealed && !metaMode;
   const hasMeta = metaMessages.length > 0;
+  // This screen only mounts during play, where a premise is always set. Guard
+  // anyway so `premise` narrows to non-null for the JSX below.
+  if (!premise) return null;
   return (
     <div
       className="relative flex flex-col"

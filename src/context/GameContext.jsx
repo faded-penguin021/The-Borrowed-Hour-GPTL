@@ -18,6 +18,112 @@ import { useSettingsContext } from "./SettingsContext.jsx";
 import { useAmbienceContext } from "./AmbienceContext.jsx";
 import { useTTSContext } from "./TTSContext.jsx";
 
+/**
+ * A meta-mode (director's commentary) message. `role` mirrors a chat turn;
+ * `text` is the prose; `fullyRevealed` drives the typewriter reveal.
+ * @typedef {{ role: "user" | "assistant", text: string, fullyRevealed: boolean }} MetaMessage
+ */
+
+/**
+ * Snapshot captured when a narration stream is interrupted, so the player can
+ * resume it via `continueNarration`. `gmParsed` carries the parsed GM/logic
+ * result whose shape varies by caller, hence `any`.
+ * @typedef {{
+ *   narratorSys: string,
+ *   narratorPrompt: string,
+ *   gmParsed: any,
+ *   baseEntries: Entry[],
+ *   baseHistory: ChatMessage[],
+ *   partial: string,
+ * }} Recovery
+ */
+
+/** @typedef {ReturnType<typeof import("../hooks/useSaves.js").useSaves>} SavesHook */
+/** @typedef {ReturnType<typeof import("../hooks/useReveal.js").useReveal>} RevealHook */
+/** @typedef {ReturnType<typeof import("../hooks/useKeepsake.js").useKeepsake>} KeepsakeHook */
+
+/**
+ * The stable dispatch surface. Every member's identity is fixed for the life of
+ * the provider, so a dispatch-only consumer never re-renders on state churn.
+ * @typedef {{
+ *   setLanguage: React.Dispatch<React.SetStateAction<string>>,
+ *   beginAdventure: (chosen: Premise) => Promise<void>,
+ *   submit: (text: string) => Promise<boolean>,
+ *   continueNarration: () => Promise<void>,
+ *   undoLastTurn: () => void,
+ *   restart: () => void,
+ *   loadSave: (save: any) => Promise<void>,
+ *   enterMetaMode: () => void,
+ *   exitMetaMode: () => void,
+ *   skipReveal: () => void,
+ *   cancelRequest: () => void,
+ *   saveCurrent: () => Promise<void>,
+ *   exportChronicle: (includeMeta?: boolean) => Promise<void>,
+ *   startReveal: () => Promise<void> | undefined,
+ *   startKeepsake: () => Promise<void> | undefined,
+ *   markEntryRevealed: (index: number) => void,
+ *   markMetaRevealed: (index: number) => void,
+ *   cancelReveal: RevealHook["cancelReveal"],
+ *   downloadKeepsake: KeepsakeHook["downloadKeepsake"],
+ *   openSavesModal: SavesHook["openSavesModal"],
+ *   deleteSave: SavesHook["deleteSave"],
+ *   getDiscoveredEndings: (premiseId: string | null | undefined) => string[],
+ *   setSaveBanner: SavesHook["setSaveBanner"],
+ *   setShowSaves: SavesHook["setShowSaves"],
+ *   setExportFallbackText: SavesHook["setExportFallbackText"],
+ * }} GameActions
+ */
+
+/**
+ * Low-churn story state. Stays referentially stable across streaming deltas.
+ * @typedef {{
+ *   phase: string,
+ *   premise: Premise | null,
+ *   language: string,
+ *   ended: boolean,
+ *   metaMode: boolean,
+ *   canUndo: boolean,
+ *   entriesCount: number,
+ *   hasMeta: boolean,
+ *   keepsakeFilename: string,
+ * }} GameStoryValue
+ */
+
+/**
+ * High-churn live state plus the saves/reveal/keepsake reactive surfaces.
+ * @typedef {{
+ *   entries: Entry[],
+ *   gameState: GameState,
+ *   history: ChatMessage[],
+ *   metaMessages: MetaMessage[],
+ *   skipNonce: number,
+ *   recovery: Recovery | null,
+ *   saveBanner: SavesHook["saveBanner"],
+ *   showSaves: SavesHook["showSaves"],
+ *   saveList: SavesHook["saveList"],
+ *   saveListLoading: SavesHook["saveListLoading"],
+ *   savesTotalBytes: SavesHook["savesTotalBytes"],
+ *   exportFallbackText: SavesHook["exportFallbackText"],
+ *   revealText: RevealHook["revealText"],
+ *   revealLoading: RevealHook["revealLoading"],
+ *   revealError: RevealHook["revealError"],
+ *   keepsakeBlob: KeepsakeHook["keepsakeBlob"],
+ *   keepsakeLoading: KeepsakeHook["keepsakeLoading"],
+ *   keepsakeError: KeepsakeHook["keepsakeError"],
+ * }} GameLiveValue
+ */
+
+/**
+ * Transient runtime state, kept apart so its churn doesn't re-render story-only
+ * consumers.
+ * @typedef {{
+ *   loading: boolean,
+ *   loadingPhrase: string,
+ *   error: any,
+ *   sessionTokens: { input: number, output: number },
+ * }} GameRunValue
+ */
+
 // Four contexts, split by churn rate so a consumer only re-renders on the slice
 // it actually reads:
 //   • Actions  — stable dispatch surface; its identity never changes, so
@@ -28,45 +134,57 @@ import { useTTSContext } from "./TTSContext.jsx";
 //   • Live     — high-churn state (entries, gameState, history, metaMessages)
 //                and the saves/reveal/keepsake reactive surfaces.
 //   • Run      — transient runtime state (loading, phrase, error, tokens).
-const GameActionsContext = createContext(/** @type {any} */ (null));
-const GameStoryContext = createContext(/** @type {any} */ (null));
-const GameLiveContext = createContext(/** @type {any} */ (null));
-const GameRunContext = createContext(/** @type {any} */ (null));
+/** @type {React.Context<GameActions | null>} */
+const GameActionsContext = createContext(/** @type {GameActions | null} */ (null));
+/** @type {React.Context<GameStoryValue | null>} */
+const GameStoryContext = createContext(/** @type {GameStoryValue | null} */ (null));
+/** @type {React.Context<GameLiveValue | null>} */
+const GameLiveContext = createContext(/** @type {GameLiveValue | null} */ (null));
+/** @type {React.Context<GameRunValue | null>} */
+const GameRunContext = createContext(/** @type {GameRunValue | null} */ (null));
 
 /**
  * Stable game actions (submit, beginAdventure, save/reveal/keepsake, setters…).
  * Their identities never change, so a component that only dispatches won't
- * re-render when story/live state churns. @returns {any}
+ * re-render when story/live state churns.
  */
 export function useGameActions() {
-  return useContext(GameActionsContext);
+  const ctx = useContext(GameActionsContext);
+  if (!ctx) throw new Error("useGameActions must be used within a <GameProvider>");
+  return ctx;
 }
 
 /**
  * Low-churn story state: phase, premise, language, ended, metaMode, canUndo,
  * entriesCount, hasMeta, keepsakeFilename. Stays referentially stable across
- * streaming deltas. @returns {any}
+ * streaming deltas.
  */
 export function useGameStory() {
-  return useContext(GameStoryContext);
+  const ctx = useContext(GameStoryContext);
+  if (!ctx) throw new Error("useGameStory must be used within a <GameProvider>");
+  return ctx;
 }
 
 /**
  * High-churn state: entries, gameState, history, metaMessages, plus the
  * saves/reveal/keepsake reactive surfaces. Re-renders on narration churn — use
- * only where that's expected (e.g. the narration log). @returns {any}
+ * only where that's expected (e.g. the narration log).
  */
 export function useGameLive() {
-  return useContext(GameLiveContext);
+  const ctx = useContext(GameLiveContext);
+  if (!ctx) throw new Error("useGameLive must be used within a <GameProvider>");
+  return ctx;
 }
 
 /**
  * Access the high-frequency / transient runtime state (loading, loading phrase,
  * error, session token tally). Kept apart so transient runtime churn doesn't
- * re-render consumers that only care about story state. @returns {any}
+ * re-render consumers that only care about story state.
  */
 export function useGameRun() {
-  return useContext(GameRunContext);
+  const ctx = useContext(GameRunContext);
+  if (!ctx) throw new Error("useGameRun must be used within a <GameProvider>");
+  return ctx;
 }
 
 /**
@@ -76,12 +194,12 @@ export function useGameRun() {
  * hot-path code should reach for the narrow hooks above so it only re-renders
  * on the slice it reads. Note `input` is deliberately not here — it lives
  * locally in the composer so keystrokes never re-render any consumer.
- * @returns {any}
+ * @returns {GameStoryValue & GameLiveValue & GameActions}
  */
 export function useGame() {
-  const actions = useContext(GameActionsContext);
-  const story = useContext(GameStoryContext);
-  const live = useContext(GameLiveContext);
+  const actions = useGameActions();
+  const story = useGameStory();
+  const live = useGameLive();
   return useMemo(() => ({ ...story, ...live, ...actions }), [story, live, actions]);
 }
 
@@ -760,6 +878,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   // closures from a ref. The wrappers' identities never change, so the actions
   // object can be memoized once — dispatch-only consumers (e.g. the composer)
   // stop re-rendering on narration churn, with no stale-closure hazard.
+  /** @type {GameActions} */
   const liveActions = {
     setLanguage, beginAdventure, submit, continueNarration,
     undoLastTurn, restart, loadSave,
@@ -785,19 +904,21 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     for (const name of Object.keys(live)) {
       out[name] = (/** @type {any[]} */ ...args) => live[name](...args);
     }
-    return out;
+    return /** @type {GameActions} */ (/** @type {unknown} */ (out));
   }, []);
 
   // ── Low-churn story state ────────────────────────────────────────────────
   // `entriesCount`/`hasMeta`/`canUndo` are derived but only change per turn, so
   // memoizing on the derived values (not the array identities) keeps this stable
   // across the per-delta `entries`/`metaMessages` updates during streaming.
+  /** @type {GameStoryValue} */
   const story = useMemo(() => ({
     phase, premise, language, ended, metaMode,
     canUndo, entriesCount, hasMeta, keepsakeFilename,
   }), [phase, premise, language, ended, metaMode, canUndo, entriesCount, hasMeta, keepsakeFilename]);
 
   // ── High-churn live state + saves/reveal/keepsake surfaces ───────────────
+  /** @type {GameLiveValue} */
   const live = useMemo(() => ({
     entries, gameState, history, metaMessages, skipNonce, recovery,
     saveBanner: saves.saveBanner,
@@ -821,6 +942,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   ]);
 
   // ── Transient runtime state ──────────────────────────────────────────────
+  /** @type {GameRunValue} */
   const runValue = useMemo(
     () => ({ loading, loadingPhrase, error, sessionTokens }),
     [loading, loadingPhrase, error, sessionTokens]

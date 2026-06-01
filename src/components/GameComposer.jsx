@@ -110,7 +110,7 @@ export const GameComposer = React.memo(function GameComposer() {
         <div className="flex gap-3 items-start">
           <span
             className="display-font text-2xl leading-none mt-2 select-none"
-            style={{ color: metaMode ? `var(--${premise.realm})` : "var(--rose-ember)" }}
+            style={{ color: metaMode && premise ? `var(--${premise.realm})` : "var(--rose-ember)" }}
           >
             {metaMode ? "✦" : "›"}
           </span>
