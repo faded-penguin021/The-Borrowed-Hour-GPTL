@@ -112,7 +112,7 @@ function AppContent({
         )}
         <PassphraseModal />
       </div>
-      <DebugOverlay />
+      <DebugOverlay enabled={settings.debugOverlay} />
     </div>
   );
 }

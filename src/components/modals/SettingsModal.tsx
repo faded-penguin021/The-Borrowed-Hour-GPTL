@@ -178,6 +178,13 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               value={settings.streamNarration}
               onChange={(v) => onChange("streamNarration", v)}
             />
+            <SettingsToggleRow
+              id="setting-debug-overlay"
+              label="Debug log overlay"
+              description="Show a floating DEBUG button that opens an on-screen, copyable log of console output and errors. Useful for reporting problems on devices without developer tools."
+              value={settings.debugOverlay}
+              onChange={(v) => onChange("debugOverlay", v)}
+            />
             <div className="settings-toggle" style={{ cursor: "default", opacity: 0.85 }}>
               <div className="flex-1 min-w-0">
                 <div
