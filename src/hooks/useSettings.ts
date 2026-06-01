@@ -1,19 +1,10 @@
-// @ts-check
-/**
- * @import { AppSettings } from "../types"
- */
 import { useState, useRef, useEffect } from "react";
+import type { AppSettings } from "../types";
 import { DEFAULT_SETTINGS, SETTINGS_KEY } from "../data/constants";
 import { providerSupportsToolUse, FREE_MODELS_BY_PROVIDER } from "../llm/providers";
 
-/**
- * @returns {{
- *   settings: AppSettings,
- *   updateSetting: (key: string, value: any) => void
- * }}
- */
 export function useSettings() {
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const loadedRef = useRef(false);
 
   useEffect(() => {
@@ -70,8 +61,8 @@ export function useSettings() {
     })();
   }, [settings]);
 
-  const updateSetting = (/** @type {string} */ key, /** @type {any} */ value) =>
-    setSettings((s) => ({ ...s, [key]: value }));
+  const updateSetting = (key: string, value: unknown) =>
+    setSettings((s) => ({ ...s, [key]: value }) as AppSettings);
 
   return { settings, updateSetting };
 }

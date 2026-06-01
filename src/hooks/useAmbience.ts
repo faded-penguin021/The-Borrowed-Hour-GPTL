@@ -1,24 +1,6 @@
-// @ts-check
 import { useState, useRef, useEffect } from "react";
+import type { AmbienceEngine } from "../ambience/engine.js";
 
-/**
- * @returns {{
- *   ambienceLevel: string,
- *   ambienceMuted: boolean,
- *   ambienceUnavailable: boolean,
- *   ambienceDuringNarrationOnly: boolean,
- *   ambienceBoostWithTTS: boolean,
- *   ambienceMusicLevel: string,
- *   ambienceRef: React.RefObject<any>,
- *   ambienceEngineNonce: number,
- *   setAmbienceLevel: (v: string) => void,
- *   setAmbienceMuted: (v: boolean | ((prev: boolean) => boolean)) => void,
- *   setAmbienceDuringNarrationOnly: (v: boolean) => void,
- *   setAmbienceBoostWithTTS: (v: boolean) => void,
- *   setAmbienceMusicLevel: (v: string) => void,
- *   ensureAmbienceEngine: () => Promise<any>,
- * }}
- */
 export function useAmbience() {
   const [ambienceLevel, setAmbienceLevel] = useState("off");
   const [ambienceMuted, setAmbienceMuted] = useState(false);
@@ -27,7 +9,7 @@ export function useAmbience() {
   const [ambienceBoostWithTTS, setAmbienceBoostWithTTS] = useState(false);
   const [ambienceMusicLevel, setAmbienceMusicLevel] = useState("full");
   const loadedRef = useRef(false);
-  const ambienceRef = useRef(/** @type {any} */ (null));
+  const ambienceRef = useRef<AmbienceEngine | null>(null);
   const [ambienceEngineNonce, setAmbienceEngineNonce] = useState(0);
 
   useEffect(() => {
@@ -70,7 +52,7 @@ export function useAmbience() {
     })();
   }, [ambienceLevel, ambienceMuted, ambienceDuringNarrationOnly, ambienceBoostWithTTS, ambienceMusicLevel]);
 
-  const ensureAmbienceEngine = async () => {
+  const ensureAmbienceEngine = async (): Promise<AmbienceEngine | null> => {
     if (ambienceLevel === "off") return null;
     if (ambienceUnavailable) return null;
     if (!ambienceRef.current) {
@@ -86,16 +68,17 @@ export function useAmbience() {
       }
     }
     const eng = ambienceRef.current;
-    if (eng.intensity !== ambienceLevel) eng.setIntensity(ambienceLevel);
+    if (!eng) return null;
+    if (eng.intensity !== ambienceLevel) eng.setIntensity(ambienceLevel as "off" | "subtle" | "present");
     if (eng.muted !== ambienceMuted) eng.mute(ambienceMuted);
-    if (eng.musicLevel !== ambienceMusicLevel) eng.setMusicLevel(ambienceMusicLevel);
+    if (eng.musicLevel !== ambienceMusicLevel) eng.setMusicLevel(ambienceMusicLevel as "off" | "sparse" | "full");
     return eng;
   };
 
   useEffect(() => {
     const eng = ambienceRef.current;
     if (eng) {
-      if (eng.intensity !== ambienceLevel) eng.setIntensity(ambienceLevel);
+      if (eng.intensity !== ambienceLevel) eng.setIntensity(ambienceLevel as "off" | "subtle" | "present");
       return;
     }
   }, [ambienceLevel]);
@@ -109,7 +92,7 @@ export function useAmbience() {
   useEffect(() => {
     const eng = ambienceRef.current;
     if (!eng) return;
-    if (eng.musicLevel !== ambienceMusicLevel) eng.setMusicLevel(ambienceMusicLevel);
+    if (eng.musicLevel !== ambienceMusicLevel) eng.setMusicLevel(ambienceMusicLevel as "off" | "sparse" | "full");
   }, [ambienceMusicLevel]);
 
   // Audio autoplay unlock.

@@ -1,44 +1,45 @@
-// @ts-check
-/**
- * @import { ThrownError } from "../types"
- */
 import { useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import type {
+  ChatMessage, CodexSnapshot, Entry, GameState, MetaMessage, Premise,
+  SaveBanner, SaveListEntry, ThrownError
+} from "../types";
 import { SAVE_PREFIX, SAVE_CAP, estimateSize, formatKB, formatTokens } from "../data/constants";
 import { putImage, deleteImagesForSave } from "../storage/imageStore";
 
-/**
- * @returns {{
- *   saveList: any[],
- *   saveListLoading: boolean,
- *   saveBanner: {kind: string, text: string} | null,
- *   setSaveBanner: Function,
- *   savesTotalBytes: number,
- *   showSaves: boolean,
- *   setShowSaves: Function,
- *   exportFallbackText: string | null,
- *   setExportFallbackText: Function,
- *   loadSaveList: () => Promise<void>,
- *   openSavesModal: () => Promise<void>,
- *   saveCurrent: (args: {premise: any, entries: any[], ended: boolean, gameState: any, history: any[], metaMessages: any[], metaMode: boolean, language: string, codex: any}) => Promise<void>,
- *   loadSave: (save: any, callbacks: any) => Promise<void>,
- *   deleteSave: (key: string, e: any) => Promise<void>,
- *   exportChronicle: (args: {premise: any, entries: any[], ended: boolean, metaMessages: any[]}, includeMeta?: boolean) => Promise<void>,
- * }}
- */
+interface SaveCurrentArgs {
+  premise: Premise | null;
+  entries: Entry[];
+  ended: boolean;
+  gameState: GameState | null;
+  history: ChatMessage[];
+  metaMessages: MetaMessage[];
+  metaMode: boolean;
+  language: string;
+  codex: CodexSnapshot | null;
+}
+
+interface ExportChronicleArgs {
+  premise: Premise | null;
+  entries: Entry[];
+  ended: boolean;
+  metaMessages: MetaMessage[];
+}
+
 export function useSaves() {
-  const [saveList, setSaveList] = useState(/** @type {any[]} */ ([]));
+  const [saveList, setSaveList] = useState<SaveListEntry[]>([]);
   const [saveListLoading, setSaveListLoading] = useState(false);
-  const [saveBanner, setSaveBanner] = useState(/** @type {{kind: string, text: string} | null} */ (null));
+  const [saveBanner, setSaveBanner] = useState<SaveBanner | null>(null);
   const [savesTotalBytes, setSavesTotalBytes] = useState(0);
   const [showSaves, setShowSaves] = useState(false);
-  const [exportFallbackText, setExportFallbackText] = useState(/** @type {string | null} */ (null));
+  const [exportFallbackText, setExportFallbackText] = useState<string | null>(null);
 
   const loadSaveList = async () => {
     setSaveListLoading(true);
     try {
       const result = await window.storage.list(SAVE_PREFIX);
       const keys = result?.keys || [];
-      const saves = [];
+      const saves: SaveListEntry[] = [];
       let totalBytes = 0;
       for (const key of keys) {
         try {
@@ -67,14 +68,7 @@ export function useSaves() {
     await loadSaveList();
   };
 
-  /**
-   * @param {{
-   *   premise: any, entries: any[], ended: boolean, gameState: any,
-   *   history: any[], metaMessages: any[], metaMode: boolean,
-   *   language: string, codex: any
-   * }} args
-   */
-  const saveCurrent = async ({ premise, entries, ended, gameState, history, metaMessages, metaMode, language, codex }) => {
+  const saveCurrent = async ({ premise, entries, ended, gameState, history, metaMessages, metaMode, language, codex }: SaveCurrentArgs) => {
     if (!premise || entries.length === 0) return;
     const id = Date.now().toString(36);
     const key = SAVE_PREFIX + id;
@@ -94,7 +88,7 @@ export function useSaves() {
     // leaving only a tiny `idb:` marker in the save JSON. This keeps the
     // localStorage record small so a few illustrated saves can't blow the 5MB
     // cap. Falls back to inlining `data:` (today's behavior) if a write fails.
-    const processedEntries = await Promise.all(entries.map(async (/** @type {any} */ e, /** @type {number} */ i) => {
+    const processedEntries = await Promise.all(entries.map(async (e, i) => {
       const ill = e.illustration;
       const base = { ...e, fullyRevealed: true };
       if (!ill || ill.status !== "ready" || typeof ill.url !== "string") {
@@ -128,12 +122,12 @@ export function useSaves() {
       realmLabel: premise.realmLabel,
       isCustom: !!premise.isCustom,
       savedAt: Date.now(),
-      turns: entries.filter((/** @type {any} */ e) => e.type === "action").length,
+      turns: entries.filter((e) => e.type === "action").length,
       ended,
       gameState,
       entries: processedEntries,
       history,
-      metaMessages: metaMessages.map((/** @type {any} */ m) => ({ ...m, fullyRevealed: true })),
+      metaMessages: metaMessages.map((m) => ({ ...m, fullyRevealed: true })),
       metaMode,
       language,
       codex
@@ -151,7 +145,7 @@ export function useSaves() {
       // The text record failed to land; release any blobs we just wrote for it
       // so they don't linger orphaned in IndexedDB.
       deleteImagesForSave(id);
-      const msg = /** @type {ThrownError} */ (e)?.message || "";
+      const msg = (e as ThrownError)?.message || "";
       const looksQuota = /quota|limit|too large|size|5\s*mb/i.test(msg);
       setSaveBanner({
         kind: "err",
@@ -160,7 +154,7 @@ export function useSaves() {
     }
   };
 
-  const deleteSave = async (/** @type {string} */ key, /** @type {React.MouseEvent} */ e) => {
+  const deleteSave = async (key: string, e: ReactMouseEvent) => {
     e.stopPropagation();
     try {
       await window.storage.delete(key);
@@ -171,13 +165,9 @@ export function useSaves() {
     } catch {}
   };
 
-  /**
-   * @param {{ premise: any, entries: any[], ended: boolean, metaMessages: any[] }} args
-   * @param {boolean} [includeMeta]
-   */
-  const exportChronicle = async ({ premise, entries, ended, metaMessages }, includeMeta = false) => {
+  const exportChronicle = async ({ premise, entries, ended, metaMessages }: ExportChronicleArgs, includeMeta = false) => {
     if (!premise || entries.length === 0) return;
-    const lines = [];
+    const lines: string[] = [];
     lines.push(`# ${premise.title}`);
     lines.push(`*${premise.realmLabel} · The Borrowed Hour*`);
     lines.push("");
@@ -269,7 +259,7 @@ export function useSaves() {
     loadSaveList,
     openSavesModal,
     saveCurrent,
-    loadSave: /** @type {any} */ (null), // not used directly; App orchestrates load
+    loadSave: null, // not used directly; App orchestrates load
     deleteSave,
     exportChronicle,
   };

@@ -11,12 +11,12 @@ import { parseGMResponse, parseGMLogicResponse, isStateEmpty } from "../llm/pars
 import { formatStateForPrompt, stripHistoricalUser, stripHistoricalAssistant, serializeStatePublic } from "../llm/prompt";
 import { formatError, BorrowedError } from "../llm/errors";
 import { createLLMClient } from "../llm/client";
-import { useCodex } from "../hooks/useCodex.js";
-import { useSaves } from "../hooks/useSaves.js";
-import { useReveal } from "../hooks/useReveal.js";
-import { useKeepsake } from "../hooks/useKeepsake.js";
-import { useProgress } from "../hooks/useProgress.js";
-import { useLatest } from "../hooks/useLatest.js";
+import { useCodex } from "../hooks/useCodex";
+import { useSaves } from "../hooks/useSaves";
+import { useReveal } from "../hooks/useReveal";
+import { useKeepsake } from "../hooks/useKeepsake";
+import { useProgress } from "../hooks/useProgress";
+import { useLatest } from "../hooks/useLatest";
 import { useSettingsContext } from "./SettingsContext.jsx";
 import { useAmbienceContext } from "./AmbienceContext.jsx";
 import { useTTSContext } from "./TTSContext.jsx";
@@ -41,9 +41,9 @@ import { useTTSContext } from "./TTSContext.jsx";
  * }} Recovery
  */
 
-/** @typedef {ReturnType<typeof import("../hooks/useSaves.js").useSaves>} SavesHook */
-/** @typedef {ReturnType<typeof import("../hooks/useReveal.js").useReveal>} RevealHook */
-/** @typedef {ReturnType<typeof import("../hooks/useKeepsake.js").useKeepsake>} KeepsakeHook */
+/** @typedef {ReturnType<typeof import("../hooks/useSaves").useSaves>} SavesHook */
+/** @typedef {ReturnType<typeof import("../hooks/useReveal").useReveal>} RevealHook */
+/** @typedef {ReturnType<typeof import("../hooks/useKeepsake").useKeepsake>} KeepsakeHook */
 
 /**
  * The stable dispatch surface. Every member's identity is fixed for the life of

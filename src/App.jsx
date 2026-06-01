@@ -15,7 +15,7 @@ import { ExportFallbackModal } from "./components/modals/ExportFallbackModal.jsx
 import { PassphraseModal } from "./components/PassphraseModal.jsx";
 import { OnboardingModal } from "./components/OnboardingModal.jsx";
 import { CustomModal } from "./components/modals/CustomModal.jsx";
-import { useViewport } from "./hooks/useViewport.js";
+import { useViewport } from "./hooks/useViewport";
 
 /**
  * The view layer that lives *inside* all the providers. Settings, ambience, and

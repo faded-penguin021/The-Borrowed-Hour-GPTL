@@ -1,8 +1,11 @@
-// @ts-check
-/**
- * @import { AppSettings, CodexProviderConfig, EngineConfig, Entry, Illustration, ImageProviderId, NPC, Premise, StyleBible, ThrownError, VisualLedgerEntry } from "../types"
- */
 import { useState, useRef, useEffect } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import type {
+  AppSettings, ChatMessage, CodexProviderConfig, CodexSnapshot, EngineConfig,
+  Entry, GameState, Illustration, ImageProviderId, Premise, StyleBible,
+  ThrownError, VisualLedgerEntry
+} from "../types";
+import type { CallAPI } from "../llm/client";
 import {
   ART_DIRECTOR_BOOTSTRAP_TOOL, ART_DIRECTOR_TURN_TOOL,
   buildBootstrapSystem, buildTurnSystem,
@@ -14,30 +17,47 @@ import {
  * Runtime-tolerant view of the codex settings block. Fields are all optional
  * because callers fall back to `{}` when `settings.codex` is absent, and `mode`
  * is widened to `string` to accommodate legacy comparisons (e.g. "always").
- * @typedef {Object} CodexConfig
- * @property {string} [mode]
- * @property {EngineConfig} [artDirectorEngine]
- * @property {number} [maxPerSession]
- * @property {ImageProviderId} [provider]
- * @property {CodexProviderConfig} [providerConfig]
- * @property {number} [timeoutMs]
  */
+interface CodexConfig {
+  mode?: string;
+  artDirectorEngine?: EngineConfig;
+  maxPerSession?: number;
+  provider?: ImageProviderId;
+  providerConfig?: CodexProviderConfig;
+  timeoutMs?: number;
+}
+
+interface CodexDeps {
+  callAPI: CallAPI;
+  settings: AppSettings;
+  premise: Premise | null;
+  language: string;
+  setEntries: Dispatch<SetStateAction<Entry[]>>;
+}
 
 /**
- * @param {{
- *   callAPI: Function,
- *   settings: AppSettings,
- *   premise: any,
- *   language: string,
- *   setEntries: Function,
- * }} deps
+ * The slice of a parsed GM/logic turn the Art Director reads. Kept minimal so
+ * both a full `GMLogicParseResult` and the opener's `{ state, narrator_brief }`
+ * stand-in satisfy it.
  */
-export function useCodex({ callAPI, settings, premise, language, setEntries }) {
-  const [styleBible, setStyleBible] = useState(/** @type {StyleBible | null} */ (null));
-  const [visualLedger, setVisualLedger] = useState(/** @type {VisualLedgerEntry[]} */ ([]));
+interface ArtDirectorTurnInput {
+  state?: GameState | null;
+  narrator_brief?: string;
+}
+
+interface RunArtDirectorTurnArgs {
+  entryIndexProvider: () => number | null;
+  gmParsed: ArtDirectorTurnInput;
+  signal?: AbortSignal;
+  opener?: boolean;
+}
+
+export function useCodex({ callAPI, settings, premise, language, setEntries }: CodexDeps) {
+  const [styleBible, setStyleBible] = useState<StyleBible | null>(null);
+  const [visualLedger, setVisualLedger] = useState<VisualLedgerEntry[]>([]);
   const [plateCount, setPlateCount] = useState(0);
-  const styleBibleRef = useRef(/** @type {StyleBible | null} */ (null));
-  const visualLedgerRef = useRef(/** @type {VisualLedgerEntry[]} */ ([]));
+  const styleBibleRef = useRef<StyleBible | null>(null);
+  const visualLedgerRef = useRef<VisualLedgerEntry[]>([]);
   const plateCountRef = useRef(0);
   const turnIdRef = useRef(0);
   const inflightRef = useRef(0);
@@ -46,28 +66,28 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
   useEffect(() => { visualLedgerRef.current = visualLedger; }, [visualLedger]);
   useEffect(() => { plateCountRef.current = plateCount; }, [plateCount]);
 
-  const revokeBlobUrl = (/** @type {string | undefined} */ url) => {
+  const revokeBlobUrl = (url?: string) => {
     if (typeof url === "string" && url.startsWith("blob:")) {
       try { URL.revokeObjectURL(url); } catch (_) {}
     }
   };
 
-  const revokeAllPlates = (/** @type {Entry[]} */ entriesArray) => {
+  const revokeAllPlates = (entriesArray: Entry[]) => {
     if (!Array.isArray(entriesArray)) return;
     for (const e of entriesArray) {
       if (e?.illustration?.url) revokeBlobUrl(e.illustration.url);
     }
   };
 
-  const setEntryIllustration = (/** @type {number} */ index, /** @type {Partial<Illustration>} */ patch) => {
-    setEntries((/** @type {Entry[]} */ prev) => {
+  const setEntryIllustration = (index: number, patch: Partial<Illustration>) => {
+    setEntries((prev) => {
       const e = prev[index];
       if (!e) return prev;
       if (patch.url && e.illustration?.url && e.illustration.url !== patch.url) {
         revokeBlobUrl(e.illustration.url);
       }
       const next = prev.slice();
-      next[index] = { ...e, illustration: /** @type {Illustration} */ ({ ...(e.illustration || {}), ...patch }) };
+      next[index] = { ...e, illustration: { ...(e.illustration || {}), ...patch } as Illustration };
       return next;
     });
   };
@@ -79,8 +99,8 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
     turnIdRef.current = 0;
   };
 
-  const restoreCodex = (/** @type {any} */ savedCodex) => {
-    const c = savedCodex || {};
+  const restoreCodex = (savedCodex: Partial<CodexSnapshot> | null | undefined) => {
+    const c: Partial<CodexSnapshot> = savedCodex || {};
     setStyleBible(c.styleBible || null);
     styleBibleRef.current = c.styleBible || null;
     setVisualLedger(c.visualLedger || []);
@@ -89,14 +109,13 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
     plateCountRef.current = c.plateCount || 0;
   };
 
-  const runArtDirectorBootstrap = async (/** @type {Premise} */ chosen, /** @type {AbortSignal} */ signal) => {
-    /** @type {CodexConfig} */
-    const codex = settings.codex || {};
+  const runArtDirectorBootstrap = async (chosen: Premise, signal: AbortSignal) => {
+    const codex: CodexConfig = settings.codex || {};
     if (codex.mode === "off") return;
     const engine = codex.artDirectorEngine || { provider: "mistral", model: "mistral-small-latest" };
     try {
       const sys = buildBootstrapSystem(chosen, language);
-      const msgs = [{ role: "user", content: "Seed the codex for this chronicle." }];
+      const msgs: ChatMessage[] = [{ role: "user", content: "Seed the codex for this chronicle." }];
       const raw = await callAPI(sys, msgs, true, engine, 1400, 0.4, signal, ART_DIRECTOR_BOOTSTRAP_TOOL);
       if (signal?.aborted) return;
       const parsed = parseBootstrapResponse(raw);
@@ -104,38 +123,30 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
       setStyleBible(parsed.style_bible || null);
       setVisualLedger(parsed.visual_ledger || []);
     } catch (e) {
-      const caught = /** @type {ThrownError} */ (e);
+      const caught = e as ThrownError;
       if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Art Director bootstrap failed:", caught?.detail || caught?.message || e);
     }
   };
 
   const MAX_INFLIGHT = 2;
 
-  /**
-   * @param {{
-   *   entryIndexProvider: () => number | null,
-   *   gmParsed: any,
-   *   signal?: AbortSignal,
-   *   opener?: boolean,
-   * }} args
-   */
-  const runArtDirectorTurn = async ({ entryIndexProvider, gmParsed, signal, opener = false }) => {
-    /** @type {CodexConfig} */
-    const codex = settings.codex || {};
+  const runArtDirectorTurn = async ({ entryIndexProvider, gmParsed, signal, opener = false }: RunArtDirectorTurnArgs) => {
+    const codex: CodexConfig = settings.codex || {};
     if (codex.mode === "off") return;
     const cap = codex.maxPerSession ?? 12;
     if (plateCountRef.current >= cap && codex.mode !== "always") return;
     const sb = styleBibleRef.current;
     if (!sb) return;
+    if (!premise) return;
 
     const myTurn = ++turnIdRef.current;
     const stale = () => signal?.aborted || myTurn !== turnIdRef.current;
 
     const engine = codex.artDirectorEngine || { provider: "mistral", model: "mistral-small-latest" };
-    let ad;
+    let ad: ReturnType<typeof parseTurnResponse>;
     try {
       const sys = buildTurnSystem(premise, sb, visualLedgerRef.current, language);
-      const userPrompt = `[Scene]\n${gmParsed.state?.scene || ""}\n\n[Narrator brief]\n${gmParsed.narrator_brief || ""}\n\n[Named NPCs present this turn]\n${(gmParsed.state?.npcs || []).map((/** @type {NPC} */ n) => `- ${n.name}: ${n.note}`).join("\n") || "(none)"}\n\nDecide if this turn warrants a plate. Be ruthless; the default is no.`;
+      const userPrompt = `[Scene]\n${gmParsed.state?.scene || ""}\n\n[Narrator brief]\n${gmParsed.narrator_brief || ""}\n\n[Named NPCs present this turn]\n${(gmParsed.state?.npcs || []).map((n) => `- ${n.name}: ${n.note}`).join("\n") || "(none)"}\n\nDecide if this turn warrants a plate. Be ruthless; the default is no.`;
       const raw = await callAPI(sys, [{ role: "user", content: userPrompt }], true, engine, 900, 0.4, signal, ART_DIRECTOR_TURN_TOOL);
       if (stale()) return;
       const parsed = parseTurnResponse(raw);
@@ -147,7 +158,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
       }
       ad = parsed;
     } catch (e) {
-      const caught = /** @type {ThrownError} */ (e);
+      const caught = e as ThrownError;
       if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Art Director turn failed:", caught?.detail || caught?.message || e);
       return;
     }
@@ -157,7 +168,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
     const reason = (ad.milestone_reason || "").trim();
     const NEG = /\b(no|not|none|nothing|minor|routine|absent|n\/a|skip)\b/i;
     let sceneClause = (ad.scene_clause || "").trim();
-    let wants;
+    let wants: boolean | undefined;
     if (opener || codex.mode === "always") {
       if (!sceneClause || sceneClause.length < 12) {
         sceneClause = (gmParsed.state?.scene || gmParsed.narrator_brief || "").trim();
@@ -199,7 +210,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
       setEntryIllustration(idx, { status: "ready", url: img.url, prompt, provider: img.provider });
     } catch (e) {
       if (stale()) return;
-      const caught = /** @type {ThrownError} */ (e);
+      const caught = e as ThrownError;
       if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Image generation failed:", caught?.detail || caught?.message || e);
       setEntryIllustration(idx, { status: "failed" });
     } finally {

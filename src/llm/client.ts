@@ -8,6 +8,29 @@ interface UsageData {
   usage?: { input_tokens?: number; output_tokens?: number; prompt_tokens?: number; completion_tokens?: number };
 }
 
+/** Signature of the non-streaming `callAPI` returned by {@link createLLMClient}. */
+export type CallAPI = (
+  sys: string,
+  msgs: ChatMessage[],
+  useTool?: boolean,
+  engine?: EngineConfig,
+  maxTokens?: number,
+  temperature?: number,
+  signal?: AbortSignal | null,
+  tool?: ToolDefinition,
+) => Promise<string>;
+
+/** Signature of the streaming `streamAPI` returned by {@link createLLMClient}. */
+export type StreamAPI = (
+  sys: string,
+  msgs: ChatMessage[],
+  engine: EngineConfig,
+  maxTokens: number,
+  temperature: number,
+  signal: AbortSignal,
+  onDelta: (delta: string) => void,
+) => Promise<string>;
+
 /**
  * Build the API layer (callAPI / streamAPI). Kept free of React so the game
  * loop and the codex hook can share one client. Token usage is reported back

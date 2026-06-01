@@ -98,6 +98,14 @@ export interface ActionEntry {
 
 export type Entry = NarrationEntry | ActionEntry;
 
+// A turn of the post-ending "director's commentary" exchange. `fullyRevealed`
+// drives the same typewriter reveal the main narration uses.
+export interface MetaMessage {
+  role: "user" | "assistant";
+  text: string;
+  fullyRevealed: boolean;
+}
+
 export interface Premise {
   id: string;
   realm: string;
@@ -301,7 +309,7 @@ export interface GeneratedImage {
 // ── Settings types ────────────────────────────────────────────────────────────
 
 // Illustration-frequency mode. These literals are the persisted values written
-// by the settings UI and read by the codex runtime (src/hooks/useCodex.js):
+// by the settings UI and read by the codex runtime (src/hooks/useCodex.ts):
 // "off" disables plates, "always" requests one every turn, and "key_moments"
 // (the default non-off mode) lets the Art Director gate plates to milestones.
 export type CodexMode = "off" | "key_moments" | "always";
@@ -362,6 +370,51 @@ export interface StorageShim {
   set(key: string, value: string): Promise<StorageSetResult>;
   delete(key: string): Promise<StorageDeleteResult>;
   list(prefix?: string): Promise<StorageListResult>;
+}
+
+// ── Save / persistence types ───────────────────────────────────────────────────
+
+// The codex slice captured in a save: enough to rehydrate the Art Director's
+// running state (style bible, accumulated visual ledger, plates produced).
+export interface CodexSnapshot {
+  styleBible: StyleBible | null;
+  visualLedger: VisualLedgerEntry[];
+  plateCount: number;
+}
+
+// A persisted chronicle. Written to `window.storage` as JSON; illustration
+// bytes are offloaded to IndexedDB and referenced by `idb:` markers in `entries`.
+export interface SaveRecord {
+  id: string;
+  premiseId: string;
+  premise: Premise;
+  title: string;
+  realm: string;
+  realmLabel: string;
+  isCustom: boolean;
+  savedAt: number;
+  turns: number;
+  ended: boolean;
+  gameState: GameState | null;
+  entries: Entry[];
+  history: ChatMessage[];
+  metaMessages: MetaMessage[];
+  metaMode: boolean;
+  language: string;
+  codex: CodexSnapshot | null;
+}
+
+// A save as surfaced in the saves modal: the stored record plus the runtime
+// bookkeeping the list view needs (its storage key and an on-disk size estimate).
+export interface SaveListEntry extends SaveRecord {
+  key: string;
+  size: SizeEstimate;
+}
+
+// Transient status line shown above the saves modal.
+export interface SaveBanner {
+  kind: "ok" | "err";
+  text: string;
 }
 
 // ── Size / token estimate types ───────────────────────────────────────────────

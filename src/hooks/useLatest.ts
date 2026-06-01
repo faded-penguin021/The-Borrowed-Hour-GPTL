@@ -1,5 +1,5 @@
-// @ts-check
 import { useRef } from "react";
+import type { MutableRefObject } from "react";
 
 /**
  * Mirror the latest value of `value` into a ref, updated synchronously during
@@ -10,12 +10,8 @@ import { useRef } from "react";
  * The assignment happens in the render pass — NOT in an effect — so microtasks,
  * event callbacks, and streaming continuations always observe the current value
  * rather than a one-render-stale one.
- *
- * @template T
- * @param {T} value
- * @returns {{ current: T }}
  */
-export function useLatest(value) {
+export function useLatest<T>(value: T): MutableRefObject<T> {
   const ref = useRef(value);
   ref.current = value;
   return ref;
