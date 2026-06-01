@@ -1,10 +1,8 @@
-// @ts-check
 import { ENC_PREFIX, decryptSecret, encryptSecret } from "../storage/encryption";
 import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase } from "../passphrase";
 
-/** @returns {Promise<string | null>} */
-export async function getTtsElevenLabsKey() {
-  const stored = localStorage.getItem("borrowed:tts_elevenlabs_key:v1");
+export async function getTtsGoogleKey(): Promise<string | null> {
+  const stored = localStorage.getItem("borrowed:tts_google_key:v1");
   if (!stored) return null;
   if (!stored.startsWith(ENC_PREFIX)) return stored.trim();
   if (!getSessionPassphrase()) {
@@ -16,13 +14,12 @@ export async function getTtsElevenLabsKey() {
   try { return (await decryptSecret(stored, passphrase)).trim(); }
   catch { clearSessionPassphrase(); return null; }
 }
-/** @param {string | null} plain @returns {Promise<void>} */
-export async function saveTtsElevenLabsKey(plain) {
-  if (!plain) { localStorage.removeItem("borrowed:tts_elevenlabs_key:v1"); return; }
+export async function saveTtsGoogleKey(plain: string | null): Promise<void> {
+  if (!plain) { localStorage.removeItem("borrowed:tts_google_key:v1"); return; }
   const passphrase = getSessionPassphrase();
   if (passphrase) {
-    localStorage.setItem("borrowed:tts_elevenlabs_key:v1", await encryptSecret(plain.trim(), passphrase));
+    localStorage.setItem("borrowed:tts_google_key:v1", await encryptSecret(plain.trim(), passphrase));
   } else {
-    localStorage.setItem("borrowed:tts_elevenlabs_key:v1", plain.trim());
+    localStorage.setItem("borrowed:tts_google_key:v1", plain.trim());
   }
 }

@@ -5,7 +5,7 @@
 import React from "react";
 import { EngineSelector } from "./EngineSelector.jsx";
 import { EngineRoleDisplay } from "./EngineRoleDisplay.jsx";
-import { PROVIDER_META, FREE_MODELS_BY_PROVIDER, TOOL_USE_PROVIDER_ORDER } from "../llm/providers.js";
+import { PROVIDER_META, FREE_MODELS_BY_PROVIDER, TOOL_USE_PROVIDER_ORDER } from "../llm/providers";
 import { SettingsToggleRow } from "./SettingsToggleRow.jsx";
 
 /**

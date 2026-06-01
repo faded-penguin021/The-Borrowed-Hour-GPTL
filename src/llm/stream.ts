@@ -1,24 +1,50 @@
-// @ts-check
-/**
- * @import { BuildRequestParams, ChatCompletionsProviderConfig, ChatMessage, StreamEvent, ToolDefinition } from "../types"
- */
+import type {
+  BuildRequestParams,
+  ChatCompletionsProviderConfig,
+  ChatMessage,
+  ProviderAdapter,
+  ProviderRequest,
+  StreamEvent,
+  ToolDefinition,
+} from "../types";
 import { BorrowedError } from "./errors";
 
-/**
- * @param {unknown} content
- * @returns {string}
- */
-export var normalizeContent = (content) => {
+// Minimal shapes for the untyped provider-response JSON we read below.
+interface ContentPart {
+  text?: unknown;
+  content?: unknown;
+}
+interface OpenAIResponse {
+  output_text?: unknown;
+  output?: Array<{ type?: unknown; content?: Array<{ type?: unknown; text?: unknown; output_text?: unknown }> }>;
+}
+interface GeminiResponse {
+  candidates?: Array<{ content?: { parts?: Array<{ text?: unknown }> } }>;
+}
+interface ClaudeResponse {
+  content?: Array<{ type?: unknown; text?: unknown }>;
+}
+interface ChatChoice {
+  message?: { content?: unknown; tool_calls?: Array<{ function?: { arguments?: unknown } }>; function_call?: { arguments?: unknown } };
+  finish_reason?: unknown;
+}
+interface ChatResponse {
+  choices?: ChatChoice[];
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+}
+
+export const normalizeContent = (content: unknown): string => {
   if (typeof content === "string")
     return content;
   if (Array.isArray(content)) {
     return content.map((part) => {
       if (typeof part === "string")
         return part;
-      if (part && typeof part.text === "string")
-        return part.text;
-      if (part && typeof part.content === "string")
-        return part.content;
+      const p = part as ContentPart;
+      if (p && typeof p.text === "string")
+        return p.text;
+      if (p && typeof p.content === "string")
+        return p.content;
       return "";
     }).filter(Boolean).join(`
 `);
@@ -26,15 +52,12 @@ export var normalizeContent = (content) => {
   return String(content ?? "");
 };
 
-/**
- * @param {any} data
- * @returns {string}
- */
-export var extractOpenAIText = (data) => {
-  if (typeof data.output_text === "string" && data.output_text.trim())
-    return data.output_text.trim();
-  const chunks = [];
-  for (const item of data.output || []) {
+export const extractOpenAIText = (data: unknown): string => {
+  const d = data as OpenAIResponse;
+  if (typeof d.output_text === "string" && d.output_text.trim())
+    return d.output_text.trim();
+  const chunks: string[] = [];
+  for (const item of d.output || []) {
     if (item.type && item.type !== "message")
       continue;
     for (const part of item.content || []) {
@@ -49,13 +72,11 @@ export var extractOpenAIText = (data) => {
   return chunks.join(`
 `).trim();
 };
-/**
- * @param {any} data
- * @returns {string}
- */
-export var extractGeminiText = (data) => {
-  const chunks = [];
-  for (const candidate of data.candidates || []) {
+
+export const extractGeminiText = (data: unknown): string => {
+  const d = data as GeminiResponse;
+  const chunks: string[] = [];
+  for (const candidate of d.candidates || []) {
     for (const part of candidate.content?.parts || []) {
       if (typeof part.text === "string")
         chunks.push(part.text);
@@ -64,38 +85,30 @@ export var extractGeminiText = (data) => {
   return chunks.join(`
 `).trim();
 };
-/**
- * @param {any} data
- * @returns {string}
- */
-export var extractClaudeText = (data) => {
-  const chunks = [];
-  for (const part of data.content || []) {
+
+export const extractClaudeText = (data: unknown): string => {
+  const d = data as ClaudeResponse;
+  const chunks: string[] = [];
+  for (const part of d.content || []) {
     if (part.type === "text" && typeof part.text === "string")
       chunks.push(part.text);
   }
   return chunks.join(`
 `).trim();
 };
-/**
- * @param {string} sys
- * @param {ChatMessage[]} msgs
- * @returns {ChatMessage[]}
- */
-export var normalizeChatMessages = (sys, msgs) => [
+
+export const normalizeChatMessages = (sys: string, msgs: ChatMessage[]): ChatMessage[] => [
   { role: "system", content: sys },
-  ...msgs.map((m) => (/** @type {ChatMessage} */ ({
+  ...msgs.map((m) => ({
     role: m.role === "assistant" ? "assistant" : "user",
     content: normalizeContent(m.content)
-  })))
+  } as ChatMessage))
 ];
-/**
- * @param {any} data
- * @returns {string}
- */
-export var extractChatText = (data) => {
-  const chunks = [];
-  for (const choice of data.choices || []) {
+
+export const extractChatText = (data: unknown): string => {
+  const d = data as ChatResponse;
+  const chunks: string[] = [];
+  for (const choice of d.choices || []) {
     const content = choice.message?.content;
     if (typeof content === "string" && content)
       chunks.push(content);
@@ -105,12 +118,9 @@ export var extractChatText = (data) => {
   return chunks.join(`
 `).trim();
 };
-/**
- * @param {string} rawEvent
- * @returns {string}
- */
-export var sseEventData = (rawEvent) => {
-  const dataLines = [];
+
+export const sseEventData = (rawEvent: string): string => {
+  const dataLines: string[] = [];
   for (const line of rawEvent.split(`
 `)) {
     if (line.startsWith("data:"))
@@ -119,21 +129,22 @@ export var sseEventData = (rawEvent) => {
   return dataLines.join(`
 `).trim();
 };
-/**
- * @param {string} rawEvent
- * @returns {StreamEvent | null}
- */
-export var parseChatStreamEvent = (rawEvent) => {
+
+export const parseChatStreamEvent = (rawEvent: string): StreamEvent | null => {
   const data = sseEventData(rawEvent);
   if (!data || data === "[DONE]")
     return null;
-  let json;
+  let json: {
+    choices?: Array<{ delta?: { content?: unknown } }>;
+    usage?: { prompt_tokens?: number; input_tokens?: number; completion_tokens?: number; output_tokens?: number };
+    error?: { message?: string };
+  };
   try {
     json = JSON.parse(data);
   } catch {
     return null;
   }
-  const out = {};
+  const out: StreamEvent = {};
   const delta = json.choices?.[0]?.delta?.content;
   if (typeof delta === "string" && delta)
     out.text = delta;
@@ -146,12 +157,9 @@ export var parseChatStreamEvent = (rawEvent) => {
     out.error = json.error.message || String(json.error);
   return out;
 };
-/**
- * @param {any} data
- * @returns {string}
- */
-export var extractChatToolCallArgs = (data) => {
-  const msg = data?.choices?.[0]?.message;
+
+export const extractChatToolCallArgs = (data: unknown): string => {
+  const msg = (data as ChatResponse)?.choices?.[0]?.message;
   if (!msg) return "";
   const calls = msg.tool_calls;
   if (Array.isArray(calls) && calls.length > 0) {
@@ -166,25 +174,20 @@ export var extractChatToolCallArgs = (data) => {
   }
   return "";
 };
-/**
- * @param {ChatCompletionsProviderConfig} config
- * @returns {any}
- */
-export var makeChatCompletionsProvider = ({ url, label, jsonSchema, tools: useToolsApi, extraBody }) => ({
+
+export const makeChatCompletionsProvider = ({ url, label, jsonSchema, tools: useToolsApi, extraBody }: ChatCompletionsProviderConfig): ProviderAdapter => ({
   toolUse: !!(jsonSchema || useToolsApi),
   retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
-  /** @param {BuildRequestParams} params */
-  buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
+  buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }: BuildRequestParams): ProviderRequest {
     let system = sys;
-    /** @type {Record<string, any>} */
-    const body = {
+    const body: Record<string, unknown> = {
       model,
       max_tokens: maxTokens
     };
     if (temperature !== undefined)
       body.temperature = temperature;
     if (useTool) {
-      const t = /** @type {ToolDefinition} */ (tool);
+      const t = tool as ToolDefinition;
       if (useToolsApi) {
         body.tools = [{
           type: "function",
@@ -211,8 +214,7 @@ Respond ONLY with a single valid JSON object matching this schema (no prose, no 
     if (extraBody && typeof extraBody === "object")
       Object.assign(body, extraBody);
     const resolvedUrl = typeof url === "function" ? url() : url;
-    /** @type {Record<string, string>} */
-    const headers = { "Content-Type": "application/json" };
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (apiKey)
       headers.Authorization = `Bearer ${apiKey}`;
     return {
@@ -221,11 +223,11 @@ Respond ONLY with a single valid JSON object matching this schema (no prose, no 
       body
     };
   },
-  /** @param {any} data @param {string} model */
-  logUsage(data, model) {
-    if (!data.usage)
+  logUsage(data: unknown, model: string): void {
+    const d = data as ChatResponse;
+    if (!d.usage)
       return;
-    const u = data.usage;
+    const u = d.usage;
     console.debug("[borrowed] usage", {
       model,
       input: u.prompt_tokens || 0,
@@ -233,22 +235,20 @@ Respond ONLY with a single valid JSON object matching this schema (no prose, no 
       total: u.total_tokens || 0
     });
   },
-  /** @param {BuildRequestParams} params */
-  buildStreamRequest(params) {
+  buildStreamRequest(params: BuildRequestParams): ProviderRequest {
     const request = this.buildRequest({ ...params, useTool: false, tool: null });
     request.body.stream = true;
     return request;
   },
   parseStreamEvent: parseChatStreamEvent,
-  /** @param {any} data @param {boolean} [useTool] */
-  extract(data, useTool) {
+  extract(data: unknown, useTool?: boolean): string {
     if (useTool && useToolsApi) {
       const args = extractChatToolCallArgs(data);
       if (args) return args;
     }
     const text = extractChatText(data);
     if (!text) {
-      const reason = data.choices?.[0]?.finish_reason || "unknown";
+      const reason = (data as ChatResponse).choices?.[0]?.finish_reason || "unknown";
       const detail = useTool && useToolsApi
         ? `${label} returned no tool call. Finish reason: ${reason}.`
         : `${label} returned an empty response. Finish reason: ${reason}.`;

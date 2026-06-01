@@ -5,7 +5,7 @@
 import React from "react";
 import { ApiKeyRow } from "./ApiKeyRow.jsx";
 import { LocalLLMRow } from "./LocalLLMRow.jsx";
-import { PROVIDER_ORDER } from "../llm/providers.js";
+import { PROVIDER_ORDER } from "../llm/providers";
 
 /** No props. */
 export function ApiKeysSection() {

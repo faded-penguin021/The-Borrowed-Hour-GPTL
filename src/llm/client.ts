@@ -1,23 +1,23 @@
-// @ts-check
-/**
- * @import { ChatMessage, EngineConfig, ProviderId, ThrownError, ToolDefinition } from "../types"
- */
-import { PROVIDERS, PROVIDER_META, getProviderKey } from "./providers.js";
-import { GM_TOOL } from "./tools.js";
+import type { ChatMessage, EngineConfig, ProviderId, ThrownError, ToolDefinition } from "../types";
+import { PROVIDERS, PROVIDER_META, getProviderKey } from "./providers";
+import { GM_TOOL } from "./tools";
 import { scrubSecrets, extractApiErrorMessage, BorrowedError, httpStatusHint } from "./errors";
+
+interface UsageData {
+  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+  usage?: { input_tokens?: number; output_tokens?: number; prompt_tokens?: number; completion_tokens?: number };
+}
 
 /**
  * Build the API layer (callAPI / streamAPI). Kept free of React so the game
  * loop and the codex hook can share one client. Token usage is reported back
  * through `onUsage` rather than written into component state directly.
- *
- * @param {{
- *   getDefaultEngine: () => EngineConfig,
- *   onUsage: (input: number, output: number) => void,
- *   getProxyUrl?: () => (string | undefined),
- * }} deps
  */
-export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
+export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
+  getDefaultEngine: () => EngineConfig;
+  onUsage: (input: number, output: number) => void;
+  getProxyUrl?: () => (string | undefined);
+}) {
   /**
    * BYOB proxy interceptor. If the user configured a proxy URL, rewrite the
    * request to route through their backend (`<proxy>?target=<encoded origin>`)
@@ -26,11 +26,8 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
    * Mutates and returns the same request object. Leaves the body untouched, so
    * stream requests (`stream: true`) are forwarded verbatim and `streamAPI`'s
    * SSE parsing keeps reading whatever the proxy pipes back.
-   * @template {{ url: string, headers: Record<string, string> }} T
-   * @param {T} request
-   * @returns {T}
    */
-  const applyProxy = (request) => {
+  const applyProxy = <T extends { url: string; headers: Record<string, string> }>(request: T): T => {
     const proxyUrl = getProxyUrl?.()?.trim();
     if (!proxyUrl) return request;
     request.url = `${proxyUrl}?target=${encodeURIComponent(request.url)}`;
@@ -42,23 +39,21 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
     return request;
   };
 
-  /** @param {string} sys @param {ChatMessage[]} msgs @param {boolean} [useTool] @param {EngineConfig} [engine] @param {number} [maxTokens] @param {number} [temperature] @param {AbortSignal|null} [signal] @param {ToolDefinition} [tool] @returns {Promise<string>} */
-  const callAPI = async (sys, msgs, useTool = false, engine = getDefaultEngine(), maxTokens = 3000, temperature = 0.6, signal = null, tool = GM_TOOL) => {
+  const callAPI = async (sys: string, msgs: ChatMessage[], useTool = false, engine: EngineConfig = getDefaultEngine(), maxTokens = 3000, temperature = 0.6, signal: AbortSignal | null = null, tool: ToolDefinition = GM_TOOL): Promise<string> => {
     const providerId = engine?.provider;
     const model = engine?.model;
     const provider = PROVIDERS[providerId];
-    const meta = PROVIDER_META[/** @type {ProviderId} */ (providerId)];
+    const meta = PROVIDER_META[providerId as ProviderId];
     if (!provider || !meta || !model || !String(model).trim()) {
       throw new BorrowedError("The hour cannot open yet.", "No story engine is selected. Open Settings → Story engines and choose a provider and a model.");
     }
-    /** @type {number | undefined} */
-    let temp = temperature;
+    let temp: number | undefined = temperature;
     const RETRYABLE = provider.retryable;
     const MAX_RETRIES = 2;
-    let res = null;
-    let lastErr = null;
-    let lastStatus = null;
-    let lastBodySnippet = null;
+    let res: Response | null = null;
+    let lastErr: BorrowedError | null = null;
+    let lastStatus: number | null = null;
+    let lastBodySnippet: string | null = null;
     for (let attempt = 0;attempt <= MAX_RETRIES; attempt++) {
       if (attempt > 0)
         await new Promise((r) => setTimeout(r, 300 * Math.pow(2, attempt) + Math.random() * 300));
@@ -66,15 +61,15 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
         throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
       }
       let request;
-      let apiKey = null;
+      let apiKey: string | null = null;
       try {
-        apiKey = await getProviderKey(/** @type {ProviderId} */ (providerId));
+        apiKey = await getProviderKey(providerId as ProviderId);
         request = provider.buildRequest({
           sys, msgs, useTool, model, maxTokens, temperature: temp, tool, apiKey
         });
       } catch (e) {
         if (e instanceof BorrowedError) throw e;
-        const caught = /** @type {ThrownError} */ (e);
+        const caught = e as ThrownError;
         throw new BorrowedError("The hour falters.", `Could not build the ${meta.name} request${caught?.message ? ` (${caught.message})` : ""}.`);
       }
       applyProxy(request);
@@ -105,7 +100,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
         lastErr = new BorrowedError("The hour falters.", attempt < MAX_RETRIES ? `${detailedHint} Retrying…` : `${detailedHint} Retried ${MAX_RETRIES} times without success.`);
         res = null;
       } catch (e) {
-        const caught = /** @type {ThrownError} */ (e);
+        const caught = e as ThrownError;
         if (caught && caught.name === "AbortError" || signal && signal.aborted) {
           throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
         }
@@ -125,22 +120,23 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
       }
       throw lastErr || new BorrowedError("The hour falters.", "Unknown failure.");
     }
-    const data = await res.json();
+    const data: unknown = await res.json();
     if (typeof console !== "undefined" && typeof console.debug === "function") {
       try { provider.logUsage(data, model); } catch {}
     }
     try {
       let inp = 0, out = 0;
+      const d = data as UsageData;
       if (providerId === "gemini") {
-        const u = data.usageMetadata;
+        const u = d.usageMetadata;
         inp = u?.promptTokenCount || 0;
         out = u?.candidatesTokenCount || 0;
       } else if (providerId === "openai") {
-        const u = data.usage;
+        const u = d.usage;
         inp = u?.input_tokens || 0;
         out = u?.output_tokens || 0;
       } else {
-        const u = data.usage;
+        const u = d.usage;
         inp = u?.prompt_tokens || u?.input_tokens || 0;
         out = u?.completion_tokens || u?.output_tokens || 0;
       }
@@ -149,12 +145,11 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
     return provider.extract(data, useTool, tool, maxTokens);
   };
 
-  /** @param {string} sys @param {ChatMessage[]} msgs @param {EngineConfig} engine @param {number} maxTokens @param {number} temperature @param {AbortSignal} signal @param {(delta: string) => void} onDelta @returns {Promise<string>} */
-  const streamAPI = async (sys, msgs, engine, maxTokens, temperature, signal, onDelta) => {
+  const streamAPI = async (sys: string, msgs: ChatMessage[], engine: EngineConfig, maxTokens: number, temperature: number, signal: AbortSignal, onDelta: (delta: string) => void): Promise<string> => {
     const providerId = engine?.provider;
     const model = engine?.model;
     const provider = PROVIDERS[providerId];
-    const meta = PROVIDER_META[/** @type {ProviderId} */ (providerId)];
+    const meta = PROVIDER_META[providerId as ProviderId];
     if (!provider || !meta || !model || !String(model).trim()) {
       throw new BorrowedError("The hour cannot open yet.", "No story engine is selected. Open Settings → Story engines and choose a provider and a model.");
     }
@@ -163,11 +158,12 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
       if (fallback) onDelta(fallback);
       return fallback;
     }
-    /** @type {number | undefined} */
-    let temp = temperature;
+    const buildStreamRequest = provider.buildStreamRequest;
+    const parseStreamEvent = provider.parseStreamEvent;
+    let temp: number | undefined = temperature;
     const RETRYABLE = provider.retryable;
     const MAX_RETRIES = 2;
-    let lastErr = null;
+    let lastErr: BorrowedError | null = null;
     for (let attempt = 0;attempt <= MAX_RETRIES; attempt++) {
       if (attempt > 0)
         await new Promise((r) => setTimeout(r, 300 * Math.pow(2, attempt) + Math.random() * 300));
@@ -175,13 +171,13 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
         throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
       }
       let request;
-      let apiKey = null;
+      let apiKey: string | null = null;
       try {
-        apiKey = await getProviderKey(/** @type {ProviderId} */ (providerId));
-        request = provider.buildStreamRequest({ sys, msgs, model, maxTokens, temperature: temp, apiKey });
+        apiKey = await getProviderKey(providerId as ProviderId);
+        request = buildStreamRequest({ sys, msgs, model, maxTokens, temperature: temp, apiKey });
       } catch (e) {
         if (e instanceof BorrowedError) throw e;
-        const caught = /** @type {ThrownError} */ (e);
+        const caught = e as ThrownError;
         throw new BorrowedError("The hour falters.", `Could not build the ${meta.name} request${caught?.message ? ` (${caught.message})` : ""}.`);
       }
       applyProxy(request);
@@ -194,7 +190,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
           signal: signal || undefined
         });
       } catch (e) {
-        const caught = /** @type {ThrownError} */ (e);
+        const caught = e as ThrownError;
         if (caught && caught.name === "AbortError" || signal && signal.aborted) {
           throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
         }
@@ -207,7 +203,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
         continue;
       }
       if (!res.ok) {
-        let bodySnippet = null;
+        let bodySnippet: string | null = null;
         try { bodySnippet = scrubSecrets((await res.text()).slice(0, 500), apiKey); } catch {}
         if (res.status === 400 && temp !== undefined && /temperature/i.test(bodySnippet || "")) {
           temp = undefined;
@@ -226,15 +222,13 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
         throw new BorrowedError("The hour falters.", `${meta.name} returned no readable stream body.`);
       }
       let full = "";
-      /** @type {{ input?: number, output?: number } | null} */
-      let usage = /** @type {{ input?: number, output?: number } | null} */ (null);
+      let usage: { input?: number; output?: number } | null = null;
       const reader = res.body.getReader();
       const decoder = new TextDecoder;
       let buffer = "";
       const STALL_MS = 60000;
       let stalled = false;
-      /** @type {ReturnType<typeof setTimeout> | null} */
-      let stallTimer = null;
+      let stallTimer: ReturnType<typeof setTimeout> | null = null;
       const armStall = () => {
         if (stallTimer) clearTimeout(stallTimer);
         stallTimer = setTimeout(() => {
@@ -245,12 +239,11 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
       const clearStall = () => {
         if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; }
       };
-      /** @param {string} rawEvent */
-      const handleEvent = (rawEvent) => {
+      const handleEvent = (rawEvent: string) => {
         if (!rawEvent.trim()) return;
-        const parsed = provider.parseStreamEvent(rawEvent);
+        const parsed = parseStreamEvent(rawEvent);
         if (!parsed) return;
-        if (parsed.usage) usage = /** @type {{ input?: number, output?: number }} */ (Object.assign(usage || {}, parsed.usage));
+        if (parsed.usage) usage = (Object.assign(usage || {}, parsed.usage) as { input?: number; output?: number });
         if (parsed.error)
           throw new BorrowedError("The hour falters.", `${meta.name} reported an error mid-stream: ${parsed.error}`);
         if (parsed.text) {
@@ -275,24 +268,22 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
         handleEvent(buffer);
       } catch (e) {
         try { reader.cancel(); } catch {}
-        const caught = /** @type {ThrownError} */ (e);
+        const caught = e as ThrownError;
         if (stalled) {
-          /** @type {BorrowedError & { partial?: string }} */
-          const err = new BorrowedError("The hour falters.", `The ${meta.name} narration stream went silent for ${Math.round(STALL_MS/1000)}s — likely the connection was dropped while the tab was in the background. Try again.`);
+          const err: BorrowedError & { partial?: string } = new BorrowedError("The hour falters.", `The ${meta.name} narration stream went silent for ${Math.round(STALL_MS/1000)}s — likely the connection was dropped while the tab was in the background. Try again.`);
           if (full) err.partial = full;
           throw err;
         }
         if (caught && caught.name === "AbortError" || signal && signal.aborted) {
           throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
         }
-        /** @type {BorrowedError & { partial?: string }} */
-        const err = e instanceof BorrowedError ? e : new BorrowedError("The hour falters.", `The ${meta.name} narration stream broke${caught?.message ? ` (${caught.message})` : ""}.`);
+        const err: BorrowedError & { partial?: string } = e instanceof BorrowedError ? e : new BorrowedError("The hour falters.", `The ${meta.name} narration stream broke${caught?.message ? ` (${caught.message})` : ""}.`);
         if (full) err.partial = full;
         throw err;
       } finally {
         clearStall();
       }
-      if (usage) onUsage(usage.input || 0, usage.output || 0);
+      if (usage) onUsage((usage as { input?: number; output?: number }).input || 0, (usage as { input?: number; output?: number }).output || 0);
       if (!full.trim())
         throw new BorrowedError("The page came back blank.", `${meta.name} returned an empty narration stream.`);
       return full;

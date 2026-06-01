@@ -1,19 +1,18 @@
-// @ts-check
-/**
- * @import { TTSAdapterOptions, TTSHandle } from "../../types"
- */
-import { _fetchAudioBlob, _blobHandle } from "../shared.js";
+import type { TTSAdapter, TTSAdapterOptions, TTSHandle } from "../../types";
+import { _fetchAudioBlob, _blobHandle } from "../shared";
 
-export class OpenAITTSAdapter {
-  /** @param {TTSAdapterOptions} opts */
-  constructor({ voiceId, rate, key, model }) {
+export class OpenAITTSAdapter implements TTSAdapter {
+  voiceId: string;
+  rate: number;
+  key: string;
+  model: string;
+  constructor({ voiceId, rate, key, model }: TTSAdapterOptions) {
     this.voiceId = voiceId || "alloy";
     this.rate = rate || 1.0;
     this.key = key || "";
     this.model = model || "gpt-4o-mini-tts";
   }
-  /** @param {string} text @param {AbortSignal} [signal] @param {(msg: string) => void} [onError] @returns {Promise<TTSHandle>} */
-  async synthesize(text, signal, onError) {
+  async synthesize(text: string, signal?: AbortSignal, onError?: (msg: string) => void): Promise<TTSHandle> {
     const blob = await _fetchAudioBlob(
       "https://api.openai.com/v1/audio/speech",
       { method: "POST", headers: { "Authorization": `Bearer ${this.key}`, "Content-Type": "application/json" },

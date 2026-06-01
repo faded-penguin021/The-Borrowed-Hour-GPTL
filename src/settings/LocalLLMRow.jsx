@@ -2,7 +2,7 @@
 import React from "react";
 import { LOCAL_DEFAULT_URL } from "../data/constants";
 import { encryptSecret } from "../storage/encryption";
-import { PROVIDER_META } from "../llm/providers.js";
+import { PROVIDER_META } from "../llm/providers";
 import { requestPassphrase, getSessionPassphrase, setSessionPassphrase } from "../passphrase";
 
 /** No props. */

@@ -1,20 +1,19 @@
-// @ts-check
-/**
- * @import { TTSAdapterOptions, TTSHandle } from "../../types"
- */
+import type { TTSAdapter, TTSAdapterOptions, TTSHandle } from "../../types";
 import { BorrowedError } from "../../llm/errors";
-import { _blobHandle } from "../shared.js";
+import { _blobHandle } from "../shared";
 
-export class AzureTTSAdapter {
-  /** @param {TTSAdapterOptions} opts */
-  constructor({ voiceId, rate, key, region }) {
+export class AzureTTSAdapter implements TTSAdapter {
+  voiceId: string;
+  rate: number;
+  key: string;
+  region: string;
+  constructor({ voiceId, rate, key, region }: TTSAdapterOptions) {
     this.voiceId = voiceId || "en-US-JennyNeural";
     this.rate = rate || 1.0;
     this.key = key || "";
     this.region = region || "eastus";
   }
-  /** @param {string} text @param {AbortSignal} [signal] @param {(msg: string) => void} [onError] @returns {Promise<TTSHandle>} */
-  async synthesize(text, signal, onError) {
+  async synthesize(text: string, signal?: AbortSignal, onError?: (msg: string) => void): Promise<TTSHandle> {
     if (!this.key) throw new BorrowedError("Azure key missing", "Enter your Azure Speech key in Settings → Reading.");
     const rateStr = this.rate === 1.0 ? "+0%" : `${this.rate >= 1 ? "+" : ""}${Math.round((this.rate - 1) * 100)}%`;
     const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">`
@@ -42,7 +41,6 @@ export class AzureTTSAdapter {
   destroy() {}
 }
 
-/** @param {string} s @returns {string} */
-function escapeXml(s) {
+function escapeXml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }

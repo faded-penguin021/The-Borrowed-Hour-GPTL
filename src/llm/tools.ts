@@ -1,8 +1,5 @@
-// @ts-check
-/**
- * @import { NPC, ToolDefinition } from "../types"
- */
-import { setGMTool } from "./providers.js";
+import type { ToolDefinition } from "../types";
+import { setGMTool } from "./providers";
 export { buildSystem } from "../prompts/system.js";
 export { buildNarratorSystem } from "../prompts/narrator.js";
 export { buildMetaSystem } from "../prompts/meta.js";
@@ -22,8 +19,7 @@ import {
 // with no field-level discipline at all, which let GM knowledge leak into the
 // player's diary (e.g. a `scene` that editorialised which question "mattered").
 
-/** @type {string} */
-export const GM_SCRATCHPAD_DESC = `Private GM working space — never shown to the player. Four to seven tight sentences total: assess the action, consult the rules, decide consequences, note anything to carry forward. Keep this brisk; verbose scratchpads eat the budget for narration. The scratchpad conditions everything that follows; use it but do not over-write. BEFORE you stop writing this field, do TWO checks in writing.
+export const GM_SCRATCHPAD_DESC: string = `Private GM working space — never shown to the player. Four to seven tight sentences total: assess the action, consult the rules, decide consequences, note anything to carry forward. Keep this brisk; verbose scratchpads eat the budget for narration. The scratchpad conditions everything that follows; use it but do not over-write. BEFORE you stop writing this field, do TWO checks in writing.
 
 (1) BOUNDARY CHECK. Name explicitly which facts the narration THIS TURN will actually show or tell the player, versus which facts remain GM-only (clocks, twists, offstage moves, identities not yet voiced aloud, NPC private motives). The state object you write next must respect that line: anything that does not appear in narration this turn — or in some prior turn — does not enter clues, npcs, or summary.
 
@@ -36,8 +32,7 @@ For each sub-audit, write a one-line verdict — kept / cut / changed — before
 
 These two checks are the scratchpad's job; do them here, in writing, every turn.`;
 
-/** @type {Record<string, unknown>} */
-export const STATE_SCHEMA = {
+export const STATE_SCHEMA: Record<string, unknown> = {
   type: "object",
   description: "The complete refreshed state through the end of this turn — never diffs. Carry forward every load-bearing fact.",
   properties: {
@@ -83,8 +78,7 @@ export const STATE_SCHEMA = {
   required: ["scene", "time", "inventory", "npcs", "clues", "summary", "hidden_state"]
 };
 
-/** @type {Record<string, unknown>} */
-export const AMBIENCE_SCHEMA = {
+export const AMBIENCE_SCHEMA: Record<string, unknown> = {
   type: "object",
   description: "Optional scene audio. Omit any field to hold its previous value. Pass null for space, population, or mood to fade that lane to silence.",
   properties: {
@@ -96,8 +90,7 @@ export const AMBIENCE_SCHEMA = {
   }
 };
 
-/** @type {ToolDefinition} */
-export const GM_LOGIC_TOOL = {
+export const GM_LOGIC_TOOL: ToolDefinition = {
   name: "gm_decide",
   description: "Decide consequences and update state; produce a public-safe narrator brief.",
   input_schema: {
@@ -120,8 +113,7 @@ export const GM_LOGIC_TOOL = {
   }
 };
 
-/** @type {ToolDefinition} */
-export var GM_TOOL = {
+export const GM_TOOL: ToolDefinition = {
   name: "narrate_and_update_state",
   description: "Narrate the next turn of the chronicle and update the running state in lockstep. Always called once per turn.",
   input_schema: {

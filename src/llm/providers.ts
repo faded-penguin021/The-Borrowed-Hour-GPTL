@@ -1,7 +1,13 @@
-// @ts-check
-/**
- * @import { BuildRequestParams, ChatMessage, ProviderId, ProviderMeta, StreamEvent, ThrownError, ToolDefinition } from "../types"
- */
+import type {
+  BuildRequestParams,
+  ChatMessage,
+  ProviderAdapter,
+  ProviderId,
+  ProviderMeta,
+  ProviderRequest,
+  StreamEvent,
+  ToolDefinition,
+} from "../types";
 import { BorrowedError } from "./errors";
 import { httpStatusHint, extractApiErrorMessage, scrubSecrets } from "./errors";
 import { LOCAL_DEFAULT_URL } from "../data/constants";
@@ -13,10 +19,8 @@ import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase } fr
 // methods — which are called at runtime, not at module load time. We expose a
 // setGMTool() setter here; tools.js calls setGMTool(GM_TOOL) after it defines it.
 // That way neither module needs a top-level import of the other.
-/** @type {ToolDefinition | null} */
-let _gmTool = null;
-/** @param {ToolDefinition} tool */
-export function setGMTool(tool) { _gmTool = tool; }
+let _gmTool: ToolDefinition | null = null;
+export function setGMTool(tool: ToolDefinition) { _gmTool = tool; }
 function _getGMTool() { return _gmTool; }
 
 import {
@@ -26,33 +30,26 @@ import {
   extractClaudeText,
   sseEventData,
   makeChatCompletionsProvider
-} from "./stream.js";
+} from "./stream";
 
-/** @type {(opts: any) => any} */
-var _mkCCP = makeChatCompletionsProvider;
-
-/** @param {string} sys @param {ChatMessage[]} msgs */
-var normalizeOpenAIMessages = (sys, msgs) => [
+const normalizeOpenAIMessages = (sys: string, msgs: ChatMessage[]) => [
   { role: "developer", content: sys },
   ...msgs.map((m) => ({
     role: m.role === "assistant" ? "assistant" : "user",
     content: normalizeContent(m.content)
   }))
 ];
-/** @param {ChatMessage[]} msgs */
-var normalizeGeminiMessages = (msgs) => msgs.map((m) => ({
+const normalizeGeminiMessages = (msgs: ChatMessage[]) => msgs.map((m) => ({
   role: m.role === "assistant" ? "model" : "user",
   parts: [{ text: normalizeContent(m.content) }]
 }));
-/** @param {ChatMessage[]} msgs */
-var normalizeClaudeMessages = (msgs) => msgs.map((m) => ({
+const normalizeClaudeMessages = (msgs: ChatMessage[]) => msgs.map((m) => ({
   role: m.role === "assistant" ? "assistant" : "user",
   content: normalizeContent(m.content)
 }));
 
 // checked: 2026-05-28
-/** @type {Record<ProviderId, ProviderMeta>} */
-export var PROVIDER_META = {
+export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
   gemini: {
     name: "Gemini",
     keyStorage: "borrowed:gemini_api_key:v1",
@@ -193,9 +190,8 @@ export var PROVIDER_META = {
     ]
   }
 };
-/** @type {ProviderId[]} */
-export var PROVIDER_ORDER = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie", "mistral", "groq", "openrouter", "cerebras", "local"];
-export var FREE_MODELS_BY_PROVIDER = {
+export const PROVIDER_ORDER: ProviderId[] = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie", "mistral", "groq", "openrouter", "cerebras", "local"];
+export const FREE_MODELS_BY_PROVIDER = {
   free:       { provider: "mistral",    opener: "mistral-large-latest",                gm: "mistral-medium-latest",             narrator: "mistral-medium-latest" },
   gemini:     { opener: "gemini-3.5-flash",         gm: "gemini-3.5-flash",            narrator: "gemini-3.5-flash" },
   openai:     { opener: "gpt-5-mini",               gm: "gpt-5.4-mini",               narrator: "gpt-5.4-nano" },
@@ -210,17 +206,12 @@ export var FREE_MODELS_BY_PROVIDER = {
   cerebras:   { opener: "gpt-oss-120b",             gm: "gpt-oss-120b",               narrator: "gpt-oss-120b" },
   local:      { opener: "llama3.2",                 gm: "llama3.1",                   narrator: "llama3.2" }
 };
-/** @returns {string} */
-export var getLocalUrl = () => localStorage.getItem(/** @type {string} */ (PROVIDER_META.local.urlStorage))?.trim() || LOCAL_DEFAULT_URL;
-/**
- * @param {ProviderId} id
- * @returns {Promise<string>}
- */
-export var getProviderKey = async (id) => {
+export const getLocalUrl = (): string => localStorage.getItem(PROVIDER_META.local.urlStorage as string)?.trim() || LOCAL_DEFAULT_URL;
+export const getProviderKey = async (id: ProviderId): Promise<string> => {
   const m = PROVIDER_META[id];
   if (!m)
     throw new BorrowedError("The hour cannot open yet.", `Unknown API provider "${id}".`);
-  const injected = /** @type {Record<string, any>} */ (window)[m.windowKey] || /** @type {HTMLMetaElement | null} */ (document.querySelector(`meta[name="${m.metaName}"]`))?.content;
+  const injected = (window as unknown as Record<string, string>)[m.windowKey] || (document.querySelector(`meta[name="${m.metaName}"]`) as HTMLMetaElement | null)?.content;
   if (injected)
     return injected.trim();
   const stored = localStorage.getItem(m.keyStorage);
@@ -245,8 +236,7 @@ export var getProviderKey = async (id) => {
     return "";
   throw new BorrowedError("The hour cannot open yet.", `No ${m.name} API key is saved. Open ⚙ Settings → API keys and paste your key there.`);
 };
-/** @param {ProviderId} id */
-export var resetProviderKey = (id) => {
+export const resetProviderKey = (id: ProviderId) => {
   const m = PROVIDER_META[id];
   if (m)
     localStorage.removeItem(m.keyStorage);
@@ -255,14 +245,11 @@ export var resetProviderKey = (id) => {
 /**
  * Lightweight connectivity check: resolves key, then fires a tiny
  * request to the provider's endpoint. Returns { ok, detail }.
- * @param {ProviderId} id
- * @param {string} [model]
- * @returns {Promise<{ ok: boolean, detail: string }>}
  */
-export var checkProviderHealth = async (id, model) => {
+export const checkProviderHealth = async (id: ProviderId, model?: string): Promise<{ ok: boolean; detail: string }> => {
   const m = PROVIDER_META[id];
   if (!m) return { ok: false, detail: `Unknown provider "${id}".` };
-  let apiKey;
+  let apiKey: string;
   try {
     apiKey = await getProviderKey(id);
   } catch (e) {
@@ -293,7 +280,7 @@ export var checkProviderHealth = async (id, model) => {
     const apiMsg = extractApiErrorMessage(snip);
     return { ok: false, detail: apiMsg ? `${hint} ${apiMsg}` : hint };
   } catch (e) {
-    const caught = /** @type {ThrownError} */ (e);
+    const caught = e as { name?: string; message?: string };
     if (caught?.name === "AbortError") return { ok: false, detail: `${m.name} did not respond within 10 seconds.` };
     const msg = caught?.message || String(e);
     const isCORS = /failed to fetch|networkerror|cors|load failed/i.test(msg);
@@ -304,15 +291,28 @@ export var checkProviderHealth = async (id, model) => {
   }
 };
 
-/** @type {Record<string, any>} */
-export var PROVIDERS = {
+interface OpenAIResponseData {
+  usage?: { input_tokens?: number; input_tokens_details?: { cached_tokens?: number }; output_tokens?: number; total_tokens?: number };
+  status?: unknown;
+  incomplete_details?: { reason?: unknown };
+}
+interface GeminiResponseData {
+  usageMetadata?: { promptTokenCount?: number; cachedContentTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
+  promptFeedback?: { blockReason?: unknown };
+  candidates?: Array<{ finishReason?: unknown }>;
+}
+interface ClaudeResponseData {
+  usage?: { input_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number; output_tokens?: number };
+  content?: Array<{ type?: unknown; name?: unknown; input?: unknown }>;
+  stop_reason?: unknown;
+}
+
+export const PROVIDERS: Record<string, ProviderAdapter> = {
   openai: {
     toolUse: true,
     retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
-    /** @param {BuildRequestParams} params */
-    buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
-      /** @type {Record<string, any>} */
-      const body = {
+    buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }: BuildRequestParams): ProviderRequest {
+      const body: Record<string, unknown> = {
         model,
         input: normalizeOpenAIMessages(sys, msgs),
         max_output_tokens: maxTokens
@@ -320,7 +320,7 @@ export var PROVIDERS = {
       if (temperature !== undefined)
         body.temperature = temperature;
       if (useTool) {
-        const t = /** @type {ToolDefinition} */ (tool);
+        const t = tool as ToolDefinition;
         body.text = {
           format: {
             type: "json_schema",
@@ -336,11 +336,11 @@ export var PROVIDERS = {
         body
       };
     },
-    /** @param {any} data @param {string} model */
-    logUsage(data, model) {
-      if (!data.usage)
+    logUsage(data: unknown, model: string): void {
+      const d = data as OpenAIResponseData;
+      if (!d.usage)
         return;
-      const u = data.usage;
+      const u = d.usage;
       console.debug("[borrowed] usage", {
         model,
         input: u.input_tokens || 0,
@@ -349,25 +349,27 @@ export var PROVIDERS = {
         total: u.total_tokens || 0
       });
     },
-    /** @param {BuildRequestParams} params */
-    buildStreamRequest(params) {
+    buildStreamRequest(params: BuildRequestParams): ProviderRequest {
       const request = this.buildRequest({ ...params, useTool: false, tool: _getGMTool() });
       request.body.stream = true;
       return request;
     },
-    /** @param {string} rawEvent @returns {StreamEvent | null} */
-    parseStreamEvent(rawEvent) {
+    parseStreamEvent(rawEvent: string): StreamEvent | null {
       const data = sseEventData(rawEvent);
       if (!data || data === "[DONE]")
         return null;
-      let json;
+      let json: {
+        type?: string;
+        delta?: unknown;
+        response?: { usage?: { input_tokens?: number; output_tokens?: number }; error?: { message?: string } };
+        message?: string;
+      };
       try {
         json = JSON.parse(data);
       } catch {
         return null;
       }
-      /** @type {StreamEvent} */
-      const out = {};
+      const out: StreamEvent = {};
       if (json.type === "response.output_text.delta" && typeof json.delta === "string")
         out.text = json.delta;
       if ((json.type === "response.completed" || json.type === "response.incomplete") && json.response?.usage)
@@ -379,12 +381,12 @@ export var PROVIDERS = {
         out.error = json.response?.error?.message || json.message || "stream error";
       return out;
     },
-    /** @param {any} data */
-    extract(data) {
+    extract(data: unknown): string {
       const text = extractOpenAIText(data);
       if (!text) {
-        const status = data.status || "unknown";
-        const incomplete = data.incomplete_details?.reason ? ` Reason: ${data.incomplete_details.reason}.` : "";
+        const d = data as OpenAIResponseData;
+        const status = d.status || "unknown";
+        const incomplete = d.incomplete_details?.reason ? ` Reason: ${d.incomplete_details.reason}.` : "";
         throw new BorrowedError("The page came back blank.", `OpenAI returned an empty response. Status: ${status}.${incomplete}`);
       }
       return text;
@@ -393,19 +395,17 @@ export var PROVIDERS = {
   gemini: {
     toolUse: true,
     retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
-    /** @param {BuildRequestParams} params */
-    buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
-      /** @type {Record<string, any>} */
-      const generationConfig = { maxOutputTokens: maxTokens };
+    buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }: BuildRequestParams): ProviderRequest {
+      const generationConfig: Record<string, unknown> = { maxOutputTokens: maxTokens };
       if (temperature !== undefined)
         generationConfig.temperature = temperature;
       if (useTool) {
         generationConfig.responseMimeType = "application/json";
-        generationConfig.responseJsonSchema = /** @type {ToolDefinition} */ (tool).input_schema;
+        generationConfig.responseJsonSchema = (tool as ToolDefinition).input_schema;
       }
       return {
         url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey as string },
         body: {
           systemInstruction: { parts: [{ text: sys }] },
           contents: normalizeGeminiMessages(msgs),
@@ -413,11 +413,11 @@ export var PROVIDERS = {
         }
       };
     },
-    /** @param {any} data @param {string} model */
-    logUsage(data, model) {
-      if (!data.usageMetadata)
+    logUsage(data: unknown, model: string): void {
+      const d = data as GeminiResponseData;
+      if (!d.usageMetadata)
         return;
-      const u = data.usageMetadata;
+      const u = d.usageMetadata;
       console.debug("[borrowed] usage", {
         model,
         input: u.promptTokenCount || 0,
@@ -426,25 +426,26 @@ export var PROVIDERS = {
         total: u.totalTokenCount || 0
       });
     },
-    /** @param {BuildRequestParams} params */
-    buildStreamRequest({ sys, msgs, model, maxTokens, temperature, apiKey }) {
+    buildStreamRequest({ sys, msgs, model, maxTokens, temperature, apiKey }: BuildRequestParams): ProviderRequest {
       const request = this.buildRequest({ sys, msgs, useTool: false, model, maxTokens, temperature, tool: _getGMTool(), apiKey });
       request.url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`;
       return request;
     },
-    /** @param {string} rawEvent @returns {StreamEvent | null} */
-    parseStreamEvent(rawEvent) {
+    parseStreamEvent(rawEvent: string): StreamEvent | null {
       const data = sseEventData(rawEvent);
       if (!data)
         return null;
-      let json;
+      let json: {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: unknown }> } }>;
+        usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+        error?: { message?: string };
+      };
       try {
         json = JSON.parse(data);
       } catch {
         return null;
       }
-      /** @type {StreamEvent} */
-      const out = {};
+      const out: StreamEvent = {};
       let text = "";
       for (const candidate of json.candidates || []) {
         for (const part of candidate.content?.parts || []) {
@@ -463,11 +464,11 @@ export var PROVIDERS = {
         out.error = json.error.message || String(json.error);
       return out;
     },
-    /** @param {any} data */
-    extract(data) {
+    extract(data: unknown): string {
       const text = extractGeminiText(data);
       if (!text) {
-        const reason = data.promptFeedback?.blockReason || data.candidates?.[0]?.finishReason || "unknown";
+        const d = data as GeminiResponseData;
+        const reason = d.promptFeedback?.blockReason || d.candidates?.[0]?.finishReason || "unknown";
         throw new BorrowedError("The page came back blank.", `Gemini returned an empty response. Reason: ${reason}.`);
       }
       return text;
@@ -476,10 +477,8 @@ export var PROVIDERS = {
   anthropic: {
     toolUse: true,
     retryable: new Set([408, 409, 429, 500, 502, 503, 504, 529]),
-    /** @param {BuildRequestParams} params */
-    buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
-      /** @type {Record<string, any>} */
-      const body = {
+    buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }: BuildRequestParams): ProviderRequest {
+      const body: Record<string, unknown> = {
         model,
         max_tokens: maxTokens,
         system: [{ type: "text", text: sys, cache_control: { type: "ephemeral", ttl: "1h" } }],
@@ -488,7 +487,7 @@ export var PROVIDERS = {
       if (temperature !== undefined)
         body.temperature = temperature;
       if (useTool) {
-        const t = /** @type {ToolDefinition} */ (tool);
+        const t = tool as ToolDefinition;
         body.tools = [t];
         body.tool_choice = { type: "tool", name: t.name };
       }
@@ -496,18 +495,18 @@ export var PROVIDERS = {
         url: "https://api.anthropic.com/v1/messages",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": apiKey,
+          "x-api-key": apiKey as string,
           "anthropic-version": "2023-06-01",
           "anthropic-beta": "extended-cache-ttl-2025-04-11"
         },
         body
       };
     },
-    /** @param {any} data @param {string} model */
-    logUsage(data, model) {
-      if (!data.usage)
+    logUsage(data: unknown, model: string): void {
+      const d = data as ClaudeResponseData;
+      if (!d.usage)
         return;
-      const u = data.usage;
+      const u = d.usage;
       console.debug("[borrowed] usage", {
         model,
         input: u.input_tokens || 0,
@@ -516,25 +515,28 @@ export var PROVIDERS = {
         output: u.output_tokens || 0
       });
     },
-    /** @param {BuildRequestParams} params */
-    buildStreamRequest(params) {
+    buildStreamRequest(params: BuildRequestParams): ProviderRequest {
       const request = this.buildRequest({ ...params, useTool: false, tool: _getGMTool() });
       request.body.stream = true;
       return request;
     },
-    /** @param {string} rawEvent @returns {StreamEvent | null} */
-    parseStreamEvent(rawEvent) {
+    parseStreamEvent(rawEvent: string): StreamEvent | null {
       const data = sseEventData(rawEvent);
       if (!data)
         return null;
-      let json;
+      let json: {
+        type?: string;
+        delta?: { type?: string; text?: unknown };
+        message?: { usage?: { input_tokens?: number; output_tokens?: number } };
+        usage?: { output_tokens?: number };
+        error?: { message?: string };
+      };
       try {
         json = JSON.parse(data);
       } catch {
         return null;
       }
-      /** @type {StreamEvent} */
-      const out = {};
+      const out: StreamEvent = {};
       if (json.type === "content_block_delta" && json.delta?.type === "text_delta" && typeof json.delta.text === "string")
         out.text = json.delta.text;
       if (json.type === "message_start" && json.message?.usage)
@@ -546,18 +548,18 @@ export var PROVIDERS = {
         // Anthropic's message_delta reports only output tokens; input was
         // already emitted by message_start and is preserved by the consumer's
         // Object.assign merge. Cast keeps that runtime shape (no `input` key).
-        out.usage = /** @type {StreamEvent["usage"]} */ ({ output: json.usage.output_tokens || 0 });
+        out.usage = ({ output: json.usage.output_tokens || 0 } as StreamEvent["usage"]);
       if (json.type === "error")
         out.error = json.error?.message || "stream error";
       return out;
     },
-    /** @param {any} data @param {boolean} [useTool] @param {ToolDefinition} [tool] @param {number} [maxTokens] */
-    extract(data, useTool, tool, maxTokens) {
+    extract(data: unknown, useTool?: boolean, tool?: ToolDefinition | null, maxTokens?: number): string {
+      const d = data as ClaudeResponseData;
       if (useTool) {
-        const t = /** @type {ToolDefinition} */ (tool);
-        const toolUse = (data.content || []).find((/** @type {any} */ part) => part.type === "tool_use" && part.name === t.name);
+        const t = tool as ToolDefinition;
+        const toolUse = (d.content || []).find((part) => part.type === "tool_use" && part.name === t.name);
         if (toolUse) {
-          if (data.stop_reason === "max_tokens") {
+          if (d.stop_reason === "max_tokens") {
             throw new BorrowedError("The hour falters.", `Tool input was truncated mid-JSON by max_tokens (currently ${maxTokens}). Increase max_tokens or shorten the prompt.`);
           }
           if (toolUse.input && typeof toolUse.input === "object")
@@ -568,13 +570,13 @@ export var PROVIDERS = {
       }
       const text = extractClaudeText(data);
       if (!text) {
-        const stop = data.stop_reason || "unknown";
+        const stop = d.stop_reason || "unknown";
         throw new BorrowedError("The page came back blank.", `Claude returned an empty response. Stop reason: ${stop}.`);
       }
       return text;
     }
   },
-  deepseek: _mkCCP({
+  deepseek: makeChatCompletionsProvider({
     url: "https://api.deepseek.com/chat/completions",
     label: "DeepSeek",
     tools: true,
@@ -582,47 +584,46 @@ export var PROVIDERS = {
     // tool_choice. Disable thinking so we can pin the model to the schema.
     extraBody: { thinking: { type: "disabled" } }
   }),
-  qwen: _mkCCP({
+  qwen: makeChatCompletionsProvider({
     url: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
     label: "Qwen",
     tools: true
   }),
-  kimi: _mkCCP({
+  kimi: makeChatCompletionsProvider({
     url: "https://api.moonshot.cn/v1/chat/completions",
     label: "Kimi",
     tools: true
   }),
-  ernie: _mkCCP({
+  ernie: makeChatCompletionsProvider({
     url: "https://qianfan.baidubce.com/v2/chat/completions",
     label: "ERNIE",
     jsonSchema: false
   }),
-  mistral: _mkCCP({
+  mistral: makeChatCompletionsProvider({
     url: "https://api.mistral.ai/v1/chat/completions",
     label: "Mistral",
     tools: true
   }),
-  groq: _mkCCP({
+  groq: makeChatCompletionsProvider({
     url: "https://api.groq.com/openai/v1/chat/completions",
     label: "Groq",
     tools: true
   }),
-  openrouter: _mkCCP({
+  openrouter: makeChatCompletionsProvider({
     url: "https://openrouter.ai/api/v1/chat/completions",
     label: "OpenRouter",
     tools: true
   }),
-  cerebras: _mkCCP({
+  cerebras: makeChatCompletionsProvider({
     url: "https://api.cerebras.ai/v1/chat/completions",
     label: "Cerebras",
     tools: true
   }),
-  local: _mkCCP({
+  local: makeChatCompletionsProvider({
     url: () => getLocalUrl(),
     label: "Local LLM",
     jsonSchema: false
   })
 };
-/** @param {ProviderId} id @returns {boolean} */
-export var providerSupportsToolUse = (id) => !!PROVIDERS[id]?.toolUse;
-export var TOOL_USE_PROVIDER_ORDER = PROVIDER_ORDER.filter(providerSupportsToolUse);
+export const providerSupportsToolUse = (id: ProviderId): boolean => !!PROVIDERS[id]?.toolUse;
+export const TOOL_USE_PROVIDER_ORDER = PROVIDER_ORDER.filter(providerSupportsToolUse);

@@ -1,7 +1,3 @@
-// @ts-check
-/**
- * @import { GMLogicParseResult, GameState, NPC } from "../types"
- */
 import { z } from "zod";
 
 // Runtime validation contracts for LLM JSON output. These mirror the
@@ -61,11 +57,9 @@ export const GMResponseSchema = z.object({
   ambience: z.any().nullable().optional()
 });
 
-// JSDoc typedef exports — keep parity with the `src/types.ts` names so
-// JS consumers retain inferred types without importing the runtime schemas.
+// Type exports — keep parity with the `src/types.ts` names so consumers retain
+// inferred types without importing the runtime schemas.
 
-/** @typedef {z.infer<typeof GameStateSchema>} ParsedGameState */
-/** @typedef {z.infer<typeof GMLogicResponseSchema>} ParsedGMLogicResponse */
-/** @typedef {z.infer<typeof GMResponseSchema>} ParsedGMResponse */
-
-export {};
+export type ParsedGameState = z.infer<typeof GameStateSchema>;
+export type ParsedGMLogicResponse = z.infer<typeof GMLogicResponseSchema>;
+export type ParsedGMResponse = z.infer<typeof GMResponseSchema>;

@@ -6,11 +6,11 @@ import React, { createContext, useContext, useState, useRef, useEffect, useMemo 
 import { EMPTY_STATE } from "../data/constants";
 import { DEFAULT_LANGUAGE } from "../data/languages";
 import { PREMISES, NARRATION_LOADING_PHRASES, META_LOADING_PHRASES, OPENING_LOADING_PHRASES, pickPhrase } from "../data/premises";
-import { GM_LOGIC_TOOL, buildSystem, buildNarratorSystem, buildMetaSystem } from "../llm/tools.js";
-import { parseGMResponse, parseGMLogicResponse, isStateEmpty } from "../llm/parse.js";
-import { formatStateForPrompt, stripHistoricalUser, stripHistoricalAssistant, serializeStatePublic } from "../llm/prompt.js";
+import { GM_LOGIC_TOOL, buildSystem, buildNarratorSystem, buildMetaSystem } from "../llm/tools";
+import { parseGMResponse, parseGMLogicResponse, isStateEmpty } from "../llm/parse";
+import { formatStateForPrompt, stripHistoricalUser, stripHistoricalAssistant, serializeStatePublic } from "../llm/prompt";
 import { formatError, BorrowedError } from "../llm/errors";
-import { createLLMClient } from "../llm/client.js";
+import { createLLMClient } from "../llm/client";
 import { useCodex } from "../hooks/useCodex.js";
 import { useSaves } from "../hooks/useSaves.js";
 import { useReveal } from "../hooks/useReveal.js";

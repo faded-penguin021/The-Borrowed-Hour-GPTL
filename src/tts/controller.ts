@@ -1,54 +1,51 @@
-// @ts-check
-/**
- * @import { TTSAdapter, TTSHandle, ThrownError } from "../types"
- */
-import { TTS_PROVIDER_META } from "./catalogue.js";
+import type { TTSAdapter, TTSHandle, ThrownError } from "../types";
+import { TTS_PROVIDER_META } from "./catalogue";
 
 export class TTSController {
+  providerId: string;
+  adapter: TTSAdapter | null;
+  voiceId: string | null;
+  rate: number;
+  key: string | null;
+  region: string | null;
+  model: string | null;
+  enabled: boolean;
+  muted: boolean;
+  activeHandle: TTSHandle | null;
+  activeAbort: AbortController | null;
+  activeTurnId: number | null;
+  paused: boolean;
+  loading: boolean;
+  loadingTurnId: number | null;
+  lastError: string | null;
+  lastErrorTurnId: number | null;
+  _onSpeakStart: Set<(turnId?: number | null) => void>;
+  _onSpeakEnd: Set<(turnId?: number | null) => void>;
+  _onStateChange: Set<() => void>;
+
   constructor() {
-    /** @type {string} */
     this.providerId = "browser";
-    /** @type {TTSAdapter | null} */
     this.adapter = null;
-    /** @type {string | null} */
     this.voiceId = null;
-    /** @type {number} */
     this.rate = 1.0;
-    /** @type {string | null} */
     this.key = null;
-    /** @type {string | null} */
     this.region = null;
-    /** @type {string | null} */
     this.model = null;
-    /** @type {boolean} */
     this.enabled = false;
-    /** @type {boolean} */
     this.muted = false;
-    /** @type {TTSHandle | null} */
     this.activeHandle = null;
-    /** @type {AbortController | null} */
     this.activeAbort = null;
-    /** @type {any} */
     this.activeTurnId = null;
-    /** @type {boolean} */
     this.paused = false;
-    /** @type {boolean} */
     this.loading = false;
-    /** @type {any} */
     this.loadingTurnId = null;
-    /** @type {string | null} */
     this.lastError = null;
-    /** @type {any} */
     this.lastErrorTurnId = null;
-    /** @type {Set<(turnId?: any) => void>} */
     this._onSpeakStart = new Set();
-    /** @type {Set<(turnId?: any) => void>} */
     this._onSpeakEnd = new Set();
-    /** @type {Set<() => void>} */
     this._onStateChange = new Set();
   }
-  /** @param {string} id @param {{ voiceId?: string | null, key?: string | null, model?: string | null, region?: string | null }} [opts] */
-  setProvider(id, { voiceId, key, model, region } = {}) {
+  setProvider(id: string, { voiceId, key, model, region }: { voiceId?: string | null, key?: string | null, model?: string | null, region?: string | null } = {}) {
     if (this.providerId === id && this.adapter && this.key === key && this.voiceId === voiceId && (model === undefined || this.model === (model || null)) && (region === undefined || this.region === (region || null))) return;
     this.stop();
     this.providerId = id;
@@ -58,30 +55,20 @@ export class TTSController {
     if (region !== undefined) this.region = region || null;
     this.adapter = null;
   }
-  /** @param {string | null} [id] */
-  setVoice(id) { this.voiceId = id || null; this.adapter = null; }
-  /** @param {string | null} [m] */
-  setModel(m) { this.model = m || null; this.adapter = null; }
-  /** @param {number | string} r */
-  setRate(r) { this.rate = Math.max(0.5, Math.min(2.0, +r || 1)); this.adapter = null; }
-  /** @param {string | null} [k] */
-  setKey(k) { this.key = k || null; this.adapter = null; }
-  /** @param {boolean} on */
-  setEnabled(on) { this.enabled = !!on; if (!on) this.stop(); }
-  /** @param {boolean} m */
-  setMuted(m) { this.muted = !!m; if (m) this.stop(); }
-  /** @param {(turnId?: any) => void} cb */
-  onSpeakStart(cb) { this._onSpeakStart.add(cb); return () => this._onSpeakStart.delete(cb); }
-  /** @param {(turnId?: any) => void} cb */
-  onSpeakEnd(cb)   { this._onSpeakEnd.add(cb);   return () => this._onSpeakEnd.delete(cb); }
-  /** @param {() => void} cb */
-  onStateChange(cb) { this._onStateChange.add(cb); return () => this._onStateChange.delete(cb); }
+  setVoice(id?: string | null) { this.voiceId = id || null; this.adapter = null; }
+  setModel(m?: string | null) { this.model = m || null; this.adapter = null; }
+  setRate(r: number | string) { this.rate = Math.max(0.5, Math.min(2.0, +r || 1)); this.adapter = null; }
+  setKey(k?: string | null) { this.key = k || null; this.adapter = null; }
+  setEnabled(on: boolean) { this.enabled = !!on; if (!on) this.stop(); }
+  setMuted(m: boolean) { this.muted = !!m; if (m) this.stop(); }
+  onSpeakStart(cb: (turnId?: number | null) => void) { this._onSpeakStart.add(cb); return () => this._onSpeakStart.delete(cb); }
+  onSpeakEnd(cb: (turnId?: number | null) => void)   { this._onSpeakEnd.add(cb);   return () => this._onSpeakEnd.delete(cb); }
+  onStateChange(cb: () => void) { this._onStateChange.add(cb); return () => this._onStateChange.delete(cb); }
   isSpeaking() { return !!this.activeHandle && !this.paused; }
   isPaused()   { return !!this.activeHandle && this.paused; }
   isLoading()  { return !!this.loading; }
   loadingFor() { return this.loading ? this.loadingTurnId : null; }
-  /** @param {string} msg */
-  reportError(msg) {
+  reportError(msg: string) {
     this.lastError = String(msg || "").slice(0, 200);
     this.lastErrorTurnId = this.activeTurnId;
     this._notifyState();
@@ -104,8 +91,7 @@ export class TTSController {
     this.paused = false;
     this._notifyState();
   }
-  /** @param {string} text @param {{ turnId?: any }} [opts] */
-  async speak(text, { turnId } = {}) {
+  async speak(text: string, { turnId }: { turnId?: number | null } = {}) {
     if (!this.enabled || this.muted) return;
     if (!text || !text.trim()) return;
     this.stop();
@@ -137,7 +123,7 @@ export class TTSController {
     } catch (e) {
       this.loading = false;
       this.loadingTurnId = null;
-      const caught = /** @type {ThrownError} */ (e);
+      const caught = e as ThrownError;
       if (caught?.name === "AbortError") { this._notifyState(); return; }
       const msg = caught?.message || String(e);
       const detail = caught?.detail ? ` — ${caught.detail}` : "";
@@ -156,10 +142,8 @@ export class TTSController {
     this.loadingTurnId = null;
     this._notifyState();
   }
-  /** @param {any} [t] */
-  _startSpeak(t) { this._onSpeakStart.forEach((cb) => { try { cb(t); } catch (_) {} }); }
-  /** @param {any} [t] */
-  _endSpeak(t)   {
+  _startSpeak(t?: number | null) { this._onSpeakStart.forEach((cb) => { try { cb(t); } catch (_) {} }); }
+  _endSpeak(t?: number | null)   {
     this.activeHandle = null;
     this.paused = false;
     this._onSpeakEnd.forEach((cb) => { try { cb(t); } catch (_) {} });

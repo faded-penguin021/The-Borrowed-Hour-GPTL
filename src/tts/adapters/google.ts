@@ -1,19 +1,17 @@
-// @ts-check
-/**
- * @import { TTSAdapterOptions, TTSHandle } from "../../types"
- */
+import type { TTSAdapter, TTSAdapterOptions, TTSHandle } from "../../types";
 import { BorrowedError } from "../../llm/errors";
-import { _blobHandle } from "../shared.js";
+import { _blobHandle } from "../shared";
 
-export class GoogleTTSAdapter {
-  /** @param {TTSAdapterOptions} opts */
-  constructor({ voiceId, rate, key }) {
+export class GoogleTTSAdapter implements TTSAdapter {
+  voiceId: string;
+  rate: number;
+  key: string;
+  constructor({ voiceId, rate, key }: TTSAdapterOptions) {
     this.voiceId = voiceId || "en-US-Neural2-C";
     this.rate = rate || 1.0;
     this.key = key || "";
   }
-  /** @param {string} text @param {AbortSignal} [signal] @param {(msg: string) => void} [onError] @returns {Promise<TTSHandle>} */
-  async synthesize(text, signal, onError) {
+  async synthesize(text: string, signal?: AbortSignal, onError?: (msg: string) => void): Promise<TTSHandle> {
     if (!this.key) throw new BorrowedError("Google TTS key missing", "Enter your Google Cloud TTS API key in Settings → Reading.");
     const languageCode = this.voiceId.split("-").slice(0, 2).join("-") || "en-US";
     const body = {
@@ -32,7 +30,7 @@ export class GoogleTTSAdapter {
       try { detail = (await resp.text()).slice(0, 200); } catch (_) {}
       throw new BorrowedError(`Google TTS failed (HTTP ${resp.status})`, detail);
     }
-    const data = await resp.json().catch(() => /** @type {any} */ (null));
+    const data = await resp.json().catch(() => null) as { audioContent?: unknown } | null;
     const b64 = data?.audioContent;
     if (typeof b64 !== "string") {
       throw new BorrowedError("Google TTS returned no audio", JSON.stringify(data).slice(0, 200));

@@ -2,10 +2,10 @@
  * @import { TTSAdapter, TTSAdapterOptions, TTSHandle } from "../types"
  */
 import { describe, it, expect, vi } from "vitest";
-import { TTSController } from "../tts/controller.js";
+import { TTSController } from "../tts/controller";
 
 // Mock TTS_PROVIDER_META so no real adapters or network are needed
-vi.mock("../tts/catalogue.js", () => ({
+vi.mock("../tts/catalogue", () => ({
   TTS_PROVIDER_META: {
     mock: {
       id: "mock",

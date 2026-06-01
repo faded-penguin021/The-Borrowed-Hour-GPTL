@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "../tts/catalogue.js";
+import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "../tts/catalogue";
 
 describe("TTS_PROVIDER_META integrity", () => {
   it("every ordered provider exists in meta", () => {

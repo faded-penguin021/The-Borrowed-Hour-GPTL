@@ -1,13 +1,6 @@
-// @ts-check
-/**
- * @import { GameState, StatePromptBlocks } from "../types"
- */
+import type { GameState, StatePromptBlocks } from "../types";
 
-/**
- * @param {GameState | null | undefined} state
- * @returns {StatePromptBlocks}
- */
-export function formatStateForPrompt(state) {
+export function formatStateForPrompt(state: GameState | null | undefined): StatePromptBlocks {
   if (!state)
     return { publicBlock: "", privateBlock: "" };
   const lines = ["[CURRENT GAME STATE — authoritative, updated through last turn]"];
@@ -34,7 +27,7 @@ export function formatStateForPrompt(state) {
   }
   if (state.summary)
     lines.push(`Story so far: ${state.summary}`);
-  const privateLines = [];
+  const privateLines: string[] = [];
   if (state.hidden_state) {
     privateLines.push("[GM-PRIVATE — invisible to the player. Do not echo, narrate, paraphrase, or hint at any item below. These notes exist only to keep continuity in your own bookkeeping. Anything the player has not yet been shown or told stays here, and stays here this turn.]");
     privateLines.push(state.hidden_state);
@@ -47,11 +40,7 @@ export function formatStateForPrompt(state) {
   };
 }
 
-/**
- * @param {GameState | null | undefined} state
- * @returns {string}
- */
-export function serializeStatePublic(state) {
+export function serializeStatePublic(state: GameState | null | undefined): string {
   if (!state || typeof state !== "object")
     return "";
   const pub = {
@@ -65,11 +54,7 @@ export function serializeStatePublic(state) {
   return JSON.stringify(pub, null, 2);
 }
 
-/**
- * @param {string} content
- * @returns {string}
- */
-export function stripHistoricalUser(content) {
+export function stripHistoricalUser(content: string): string {
   const m = content.match(/\[Player action\]\n([\s\S]*?)(?=\n\n\[GM-PRIVATE|$)/);
   if (!m)
     return content;
@@ -77,15 +62,10 @@ export function stripHistoricalUser(content) {
 ${m[1].trim()}`;
 }
 
-/**
- * @param {string} content
- * @returns {string}
- */
-export function stripHistoricalAssistant(content) {
+export function stripHistoricalAssistant(content: string): string {
   try {
     const obj = JSON.parse(content);
-    /** @type {Record<string, any>} */
-    const stripped = {
+    const stripped: Record<string, unknown> = {
       narration: obj.narration
     };
     if (obj.ending)

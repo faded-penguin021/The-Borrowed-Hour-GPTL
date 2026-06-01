@@ -1,6 +1,4 @@
-/**
- * @import { BootstrapParseResult, ComposedImagePrompt, Premise, RealmAestheticSeed, StyleBible, ToolDefinition, TurnParseResult, VisualLedgerEntry } from "../types"
- */
+import type { BootstrapParseResult, ComposedImagePrompt, Premise, RealmAestheticSeed, StyleBible, ToolDefinition, TurnParseResult, VisualLedgerEntry } from "../types";
 // The Art Director — a 4th LLM role that gates and structures image generation.
 //
 // Two distinct tools:
@@ -15,11 +13,9 @@
 // prepending the Style Bible and referencing Visual Ledger tags — so that the
 // LLM cannot drift away from the locked aesthetic or invent new appearances
 // for recurring NPCs.
-// @ts-check
 import { DEFAULT_LANGUAGE } from "../data/languages";
 
-/** @type {Record<string, RealmAestheticSeed>} */
-export const REALM_AESTHETIC_SEEDS = {
+export const REALM_AESTHETIC_SEEDS: Record<string, RealmAestheticSeed> = {
   echo: {
     era: "19th-century chiaroscuro etching",
     medium: "fine ink wash, plate-printed engraving",
@@ -57,8 +53,7 @@ export const REALM_AESTHETIC_SEEDS = {
   }
 };
 
-/** @type {ToolDefinition} */
-export const ART_DIRECTOR_BOOTSTRAP_TOOL = {
+export const ART_DIRECTOR_BOOTSTRAP_TOOL: ToolDefinition = {
   name: "seed_codex",
   description: "Seed the locked aesthetic Style Bible and an initial Visual Ledger of recurring subjects for the chronicle.",
   input_schema: {
@@ -92,8 +87,7 @@ export const ART_DIRECTOR_BOOTSTRAP_TOOL = {
   }
 };
 
-/** @type {ToolDefinition} */
-export const ART_DIRECTOR_TURN_TOOL = {
+export const ART_DIRECTOR_TURN_TOOL: ToolDefinition = {
   name: "curate_plate",
   description: "Decide whether THIS turn warrants an illustration plate. If yes, compose a tight visual brief and update the Visual Ledger with any new recurring subjects.",
   input_schema: {
@@ -142,21 +136,12 @@ export const ART_DIRECTOR_TURN_TOOL = {
   }
 };
 
-/**
- * @param {Premise} premise
- * @returns {string}
- */
-const realmKey = (premise) => {
+const realmKey = (premise: Premise): string => {
   const r = premise?.realm;
   return REALM_AESTHETIC_SEEDS[r] ? r : "wild";
 };
 
-/**
- * @param {Premise} premise
- * @param {string} [_language]
- * @returns {string}
- */
-export const buildBootstrapSystem = (premise, _language = DEFAULT_LANGUAGE) => {
+export const buildBootstrapSystem = (premise: Premise, _language: string = DEFAULT_LANGUAGE): string => {
   if (premise?.isCustom) {
     return `You are the Art Director of an immersive text adventure called "The Borrowed Hour". Illustrations in this codex are RARE plates in a manuscript. Your job on this very first turn is to LOCK IN the aesthetic for the whole chronicle based on the player's custom scenario, and to seed an initial Visual Ledger of recurring subjects.
 
@@ -191,16 +176,9 @@ CALL THE TOOL \`seed_codex\` with:
 Write tag values plainly in English (these are prompt fragments for an image model). Output ONLY the tool call.`;
 };
 
-/**
- * @param {Premise} premise
- * @param {StyleBible} styleBible
- * @param {VisualLedgerEntry[]} visualLedger
- * @param {string} [_language]
- * @returns {string}
- */
-export const buildTurnSystem = (premise, styleBible, visualLedger, _language = DEFAULT_LANGUAGE) => {
+export const buildTurnSystem = (premise: Premise, styleBible: StyleBible, visualLedger: VisualLedgerEntry[], _language: string = DEFAULT_LANGUAGE): string => {
   const ledgerLines = (visualLedger || []).map((e) => `  - ${e.id}: ${(e.tags || []).join(", ")}`).join("\n") || "  (empty)";
-  const sb = /** @type {Partial<StyleBible>} */ (styleBible || {});
+  const sb = (styleBible || {}) as Partial<StyleBible>;
   return `You are the Art Director of an immersive text adventure. The narrative text is sovereign — your job is to CURATE rare illustration plates that feel like inserts in a leather-bound manuscript. Most turns DO NOT warrant a plate; the default answer is no.
 
 LOCKED STYLE BIBLE (do not contradict — it is prepended to every prompt automatically):
@@ -246,12 +224,8 @@ Call the tool \`curate_plate\` and output ONLY the tool call.`;
 // that smells of significance-talk (or is over-long, or sentence-like) is
 // dropped — a clean untitled plate beats a leaky caption.
 const CAPTION_LEAK = /\b(no\s+significant|significant|reveal|reveals|revealing|shift|turning[\s-]?point|climax|milestone|moment\s+of|the\s+moment\s+when|nothing|none|routine|mundane|uneventful|minor|major\s+(beat|moment)|no\s+(major|notable|real)|tension|stakes|foreshadow|setup|set[\s-]?piece|plot)\b/i;
-/**
- * @param {string} caption
- * @returns {string}
- */
-export const cleanPlateCaption = (caption) => {
-  let c = (caption || "").trim().replace(/^["'“”]+|["'“”]+$/g, "").replace(/[.!]+$/g, "").trim();
+export const cleanPlateCaption = (caption: string): string => {
+  const c = (caption || "").trim().replace(/^["'“”]+|["'“”]+$/g, "").replace(/[.!]+$/g, "").trim();
   if (!c) return "";
   if (CAPTION_LEAK.test(c)) return "";
   const words = c.split(/\s+/);
@@ -259,16 +233,12 @@ export const cleanPlateCaption = (caption) => {
   return c;
 };
 
-/**
- * @param {{ styleBible: StyleBible, visualLedger: VisualLedgerEntry[], subjectIds?: string[], sceneClause?: string, extraNegatives?: string[] }} params
- * @returns {ComposedImagePrompt}
- */
-export const composeImagePrompt = ({ styleBible, visualLedger, subjectIds, sceneClause, extraNegatives }) => {
-  const sb = /** @type {Partial<StyleBible>} */ (styleBible || {});
+export const composeImagePrompt = ({ styleBible, visualLedger, subjectIds, sceneClause, extraNegatives }: { styleBible: StyleBible, visualLedger: VisualLedgerEntry[], subjectIds?: string[], sceneClause?: string, extraNegatives?: string[] }): ComposedImagePrompt => {
+  const sb = (styleBible || {}) as Partial<StyleBible>;
   const ledgerById = new Map((visualLedger || []).map((e) => [e.id, e]));
   const subjectFragments = (subjectIds || [])
     .map((id) => ledgerById.get(id))
-    .filter(/** @returns {e is VisualLedgerEntry} */ (e) => Boolean(e))
+    .filter((e): e is VisualLedgerEntry => Boolean(e))
     .map((e) => `[${e.id.split(":").slice(1).join(":") || e.id}: ${(e.tags || []).join(", ")}]`);
   const styleParts = [
     sb.era,
@@ -283,12 +253,7 @@ export const composeImagePrompt = ({ styleBible, visualLedger, subjectIds, scene
   return { prompt, negatives: Array.from(new Set(negatives)) };
 };
 
-/**
- * @param {VisualLedgerEntry[]} current
- * @param {VisualLedgerEntry[]} updates
- * @returns {VisualLedgerEntry[]}
- */
-export const mergeLedger = (current, updates) => {
+export const mergeLedger = (current: VisualLedgerEntry[], updates: VisualLedgerEntry[]): VisualLedgerEntry[] => {
   if (!Array.isArray(updates) || updates.length === 0) return current || [];
   const byId = new Map((current || []).map((e) => [e.id, e]));
   for (const u of updates) {
@@ -299,16 +264,40 @@ export const mergeLedger = (current, updates) => {
 };
 
 // Minimal parsers — separate from parse.js so they can evolve independently.
-/** @param {string} s @returns {any} */
-const tryJSON = (s) => { try { return JSON.parse(s); } catch { return null; } };
+const tryJSON = (s: string): unknown => { try { return JSON.parse(s); } catch { return null; } };
 
-/**
- * @param {string} raw
- * @returns {BootstrapParseResult}
- */
-export const parseBootstrapResponse = (raw) => {
+// Minimal shapes for the untyped Art Director JSON before field-level narrowing.
+interface RawStyleBible {
+  era?: unknown;
+  medium?: unknown;
+  palette?: unknown;
+  composition?: unknown;
+  negatives?: unknown;
+}
+interface RawLedgerEntry {
+  id?: unknown;
+  tags?: unknown;
+}
+interface RawBootstrapResponse {
+  style_bible?: unknown;
+  visual_ledger?: unknown;
+}
+interface RawTurnResponse {
+  warrants_illustration?: unknown;
+  milestone_reason?: unknown;
+  caption?: unknown;
+  subject_ids?: unknown;
+  scene_clause?: unknown;
+  extra_negatives?: unknown;
+  ledger_updates?: unknown;
+}
+
+const isLedgerEntry = (e: unknown): e is { id: string; tags: unknown[] } =>
+  !!e && typeof e === "object" && typeof (e as RawLedgerEntry).id === "string" && Array.isArray((e as RawLedgerEntry).tags);
+
+export const parseBootstrapResponse = (raw: string): BootstrapParseResult => {
   if (!raw) return { malformed: true };
-  let txt = String(raw).trim().replace(/^```[a-zA-Z]*\s*/, "").replace(/```\s*$/, "");
+  const txt = String(raw).trim().replace(/^```[a-zA-Z]*\s*/, "").replace(/```\s*$/, "");
   let parsed = tryJSON(txt);
   if (!parsed) {
     const first = txt.indexOf("{");
@@ -316,28 +305,26 @@ export const parseBootstrapResponse = (raw) => {
     if (first >= 0 && last > first) parsed = tryJSON(txt.slice(first, last + 1));
   }
   if (!parsed || typeof parsed !== "object") return { malformed: true };
-  const sb = parsed.style_bible;
-  const ledger = Array.isArray(parsed.visual_ledger) ? parsed.visual_ledger.filter((/** @type {any} */ e) => e && typeof e.id === "string" && Array.isArray(e.tags)) : [];
+  const root = parsed as RawBootstrapResponse;
+  const sb = root.style_bible;
+  const ledger = Array.isArray(root.visual_ledger) ? root.visual_ledger.filter(isLedgerEntry) : [];
   if (!sb || typeof sb !== "object") return { malformed: true };
+  const rawSb = sb as RawStyleBible;
   return {
     style_bible: {
-      era: typeof sb.era === "string" ? sb.era : "",
-      medium: typeof sb.medium === "string" ? sb.medium : "",
-      palette: Array.isArray(sb.palette) ? sb.palette.filter((/** @type {any} */ s) => typeof s === "string") : [],
-      composition: typeof sb.composition === "string" ? sb.composition : "",
-      negatives: Array.isArray(sb.negatives) ? sb.negatives.filter((/** @type {any} */ s) => typeof s === "string") : []
+      era: typeof rawSb.era === "string" ? rawSb.era : "",
+      medium: typeof rawSb.medium === "string" ? rawSb.medium : "",
+      palette: Array.isArray(rawSb.palette) ? rawSb.palette.filter((s): s is string => typeof s === "string") : [],
+      composition: typeof rawSb.composition === "string" ? rawSb.composition : "",
+      negatives: Array.isArray(rawSb.negatives) ? rawSb.negatives.filter((s): s is string => typeof s === "string") : []
     },
-    visual_ledger: ledger.map((/** @type {any} */ e) => ({ id: e.id, tags: e.tags.filter((/** @type {any} */ t) => typeof t === "string") }))
+    visual_ledger: ledger.map((e) => ({ id: e.id, tags: e.tags.filter((t): t is string => typeof t === "string") }))
   };
 };
 
-/**
- * @param {string} raw
- * @returns {TurnParseResult}
- */
-export const parseTurnResponse = (raw) => {
+export const parseTurnResponse = (raw: string): TurnParseResult => {
   if (!raw) return { malformed: true };
-  let txt = String(raw).trim().replace(/^```[a-zA-Z]*\s*/, "").replace(/```\s*$/, "");
+  const txt = String(raw).trim().replace(/^```[a-zA-Z]*\s*/, "").replace(/```\s*$/, "");
   let parsed = tryJSON(txt);
   if (!parsed) {
     const first = txt.indexOf("{");
@@ -345,13 +332,14 @@ export const parseTurnResponse = (raw) => {
     if (first >= 0 && last > first) parsed = tryJSON(txt.slice(first, last + 1));
   }
   if (!parsed || typeof parsed !== "object") return { malformed: true };
+  const root = parsed as RawTurnResponse;
   return {
-    warrants_illustration: !!parsed.warrants_illustration,
-    milestone_reason: typeof parsed.milestone_reason === "string" ? parsed.milestone_reason : "",
-    caption: typeof parsed.caption === "string" ? parsed.caption : "",
-    subject_ids: Array.isArray(parsed.subject_ids) ? parsed.subject_ids.filter((/** @type {any} */ s) => typeof s === "string") : [],
-    scene_clause: typeof parsed.scene_clause === "string" ? parsed.scene_clause : "",
-    extra_negatives: Array.isArray(parsed.extra_negatives) ? parsed.extra_negatives.filter((/** @type {any} */ s) => typeof s === "string") : [],
-    ledger_updates: Array.isArray(parsed.ledger_updates) ? parsed.ledger_updates.filter((/** @type {any} */ e) => e && typeof e.id === "string" && Array.isArray(e.tags)) : []
+    warrants_illustration: !!root.warrants_illustration,
+    milestone_reason: typeof root.milestone_reason === "string" ? root.milestone_reason : "",
+    caption: typeof root.caption === "string" ? root.caption : "",
+    subject_ids: Array.isArray(root.subject_ids) ? root.subject_ids.filter((s): s is string => typeof s === "string") : [],
+    scene_clause: typeof root.scene_clause === "string" ? root.scene_clause : "",
+    extra_negatives: Array.isArray(root.extra_negatives) ? root.extra_negatives.filter((s): s is string => typeof s === "string") : [],
+    ledger_updates: (Array.isArray(root.ledger_updates) ? root.ledger_updates.filter(isLedgerEntry) : []).map((e) => ({ id: e.id, tags: e.tags as string[] }))
   };
 };

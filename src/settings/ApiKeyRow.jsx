@@ -4,7 +4,7 @@
  */
 import React from "react";
 import { encryptSecret } from "../storage/encryption";
-import { PROVIDER_META, resetProviderKey, checkProviderHealth } from "../llm/providers.js";
+import { PROVIDER_META, resetProviderKey, checkProviderHealth } from "../llm/providers";
 import { requestPassphrase, getSessionPassphrase, setSessionPassphrase } from "../passphrase";
 
 /**

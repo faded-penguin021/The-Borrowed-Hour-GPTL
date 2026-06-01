@@ -1,6 +1,6 @@
 // @ts-check
 import React from "react";
-import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "../tts/catalogue.js";
+import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "../tts/catalogue";
 import { ModelPicker } from "./ModelPicker.jsx";
 
 /**
