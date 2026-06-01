@@ -20,11 +20,27 @@ function refreshSnapshot() {
   snapshot = buffer.slice();
 }
 
+function describeError(e: Error): string {
+  let s = `${e.name}: ${e.message}`;
+  // Surface domain-specific fields (BorrowedError carries the actionable text).
+  const detail = (e as { detail?: unknown }).detail;
+  if (typeof detail === "string" && detail) s += ` | detail: ${detail}`;
+  const raw = (e as { raw?: unknown }).raw;
+  if (raw != null) {
+    const rawStr = typeof raw === "string" ? raw : (() => { try { return JSON.stringify(raw); } catch { return String(raw); } })();
+    s += ` | raw: ${rawStr.slice(0, 300)}`;
+  }
+  // First non-message line of the stack pinpoints the throw site.
+  const stackLine = e.stack?.split("\n").find((l) => /\s+at\s/.test(l));
+  if (stackLine) s += ` | ${stackLine.trim()}`;
+  return s;
+}
+
 function safeStringify(v: unknown): string {
   if (typeof v === "string") return v;
-  if (v instanceof Error) return `${v.name}: ${v.message}`;
+  if (v instanceof Error) return describeError(v);
   try {
-    return JSON.stringify(v, (_k, val) => (val instanceof Error ? `${val.name}: ${val.message}` : val));
+    return JSON.stringify(v, (_k, val) => (val instanceof Error ? describeError(val) : val));
   } catch {
     return String(v);
   }
