@@ -134,9 +134,10 @@ export class TTSController {
     } catch (e) {
       this.loading = false;
       this.loadingTurnId = null;
-      if (e?.name === "AbortError") { this._notifyState(); return; }
-      const msg = e?.message || String(e);
-      const detail = e?.detail ? ` — ${e.detail}` : "";
+      const caught = /** @type {ThrownError} */ (e);
+      if (caught?.name === "AbortError") { this._notifyState(); return; }
+      const msg = caught?.message || String(e);
+      const detail = caught?.detail ? ` — ${caught.detail}` : "";
       this.lastError = `synthesis: ${msg}${detail}`.slice(0, 200);
       this.lastErrorTurnId = turnId != null ? turnId : null;
       this._endSpeak(turnId);

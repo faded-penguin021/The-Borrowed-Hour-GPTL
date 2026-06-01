@@ -10,8 +10,9 @@ if (!window.storage) {
       try {
         localStorage.setItem(key, value);
       } catch (e) {
-        const msg = e?.message || "";
-        if (/quota|storage/i.test(msg) || e?.name === "QuotaExceededError") {
+        const caught = /** @type {ThrownError} */ (e);
+        const msg = caught?.message || "";
+        if (/quota|storage/i.test(msg) || caught?.name === "QuotaExceededError") {
           const wrapped = new Error(`Storage quota exceeded while saving "${key}" (${Math.round(value.length / 1024)} KB).`);
           wrapped.name = "QuotaExceededError";
           throw wrapped;

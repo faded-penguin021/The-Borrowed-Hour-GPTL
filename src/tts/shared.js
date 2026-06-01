@@ -83,7 +83,7 @@ export function _blobHandle(blob, signal, onError) {
     try { await sniffPromise; } catch (_) {}
     let p;
     try { p = audio.play(); } catch (e) {
-      const info = `play() threw: ${e?.message || e} (${fmtBlobInfo()})`;
+      const info = `play() threw: ${/** @type {ThrownError} */ (e)?.message || e} (${fmtBlobInfo()})`;
       if (typeof console !== "undefined") console.warn("[tts]", info);
       report(info);
       return;

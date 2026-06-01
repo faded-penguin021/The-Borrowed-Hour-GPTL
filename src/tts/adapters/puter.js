@@ -51,7 +51,7 @@ export class PuterTTSAdapter {
     const tryPlay = () => {
       let p;
       try { p = audio.play(); } catch (e) {
-        const info = `puter play() threw: ${e?.message || e}`;
+        const info = `puter play() threw: ${/** @type {ThrownError} */ (e)?.message || e}`;
         if (typeof console !== "undefined") console.warn("[tts]", info);
         report(info);
         return;

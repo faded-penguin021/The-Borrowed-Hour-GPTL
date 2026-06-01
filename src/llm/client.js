@@ -71,7 +71,8 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
         });
       } catch (e) {
         if (e instanceof BorrowedError) throw e;
-        throw new BorrowedError("The hour falters.", `Could not build the ${meta.name} request${e?.message ? ` (${e.message})` : ""}.`);
+        const caught = /** @type {ThrownError} */ (e);
+        throw new BorrowedError("The hour falters.", `Could not build the ${meta.name} request${caught?.message ? ` (${caught.message})` : ""}.`);
       }
       applyProxy(request);
       try {
@@ -101,11 +102,12 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
         lastErr = new BorrowedError("The hour falters.", attempt < MAX_RETRIES ? `${detailedHint} Retrying…` : `${detailedHint} Retried ${MAX_RETRIES} times without success.`);
         res = null;
       } catch (e) {
-        if (e && e.name === "AbortError" || signal && signal.aborted) {
+        const caught = /** @type {ThrownError} */ (e);
+        if (caught && caught.name === "AbortError" || signal && signal.aborted) {
           throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
         }
         if (e instanceof BorrowedError) throw e;
-        const netMsg = e?.message || "";
+        const netMsg = caught?.message || "";
         const isCORS = /failed to fetch|networkerror|cors|load failed/i.test(netMsg);
         const corsHint = isCORS && providerId === "local"
           ? ` If using Ollama, set OLLAMA_ORIGINS to this page's origin (e.g. ${location.origin}). For LM Studio, enable CORS in server settings.`
@@ -176,7 +178,8 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
         request = provider.buildStreamRequest({ sys, msgs, model, maxTokens, temperature: temp, apiKey });
       } catch (e) {
         if (e instanceof BorrowedError) throw e;
-        throw new BorrowedError("The hour falters.", `Could not build the ${meta.name} request${e?.message ? ` (${e.message})` : ""}.`);
+        const caught = /** @type {ThrownError} */ (e);
+        throw new BorrowedError("The hour falters.", `Could not build the ${meta.name} request${caught?.message ? ` (${caught.message})` : ""}.`);
       }
       applyProxy(request);
       let res;
@@ -188,10 +191,11 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
           signal: signal || undefined
         });
       } catch (e) {
-        if (e && e.name === "AbortError" || signal && signal.aborted) {
+        const caught = /** @type {ThrownError} */ (e);
+        if (caught && caught.name === "AbortError" || signal && signal.aborted) {
           throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
         }
-        const netMsg = e?.message || "";
+        const netMsg = caught?.message || "";
         const isCORS = /failed to fetch|networkerror|cors|load failed/i.test(netMsg);
         const corsHint = isCORS && providerId === "local"
           ? ` If using Ollama, set OLLAMA_ORIGINS to this page's origin (e.g. ${location.origin}). For LM Studio, enable CORS in server settings.`
@@ -268,17 +272,18 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
         handleEvent(buffer);
       } catch (e) {
         try { reader.cancel(); } catch {}
+        const caught = /** @type {ThrownError} */ (e);
         if (stalled) {
           /** @type {BorrowedError & { partial?: string }} */
           const err = new BorrowedError("The hour falters.", `The ${meta.name} narration stream went silent for ${Math.round(STALL_MS/1000)}s — likely the connection was dropped while the tab was in the background. Try again.`);
           if (full) err.partial = full;
           throw err;
         }
-        if (e && e.name === "AbortError" || signal && signal.aborted) {
+        if (caught && caught.name === "AbortError" || signal && signal.aborted) {
           throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
         }
         /** @type {BorrowedError & { partial?: string }} */
-        const err = e instanceof BorrowedError ? e : new BorrowedError("The hour falters.", `The ${meta.name} narration stream broke${e?.message ? ` (${e.message})` : ""}.`);
+        const err = e instanceof BorrowedError ? e : new BorrowedError("The hour falters.", `The ${meta.name} narration stream broke${caught?.message ? ` (${caught.message})` : ""}.`);
         if (full) err.partial = full;
         throw err;
       } finally {

@@ -101,7 +101,8 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
       setStyleBible(parsed.style_bible || null);
       setVisualLedger(parsed.visual_ledger || []);
     } catch (e) {
-      if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Art Director bootstrap failed:", e?.detail || e?.message || e);
+      const caught = /** @type {ThrownError} */ (e);
+      if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Art Director bootstrap failed:", caught?.detail || caught?.message || e);
     }
   };
 
@@ -143,7 +144,8 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
       }
       ad = parsed;
     } catch (e) {
-      if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Art Director turn failed:", e?.detail || e?.message || e);
+      const caught = /** @type {ThrownError} */ (e);
+      if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Art Director turn failed:", caught?.detail || caught?.message || e);
       return;
     }
 
@@ -194,7 +196,8 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
       setEntryIllustration(idx, { status: "ready", url: img.url, prompt, provider: img.provider });
     } catch (e) {
       if (stale()) return;
-      if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Image generation failed:", e?.detail || e?.message || e);
+      const caught = /** @type {ThrownError} */ (e);
+      if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Image generation failed:", caught?.detail || caught?.message || e);
       setEntryIllustration(idx, { status: "failed" });
     } finally {
       inflightRef.current--;

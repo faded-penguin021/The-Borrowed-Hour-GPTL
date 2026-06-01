@@ -190,6 +190,7 @@ export var PROVIDER_META = {
     ]
   }
 };
+/** @type {ProviderId[]} */
 export var PROVIDER_ORDER = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie", "mistral", "groq", "openrouter", "cerebras", "local"];
 export var FREE_MODELS_BY_PROVIDER = {
   free:       { provider: "mistral",    opener: "mistral-large-latest",                gm: "mistral-medium-latest",             narrator: "mistral-medium-latest" },
@@ -289,8 +290,9 @@ export var checkProviderHealth = async (id, model) => {
     const apiMsg = extractApiErrorMessage(snip);
     return { ok: false, detail: apiMsg ? `${hint} ${apiMsg}` : hint };
   } catch (e) {
-    if (e?.name === "AbortError") return { ok: false, detail: `${m.name} did not respond within 10 seconds.` };
-    const msg = e?.message || String(e);
+    const caught = /** @type {ThrownError} */ (e);
+    if (caught?.name === "AbortError") return { ok: false, detail: `${m.name} did not respond within 10 seconds.` };
+    const msg = caught?.message || String(e);
     const isCORS = /failed to fetch|networkerror|cors|load failed/i.test(msg);
     if (isCORS && id === "local") {
       return { ok: false, detail: `Could not reach the local LLM endpoint. If using Ollama, set OLLAMA_ORIGINS to your app's origin (e.g. http://localhost:5173). For LM Studio, enable CORS in the server settings.` };

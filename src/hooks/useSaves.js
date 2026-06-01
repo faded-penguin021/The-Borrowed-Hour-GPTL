@@ -148,7 +148,7 @@ export function useSaves() {
       // The text record failed to land; release any blobs we just wrote for it
       // so they don't linger orphaned in IndexedDB.
       deleteImagesForSave(id);
-      const msg = e && e.message || "";
+      const msg = /** @type {ThrownError} */ (e)?.message || "";
       const looksQuota = /quota|limit|too large|size|5\s*mb/i.test(msg);
       setSaveBanner({
         kind: "err",

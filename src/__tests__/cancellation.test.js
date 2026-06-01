@@ -15,7 +15,7 @@ describe("abort / cancellation contract", () => {
     try {
       await fetchLike(controller.signal);
     } catch (e) {
-      expect(e.name).toBe("AbortError");
+      expect(/** @type {ThrownError} */ (e).name).toBe("AbortError");
     }
   });
 

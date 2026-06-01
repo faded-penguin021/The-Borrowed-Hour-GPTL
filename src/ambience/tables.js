@@ -13,7 +13,7 @@
  * @typedef {Object} AmbienceEngine
  * @property {AudioContext} ctx
  * @property {AudioNode} master
- * @property {(seconds: number, color: string) => AudioBuffer} _noiseBuffer
+ * @property {(seconds: number, color: "pink" | "brown" | "white") => AudioBuffer} _noiseBuffer
  */
 
 /**

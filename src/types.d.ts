@@ -37,6 +37,22 @@ interface AmbienceInput {
   events?: AmbienceEvent[];
 }
 
+// ── Error handling ────────────────────────────────────────────────────────────
+
+// Loose shape for values caught in a `catch` clause. Under `useUnknownInCatchVariables`
+// a caught value is `unknown`; thrown values may be a BorrowedError, a native
+// Error/DOMException, or an arbitrary object. The app reads these fields
+// defensively (always guarded or optional-chained), so model them all as optional.
+interface ThrownError {
+  name?: string;
+  message?: string;
+  detail?: string;
+  partial?: string;
+  raw?: string;
+  status?: number;
+  code?: number;
+}
+
 // ── Core game types ───────────────────────────────────────────────────────────
 
 interface NPC {

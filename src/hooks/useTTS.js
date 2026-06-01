@@ -232,7 +232,7 @@ export function useTTS({ showSettings }) {
         const voices = await fetchVoxtralVoices(key);
         if (!cancelled) { setTtsVoxtralVoices(voices); setTtsVoxtralVoicesError(null); }
       } catch (e) {
-        if (!cancelled) setTtsVoxtralVoicesError(e?.message || String(e));
+        if (!cancelled) setTtsVoxtralVoicesError(/** @type {ThrownError} */ (e)?.message || String(e));
       }
     })();
     return () => { cancelled = true; };

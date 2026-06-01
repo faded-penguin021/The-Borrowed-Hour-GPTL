@@ -561,13 +561,14 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
         } catch (e) {
           if (controller.signal.aborted) return false;
           if (e instanceof BorrowedError && e.detail === "Request cancelled by the player.") return false;
-          if (e && typeof e.partial === "string" && e.partial) {
-            finalizeNarration(e.partial, gmParsed, newEntries, newHistory, true);
+          const caught = /** @type {ThrownError} */ (e);
+          if (caught && typeof caught.partial === "string" && caught.partial) {
+            finalizeNarration(caught.partial, gmParsed, newEntries, newHistory, true);
             setError(formatError(e));
             setRecovery({
               narratorSys, narratorPrompt, gmParsed,
               baseEntries: newEntries, baseHistory: newHistory,
-              partial: e.partial
+              partial: caught.partial
             });
             return true;
           }
