@@ -2,7 +2,7 @@
 /**
  * @import { BuildRequestParams, ChatCompletionsProviderConfig, ChatMessage, StreamEvent, ToolDefinition } from "../types"
  */
-import { BorrowedError } from "./errors.js";
+import { BorrowedError } from "./errors";
 
 /**
  * @param {unknown} content

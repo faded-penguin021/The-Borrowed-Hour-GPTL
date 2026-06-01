@@ -10,10 +10,10 @@
 // `url` is renderable directly in an <img> (a direct URL, a blob: URL, or a
 // data: URL). Errors throw BorrowedError. Caller is responsible for catching
 // — image failures never break a turn; they become a "Missing Plate".
-import { BorrowedError, scrubSecrets } from "./errors.js";
-import { ENC_PREFIX, decryptSecret } from "../storage/encryption.js";
+import { BorrowedError, scrubSecrets } from "./errors";
+import { ENC_PREFIX, decryptSecret } from "../storage/encryption";
 import { getProviderKey } from "./providers.js";
-import { getSessionPassphrase } from "../passphrase.js";
+import { getSessionPassphrase } from "../passphrase";
 
 export const POLLINATIONS_DEFAULT_MODEL = "flux";
 export const REPLICATE_DEFAULT_MODEL = "black-forest-labs/flux-schnell";

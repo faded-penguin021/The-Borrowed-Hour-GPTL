@@ -2,7 +2,7 @@
 /**
  * @import { Premise } from "../types"
  */
-import { languageNameFor } from "../data/languages.js";
+import { languageNameFor } from "../data/languages";
 
 /**
  * @param {Premise} premise

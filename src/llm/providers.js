@@ -2,11 +2,11 @@
 /**
  * @import { BuildRequestParams, ChatMessage, ProviderId, ProviderMeta, StreamEvent, ThrownError, ToolDefinition } from "../types"
  */
-import { BorrowedError } from "./errors.js";
-import { httpStatusHint, extractApiErrorMessage, scrubSecrets } from "./errors.js";
-import { LOCAL_DEFAULT_URL } from "../data/constants.js";
-import { ENC_PREFIX, decryptSecret } from "../storage/encryption.js";
-import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase } from "../passphrase.js";
+import { BorrowedError } from "./errors";
+import { httpStatusHint, extractApiErrorMessage, scrubSecrets } from "./errors";
+import { LOCAL_DEFAULT_URL } from "../data/constants";
+import { ENC_PREFIX, decryptSecret } from "../storage/encryption";
+import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase } from "../passphrase";
 
 // GM_TOOL circular-dependency break: tools.js imports from providers.js, and
 // providers.js needs GM_TOOL (defined in tools.js) only inside buildStreamRequest
@@ -228,7 +228,7 @@ export var getProviderKey = async (id) => {
     if (!stored.startsWith(ENC_PREFIX))
       return stored.trim();
     if (!getSessionPassphrase()) {
-      const { requestPassphrase } = await import("../passphrase.js");
+      const { requestPassphrase } = await import("../passphrase");
       setSessionPassphrase(await requestPassphrase("Enter your session passphrase to unlock API keys:"));
     }
     const passphrase = getSessionPassphrase();

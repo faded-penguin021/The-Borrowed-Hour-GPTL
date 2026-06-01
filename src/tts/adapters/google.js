@@ -2,7 +2,7 @@
 /**
  * @import { TTSAdapterOptions, TTSHandle } from "../../types"
  */
-import { BorrowedError } from "../../llm/errors.js";
+import { BorrowedError } from "../../llm/errors";
 import { _blobHandle } from "../shared.js";
 
 export class GoogleTTSAdapter {

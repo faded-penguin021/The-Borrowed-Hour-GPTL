@@ -1,6 +1,6 @@
 // @ts-check
 import React, { useState, useEffect, useRef } from "react";
-import { getPassphraseState, onPassphraseChange, resolvePassphrase } from "../passphrase.js";
+import { getPassphraseState, onPassphraseChange, resolvePassphrase } from "../passphrase";
 
 export function PassphraseModal() {
   const [state, setState] = useState(getPassphraseState);

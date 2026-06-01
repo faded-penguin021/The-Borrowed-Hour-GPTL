@@ -16,7 +16,7 @@
 // LLM cannot drift away from the locked aesthetic or invent new appearances
 // for recurring NPCs.
 // @ts-check
-import { DEFAULT_LANGUAGE } from "../data/languages.js";
+import { DEFAULT_LANGUAGE } from "../data/languages";
 
 /** @type {Record<string, RealmAestheticSeed>} */
 export const REALM_AESTHETIC_SEEDS = {

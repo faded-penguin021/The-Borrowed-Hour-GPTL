@@ -1,18 +1,11 @@
-// @ts-check
-/**
- * @import { Premise } from "../types"
- */
+import type { Premise } from "../types";
 import { gmNote as echoTrainGmNote } from "../prompts/premises/echo-train.js";
 import { gmNote as neonSpireGmNote } from "../prompts/premises/neon-spire.js";
 import { gmNote as omenSolsticeGmNote } from "../prompts/premises/omen-solstice.js";
 import { gmNote as dreamCircusGmNote } from "../prompts/premises/dream-circus.js";
 import { gmNote as customGmNote } from "../prompts/premises/custom.js";
 
-/**
- * @param {string} realm
- * @returns {string}
- */
-export function realmGlyph(realm) {
+export function realmGlyph(realm: string): string {
   switch (realm) {
     case "echo":
       return "◷";
@@ -29,11 +22,7 @@ export function realmGlyph(realm) {
   }
 }
 
-/**
- * @param {string} description
- * @returns {Premise}
- */
-export var buildCustomPremise = (description) => ({
+export const buildCustomPremise = (description: string): Premise => ({
   id: "custom-" + Date.now().toString(36),
   realm: "wild",
   realmLabel: "WILD",
@@ -44,8 +33,7 @@ export var buildCustomPremise = (description) => ({
   gmNote: customGmNote
 });
 
-/** @type {Premise[]} */
-export var PREMISES = [
+export const PREMISES: Premise[] = [
   {
     id: "echo-train",
     realm: "echo",
@@ -88,8 +76,7 @@ The big top is half empty: Mara's dream is thinning. The ringmaster, Iarno, has 
   }
 ];
 
-/** @type {string[]} */
-export var NARRATION_LOADING_PHRASES = [
+export const NARRATION_LOADING_PHRASES: string[] = [
   "the GM turns the gears",
   "the narrator takes the stage",
   "the hour considers",
@@ -104,8 +91,7 @@ export var NARRATION_LOADING_PHRASES = [
   "something is being decided about you"
 ];
 
-/** @type {string[]} */
-export var META_LOADING_PHRASES = [
+export const META_LOADING_PHRASES: string[] = [
   "the author considers",
   "the author gathers their thoughts",
   "the author thinks back on it",
@@ -113,8 +99,7 @@ export var META_LOADING_PHRASES = [
   "the margins are read again"
 ];
 
-/** @type {string[]} */
-export var OPENING_LOADING_PHRASES = [
+export const OPENING_LOADING_PHRASES: string[] = [
   "the hour begins to write itself",
   "the first page finds its words",
   "the world steadies into place",
@@ -122,5 +107,4 @@ export var OPENING_LOADING_PHRASES = [
   "the chronicle wakes"
 ];
 
-/** @param {string[]} pool @returns {string} */
-export var pickPhrase = (pool) => pool[Math.floor(Math.random() * pool.length)];
+export const pickPhrase = (pool: string[]): string => pool[Math.floor(Math.random() * pool.length)];

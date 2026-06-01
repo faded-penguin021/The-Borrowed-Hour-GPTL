@@ -1,5 +1,5 @@
 // @ts-check
-import "./storage/shim.js";
+import "./storage/shim";
 import "./styles/tailwind.css";
 import "./styles/theme.css";
 
