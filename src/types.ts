@@ -335,6 +335,8 @@ export interface AppSettings {
   highContrast: boolean;
   disableTypewriter: boolean;
   streamNarration: boolean;
+  /** Show the on-screen debug log overlay (a floating button + copyable panel). */
+  debugOverlay: boolean;
   engineStack: string;
   freeModelSelection: boolean;
   engineOpening: EngineConfig;

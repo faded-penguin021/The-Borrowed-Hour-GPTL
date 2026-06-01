@@ -68,6 +68,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   highContrast: false,
   disableTypewriter: false,
   streamNarration: true,
+  debugOverlay: false,
   engineStack: "free",
   freeModelSelection: false,
   engineOpening: DEFAULT_ENGINE_OPENING,

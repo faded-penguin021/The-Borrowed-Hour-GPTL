@@ -21,7 +21,7 @@ const levelColor: Record<string, string> = {
   debug: "#b0b0b0",
 };
 
-export function DebugOverlay() {
+export function DebugOverlay({ enabled = false }: { enabled?: boolean }) {
   const entries = useEntries();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -30,8 +30,13 @@ export function DebugOverlay() {
 
   // Auto-open the first time an error is captured so it can't be missed.
   useEffect(() => {
-    if (errorCount > 0) setOpen(true);
-  }, [errorCount]);
+    if (enabled && errorCount > 0) setOpen(true);
+  }, [enabled, errorCount]);
+
+  // Off by default; opt in via Settings → Debug log overlay. Capture itself
+  // stays always-on (installed in main.tsx), so the buffer is already populated
+  // the moment this is switched on.
+  if (!enabled) return null;
 
   const asText = () =>
     entries
