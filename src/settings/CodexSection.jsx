@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { IMAGE_PROVIDER_META, IMAGE_PROVIDER_ORDER, setReplicateKey, getReplicateKeyPlaintext, setLocalImageUrl, getLocalImageUrl, LOCAL_IMAGE_DEFAULT_URL } from "../llm/imaging.js";
 import { PROVIDER_META, TOOL_USE_PROVIDER_ORDER } from "../llm/providers.js";
+import { CODEX_MODE_OPTIONS } from "../data/constants.js";
 import { ModelPicker } from "./ModelPicker.jsx";
 
 const fieldStyle = {
@@ -42,11 +43,7 @@ export function CodexSection({ settings, onChange }) {
     }
   });
 
-  const modeOptions = [
-    { id: "off",          label: "Off",          hint: "No illustrations. The text stands alone." },
-    { id: "key_moments",  label: "Key moments",  hint: "The Art Director gates plates to milestones." },
-    { id: "always",       label: "Always",       hint: "A plate every turn — counter to the codex feel." }
-  ];
+  const modeOptions = CODEX_MODE_OPTIONS;
 
   return (
     <div className="settings-toggle" style={{ cursor: "default", display: "block" }}>
@@ -75,7 +72,7 @@ export function CodexSection({ settings, onChange }) {
             type="button"
             role="radio"
             aria-checked={mode === opt.id ? "true" : "false"}
-            onClick={() => update({ mode: /** @type {CodexMode} */ (opt.id) })}
+            onClick={() => update({ mode: opt.id })}
             className="icon-btn"
             title={opt.hint}
             style={{
