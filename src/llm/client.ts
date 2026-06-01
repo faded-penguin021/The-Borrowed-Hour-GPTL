@@ -181,8 +181,12 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
       if (fallback) onDelta(fallback);
       return fallback;
     }
-    const buildStreamRequest = provider.buildStreamRequest;
-    const parseStreamEvent = provider.parseStreamEvent;
+    // Bind to `provider` so `this` survives: makeChatCompletionsProvider's
+    // buildStreamRequest calls `this.buildRequest(...)`. A bare reference would
+    // leave `this` undefined and crash with
+    // "Cannot read properties of undefined (reading 'buildRequest')".
+    const buildStreamRequest = provider.buildStreamRequest.bind(provider);
+    const parseStreamEvent = provider.parseStreamEvent.bind(provider);
     let temp: number | undefined = temperature;
     const RETRYABLE = provider.retryable;
     const MAX_RETRIES = 2;
