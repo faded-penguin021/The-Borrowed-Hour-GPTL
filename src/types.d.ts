@@ -272,7 +272,11 @@ interface GeneratedImage {
 
 // ── Settings types ────────────────────────────────────────────────────────────
 
-type CodexMode = "off" | "milestone" | "every";
+// Illustration-frequency mode. These literals are the persisted values written
+// by the settings UI and read by the codex runtime (src/hooks/useCodex.js):
+// "off" disables plates, "always" requests one every turn, and "key_moments"
+// (the default non-off mode) lets the Art Director gate plates to milestones.
+type CodexMode = "off" | "key_moments" | "always";
 
 interface CodexProviderConfig {
   pollinations?: { model: string };

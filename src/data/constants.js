@@ -52,6 +52,17 @@ export var DEFAULT_ENGINE_GM = { provider: "mistral", model: "mistral-medium-lat
 /** @type {EngineConfig} */
 export var DEFAULT_ENGINE_NARRATOR = { provider: "mistral", model: "mistral-medium-latest" };
 
+// Canonical illustration-frequency choices, shared by the settings UI and kept
+// in lock-step with the `CodexMode` type and the `useCodex` runtime. The `id`
+// fields are annotated as `CodexMode`, so tsc fails the build if this list and
+// the type ever drift apart again (the original bug this guards against).
+/** @type {{ id: CodexMode, label: string, hint: string }[]} */
+export var CODEX_MODE_OPTIONS = [
+  { id: "off",         label: "Off",         hint: "No illustrations. The text stands alone." },
+  { id: "key_moments", label: "Key moments", hint: "The Art Director gates plates to milestones." },
+  { id: "always",      label: "Always",      hint: "A plate every turn — counter to the codex feel." }
+];
+
 /** @type {CodexSettings} */
 export var DEFAULT_CODEX_SETTINGS = {
   mode: "off",
