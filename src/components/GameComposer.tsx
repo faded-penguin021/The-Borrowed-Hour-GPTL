@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useGameActions, useGameStory, useGameRun } from "../context/GameContext";
+import { dlog } from "../debug/debugLog"; // TEMPORARY
 
 /**
  * The input row. Owns `input` and the per-session input history locally so a
@@ -37,15 +38,22 @@ export const GameComposer = React.memo(function GameComposer() {
 
   const doSubmit = async () => {
     const text = input.trim();
-    if (!text || inputLocked) return;
+    dlog("composer.doSubmit", { textLen: text.length, inputLocked, loading, ended, metaMode });
+    if (!text || inputLocked) { dlog("composer.doSubmit: blocked (empty or locked)"); return; }
     setInput("");
     setInputHistory((h) => h[h.length - 1] === text ? h : [...h, text]);
     setInputHistoryIndex(-1);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
-    const ok = await submit(text);
-    if (ok === false) {
-      setInput(text);
-      requestAnimationFrame(autosize);
+    try {
+      dlog("composer.doSubmit: calling submit()");
+      const ok = await submit(text);
+      dlog("composer.doSubmit: submit() returned", ok);
+      if (ok === false) {
+        setInput(text);
+        requestAnimationFrame(autosize);
+      }
+    } catch (err) {
+      dlog("composer.doSubmit: submit() THREW", err);
     }
   };
 

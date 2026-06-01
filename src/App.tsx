@@ -15,6 +15,7 @@ import { PassphraseModal } from "./components/PassphraseModal";
 import { OnboardingModal } from "./components/OnboardingModal";
 import { CustomModal } from "./components/modals/CustomModal";
 import { useViewport } from "./hooks/useViewport";
+import { DebugOverlay } from "./components/DebugOverlay"; // TEMPORARY
 
 /**
  * The view layer that lives *inside* all the providers. Settings, ambience, and
@@ -111,6 +112,7 @@ function AppContent({
         )}
         <PassphraseModal />
       </div>
+      <DebugOverlay />
     </div>
   );
 }

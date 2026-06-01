@@ -2,6 +2,10 @@ import "./storage/shim";
 import "./styles/tailwind.css";
 import "./styles/theme.css";
 
+// TEMPORARY: capture console/errors for the on-screen debug overlay (mobile).
+import { installDebugCapture } from "./debug/debugLog";
+installDebugCapture();
+
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { ErrorBoundary } from "./components/ErrorBoundary";
