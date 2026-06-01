@@ -1,6 +1,5 @@
 // @ts-check
 import { TTS_PROVIDER_META } from "./catalogue.js";
-import { BorrowedError } from "../llm/errors.js";
 
 export class TTSController {
   constructor() {

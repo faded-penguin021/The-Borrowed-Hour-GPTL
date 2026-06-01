@@ -177,7 +177,7 @@ export function buildParseDiagnostic(rawText, parsed, reasonGuess) {
   const head = raw.slice(0, 200).replace(/\s+/g, " ");
   const tail = raw.slice(-200).replace(/\s+/g, " ");
   const endsCleanly = /[}\]]\s*$/.test(raw);
-  const startsAsJson = /^\s*[{\[]/.test(raw);
+  const startsAsJson = /^\s*[{[]/.test(raw);
   let reason = reasonGuess;
   if (!reason) {
     if (len === 0) reason = "Raw payload was empty.";

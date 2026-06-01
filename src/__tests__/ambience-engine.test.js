@@ -1,4 +1,3 @@
-// @ts-nocheck — intentional partial mocks (Web Audio / TTS adapter / ledger); burn down per Work Item 3c
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   AMBIENCE_SPACE_VALUES,
@@ -55,7 +54,8 @@ class MockAudioContext {
 let AmbienceEngine;
 beforeEach(async () => {
   vi.useFakeTimers();
-  globalThis.window = { AudioContext: MockAudioContext };
+  // Partial browser-global mock: only AudioContext is needed by the engine.
+  globalThis.window = /** @type {any} */ ({ AudioContext: MockAudioContext });
   ({ AmbienceEngine } = await import("../ambience/engine.js"));
 });
 afterEach(() => {
@@ -321,10 +321,10 @@ describe("realm-derived opening ambience", () => {
   it("every realm default uses only valid enum values", async () => {
     const { AMBIENCE_REALM_DEFAULTS, AMBIENCE_REALM_FALLBACK } =
       await import("../ambience/tables.js");
-    const spaces = new Set(AMBIENCE_SPACE_VALUES);
-    const moods = new Set(AMBIENCE_MOOD_VALUES);
-    const palettes = new Set(AMBIENCE_PALETTE_VALUES);
-    const populations = new Set(AMBIENCE_POPULATION_VALUES);
+    const spaces = /** @type {Set<string>} */ (new Set(AMBIENCE_SPACE_VALUES));
+    const moods = /** @type {Set<string>} */ (new Set(AMBIENCE_MOOD_VALUES));
+    const palettes = /** @type {Set<string>} */ (new Set(AMBIENCE_PALETTE_VALUES));
+    const populations = /** @type {Set<string>} */ (new Set(AMBIENCE_POPULATION_VALUES));
     for (const bed of [...Object.values(AMBIENCE_REALM_DEFAULTS), AMBIENCE_REALM_FALLBACK]) {
       expect(spaces.has(bed.space)).toBe(true);
       expect(moods.has(bed.mood)).toBe(true);

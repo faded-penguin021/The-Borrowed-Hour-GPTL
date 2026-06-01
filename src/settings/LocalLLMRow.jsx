@@ -1,5 +1,5 @@
 // @ts-check
-import React, { useState } from "react";
+import React from "react";
 import { LOCAL_DEFAULT_URL } from "../data/constants.js";
 import { encryptSecret } from "../storage/encryption.js";
 import { PROVIDER_META } from "../llm/providers.js";

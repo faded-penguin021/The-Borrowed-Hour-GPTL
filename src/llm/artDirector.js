@@ -13,7 +13,7 @@
 // LLM cannot drift away from the locked aesthetic or invent new appearances
 // for recurring NPCs.
 // @ts-check
-import { languageNameFor, DEFAULT_LANGUAGE } from "../data/languages.js";
+import { DEFAULT_LANGUAGE } from "../data/languages.js";
 
 /** @type {Record<string, RealmAestheticSeed>} */
 export const REALM_AESTHETIC_SEEDS = {
@@ -150,10 +150,10 @@ const realmKey = (premise) => {
 
 /**
  * @param {Premise} premise
- * @param {string} [language]
+ * @param {string} [_language]
  * @returns {string}
  */
-export const buildBootstrapSystem = (premise, language = DEFAULT_LANGUAGE) => {
+export const buildBootstrapSystem = (premise, _language = DEFAULT_LANGUAGE) => {
   if (premise?.isCustom) {
     return `You are the Art Director of an immersive text adventure called "The Borrowed Hour". Illustrations in this codex are RARE plates in a manuscript. Your job on this very first turn is to LOCK IN the aesthetic for the whole chronicle based on the player's custom scenario, and to seed an initial Visual Ledger of recurring subjects.
 
@@ -192,10 +192,10 @@ Write tag values plainly in English (these are prompt fragments for an image mod
  * @param {Premise} premise
  * @param {StyleBible} styleBible
  * @param {VisualLedgerEntry[]} visualLedger
- * @param {string} [language]
+ * @param {string} [_language]
  * @returns {string}
  */
-export const buildTurnSystem = (premise, styleBible, visualLedger, language = DEFAULT_LANGUAGE) => {
+export const buildTurnSystem = (premise, styleBible, visualLedger, _language = DEFAULT_LANGUAGE) => {
   const ledgerLines = (visualLedger || []).map((e) => `  - ${e.id}: ${(e.tags || []).join(", ")}`).join("\n") || "  (empty)";
   const sb = /** @type {Partial<StyleBible>} */ (styleBible || {});
   return `You are the Art Director of an immersive text adventure. The narrative text is sovereign — your job is to CURATE rare illustration plates that feel like inserts in a leather-bound manuscript. Most turns DO NOT warrant a plate; the default answer is no.

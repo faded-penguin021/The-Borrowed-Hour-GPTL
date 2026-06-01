@@ -1,8 +1,6 @@
 // @ts-check
 import "./storage/shim.js";
-// @ts-ignore — CSS imports handled by Vite
 import "./styles/tailwind.css";
-// @ts-ignore — CSS imports handled by Vite
 import "./styles/theme.css";
 
 import React from "react";

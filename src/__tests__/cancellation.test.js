@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 
 describe("abort / cancellation contract", () => {
   it("AbortController.abort() causes subsequent fetch to throw AbortError", async () => {
@@ -53,7 +53,7 @@ describe("abort / cancellation contract", () => {
 
     const controller = new AbortController();
     const rollback = () => { entries = previousEntries; };
-    const abortRef = { controller, rollback, startedAt: Date.now() };
+    const _abortRef = { controller, rollback, startedAt: Date.now() };
 
     // Simulate cancelRequest
     loading = false;
@@ -132,7 +132,7 @@ describe("turn-scoped stale detection (codex pattern)", () => {
     const results = [];
 
     const simulateImage = async (label) => {
-      const myTurn = turnIdRef.current;
+      const _myTurn = turnIdRef.current;
       if (inflightRef.current >= MAX_INFLIGHT) { results.push(`${label}:gated`); return; }
       inflightRef.current++;
       try {

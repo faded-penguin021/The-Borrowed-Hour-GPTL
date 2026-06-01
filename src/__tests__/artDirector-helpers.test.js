@@ -1,4 +1,3 @@
-// @ts-nocheck — intentional partial mocks (Web Audio / TTS adapter / ledger); burn down per Work Item 3c
 import { describe, it, expect } from "vitest";
 import {
   mergeLedger, composeImagePrompt,
@@ -23,13 +22,15 @@ describe("mergeLedger", () => {
   });
 
   it("filters non-string tags", () => {
-    const result = mergeLedger([], [{ id: "npc:x", tags: ["ok", 42, null, "fine"] }]);
+    // Deliberately malformed tags to exercise the string-only filter.
+    const result = mergeLedger([], /** @type {VisualLedgerEntry[]} */ ([{ id: "npc:x", tags: ["ok", 42, null, "fine"] }]));
     expect(result[0].tags).toEqual(["ok", "fine"]);
   });
 
   it("skips invalid updates (no id, no tags array)", () => {
     const current = [{ id: "a", tags: ["x"] }];
-    const result = mergeLedger(current, [null, { tags: ["y"] }, { id: "b" }]);
+    // Deliberately invalid entries (null, missing id, missing tags) to exercise the skip path.
+    const result = mergeLedger(current, /** @type {VisualLedgerEntry[]} */ ([null, { tags: ["y"] }, { id: "b" }]));
     expect(result).toHaveLength(1);
   });
 

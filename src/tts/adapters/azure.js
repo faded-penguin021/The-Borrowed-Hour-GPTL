@@ -4,7 +4,7 @@ import { _blobHandle } from "../shared.js";
 
 export class AzureTTSAdapter {
   /** @param {TTSAdapterOptions} opts */
-  constructor({ voiceId, rate, key, model, region }) {
+  constructor({ voiceId, rate, key, region }) {
     this.voiceId = voiceId || "en-US-JennyNeural";
     this.rate = rate || 1.0;
     this.key = key || "";

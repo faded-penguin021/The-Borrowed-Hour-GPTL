@@ -1,5 +1,5 @@
 // @ts-check
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "../tts/catalogue.js";
 import { ModelPicker } from "./ModelPicker.jsx";
 

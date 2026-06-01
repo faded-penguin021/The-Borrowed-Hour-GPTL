@@ -1,5 +1,5 @@
 // @ts-check
-import React, { useState } from "react";
+import React from "react";
 import { encryptSecret } from "../storage/encryption.js";
 import { PROVIDER_META, resetProviderKey, checkProviderHealth } from "../llm/providers.js";
 import { requestPassphrase, getSessionPassphrase, setSessionPassphrase } from "../passphrase.js";

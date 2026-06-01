@@ -18,14 +18,10 @@ function _getGMTool() { return _gmTool; }
 
 import {
   normalizeContent,
-  normalizeChatMessages,
-  extractChatText,
-  extractChatToolCallArgs,
   extractOpenAIText,
   extractGeminiText,
   extractClaudeText,
   sseEventData,
-  parseChatStreamEvent,
   makeChatCompletionsProvider
 } from "./stream.js";
 

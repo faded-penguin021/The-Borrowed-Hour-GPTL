@@ -1,6 +1,6 @@
 // @ts-check
 import React from "react";
-import { PROVIDER_META, PROVIDER_ORDER, FREE_MODELS_BY_PROVIDER, providerSupportsToolUse, TOOL_USE_PROVIDER_ORDER } from "../llm/providers.js";
+import { PROVIDER_META, PROVIDER_ORDER, providerSupportsToolUse, TOOL_USE_PROVIDER_ORDER } from "../llm/providers.js";
 
 /**
  * @param {Object} props

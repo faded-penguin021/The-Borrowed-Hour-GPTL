@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useMemo 
 import { EMPTY_STATE } from "../data/constants.js";
 import { DEFAULT_LANGUAGE } from "../data/languages.js";
 import { PREMISES, NARRATION_LOADING_PHRASES, META_LOADING_PHRASES, OPENING_LOADING_PHRASES, pickPhrase } from "../data/premises.js";
-import { GM_TOOL, GM_LOGIC_TOOL, buildSystem, buildNarratorSystem, buildMetaSystem } from "../llm/tools.js";
+import { GM_LOGIC_TOOL, buildSystem, buildNarratorSystem, buildMetaSystem } from "../llm/tools.js";
 import { parseGMResponse, parseGMLogicResponse, isStateEmpty } from "../llm/parse.js";
 import { formatStateForPrompt, stripHistoricalUser, stripHistoricalAssistant, serializeStatePublic } from "../llm/prompt.js";
 import { formatError, BorrowedError } from "../llm/errors.js";
