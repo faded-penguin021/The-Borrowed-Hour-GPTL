@@ -64,6 +64,13 @@ export function useSaves() {
     await loadSaveList();
   };
 
+  /**
+   * @param {{
+   *   premise: any, entries: any[], ended: boolean, gameState: any,
+   *   history: any[], metaMessages: any[], metaMode: boolean,
+   *   language: string, codex: any
+   * }} args
+   */
   const saveCurrent = async ({ premise, entries, ended, gameState, history, metaMessages, metaMode, language, codex }) => {
     if (!premise || entries.length === 0) return;
     const id = Date.now().toString(36);
@@ -84,7 +91,7 @@ export function useSaves() {
     // leaving only a tiny `idb:` marker in the save JSON. This keeps the
     // localStorage record small so a few illustrated saves can't blow the 5MB
     // cap. Falls back to inlining `data:` (today's behavior) if a write fails.
-    const processedEntries = await Promise.all(entries.map(async (e, i) => {
+    const processedEntries = await Promise.all(entries.map(async (/** @type {any} */ e, /** @type {number} */ i) => {
       const ill = e.illustration;
       const base = { ...e, fullyRevealed: true };
       if (!ill || ill.status !== "ready" || typeof ill.url !== "string") {
@@ -118,12 +125,12 @@ export function useSaves() {
       realmLabel: premise.realmLabel,
       isCustom: !!premise.isCustom,
       savedAt: Date.now(),
-      turns: entries.filter((e) => e.type === "action").length,
+      turns: entries.filter((/** @type {any} */ e) => e.type === "action").length,
       ended,
       gameState,
       entries: processedEntries,
       history,
-      metaMessages: metaMessages.map((m) => ({ ...m, fullyRevealed: true })),
+      metaMessages: metaMessages.map((/** @type {any} */ m) => ({ ...m, fullyRevealed: true })),
       metaMode,
       language,
       codex
@@ -150,7 +157,7 @@ export function useSaves() {
     }
   };
 
-  const deleteSave = async (key, e) => {
+  const deleteSave = async (/** @type {string} */ key, /** @type {React.MouseEvent} */ e) => {
     e.stopPropagation();
     try {
       await window.storage.delete(key);
@@ -161,6 +168,10 @@ export function useSaves() {
     } catch {}
   };
 
+  /**
+   * @param {{ premise: any, entries: any[], ended: boolean, metaMessages: any[] }} args
+   * @param {boolean} [includeMeta]
+   */
   const exportChronicle = async ({ premise, entries, ended, metaMessages }, includeMeta = false) => {
     if (!premise || entries.length === 0) return;
     const lines = [];

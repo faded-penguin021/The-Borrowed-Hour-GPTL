@@ -15,16 +15,18 @@ export class BrowserTTSAdapter {
     const voices = synth.getVoices() || [];
     if (this.voiceId) utt.voice = voices.find((v) => v.name === this.voiceId) || null;
     utt.rate = Math.max(0.5, Math.min(2.0, this.rate));
+    /** @type {(() => void) | null} */
     let _onended = null;
     const clear = () => { if (_onended) _onended(); };
     utt.onend = clear;
     utt.onerror = clear;
+    /** @type {TTSHandle} */
     const handle = {
       play: () => { try { synth.speak(utt); } catch (_) { clear(); } },
       pause: () => { try { synth.pause(); } catch (_) {} },
       resume: () => { try { synth.resume(); } catch (_) {} },
       stop: () => { try { synth.cancel(); } catch (_) {} },
-      set onended(cb) { _onended = cb; }
+      set onended(/** @type {(() => void) | null} */ cb) { _onended = cb; }
     };
     signal?.addEventListener("abort", handle.stop);
     return handle;

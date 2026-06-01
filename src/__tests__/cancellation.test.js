@@ -4,7 +4,7 @@ describe("abort / cancellation contract", () => {
   it("AbortController.abort() causes subsequent fetch to throw AbortError", async () => {
     const controller = new AbortController();
     controller.abort();
-    const fetchLike = async (signal) => {
+    const fetchLike = async (/** @type {AbortSignal} */ signal) => {
       if (signal.aborted) {
         const e = new DOMException("The operation was aborted.", "AbortError");
         throw e;
@@ -95,9 +95,10 @@ describe("turn-scoped stale detection (codex pattern)", () => {
     const turnIdRef = { current: 0 };
     const inflightRef = { current: 0 };
     const MAX_INFLIGHT = 2;
+    /** @type {string[]} */
     const results = [];
 
-    const simulateTurn = async (delay, label) => {
+    const simulateTurn = async (/** @type {number} */ delay, /** @type {string} */ label) => {
       const myTurn = ++turnIdRef.current;
       const stale = () => myTurn !== turnIdRef.current;
 
@@ -129,9 +130,10 @@ describe("turn-scoped stale detection (codex pattern)", () => {
     const inflightRef = { current: 0 };
     const MAX_INFLIGHT = 2;
     const turnIdRef = { current: 0 };
+    /** @type {string[]} */
     const results = [];
 
-    const simulateImage = async (label) => {
+    const simulateImage = async (/** @type {string} */ label) => {
       const _myTurn = turnIdRef.current;
       if (inflightRef.current >= MAX_INFLIGHT) { results.push(`${label}:gated`); return; }
       inflightRef.current++;
@@ -158,7 +160,7 @@ describe("turn-scoped stale detection (codex pattern)", () => {
 
 describe("blob URL lifecycle", () => {
   it("revokeObjectURL is safe to call on non-blob URLs", () => {
-    const revoke = (url) => {
+    const revoke = (/** @type {string | null | undefined} */ url) => {
       if (typeof url === "string" && url.startsWith("blob:")) {
         URL.revokeObjectURL(url);
       }
@@ -171,9 +173,10 @@ describe("blob URL lifecycle", () => {
   });
 
   it("revokes only blob: URLs from an entries array", () => {
+    /** @type {string[]} */
     const revoked = [];
-    const mockRevoke = (url) => revoked.push(url);
-    const revokeAllPlates = (entries) => {
+    const mockRevoke = (/** @type {string} */ url) => revoked.push(url);
+    const revokeAllPlates = (/** @type {Entry[]} */ entries) => {
       for (const e of entries) {
         const url = e?.illustration?.url;
         if (typeof url === "string" && url.startsWith("blob:")) mockRevoke(url);
@@ -188,7 +191,7 @@ describe("blob URL lifecycle", () => {
       { type: "narration", text: "dark", illustration: { status: "failed" } },
     ];
 
-    revokeAllPlates(entries);
+    revokeAllPlates(/** @type {Entry[]} */ (entries));
     expect(revoked).toEqual(["blob:http://localhost/abc"]);
   });
 });

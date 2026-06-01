@@ -55,19 +55,29 @@ export class TTSController {
     if (region !== undefined) this.region = region || null;
     this.adapter = null;
   }
+  /** @param {string | null} [id] */
   setVoice(id) { this.voiceId = id || null; this.adapter = null; }
+  /** @param {string | null} [m] */
   setModel(m) { this.model = m || null; this.adapter = null; }
+  /** @param {number | string} r */
   setRate(r) { this.rate = Math.max(0.5, Math.min(2.0, +r || 1)); this.adapter = null; }
+  /** @param {string | null} [k] */
   setKey(k) { this.key = k || null; this.adapter = null; }
+  /** @param {boolean} on */
   setEnabled(on) { this.enabled = !!on; if (!on) this.stop(); }
+  /** @param {boolean} m */
   setMuted(m) { this.muted = !!m; if (m) this.stop(); }
+  /** @param {(turnId?: any) => void} cb */
   onSpeakStart(cb) { this._onSpeakStart.add(cb); return () => this._onSpeakStart.delete(cb); }
+  /** @param {(turnId?: any) => void} cb */
   onSpeakEnd(cb)   { this._onSpeakEnd.add(cb);   return () => this._onSpeakEnd.delete(cb); }
+  /** @param {() => void} cb */
   onStateChange(cb) { this._onStateChange.add(cb); return () => this._onStateChange.delete(cb); }
   isSpeaking() { return !!this.activeHandle && !this.paused; }
   isPaused()   { return !!this.activeHandle && this.paused; }
   isLoading()  { return !!this.loading; }
   loadingFor() { return this.loading ? this.loadingTurnId : null; }
+  /** @param {string} msg */
   reportError(msg) {
     this.lastError = String(msg || "").slice(0, 200);
     this.lastErrorTurnId = this.activeTurnId;
@@ -142,7 +152,9 @@ export class TTSController {
     this.loadingTurnId = null;
     this._notifyState();
   }
+  /** @param {any} [t] */
   _startSpeak(t) { this._onSpeakStart.forEach((cb) => { try { cb(t); } catch (_) {} }); }
+  /** @param {any} [t] */
   _endSpeak(t)   {
     this.activeHandle = null;
     this.paused = false;

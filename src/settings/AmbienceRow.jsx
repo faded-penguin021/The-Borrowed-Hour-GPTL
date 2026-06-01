@@ -27,7 +27,7 @@ export function AmbienceRow({ level, unavailable, onChange, ttsEnabled, duringNa
   ];
   const showMusicRow = !unavailable && level !== "off";
   const currentMusic = musicLevel || "full";
-  const renderMusicBtn = (opt) => (
+  const renderMusicBtn = (/** @type {{ id: string, label: string, hint: string }} */ opt) => (
     <button
       key={opt.id}
       type="button"

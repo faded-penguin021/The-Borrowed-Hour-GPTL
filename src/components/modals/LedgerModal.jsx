@@ -9,7 +9,7 @@ import React from "react";
  */
 export function LedgerModal({ premise, gameState, onClose }) {
   const realmColor = `var(--${premise.realm})`;
-  const has = (a) => Array.isArray(a) && a.length > 0;
+  const has = (/** @type {unknown} */ a) => Array.isArray(a) && a.length > 0;
   const empty = !gameState || !gameState.scene && !gameState.time && !has(gameState.inventory) && !has(gameState.npcs) && !has(gameState.clues) && !gameState.summary;
   return (
     <div className="modal-backdrop" onClick={onClose}>

@@ -11,8 +11,9 @@ vi.mock("../tts/catalogue.js", () => ({
       adapterLoader: async () => {
         // return a minimal fake adapter class
         return class MockAdapter {
+          /** @param {TTSAdapterOptions} opts */
           constructor(opts) { this.opts = opts; }
-          async synthesize() { return { play: () => {}, pause: () => {}, resume: () => {}, stop: () => {}, set onended(cb) {} }; }
+          async synthesize() { return /** @type {TTSHandle} */ ({ play: () => {}, pause: () => {}, resume: () => {}, stop: () => {}, set onended(/** @type {(() => void) | null} */ cb) {} }); }
           destroy() {}
         };
       }

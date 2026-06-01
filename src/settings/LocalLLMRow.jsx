@@ -12,8 +12,8 @@ export function LocalLLMRow() {
   const [key, setKey] = React.useState("");
   const [keyStored, setKeyStored] = React.useState(() => !!localStorage.getItem(meta.keyStorage));
   const [editingKey, setEditingKey] = React.useState(false);
-  const isValidLocalUrl = (u) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?(\/.*)?$/i.test(u);
-  const saveUrl = (v) => {
+  const isValidLocalUrl = (/** @type {string} */ u) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?(\/.*)?$/i.test(u);
+  const saveUrl = (/** @type {string} */ v) => {
     const trimmed = v.trim();
     if (trimmed) {
       if (!isValidLocalUrl(trimmed)) {

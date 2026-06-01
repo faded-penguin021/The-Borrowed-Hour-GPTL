@@ -314,17 +314,17 @@ export const parseBootstrapResponse = (raw) => {
   }
   if (!parsed || typeof parsed !== "object") return { malformed: true };
   const sb = parsed.style_bible;
-  const ledger = Array.isArray(parsed.visual_ledger) ? parsed.visual_ledger.filter((e) => e && typeof e.id === "string" && Array.isArray(e.tags)) : [];
+  const ledger = Array.isArray(parsed.visual_ledger) ? parsed.visual_ledger.filter((/** @type {any} */ e) => e && typeof e.id === "string" && Array.isArray(e.tags)) : [];
   if (!sb || typeof sb !== "object") return { malformed: true };
   return {
     style_bible: {
       era: typeof sb.era === "string" ? sb.era : "",
       medium: typeof sb.medium === "string" ? sb.medium : "",
-      palette: Array.isArray(sb.palette) ? sb.palette.filter((s) => typeof s === "string") : [],
+      palette: Array.isArray(sb.palette) ? sb.palette.filter((/** @type {any} */ s) => typeof s === "string") : [],
       composition: typeof sb.composition === "string" ? sb.composition : "",
-      negatives: Array.isArray(sb.negatives) ? sb.negatives.filter((s) => typeof s === "string") : []
+      negatives: Array.isArray(sb.negatives) ? sb.negatives.filter((/** @type {any} */ s) => typeof s === "string") : []
     },
-    visual_ledger: ledger.map((e) => ({ id: e.id, tags: e.tags.filter((t) => typeof t === "string") }))
+    visual_ledger: ledger.map((/** @type {any} */ e) => ({ id: e.id, tags: e.tags.filter((/** @type {any} */ t) => typeof t === "string") }))
   };
 };
 
@@ -346,9 +346,9 @@ export const parseTurnResponse = (raw) => {
     warrants_illustration: !!parsed.warrants_illustration,
     milestone_reason: typeof parsed.milestone_reason === "string" ? parsed.milestone_reason : "",
     caption: typeof parsed.caption === "string" ? parsed.caption : "",
-    subject_ids: Array.isArray(parsed.subject_ids) ? parsed.subject_ids.filter((s) => typeof s === "string") : [],
+    subject_ids: Array.isArray(parsed.subject_ids) ? parsed.subject_ids.filter((/** @type {any} */ s) => typeof s === "string") : [],
     scene_clause: typeof parsed.scene_clause === "string" ? parsed.scene_clause : "",
-    extra_negatives: Array.isArray(parsed.extra_negatives) ? parsed.extra_negatives.filter((s) => typeof s === "string") : [],
-    ledger_updates: Array.isArray(parsed.ledger_updates) ? parsed.ledger_updates.filter((e) => e && typeof e.id === "string" && Array.isArray(e.tags)) : []
+    extra_negatives: Array.isArray(parsed.extra_negatives) ? parsed.extra_negatives.filter((/** @type {any} */ s) => typeof s === "string") : [],
+    ledger_updates: Array.isArray(parsed.ledger_updates) ? parsed.ledger_updates.filter((/** @type {any} */ e) => e && typeof e.id === "string" && Array.isArray(e.tags)) : []
   };
 };

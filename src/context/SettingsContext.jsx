@@ -29,7 +29,7 @@ export function SettingsProvider({ children }) {
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const handler = (e) => setOsReducedMotion(e.matches);
+    const handler = (/** @type {MediaQueryListEvent} */ e) => setOsReducedMotion(e.matches);
     if (mq.addEventListener) mq.addEventListener("change", handler);
     else if (mq.addListener) mq.addListener(handler);
     return () => {

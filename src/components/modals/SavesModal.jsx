@@ -22,7 +22,7 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
     const t = setTimeout(() => setArmedKey(null), 4000);
     return () => clearTimeout(t);
   }, [armedKey]);
-  const handleReleaseTap = (key, e) => {
+  const handleReleaseTap = (/** @type {string} */ key, /** @type {React.MouseEvent | React.KeyboardEvent} */ e) => {
     e.stopPropagation();
     if (armedKey === key) {
       setArmedKey(null);
@@ -197,7 +197,7 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
   );
 }
 
-function formatRelative(ts) {
+function formatRelative(/** @type {number | undefined} */ ts) {
   if (!ts)
     return "—";
   const diff = Date.now() - ts;

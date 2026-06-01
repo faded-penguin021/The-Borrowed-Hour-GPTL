@@ -22,7 +22,8 @@ export async function fetchVoxtralVoices(key, signal) {
     try { const txt = await resp.text(); detail = txt.slice(0, 200); } catch (_) {}
     throw new BorrowedError(`Voxtral voice list failed (HTTP ${resp.status})`, detail);
   }
-  const data = await resp.json().catch(() => null);
+  const data = await resp.json().catch(() => /** @type {any} */ (null));
+  /** @type {Array<{ id: string, name?: string }>} */
   const items = data?.items || data?.data || [];
   return items.map((v) => ({ id: v.id, label: v.name ? `${v.name} — ${v.id}` : v.id }));
 }

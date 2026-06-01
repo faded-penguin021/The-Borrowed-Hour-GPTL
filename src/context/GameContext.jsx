@@ -198,12 +198,19 @@ export function GameProvider({ children }) {
   // ── Game actions ─────────────────────────────────────────────────
   const skipReveal = () => setSkipNonce((n) => n + 1);
 
+  /**
+   * @param {string} narration
+   * @param {any} gmParsed parsed GM/logic result (shape varies by caller)
+   * @param {Entry[]} baseEntries
+   * @param {ChatMessage[]} baseHistory
+   * @param {boolean} fullyRevealed
+   */
   const finalizeNarration = (narration, gmParsed, baseEntries, baseHistory, fullyRevealed) => {
     const assistantPayload = JSON.stringify({ gm_scratchpad: "", narration, state: gmParsed.state, ending: gmParsed.ending });
     setHistory([...baseHistory, { role: "assistant", content: assistantPayload }]);
     setEntries((prev) => {
       const existing = prev[baseEntries.length];
-      const entry = { type: "narration", text: narration, fullyRevealed };
+      const entry = /** @type {NarrationEntry} */ ({ type: "narration", text: narration, fullyRevealed });
       if (existing && existing.illustration) entry.illustration = existing.illustration;
       return [...baseEntries, entry];
     });
@@ -327,7 +334,7 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
 ${rec.partial}
 
 The narration above was interrupted and cut off before it finished. Continue it seamlessly from exactly where it stops — do not repeat or restate any of it, do not open a new scene. Write only the continuation, carrying the same passage to a natural close.`;
-    const onDelta = (chunk) => {
+    const onDelta = (/** @type {string} */ chunk) => {
       acc += chunk;
       setEntries((prev) => {
         if (!prev[narrationIndex] || prev[narrationIndex].type !== "narration") return prev;
@@ -461,7 +468,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     const TRIM_THRESHOLD = 60;
     const KEEP_RECENT = 44;
     const CHAR_CAP = settings.engineGM?.provider === "groq" ? 60000 : 80000;
-    const charsOf = (msgs) => msgs.reduce((sum, m) => sum + (typeof m.content === "string" ? m.content.length : 0), 0);
+    const charsOf = (/** @type {ChatMessage[]} */ msgs) => msgs.reduce((/** @type {number} */ sum, /** @type {ChatMessage} */ m) => sum + (typeof m.content === "string" ? m.content.length : 0), 0);
     if (apiHistory.length > TRIM_THRESHOLD) {
       const head = apiHistory.slice(0, 2);
       const tail = apiHistory.slice(-KEEP_RECENT);
@@ -538,7 +545,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
           if (existing && existing.illustration) entry.illustration = existing.illustration;
           return [...newEntries, entry];
         });
-        const onDelta = (chunk) => {
+        const onDelta = (/** @type {string} */ chunk) => {
           acc += chunk;
           setEntries((prev) => {
             if (!prev[narrationIndex] || prev[narrationIndex].type !== "narration") return prev;
@@ -653,7 +660,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     codex.resetCodex();
   };
 
-  const loadSave = async (save) => {
+  const loadSave = async (/** @type {any} */ save) => {
     let found = null;
     if (save.isCustom && save.premise) {
       found = save.premise;
@@ -670,11 +677,11 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     // bytes in IndexedDB. Pull each Blob, mint a live `blob:` URL, and swap it
     // in. `useCodex.revokeAllPlates`/`setEntryIllustration` already revoke
     // `blob:` URLs on the next swap or reset, so this introduces no leak.
-    const rawEntries = (save.entries || []).map((e) => ({ ...e, fullyRevealed: true }));
+    const rawEntries = (save.entries || []).map((/** @type {any} */ e) => ({ ...e, fullyRevealed: true }));
     setEntries(rawEntries);
     (async () => {
       const { getImage } = await import("../storage/imageStore");
-      const rehydrated = await Promise.all(rawEntries.map(async (e) => {
+      const rehydrated = await Promise.all(rawEntries.map(async (/** @type {any} */ e) => {
         const ill = e.illustration;
         if (!ill || typeof ill.url !== "string" || !ill.url.startsWith("idb:")) return e;
         const imgKey = ill.url.slice("idb:".length);
@@ -690,7 +697,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     setEnded(!!save.ended);
     setGameState(save.gameState || EMPTY_STATE);
     setLanguage(save.language || DEFAULT_LANGUAGE);
-    setMetaMessages((save.metaMessages || []).map((m) => ({ ...m, fullyRevealed: true })));
+    setMetaMessages((save.metaMessages || []).map((/** @type {any} */ m) => ({ ...m, fullyRevealed: true })));
     setMetaMode(!!save.metaMode);
     codex.restoreCodex(save.codex);
     reveal.resetReveal();
@@ -728,11 +735,11 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     ? `the-borrowed-hour-${premise.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "")}.html`
     : "the-borrowed-hour.html";
 
-  const markEntryRevealed = (index) => {
+  const markEntryRevealed = (/** @type {number} */ index) => {
     setEntries((prev) => prev.map((e, i) => i === index ? { ...e, fullyRevealed: true } : e));
   };
 
-  const markMetaRevealed = (index) => {
+  const markMetaRevealed = (/** @type {number} */ index) => {
     setMetaMessages((prev) => prev.map((m, i) => i === index ? { ...m, fullyRevealed: true } : m));
   };
 
@@ -766,8 +773,9 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   const actions = useMemo(() => {
     /** @type {Record<string, (...args: any[]) => any>} */
     const out = {};
-    for (const name of Object.keys(liveActionsRef.current)) {
-      out[name] = (...args) => liveActionsRef.current[name](...args);
+    const live = /** @type {Record<string, (...args: any[]) => any>} */ (/** @type {unknown} */ (liveActionsRef.current));
+    for (const name of Object.keys(live)) {
+      out[name] = (/** @type {any[]} */ ...args) => live[name](...args);
     }
     return out;
   }, []);

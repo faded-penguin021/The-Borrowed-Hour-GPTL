@@ -43,28 +43,28 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
   useEffect(() => { visualLedgerRef.current = visualLedger; }, [visualLedger]);
   useEffect(() => { plateCountRef.current = plateCount; }, [plateCount]);
 
-  const revokeBlobUrl = (url) => {
+  const revokeBlobUrl = (/** @type {string | undefined} */ url) => {
     if (typeof url === "string" && url.startsWith("blob:")) {
       try { URL.revokeObjectURL(url); } catch (_) {}
     }
   };
 
-  const revokeAllPlates = (entriesArray) => {
+  const revokeAllPlates = (/** @type {Entry[]} */ entriesArray) => {
     if (!Array.isArray(entriesArray)) return;
     for (const e of entriesArray) {
       if (e?.illustration?.url) revokeBlobUrl(e.illustration.url);
     }
   };
 
-  const setEntryIllustration = (index, patch) => {
-    setEntries((prev) => {
+  const setEntryIllustration = (/** @type {number} */ index, /** @type {Partial<Illustration>} */ patch) => {
+    setEntries((/** @type {Entry[]} */ prev) => {
       const e = prev[index];
       if (!e) return prev;
       if (patch.url && e.illustration?.url && e.illustration.url !== patch.url) {
         revokeBlobUrl(e.illustration.url);
       }
       const next = prev.slice();
-      next[index] = { ...e, illustration: { ...(e.illustration || {}), ...patch } };
+      next[index] = { ...e, illustration: /** @type {Illustration} */ ({ ...(e.illustration || {}), ...patch }) };
       return next;
     });
   };
@@ -76,7 +76,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
     turnIdRef.current = 0;
   };
 
-  const restoreCodex = (savedCodex) => {
+  const restoreCodex = (/** @type {any} */ savedCodex) => {
     const c = savedCodex || {};
     setStyleBible(c.styleBible || null);
     styleBibleRef.current = c.styleBible || null;
@@ -86,7 +86,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
     plateCountRef.current = c.plateCount || 0;
   };
 
-  const runArtDirectorBootstrap = async (chosen, signal) => {
+  const runArtDirectorBootstrap = async (/** @type {Premise} */ chosen, /** @type {AbortSignal} */ signal) => {
     /** @type {CodexConfig} */
     const codex = settings.codex || {};
     if (codex.mode === "off") return;
@@ -107,6 +107,14 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
 
   const MAX_INFLIGHT = 2;
 
+  /**
+   * @param {{
+   *   entryIndexProvider: () => number | null,
+   *   gmParsed: any,
+   *   signal?: AbortSignal,
+   *   opener?: boolean,
+   * }} args
+   */
   const runArtDirectorTurn = async ({ entryIndexProvider, gmParsed, signal, opener = false }) => {
     /** @type {CodexConfig} */
     const codex = settings.codex || {};
@@ -123,7 +131,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }) {
     let ad;
     try {
       const sys = buildTurnSystem(premise, sb, visualLedgerRef.current, language);
-      const userPrompt = `[Scene]\n${gmParsed.state?.scene || ""}\n\n[Narrator brief]\n${gmParsed.narrator_brief || ""}\n\n[Named NPCs present this turn]\n${(gmParsed.state?.npcs || []).map((n) => `- ${n.name}: ${n.note}`).join("\n") || "(none)"}\n\nDecide if this turn warrants a plate. Be ruthless; the default is no.`;
+      const userPrompt = `[Scene]\n${gmParsed.state?.scene || ""}\n\n[Narrator brief]\n${gmParsed.narrator_brief || ""}\n\n[Named NPCs present this turn]\n${(gmParsed.state?.npcs || []).map((/** @type {NPC} */ n) => `- ${n.name}: ${n.note}`).join("\n") || "(none)"}\n\nDecide if this turn warrants a plate. Be ruthless; the default is no.`;
       const raw = await callAPI(sys, [{ role: "user", content: userPrompt }], true, engine, 900, 0.4, signal, ART_DIRECTOR_TURN_TOOL);
       if (stale()) return;
       const parsed = parseTurnResponse(raw);

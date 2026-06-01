@@ -14,7 +14,7 @@ export function ErrorRawDetail({ raw }) {
   const preview = truncated
     ? trimmed.slice(0, 200) + "\n… (" + (trimmed.length - 400) + " chars elided) …\n" + trimmed.slice(-200)
     : trimmed;
-  const handleCopy = (e) => {
+  const handleCopy = (/** @type {React.MouseEvent<HTMLButtonElement>} */ e) => {
     e.stopPropagation();
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(trimmed).then(() => {

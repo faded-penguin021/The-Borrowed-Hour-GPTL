@@ -170,8 +170,10 @@ export var extractChatToolCallArgs = (data) => {
 export var makeChatCompletionsProvider = ({ url, label, jsonSchema, tools: useToolsApi, extraBody }) => ({
   toolUse: !!(jsonSchema || useToolsApi),
   retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
+  /** @param {BuildRequestParams} params */
   buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }) {
     let system = sys;
+    /** @type {Record<string, any>} */
     const body = {
       model,
       max_tokens: maxTokens
@@ -179,32 +181,34 @@ export var makeChatCompletionsProvider = ({ url, label, jsonSchema, tools: useTo
     if (temperature !== undefined)
       body.temperature = temperature;
     if (useTool) {
+      const t = /** @type {ToolDefinition} */ (tool);
       if (useToolsApi) {
         body.tools = [{
           type: "function",
           function: {
-            name: tool.name,
-            description: tool.description,
-            parameters: tool.input_schema
+            name: t.name,
+            description: t.description,
+            parameters: t.input_schema
           }
         }];
-        body.tool_choice = { type: "function", function: { name: tool.name } };
+        body.tool_choice = { type: "function", function: { name: t.name } };
       } else if (jsonSchema) {
         body.response_format = {
           type: "json_schema",
-          json_schema: { name: tool.name, schema: tool.input_schema, strict: false }
+          json_schema: { name: t.name, schema: t.input_schema, strict: false }
         };
       } else {
         body.response_format = { type: "json_object" };
         system += `
 
-Respond ONLY with a single valid JSON object matching this schema (no prose, no markdown fences): ${JSON.stringify(tool.input_schema)}`;
+Respond ONLY with a single valid JSON object matching this schema (no prose, no markdown fences): ${JSON.stringify(t.input_schema)}`;
       }
     }
     body.messages = normalizeChatMessages(system, msgs);
     if (extraBody && typeof extraBody === "object")
       Object.assign(body, extraBody);
     const resolvedUrl = typeof url === "function" ? url() : url;
+    /** @type {Record<string, string>} */
     const headers = { "Content-Type": "application/json" };
     if (apiKey)
       headers.Authorization = `Bearer ${apiKey}`;
@@ -214,6 +218,7 @@ Respond ONLY with a single valid JSON object matching this schema (no prose, no 
       body
     };
   },
+  /** @param {any} data @param {string} model */
   logUsage(data, model) {
     if (!data.usage)
       return;
@@ -225,12 +230,14 @@ Respond ONLY with a single valid JSON object matching this schema (no prose, no 
       total: u.total_tokens || 0
     });
   },
+  /** @param {BuildRequestParams} params */
   buildStreamRequest(params) {
     const request = this.buildRequest({ ...params, useTool: false, tool: null });
     request.body.stream = true;
     return request;
   },
   parseStreamEvent: parseChatStreamEvent,
+  /** @param {any} data @param {boolean} [useTool] */
   extract(data, useTool) {
     if (useTool && useToolsApi) {
       const args = extractChatToolCallArgs(data);

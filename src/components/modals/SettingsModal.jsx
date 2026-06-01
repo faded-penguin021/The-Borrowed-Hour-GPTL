@@ -51,23 +51,24 @@ export function SettingsModal({ onClose }) {
     setTtsElevenKey, setTtsAzureKey, setTtsAzureRegion, setTtsGoogleKey, setTtsModelOverrides,
     detectTtsProviderReady, saveTtsElevenLabsKey, saveTtsAzureKey, saveTtsAzureRegion, saveTtsGoogleKey,
   } = tts;
-  const ttsModel = ttsProviderId ? (ttsModelOverrides[ttsProviderId] || null) : null;
+  const ttsModelOverridesMap = /** @type {Record<string, string>} */ (ttsModelOverrides);
+  const ttsModel = ttsProviderId ? (ttsModelOverridesMap[ttsProviderId] || null) : null;
   const onChangeTtsEnabled = setTtsEnabled;
   const onChangeTtsProvider = setTtsProviderId;
   const onChangeTtsVoice = setTtsVoiceId;
   const onChangeTtsRate = setTtsRate;
-  const onChangeTtsModel = (m) => {
+  const onChangeTtsModel = (/** @type {string | null} */ m) => {
     if (!ttsProviderId) return;
-    setTtsModelOverrides((prev) => {
+    setTtsModelOverrides((/** @type {Record<string, string>} */ prev) => {
       const next = { ...prev };
       if (m) next[ttsProviderId] = m; else delete next[ttsProviderId];
       return next;
     });
   };
-  const onChangeTtsElevenKey = async (k) => { setTtsElevenKey(k); await saveTtsElevenLabsKey(k); detectTtsProviderReady(); };
-  const onChangeTtsAzureKey = async (k) => { setTtsAzureKey(k); await saveTtsAzureKey(k); detectTtsProviderReady(); };
-  const onChangeTtsAzureRegion = (r) => { setTtsAzureRegion(r); saveTtsAzureRegion(r); };
-  const onChangeTtsGoogleKey = async (k) => { setTtsGoogleKey(k); await saveTtsGoogleKey(k); detectTtsProviderReady(); };
+  const onChangeTtsElevenKey = async (/** @type {string} */ k) => { setTtsElevenKey(k); await saveTtsElevenLabsKey(k); detectTtsProviderReady(); };
+  const onChangeTtsAzureKey = async (/** @type {string} */ k) => { setTtsAzureKey(k); await saveTtsAzureKey(k); detectTtsProviderReady(); };
+  const onChangeTtsAzureRegion = (/** @type {string} */ r) => { setTtsAzureRegion(r); saveTtsAzureRegion(r); };
+  const onChangeTtsGoogleKey = async (/** @type {string} */ k) => { setTtsGoogleKey(k); await saveTtsGoogleKey(k); detectTtsProviderReady(); };
 
   const [activeTab, setActiveTab] = useState(/** @type {SettingsTabId} */ ("reading"));
   const tabRefs = useRef(/** @type {Record<string, HTMLButtonElement | null>} */ ({}));

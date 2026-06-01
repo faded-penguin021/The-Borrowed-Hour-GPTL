@@ -50,12 +50,12 @@ export const GameComposer = React.memo(function GameComposer() {
     }
   };
 
-  const onInputChange = (e) => {
+  const onInputChange = (/** @type {React.ChangeEvent<HTMLTextAreaElement>} */ e) => {
     setInput(e.target.value);
     autosize();
   };
 
-  const onKeyDown = (e) => {
+  const onKeyDown = (/** @type {React.KeyboardEvent<HTMLTextAreaElement>} */ e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       doSubmit();

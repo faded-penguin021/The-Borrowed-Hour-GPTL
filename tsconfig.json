@@ -7,6 +7,7 @@
     "checkJs": true,
     "noEmit": true,
     "strict": false,
+    "noImplicitAny": true,
     "skipLibCheck": true,
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],

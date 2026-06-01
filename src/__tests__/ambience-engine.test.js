@@ -42,7 +42,7 @@ class MockAudioContext {
     });
   }
   createDelay() { return audioNode({ delayTime: makeParam() }); }
-  createBuffer(channels, len) {
+  createBuffer(/** @type {number} */ channels, /** @type {number} */ len) {
     const data = new Float32Array(len);
     return { getChannelData: () => data, length: len };
   }
@@ -51,6 +51,7 @@ class MockAudioContext {
   close() { this.state = "closed"; return Promise.resolve(); }
 }
 
+/** @type {typeof import("../ambience/engine.js").AmbienceEngine} */
 let AmbienceEngine;
 beforeEach(async () => {
   vi.useFakeTimers();
@@ -181,7 +182,7 @@ describe("palette", () => {
     const eng = new AmbienceEngine();
     eng.setIntensity("present");
     eng.applyAmbience({ palette: "synth" });
-    eng.applyAmbience({ palette: "banjo" });
+    eng.applyAmbience(/** @type {any} */ ({ palette: "banjo" }));
     expect(eng.current.palette).toBe("synth");
     eng.destroy();
   });

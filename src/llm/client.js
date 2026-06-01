@@ -44,7 +44,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
     const providerId = engine?.provider;
     const model = engine?.model;
     const provider = PROVIDERS[providerId];
-    const meta = PROVIDER_META[providerId];
+    const meta = PROVIDER_META[/** @type {ProviderId} */ (providerId)];
     if (!provider || !meta || !model || !String(model).trim()) {
       throw new BorrowedError("The hour cannot open yet.", "No story engine is selected. Open Settings → Story engines and choose a provider and a model.");
     }
@@ -148,7 +148,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
     const providerId = engine?.provider;
     const model = engine?.model;
     const provider = PROVIDERS[providerId];
-    const meta = PROVIDER_META[providerId];
+    const meta = PROVIDER_META[/** @type {ProviderId} */ (providerId)];
     if (!provider || !meta || !model || !String(model).trim()) {
       throw new BorrowedError("The hour cannot open yet.", "No story engine is selected. Open Settings → Story engines and choose a provider and a model.");
     }
@@ -224,6 +224,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
       let buffer = "";
       const STALL_MS = 60000;
       let stalled = false;
+      /** @type {ReturnType<typeof setTimeout> | null} */
       let stallTimer = null;
       const armStall = () => {
         if (stallTimer) clearTimeout(stallTimer);
@@ -235,6 +236,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }) {
       const clearStall = () => {
         if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; }
       };
+      /** @param {string} rawEvent */
       const handleEvent = (rawEvent) => {
         if (!rawEvent.trim()) return;
         const parsed = provider.parseStreamEvent(rawEvent);

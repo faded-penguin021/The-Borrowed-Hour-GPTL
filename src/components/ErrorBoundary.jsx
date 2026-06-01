@@ -2,16 +2,27 @@
 import React from "react";
 
 /**
- * @extends {React.Component<{children: React.ReactNode}, {error: Error | null}>}
+ * @typedef {{ children: React.ReactNode }} ErrorBoundaryProps
+ * @typedef {{ error: Error | null }} ErrorBoundaryState
+ */
+
+/**
+ * @extends {React.Component<ErrorBoundaryProps, ErrorBoundaryState>}
  */
 export class ErrorBoundary extends React.Component {
+  /** @param {ErrorBoundaryProps} props */
   constructor(props) {
     super(props);
     this.state = { error: null };
   }
+  /** @param {Error} error */
   static getDerivedStateFromError(error) {
     return { error };
   }
+  /**
+   * @param {Error} error
+   * @param {React.ErrorInfo} info
+   */
   componentDidCatch(error, info) {
     try {
       if (typeof console !== "undefined" && console.error) {

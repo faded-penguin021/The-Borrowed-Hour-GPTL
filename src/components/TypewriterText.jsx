@@ -27,7 +27,7 @@ export function TypewriterText({
     if (typeof window === "undefined" || !window.matchMedia)
       return;
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const handler = (e) => setReducedMotion(e.matches);
+    const handler = (/** @type {MediaQueryListEvent} */ e) => setReducedMotion(e.matches);
     if (mq.addEventListener)
       mq.addEventListener("change", handler);
     else if (mq.addListener)

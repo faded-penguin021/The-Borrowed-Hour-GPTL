@@ -81,6 +81,7 @@ ${m[1].trim()}`;
 export function stripHistoricalAssistant(content) {
   try {
     const obj = JSON.parse(content);
+    /** @type {Record<string, any>} */
     const stripped = {
       narration: obj.narration
     };
