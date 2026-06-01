@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import type { SyntheticEvent as ReactSyntheticEvent } from "react";
 import type {
   ChatMessage, CodexSnapshot, Entry, GameState, MetaMessage, Premise,
   SaveBanner, SaveListEntry, ThrownError
@@ -154,7 +154,7 @@ export function useSaves() {
     }
   };
 
-  const deleteSave = async (key: string, e: ReactMouseEvent) => {
+  const deleteSave = async (key: string, e: ReactSyntheticEvent) => {
     e.stopPropagation();
     try {
       await window.storage.delete(key);
