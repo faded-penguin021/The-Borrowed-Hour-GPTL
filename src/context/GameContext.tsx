@@ -889,12 +889,16 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   const liveActionsRef = useLatest(liveActions);
   const actions = useMemo(() => {
     const out: Record<string, (...args: unknown[]) => unknown> = {};
-    const live = liveActionsRef.current as unknown as Record<string, (...args: unknown[]) => unknown>;
-    for (const name of Object.keys(live)) {
-      out[name] = (...args: unknown[]) => live[name](...args);
+    // Build the key list once (action names are stable), but every forwarder
+    // MUST dereference liveActionsRef.current at CALL TIME so it runs the latest
+    // closure — capturing `liveActionsRef.current` in a const here would freeze
+    // every action to the first render (premise=null, phase="title").
+    for (const name of Object.keys(liveActionsRef.current)) {
+      out[name] = (...args: unknown[]) =>
+        (liveActionsRef.current as unknown as Record<string, (...args: unknown[]) => unknown>)[name](...args);
     }
     return out as unknown as GameActions;
-  }, []);
+  }, [liveActionsRef]);
 
   // ── Low-churn story state ────────────────────────────────────────────────
   // `entriesCount`/`hasMeta`/`canUndo` are derived but only change per turn, so
