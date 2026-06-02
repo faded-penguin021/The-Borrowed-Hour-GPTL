@@ -1,10 +1,6 @@
-// @ts-check
-/**
- * @import { Entry, Premise } from "../types"
- */
+import type { Entry, MetaMessage, Premise } from "../types";
 
-/** @param {string} str @returns {string} */
-export function escapeHtml(str) {
+export function escapeHtml(str: string): string {
   return String(str)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -19,12 +15,10 @@ const MAX_INLINE_PX = 1200;
  * Fetches a blob: URL, draws it onto a canvas capped at MAX_INLINE_PX wide,
  * and returns a JPEG data URL. Returns the original src on any failure.
  * The cap prevents iOS Safari OOM crashes when inlining full-resolution images.
- * @param {string} src
- * @returns {Promise<string>}
  */
-async function toBase64Capped(src) {
+async function toBase64Capped(src: string): Promise<string> {
   try {
-    let blob;
+    let blob: Blob;
     if (src.startsWith("blob:")) {
       const res = await fetch(src);
       blob = await res.blob();
@@ -64,10 +58,8 @@ async function toBase64Capped(src) {
  * Returns a new entries array where every ready blob illustration has been
  * replaced with a base64 data URL (capped at 1200px). Entries without
  * illustrations pass through unchanged.
- * @param {Entry[]} entries
- * @returns {Promise<Entry[]>}
  */
-export async function inlineImages(entries) {
+export async function inlineImages(entries: Entry[]): Promise<Entry[]> {
   return Promise.all(
     entries.map(async (entry) => {
       const ill = entry.illustration;
@@ -78,8 +70,7 @@ export async function inlineImages(entries) {
   );
 }
 
-/** @type {Record<string, { accent: string; border: string; bg: string }>} */
-const REALM_COLORS = {
+const REALM_COLORS: Record<string, { accent: string; border: string; bg: string }> = {
   echo:  { accent: "#b8c8d8", border: "rgba(184,200,216,0.4)",  bg: "rgba(184,200,216,0.06)" },
   neon:  { accent: "#e87faa", border: "rgba(232,127,170,0.45)", bg: "rgba(232,127,170,0.06)" },
   omen:  { accent: "#d4a574", border: "rgba(212,165,116,0.45)", bg: "rgba(212,165,116,0.06)" },
@@ -90,16 +81,14 @@ const REALM_COLORS = {
 /**
  * Builds a self-contained HTML keepsake document. Call `inlineImages` on entries
  * before passing them here so illustrations survive as embedded data URLs.
- * @param {{
- *   premise: Premise,
- *   entries: Entry[],
- *   revealText?: string,
- *   metaMessages?: any[],
- *   ended: boolean,
- * }} params
- * @returns {string}
  */
-export function buildKeepsakeHTML({ premise, entries, revealText, metaMessages, ended }) {
+export function buildKeepsakeHTML({ premise, entries, revealText, metaMessages, ended }: {
+  premise: Premise;
+  entries: Entry[];
+  revealText?: string;
+  metaMessages?: MetaMessage[];
+  ended: boolean;
+}): string {
   const realm = premise.realm || "echo";
   const rc = REALM_COLORS[realm] || REALM_COLORS.echo;
 

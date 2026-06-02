@@ -1,15 +1,7 @@
-// @ts-check
-/**
- * @import { Premise } from "../types"
- */
+import type { Premise } from "../types";
 import { languageNameFor } from "../data/languages";
 
-/**
- * @param {Premise} premise
- * @param {string} [language]
- * @returns {string}
- */
-export var buildMetaSystem = (premise, language = "en") => `The chronicle "${premise.title}" has ended. You were the Game Master narrating it; now you step out of the fiction and speak directly with the player as the author and dramaturge of the story they just played.
+export const buildMetaSystem = (premise: Premise, language: string = "en"): string => `The chronicle "${premise.title}" has ended. You were the Game Master narrating it; now you step out of the fiction and speak directly with the player as the author and dramaturge of the story they just played.
 
 THIS IS A REFLECTIVE, OUT-OF-CHARACTER CONVERSATION. The narrative is closed. You are no longer narrating the world. You speak as yourself — thoughtful, candid, generous, willing to be corrected.
 

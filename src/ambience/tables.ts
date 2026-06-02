@@ -1,7 +1,4 @@
-// @ts-check
-/**
- * @import { AmbienceInput } from "../types"
- */
+import type { AmbienceInput, AmbienceSpace, AmbiencePopulation, AmbienceMood, AmbiencePalette, AmbienceEvent } from "../types";
 // ─────────────────────────────────────────────────────────────────────────
 // Procedural synthesis recipes adapted from Hermes Agent Music (MIT)
 //   https://github.com/jlaiii/hermes-agent-music
@@ -13,21 +10,23 @@
 
 /**
  * Minimal shape of the ambience engine passed to recipe/event factories.
- * @typedef {Object} AmbienceEngine
- * @property {AudioContext} ctx
- * @property {AudioNode} master
- * @property {(seconds: number, color: "pink" | "brown" | "white") => AudioBuffer} _noiseBuffer
  */
+type AmbienceEngine = {
+  ctx: AudioContext;
+  master: AudioNode;
+  _noiseBuffer: (seconds: number, color: "pink" | "brown" | "white") => AudioBuffer;
+};
 
 /**
  * Disposable set of audio nodes and timers returned by a scene layer.
- * @typedef {Object} LayerResult
- * @property {AudioNode[]} nodes
- * @property {ReturnType<typeof setInterval>[]} timers
  */
+type LayerResult = {
+  nodes: AudioNode[];
+  timers: ReturnType<typeof setInterval>[];
+};
 
-export var AMBIENCE_INTENSITY_GAIN = { off: 0, subtle: 0.10, present: 0.22 };
-export var AMBIENCE_HARD_CEILING = 0.30;
+export const AMBIENCE_INTENSITY_GAIN = { off: 0, subtle: 0.10, present: 0.22 };
+export const AMBIENCE_HARD_CEILING = 0.30;
 
 import {
   AMBIENCE_SPACE_VALUES,
@@ -35,27 +34,27 @@ import {
   AMBIENCE_MOOD_VALUES,
   AMBIENCE_PALETTE_VALUES,
   AMBIENCE_EVENT_VALUES
-} from "./enums.js";
+} from "./enums";
 
-export var AMBIENCE_SPACES = new Set(AMBIENCE_SPACE_VALUES);
-export var AMBIENCE_POPULATIONS = new Set(AMBIENCE_POPULATION_VALUES);
-export var AMBIENCE_MOODS = new Set(AMBIENCE_MOOD_VALUES);
-export var AMBIENCE_PALETTES = new Set(AMBIENCE_PALETTE_VALUES);
-export var AMBIENCE_EVENTS = new Set(AMBIENCE_EVENT_VALUES);
+export const AMBIENCE_SPACES = new Set(AMBIENCE_SPACE_VALUES);
+export const AMBIENCE_POPULATIONS = new Set(AMBIENCE_POPULATION_VALUES);
+export const AMBIENCE_MOODS = new Set(AMBIENCE_MOOD_VALUES);
+export const AMBIENCE_PALETTES = new Set(AMBIENCE_PALETTE_VALUES);
+export const AMBIENCE_EVENTS = new Set(AMBIENCE_EVENT_VALUES);
 
 // Master safety-bus and voice guardrail constants.
-export var AMBIENCE_MASTER_LPF_DEFAULT = 3200;
-export var AMBIENCE_MASTER_LPF_CAP     = 4000;
-export var AMBIENCE_ATTACK_FLOOR       = 0.02;
-export var AMBIENCE_RELEASE_FLOOR      = 0.12;
-export var AMBIENCE_LANE_GAIN_CEILING  = 0.45;
-export var AMBIENCE_PALETTE_DEFAULT    = "piano";
+export const AMBIENCE_MASTER_LPF_DEFAULT = 3200;
+export const AMBIENCE_MASTER_LPF_CAP     = 4000;
+export const AMBIENCE_ATTACK_FLOOR       = 0.02;
+export const AMBIENCE_RELEASE_FLOOR      = 0.12;
+export const AMBIENCE_LANE_GAIN_CEILING  = 0.45;
+export const AMBIENCE_PALETTE_DEFAULT    = "piano";
 
 // Palette config — TIMBRE only, never adds lanes the mood didn't ask for.
 // cutoff ≤ CAP; melodyOsc for the melody voice oscillator type;
 // weights are multipliers (≤1) against the mood base for each lane;
 // allow gates which instrument types may actually fire this turn.
-export var AMBIENCE_PALETTE = {
+export const AMBIENCE_PALETTE = {
   piano:   { cutoff: 3200, melodyOsc: "triangle",  weights: { chord: 1.0, melody: 1.0, pulse: 1.0, piano: 1.0, pluck: 0.6, strings: 0.7, drums: 0.8 }, allow: { piano: true,  pluck: true,  pizz: true,  bow: true  } },
   synth:   { cutoff: 3600, melodyOsc: "sawtooth",  weights: { chord: 0.9, melody: 1.0, pulse: 1.0, piano: 0.3, pluck: 0.4, strings: 0.5, drums: 1.0 }, allow: { piano: false, pluck: true,  pizz: true,  bow: false } },
   glass:   { cutoff: 3800, melodyOsc: "triangle",  weights: { chord: 0.8, melody: 1.0, pulse: 0.5, piano: 0.5, pluck: 1.0, strings: 0.4, drums: 0.3 }, allow: { piano: true,  pluck: true,  pizz: false, bow: false } },
@@ -68,19 +67,19 @@ export var AMBIENCE_PALETTE = {
 
 // Per-scene loudness trims — relative voice gains feeding the master.
 // Tuned by ear; samples are no longer involved.
-export var AMBIENCE_SPACE_TRIM = {
+export const AMBIENCE_SPACE_TRIM = {
   intimate: 0.45, chamber: 0.50, hall: 0.55, cavern: 0.65,
   street:   0.60, field:   0.55, forest:   0.55,
   vehicle:  0.65, void:    0.55
 };
-export var AMBIENCE_POPULATION_TRIM = {
+export const AMBIENCE_POPULATION_TRIM = {
   solitary: 0.30, sparse_voices: 0.40, crowd:    0.50, machinery: 0.55,
   nature:   0.45, ceremony:      0.45, creature: 0.50, wild:      0.60
 };
 
 // Mood → musical voicing tables.
 // Scales: degrees in semitones over two octaves; melody walks them.
-export var AMBIENCE_MOOD_SCALE = {
+export const AMBIENCE_MOOD_SCALE = {
   calm:        [0,2,4,7,9,12,14,16,19,21],   // pentatonic major
   tender:      [0,2,4,7,9,12,14,16,19,21],   // pentatonic major
   joyous:      [0,2,4,5,7,9,11,12,14,16],    // ionian (major)
@@ -91,13 +90,13 @@ export var AMBIENCE_MOOD_SCALE = {
   mysterious:  [0,2,3,5,7,9,10,12,14,15]     // dorian
 };
 // Mean inter-note interval in seconds.
-export var AMBIENCE_MOOD_MELODY_TEMPO = {
+export const AMBIENCE_MOOD_MELODY_TEMPO = {
   calm: 6.0, tender: 5.0, melancholy: 7.0, joyous: 3.0,
   tense: 2.0, urgent: 1.2, ominous: 8.0, mysterious: 9.0
 };
 // Triads as (root_semitone_offset, quality). Each mood has 4 chords cycled.
 // "maj" = [r, r+4, r+7]; "min" = [r, r+3, r+7].
-export var AMBIENCE_MOOD_PROGRESSION = {
+export const AMBIENCE_MOOD_PROGRESSION = {
   calm:       [[0,"maj"],[9,"min"],[5,"maj"],[7,"maj"]],
   tender:     [[0,"maj"],[5,"maj"],[2,"min"],[7,"maj"]],
   joyous:     [[0,"maj"],[7,"maj"],[5,"maj"],[4,"min"]],
@@ -108,13 +107,12 @@ export var AMBIENCE_MOOD_PROGRESSION = {
   mysterious: [[0,"min"],[2,"min"],[10,"maj"],[5,"min"]]
 };
 // Pulse tempo (BPM). null disables pulse for the mood.
-/** @type {Record<string, number | null>} */
-export var AMBIENCE_MOOD_PULSE_BPM = {
+export const AMBIENCE_MOOD_PULSE_BPM: Record<string, number | null> = {
   calm: 40, tender: null, melancholy: 48, joyous: 62,
   tense: 70, urgent: 90, ominous: 50, mysterious: null
 };
 // Per-voice gain weights at peak; multiplied by master.
-export var AMBIENCE_MOOD_MUSIC_GAIN = {
+export const AMBIENCE_MOOD_MUSIC_GAIN = {
   calm:       { chord: 0.18, melody: 0.30, pulse: 0.04 },
   tender:     { chord: 0.22, melody: 0.32, pulse: 0.00 },
   joyous:     { chord: 0.18, melody: 0.35, pulse: 0.04 },
@@ -129,7 +127,7 @@ export var AMBIENCE_MOOD_MUSIC_GAIN = {
 // chord/melody/pulse weights into the same master ceiling — values are
 // intentionally modest so the music ceiling holds with TTS narration.
 // Entries omitted (or 0) mean that instrument is silent for that mood.
-export var AMBIENCE_MOOD_INSTRUMENTATION = {
+export const AMBIENCE_MOOD_INSTRUMENTATION = {
   calm:       { piano: 0.22 },
   tender:     { piano: 0.20, pluck: 0.12 },
   melancholy: { piano: 0.24, pizz:  0.14 },
@@ -144,7 +142,7 @@ export var AMBIENCE_MOOD_INSTRUMENTATION = {
 // Slot keys: k=kick, s=snare, h=hat, t=tom, r=rim, sh=shaker, br=brush.
 // Sparse moods leave most slots empty so drums breathe with the narration.
 // Moods with null BPM use 40 BPM fallback for their patterns.
-export var AMBIENCE_MOOD_DRUM_PATTERN = {
+export const AMBIENCE_MOOD_DRUM_PATTERN = {
   calm: [
     { br:1 }, { }, { }, { },
     { },     { }, { }, { },
@@ -197,13 +195,13 @@ export var AMBIENCE_MOOD_DRUM_PATTERN = {
 
 // Drum-specific BPM for moods whose pulse BPM is null. The drum scheduler
 // falls back to this before its hardcoded 70 BPM default.
-export var AMBIENCE_MOOD_DRUM_BPM = {
+export const AMBIENCE_MOOD_DRUM_BPM = {
   tender: 32,
   mysterious: 36
 };
 
 // Per-mood drum-voice peak gains (overrides drumBus default).
-export var AMBIENCE_MOOD_DRUM_GAIN = {
+export const AMBIENCE_MOOD_DRUM_GAIN = {
   calm:       { brush: 0.04, shaker: 0.03 },
   tender:     { brush: 0.03 },
   melancholy: { kick: 0.06, brush: 0.04 },
@@ -219,27 +217,23 @@ export var AMBIENCE_MOOD_DRUM_GAIN = {
 // fields — space, mood, palette, population — are live and applied by the
 // engine; palette sets the master LPF cutoff and lane weights for each realm's
 // distinct opening timbre.
-/** @type {Record<string, AmbienceInput>} */
-export var AMBIENCE_REALM_DEFAULTS = {
+export const AMBIENCE_REALM_DEFAULTS: Record<string, AmbienceInput> = {
   neon:  { space: "street",  mood: "mysterious", palette: "synth",   population: "machinery" },
   dream: { space: "void",    mood: "mysterious", palette: "glass",   population: "solitary"  },
   echo:  { space: "hall",    mood: "melancholy", palette: "piano",   population: "solitary"  },
   omen:  { space: "cavern",  mood: "ominous",    palette: "choir",   population: "solitary"  },
   wild:  { space: "forest",  mood: "calm",       palette: "strings", population: "nature"    }
 };
-/** @type {AmbienceInput} */
-export var AMBIENCE_REALM_FALLBACK = { space: "intimate", mood: "calm", palette: "piano", population: "solitary" };
-/** @param {string} realm @returns {AmbienceInput} */
-export var defaultAmbienceForRealm = (realm) =>
+export const AMBIENCE_REALM_FALLBACK: AmbienceInput = { space: "intimate", mood: "calm", palette: "piano", population: "solitary" };
+export const defaultAmbienceForRealm = (realm: string): AmbienceInput =>
   AMBIENCE_REALM_DEFAULTS[realm] || AMBIENCE_REALM_FALLBACK;
 
 // Ordered keyword classifier for Wild (custom) realm turn-1 beds.
 // Specific keywords come before generic ones so "starship" beats "vehicle".
 // Returns a fresh object every call.
-/** @param {string} seed @returns {any} */
-export var deriveAmbienceFromSeed = (seed) => {
+export const deriveAmbienceFromSeed = (seed: string): AmbienceInput => {
   const s = (seed || "").toLowerCase();
-  const rules = /** @type {[string[], any][]} */ ([
+  const rules: [string[], AmbienceInput][] = [
     [["submarine", "underwater"],                            { space: "vehicle",  population: "machinery",     mood: "ominous",    palette: "synth"   }],
     [["starship", "orbital", "space-station", "space station"], { space: "void", population: "machinery",     mood: "mysterious", palette: "synth"   }],
     [["cyberpunk", "neon", "chrome", "arcology", "alley"],   { space: "street",   population: "machinery",     mood: "tense",      palette: "synth"   }],
@@ -249,39 +243,38 @@ export var deriveAmbienceFromSeed = (seed) => {
     [["manor", "gothic", "castle"],                          { space: "chamber",  population: "solitary",      mood: "ominous",    palette: "strings" }],
     [["train", "carriage", "vehicle"],                       { space: "vehicle",  population: "sparse_voices", mood: "calm",       palette: "piano"   }],
     [["city", "market", "tavern"],                           { space: "street",   population: "crowd",         mood: "joyous",     palette: "strings" }],
-  ]);
+  ];
   for (const [keywords, config] of rules) {
     if (keywords.some((k) => s.includes(k))) return { ...config };
   }
   return { space: "intimate", population: "solitary", mood: "calm", palette: "piano" };
 };
 
-/** @param {unknown} raw @returns {any} */
-export var sanitizeAmbience = (raw) => {
+export const sanitizeAmbience = (raw: unknown): AmbienceInput | null | undefined => {
   if (raw === null) return null;
   if (!raw || typeof raw !== "object") return undefined;
-  const r = /** @type {any} */ (raw);
-  const out = /** @type {any} */ ({});
+  const r = raw as Record<string, unknown>;
+  const out: AmbienceInput = {};
   if ("space" in r) {
     if (r.space === null) out.space = null;
-    else if (typeof r.space === "string" && AMBIENCE_SPACES.has(r.space)) out.space = r.space;
+    else if (typeof r.space === "string" && (AMBIENCE_SPACES as unknown as Set<string>).has(r.space)) out.space = r.space as AmbienceSpace;
   }
   if ("population" in r) {
     if (r.population === null) out.population = null;
-    else if (typeof r.population === "string" && AMBIENCE_POPULATIONS.has(r.population)) out.population = r.population;
+    else if (typeof r.population === "string" && (AMBIENCE_POPULATIONS as unknown as Set<string>).has(r.population)) out.population = r.population as AmbiencePopulation;
   }
   if ("mood" in r) {
     if (r.mood === null) out.mood = null;
-    else if (typeof r.mood === "string" && AMBIENCE_MOODS.has(r.mood)) out.mood = r.mood;
+    else if (typeof r.mood === "string" && (AMBIENCE_MOODS as unknown as Set<string>).has(r.mood)) out.mood = r.mood as AmbienceMood;
   }
   if ("palette" in r) {
     if (r.palette === null) out.palette = null;
-    else if (typeof r.palette === "string" && AMBIENCE_PALETTES.has(r.palette)) out.palette = r.palette;
+    else if (typeof r.palette === "string" && (AMBIENCE_PALETTES as unknown as Set<string>).has(r.palette)) out.palette = r.palette as AmbiencePalette;
   }
   if (Array.isArray(r.events)) {
     const evts = r.events
-      .filter((/** @type {unknown} */ e) => typeof e === "string" && /** @type {Set<string>} */ (/** @type {unknown} */ (AMBIENCE_EVENTS)).has(e))
-      .slice(0, 4);
+      .filter((e: unknown) => typeof e === "string" && (AMBIENCE_EVENTS as unknown as Set<string>).has(e))
+      .slice(0, 4) as AmbienceEvent[];
     if (evts.length) out.events = evts;
   }
   return Object.keys(out).length > 0 ? out : undefined;
@@ -290,8 +283,7 @@ export var sanitizeAmbience = (raw) => {
 // ─── Scene ingredient factories (composable layers) ────────────────────
 // Each returns { nodes:[...], timers:[...] } compatible with the
 // scene-voice disposal protocol in engine._disposeSceneVoice.
-/** @param {AmbienceEngine} eng @param {AudioNode} dest @param {number} [density] @returns {LayerResult} */
-function _layerCrickets(eng, dest, density) {
+function _layerCrickets(eng: AmbienceEngine, dest: AudioNode, density?: number): LayerResult {
   const ctx = eng.ctx;
   const period = 1200 / (density || 1);
   const iv = setInterval(() => {
@@ -314,8 +306,7 @@ function _layerCrickets(eng, dest, density) {
   }, period);
   return { nodes: [], timers: [iv] };
 }
-/** @param {AmbienceEngine} eng @param {AudioNode} dest @param {number} [peak] @returns {LayerResult} */
-function _layerOceanSwell(eng, dest, peak) {
+function _layerOceanSwell(eng: AmbienceEngine, dest: AudioNode, peak?: number): LayerResult {
   const ctx = eng.ctx;
   const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
   const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 400;
@@ -335,8 +326,7 @@ function _layerOceanSwell(eng, dest, peak) {
   const iv = setInterval(cycle, 8000 + Math.random() * 4000);
   return { nodes: [src, f, g], timers: [iv] };
 }
-/** @param {AmbienceEngine} eng @param {AudioNode} dest @param {number} [peak] @returns {LayerResult} */
-function _layerStreamDrip(eng, dest, peak) {
+function _layerStreamDrip(eng: AmbienceEngine, dest: AudioNode, peak?: number): LayerResult {
   const ctx = eng.ctx;
   const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
   const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 1200; f.Q.value = 2.5;
@@ -349,8 +339,7 @@ function _layerStreamDrip(eng, dest, peak) {
   }, 1200);
   return { nodes: [src, f, g], timers: [iv] };
 }
-/** @param {AmbienceEngine} eng @param {AudioNode} dest @param {number} [peak] @returns {LayerResult} */
-function _layerCafeMurmur(eng, dest, peak) {
+function _layerCafeMurmur(eng: AmbienceEngine, dest: AudioNode, peak?: number): LayerResult {
   const ctx = eng.ctx;
   const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
   const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 700; f.Q.value = 1.5;
@@ -363,8 +352,7 @@ function _layerCafeMurmur(eng, dest, peak) {
   }, 2400);
   return { nodes: [src, f, g], timers: [iv] };
 }
-/** @param {AmbienceEngine} eng @param {AudioNode} dest @returns {LayerResult} */
-function _layerWindGust(eng, dest) {
+function _layerWindGust(eng: AmbienceEngine, dest: AudioNode): LayerResult {
   const ctx = eng.ctx;
   const iv = setInterval(() => {
     if (ctx.state !== "running") return;
@@ -383,12 +371,9 @@ function _layerWindGust(eng, dest) {
   return { nodes: [], timers: [iv] };
 }
 // Merge children's nodes/timers into the recipe's return value.
-/** @param {LayerResult[]} layers @returns {LayerResult} */
-function _mergeLayers(...layers) {
-  /** @type {AudioNode[]} */
-  const nodes = [];
-  /** @type {ReturnType<typeof setInterval>[]} */
-  const timers = [];
+function _mergeLayers(...layers: LayerResult[]): LayerResult {
+  const nodes: AudioNode[] = [];
+  const timers: ReturnType<typeof setInterval>[] = [];
   layers.forEach((l) => {
     if (l.nodes) nodes.push(...l.nodes);
     if (l.timers) timers.push(...l.timers);
@@ -396,8 +381,7 @@ function _mergeLayers(...layers) {
   return { nodes, timers };
 }
 
-/** @type {Record<string, (eng: AmbienceEngine, dest: AudioNode) => LayerResult>} */
-export var AMBIENCE_SPACE_RECIPES = {
+export const AMBIENCE_SPACE_RECIPES: Record<string, (eng: AmbienceEngine, dest: AudioNode) => LayerResult> = {
   intimate: (eng, dest) => {
     const ctx = eng.ctx;
     const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "brown"); src.loop = true;
@@ -434,8 +418,7 @@ export var AMBIENCE_SPACE_RECIPES = {
     const lpf = ctx.createBiquadFilter(); lpf.type = "lowpass"; lpf.frequency.value = 220;
     lpf.connect(out);
     const freqs = [44, 46, 54.5, 65.4];
-    /** @type {AudioNode[]} */
-    const oscs = [];
+    const oscs: AudioNode[] = [];
     freqs.forEach((f) => {
       const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f;
       const og = ctx.createGain(); og.gain.value = 0.18;
@@ -531,8 +514,7 @@ export var AMBIENCE_SPACE_RECIPES = {
     const lpf = ctx.createBiquadFilter(); lpf.type = "lowpass"; lpf.frequency.value = 700;
     lpf.connect(out);
     const freqs = [110, 112, 164.8, 166.2];
-    /** @type {AudioNode[]} */
-    const oscs = [];
+    const oscs: AudioNode[] = [];
     freqs.forEach((f, i) => {
       const o = ctx.createOscillator(); o.type = i % 2 ? "triangle" : "sine"; o.frequency.value = f;
       const og = ctx.createGain(); og.gain.value = 0.12;
@@ -547,8 +529,7 @@ export var AMBIENCE_SPACE_RECIPES = {
   }
 };
 
-/** @type {Record<string, (eng: AmbienceEngine, dest: AudioNode) => LayerResult>} */
-export var AMBIENCE_POPULATION_RECIPES = {
+export const AMBIENCE_POPULATION_RECIPES: Record<string, (eng: AmbienceEngine, dest: AudioNode) => LayerResult> = {
   solitary: (eng, dest) => {
     const ctx = eng.ctx;
     const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "brown"); src.loop = true;
@@ -662,8 +643,7 @@ export var AMBIENCE_POPULATION_RECIPES = {
     const lpf = ctx.createBiquadFilter(); lpf.type = "lowpass"; lpf.frequency.value = 500;
     lpf.connect(out);
     const freqs = [130, 195, 260];
-    /** @type {AudioNode[]} */
-    const oscs = [];
+    const oscs: AudioNode[] = [];
     freqs.forEach((f, i) => {
       const o = ctx.createOscillator(); o.type = i % 2 ? "triangle" : "sine"; o.frequency.value = f;
       const og = ctx.createGain(); og.gain.value = 0.10;
@@ -731,8 +711,7 @@ export var AMBIENCE_POPULATION_RECIPES = {
   }
 };
 
-/** @type {Record<string, (eng: AmbienceEngine, startAt: number) => void>} */
-export var AMBIENCE_EVENT_RECIPES = {
+export const AMBIENCE_EVENT_RECIPES: Record<string, (eng: AmbienceEngine, startAt: number) => void> = {
   bell_toll: (eng, startAt) => {
     const ctx = eng.ctx, dest = eng.master;
     [[110, 0.50], [220, 0.30], [330, 0.12]].forEach(([f, peak]) => {

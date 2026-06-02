@@ -1,5 +1,3 @@
-// @ts-check
-
 export const gmNote = `IMPORTANT — THIS IS A SUBTLE TIME-LOOP STORY. The day is repeating. The player has lived this Tuesday many times, though their memories of prior loops are fragmentary, dreamlike. They retain fragments — a name, a face, an instinct — without full recall.
 
 The puzzle: something is meant to happen today that the player must prevent. You may invent the specific tragedy on the fly as it becomes relevant — for example: someone close to them is going to die, or they themselves are going to die, or they will say something irreparable to a person they love. The clues should accumulate organically: someone the player does not yet know but will meet today; an action with quiet, fatal weight; the contents of the note.

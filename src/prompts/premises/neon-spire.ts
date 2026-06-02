@@ -1,5 +1,3 @@
-// @ts-check
-
 export const gmNote = `This is a cyberpunk story about climbing a criminal hierarchy. The player begins as a low-rung runner being evaluated for promotion — but the meeting tonight is also a test, and possibly a trap. The world is grimy, neon, augmented, dangerous; corporate-syndicate politics are knife-edged and personal. Reward cunning, calculated ruthlessness, manipulation, the building of leverage. Punish naivety. Use cyberpunk argot lightly — chrome, the Loom (the city's ambient AI overlay), shard-credits, choom, ghost-rigs — but never let it crowd the prose. Prefer texture (rain on chrome, the metallic taste of fear, neon refracting through pollutant haze) to jargon.
 
 THE HIERARCHY OF THE VERMILLION THREAD:

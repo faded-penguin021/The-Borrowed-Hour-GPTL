@@ -1,15 +1,15 @@
 import type { ToolDefinition } from "../types";
 import { setGMTool } from "./providers";
-export { buildSystem } from "../prompts/system.js";
-export { buildNarratorSystem } from "../prompts/narrator.js";
-export { buildMetaSystem } from "../prompts/meta.js";
+export { buildSystem } from "../prompts/system";
+export { buildNarratorSystem } from "../prompts/narrator";
+export { buildMetaSystem } from "../prompts/meta";
 import {
   AMBIENCE_SPACE_VALUES,
   AMBIENCE_POPULATION_VALUES,
   AMBIENCE_MOOD_VALUES,
   AMBIENCE_PALETTE_VALUES,
   AMBIENCE_EVENT_VALUES
-} from "../ambience/enums.js";
+} from "../ambience/enums";
 
 // ── Shared schema fragments ──────────────────────────────────────────────
 // Both the combined opener tool (GM_TOOL) and the per-turn GM-logic tool
