@@ -67,13 +67,27 @@ export interface NPC {
   note: string;
 }
 
-export interface GameState {
+// The player-facing ledger: the diary surface rendered to the player between
+// turns. Every field here is derived only from what narration has shown or told
+// the player. This type deliberately has NO hidden_state field — it is the
+// structural barrier for the Ledger UI. Unlike the Narrator (which is isolated
+// because it never receives hidden_state), the Ledger renders GM-produced data;
+// handing the UI a PlayerLedger (via `toPlayerLedger`) makes it impossible, at
+// the type level, for GM-only state to reach the rendered surface.
+export interface PlayerLedger {
   scene: string;
   time: string;
   inventory: string[];
   npcs: NPC[];
   clues: string[];
   summary: string;
+}
+
+// The GM's full bookkeeping: the player-facing ledger PLUS the GM-only
+// hidden_state that must never be rendered. The GM tool emits these as two
+// structurally separate sub-objects (`ledger` and `hidden_state`); the parse
+// layer flattens them into this shape for internal continuity.
+export interface GameState extends PlayerLedger {
   hidden_state: string;
 }
 

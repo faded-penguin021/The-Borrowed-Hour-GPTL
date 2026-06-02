@@ -1,16 +1,18 @@
 import React from "react";
-import type { GameState, Premise } from "../../types";
+import type { PlayerLedger, Premise } from "../../types";
 
 interface LedgerModalProps {
   premise: Premise;
-  gameState: GameState;
+  // PlayerLedger, not GameState: the modal structurally cannot receive
+  // hidden_state. Callers project via `toPlayerLedger` at the render boundary.
+  ledger: PlayerLedger;
   onClose: () => void;
 }
 
-export function LedgerModal({ premise, gameState, onClose }: LedgerModalProps) {
+export function LedgerModal({ premise, ledger, onClose }: LedgerModalProps) {
   const realmColor = `var(--${premise.realm})`;
   const has = (a: unknown) => Array.isArray(a) && a.length > 0;
-  const empty = !gameState || !gameState.scene && !gameState.time && !has(gameState.inventory) && !has(gameState.npcs) && !has(gameState.clues) && !gameState.summary;
+  const empty = !ledger || !ledger.scene && !ledger.time && !has(ledger.inventory) && !has(ledger.npcs) && !has(ledger.clues) && !ledger.summary;
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
@@ -50,27 +52,27 @@ export function LedgerModal({ premise, gameState, onClose }: LedgerModalProps) {
             </div>
           ) : (
             <>
-              {(gameState.scene || gameState.time) && (
+              {(ledger.scene || ledger.time) && (
                 <LedgerBlock label="WHERE / WHEN" color={realmColor}>
-                  {gameState.scene && <div style={{ color: "var(--cream-bright)" }}>{gameState.scene}</div>}
-                  {gameState.time && (
-                    <div className="italic mt-1" style={{ color: "var(--cream-dim)" }}>{gameState.time}</div>
+                  {ledger.scene && <div style={{ color: "var(--cream-bright)" }}>{ledger.scene}</div>}
+                  {ledger.time && (
+                    <div className="italic mt-1" style={{ color: "var(--cream-dim)" }}>{ledger.time}</div>
                   )}
                 </LedgerBlock>
               )}
-              {has(gameState.inventory) && (
+              {has(ledger.inventory) && (
                 <LedgerBlock label="ON YOUR PERSON" color={realmColor}>
                   <ul className="space-y-1">
-                    {gameState.inventory.map((it, i) => (
+                    {ledger.inventory.map((it, i) => (
                       <li key={i} style={{ color: "var(--cream)" }}>— {it}</li>
                     ))}
                   </ul>
                 </LedgerBlock>
               )}
-              {has(gameState.npcs) && (
+              {has(ledger.npcs) && (
                 <LedgerBlock label="ENCOUNTERED" color={realmColor}>
                   <ul className="space-y-2">
-                    {gameState.npcs.map((n, i) => (
+                    {ledger.npcs.map((n, i) => (
                       <li key={i}>
                         <span
                           className="display-font"
@@ -92,19 +94,19 @@ export function LedgerModal({ premise, gameState, onClose }: LedgerModalProps) {
                   </ul>
                 </LedgerBlock>
               )}
-              {has(gameState.clues) && (
+              {has(ledger.clues) && (
                 <LedgerBlock label="WHAT YOU KNOW" color={realmColor}>
                   <ul className="space-y-1">
-                    {gameState.clues.map((c, i) => (
+                    {ledger.clues.map((c, i) => (
                       <li key={i} style={{ color: "var(--cream)" }}>— {c}</li>
                     ))}
                   </ul>
                 </LedgerBlock>
               )}
-              {gameState.summary && (
+              {ledger.summary && (
                 <LedgerBlock label="THE STORY SO FAR" color={realmColor}>
                   <div className="italic" style={{ color: "var(--cream)", lineHeight: 1.6 }}>
-                    {gameState.summary}
+                    {ledger.summary}
                   </div>
                 </LedgerBlock>
               )}

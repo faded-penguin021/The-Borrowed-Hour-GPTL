@@ -11,6 +11,7 @@ import { GameScreen } from "./components/GameScreen";
 import { SavesModal } from "./components/modals/SavesModal";
 import { SettingsModal } from "./components/modals/SettingsModal";
 import { LedgerModal } from "./components/modals/LedgerModal";
+import { toPlayerLedger } from "./llm/prompt";
 import { ExportFallbackModal } from "./components/modals/ExportFallbackModal";
 import { PassphraseModal } from "./components/PassphraseModal";
 import { OnboardingModal } from "./components/OnboardingModal";
@@ -91,7 +92,7 @@ function AppContent({
         {showLedger && premise && (
           <LedgerModal
             premise={premise}
-            gameState={gameState}
+            ledger={toPlayerLedger(gameState)}
             onClose={() => setShowLedger(false)}
           />
         )}

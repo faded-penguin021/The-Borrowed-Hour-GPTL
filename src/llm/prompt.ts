@@ -1,4 +1,20 @@
-import type { GameState, StatePromptBlocks } from "../types";
+import type { GameState, PlayerLedger, StatePromptBlocks } from "../types";
+
+// Project a GameState down to the player-facing ledger, dropping hidden_state.
+// This is the structural barrier the Ledger UI relies on: the return type has
+// no hidden_state field, so GM-only state cannot reach the rendered surface even
+// if a future caller forgets to strip it. Fields are copied explicitly rather
+// than spread so the projection never silently carries new GM-only fields.
+export function toPlayerLedger(state: GameState | null | undefined): PlayerLedger {
+  return {
+    scene: state?.scene || "",
+    time: state?.time || "",
+    inventory: Array.isArray(state?.inventory) ? state.inventory : [],
+    npcs: Array.isArray(state?.npcs) ? state.npcs : [],
+    clues: Array.isArray(state?.clues) ? state.clues : [],
+    summary: state?.summary || ""
+  };
+}
 
 export function formatStateForPrompt(state: GameState | null | undefined): StatePromptBlocks {
   if (!state)

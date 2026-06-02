@@ -28,9 +28,15 @@ For each sub-audit, write a one-line verdict — kept / cut / changed — before
 
 These two checks are the scratchpad's job; do them here, in writing, every turn.`;
 
-export const STATE_SCHEMA: Record<string, unknown> = {
+// The player-facing ledger — its own sub-object, structurally separated from
+// hidden_state. This object is rendered verbatim to the player as their diary;
+// it is NOT the GM's continuity scratch. Everything in it must be derived only
+// from what the narration has shown or told the player this turn or in a prior
+// turn. GM-only bookkeeping (clocks, twists, offstage moves, unvoiced identities)
+// lives in the sibling `hidden_state` field and never enters this object.
+const LEDGER_SCHEMA: Record<string, unknown> = {
   type: "object",
-  description: "The complete refreshed state through the end of this turn — never diffs. Carry forward every load-bearing fact.",
+  description: "THE PLAYER-FACING LEDGER. This object is shown to the player verbatim as their diary between turns — it is the rendered surface, not GM memory. Fill every field ONLY from what the narration has actually shown or told the player. Nothing the player has not earned in narration may appear here; GM-only knowledge belongs in the sibling hidden_state, never in this object. Refresh completely each turn — never diffs — carrying forward every load-bearing fact the player knows.",
   properties: {
     scene: {
       type: "string",
@@ -65,13 +71,22 @@ export const STATE_SCHEMA: Record<string, unknown> = {
     summary: {
       type: "string",
       description: "3 to 5 sentence rolling chronicle of what has happened — past tense, written in the player's voice, recording only what they have lived through. This is the only long-term memory once older turns scroll out; every load-bearing fact the player knows must live here. Past tense only: what HAS happened, never what should or must happen next. 'The player must brief Maret on the discoveries' is a to-do list, not a chronicle — write 'After the meeting with Aldenmoor, Maret was waiting in the cloister' instead. Do NOT include game-mechanic vocabulary ('alert level MEDIUM,' 'conspiracy meter at 60%'), faction names the player hasn't been told, offstage events the player hasn't witnessed, or certainty about characters that hasn't been earned in narration. The summary describes what the chronicle has shown, not what the GM is planning. GM-only material belongs in hidden_state."
-    },
-    hidden_state: {
-      type: "string",
-      description: "GM-only notes the player must not see. Counters and clocks (e.g. 'Assassin arrives Night 2'); twist setups; secret allegiances; loop counts; offstage events; faction names not yet revealed; the deeper disposition layer for NPCs (what they actually want, the price they would charge for specific revelations, secrets they are protecting, lies they have told the player). CRITICAL: what is here stays here. Do NOT promote items from hidden_state into clues, npcs, summary, or narration on subsequent turns unless the player has, in the intervening turns, actually witnessed or been told them through narration. The player learning something fictionally is what permits public state to record it. Carry forward across turns and update only when something changes. Aim for under 100 words total; this is bookkeeping, not prose. Empty string is fine for stories that don't need it."
     }
   },
-  required: ["scene", "time", "inventory", "npcs", "clues", "summary", "hidden_state"]
+  required: ["scene", "time", "inventory", "npcs", "clues", "summary"]
+};
+
+export const STATE_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  description: "The complete refreshed state through the end of this turn — never diffs. TWO structurally separate sub-objects: `ledger` is the player-facing diary that renders to the player verbatim; `hidden_state` is GM-only bookkeeping the player never sees. Keeping them as distinct objects is deliberate — fill the ledger only from what narration has shown, and keep everything the player has not yet earned in hidden_state.",
+  properties: {
+    ledger: LEDGER_SCHEMA,
+    hidden_state: {
+      type: "string",
+      description: "GM-only notes the player must not see. Counters and clocks (e.g. 'Assassin arrives Night 2'); twist setups; secret allegiances; loop counts; offstage events; faction names not yet revealed; the deeper disposition layer for NPCs (what they actually want, the price they would charge for specific revelations, secrets they are protecting, lies they have told the player). CRITICAL: what is here stays here. Do NOT promote items from hidden_state into the ledger (clues, npcs, summary) or narration on subsequent turns unless the player has, in the intervening turns, actually witnessed or been told them through narration. The player learning something fictionally is what permits the ledger to record it. Carry forward across turns and update only when something changes. Aim for under 100 words total; this is bookkeeping, not prose. Empty string is fine for stories that don't need it."
+    }
+  },
+  required: ["ledger", "hidden_state"]
 };
 
 export const AMBIENCE_SCHEMA: Record<string, unknown> = {

@@ -4,6 +4,7 @@ import {
   parseGMResponse, parseGMLogicResponse, isStateEmpty
 } from "../llm/parse";
 import { GameStateSchema, GMLogicResponseSchema } from "../llm/schemas";
+import { toPlayerLedger } from "../llm/prompt";
 
 describe("tryParseJSON", () => {
   it("returns parsed object for valid JSON", () => {
@@ -169,6 +170,60 @@ describe("parseGMLogicResponse", () => {
     const result = parseGMLogicResponse(raw);
     expect(result.malformed).toBe(true);
     expect(result.diagnostic).toContain("state");
+  });
+});
+
+describe("ledger / hidden_state structural split", () => {
+  it("flattens the nested ledger sub-object into flat state", () => {
+    const state = GameStateSchema.parse({
+      ledger: {
+        scene: "a platform",
+        time: "8:11",
+        inventory: ["a ticket"],
+        npcs: [{ name: "the woman", note: "seems wary" }],
+        clues: ["a copper ring was mentioned"],
+        summary: "The player boarded the train."
+      },
+      hidden_state: "Assassin arrives Night 2."
+    });
+    expect(state.scene).toBe("a platform");
+    expect(state.clues).toEqual(["a copper ring was mentioned"]);
+    expect(state.hidden_state).toBe("Assassin arrives Night 2.");
+  });
+
+  it("still accepts a legacy flat state object", () => {
+    const state = GameStateSchema.parse({
+      scene: "a platform",
+      summary: "boarded",
+      hidden_state: "secret"
+    });
+    expect(state.scene).toBe("a platform");
+    expect(state.hidden_state).toBe("secret");
+  });
+
+  it("parses a full GM logic response with the nested ledger", () => {
+    const raw = JSON.stringify({
+      narrator_brief: "Render the woman noticing the ticket.",
+      state: {
+        ledger: { scene: "a platform", summary: "boarded" },
+        hidden_state: "secret allegiance"
+      }
+    });
+    const result = parseGMLogicResponse(raw);
+    expect(result.malformed).toBe(false);
+    expect(result.state?.scene).toBe("a platform");
+    expect(result.state?.hidden_state).toBe("secret allegiance");
+  });
+
+  it("projects to a PlayerLedger that cannot carry hidden_state", () => {
+    const state = GameStateSchema.parse({
+      ledger: { scene: "a platform", summary: "boarded" },
+      hidden_state: "the woman is the assassin"
+    });
+    const ledger = toPlayerLedger(state);
+    expect(ledger.scene).toBe("a platform");
+    expect(Object.keys(ledger)).not.toContain("hidden_state");
+    expect(JSON.stringify(ledger)).not.toContain("assassin");
   });
 });
 
