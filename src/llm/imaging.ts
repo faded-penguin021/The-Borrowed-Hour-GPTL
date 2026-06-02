@@ -11,6 +11,7 @@ import { BorrowedError, scrubSecrets } from "./errors";
 import { ENC_PREFIX, decryptSecret } from "../storage/encryption";
 import { getProviderKey } from "./providers";
 import { getSessionPassphrase } from "../passphrase";
+import { ReplicatePredictionSchema } from "./responseSchemas";
 
 export const POLLINATIONS_DEFAULT_MODEL = "flux";
 export const REPLICATE_DEFAULT_MODEL = "black-forest-labs/flux-schnell";
@@ -113,12 +114,6 @@ interface ImageAdapterArgs {
 }
 
 // Minimal shapes for the untyped image-provider response JSON.
-interface ReplicatePrediction {
-  status?: string;
-  error?: unknown;
-  output?: unknown;
-  urls?: { get?: string };
-}
 interface OpenAIImageResponse {
   data?: Array<{ b64_json?: string; url?: string }>;
 }
@@ -162,15 +157,19 @@ const adapters: Record<ImageProviderId, (args: ImageAdapterArgs) => Promise<Gene
       let snip = ""; try { snip = scrubSecrets((await res.text()).slice(0, 400)); } catch {}
       throw new BorrowedError("The plate cannot be drawn.", `Replicate rejected the request (HTTP ${res.status}). ${snip}`);
     }
-    let pred = await res.json() as ReplicatePrediction;
+    let pred = ReplicatePredictionSchema.parse(await res.json());
     // If still running, poll up to ~12s on top of the 20s prefer-wait.
     const started = Date.now();
     while (pred && (pred.status === "starting" || pred.status === "processing") && Date.now() - started < 12000) {
       await new Promise((r) => setTimeout(r, 1500));
       if (signal?.aborted) throw new BorrowedError("The hour is set down.", "Image cancelled.");
-      const poll = await fetch(pred.urls?.get as string, { headers: { Authorization: `Bearer ${apiKey}` }, signal });
+      // Only poll when the prediction actually handed us a status URL; a
+      // running prediction with no `urls.get` is unrecoverable here.
+      const pollUrl = pred.urls?.get;
+      if (!pollUrl) throw new BorrowedError("The plate cannot be drawn.", `Replicate prediction is ${pred.status || "pending"} but returned no polling URL.`);
+      const poll = await fetch(pollUrl, { headers: { Authorization: `Bearer ${apiKey}` }, signal });
       if (!poll.ok) break;
-      pred = await poll.json() as ReplicatePrediction;
+      pred = ReplicatePredictionSchema.parse(await poll.json());
     }
     if (pred.status !== "succeeded") {
       throw new BorrowedError("The plate cannot be drawn.", `Replicate prediction ended as ${pred.status || "unknown"}${pred.error ? `: ${pred.error}` : ""}.`);

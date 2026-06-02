@@ -14,6 +14,11 @@ import { LOCAL_DEFAULT_URL } from "../data/constants";
 import { ENC_PREFIX, decryptSecret } from "../storage/encryption";
 import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase } from "../passphrase";
 import { GM_TOOL } from "./definitions";
+import {
+  OpenAIResponseDataSchema,
+  GeminiResponseDataSchema,
+  ClaudeResponseDataSchema
+} from "./responseSchemas";
 
 import {
   normalizeContent,
@@ -283,22 +288,6 @@ export const checkProviderHealth = async (id: ProviderId, model?: string): Promi
   }
 };
 
-interface OpenAIResponseData {
-  usage?: { input_tokens?: number; input_tokens_details?: { cached_tokens?: number }; output_tokens?: number; total_tokens?: number };
-  status?: unknown;
-  incomplete_details?: { reason?: unknown };
-}
-interface GeminiResponseData {
-  usageMetadata?: { promptTokenCount?: number; cachedContentTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
-  promptFeedback?: { blockReason?: unknown };
-  candidates?: Array<{ finishReason?: unknown }>;
-}
-interface ClaudeResponseData {
-  usage?: { input_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number; output_tokens?: number };
-  content?: Array<{ type?: unknown; name?: unknown; input?: unknown }>;
-  stop_reason?: unknown;
-}
-
 export const PROVIDERS: Record<string, ProviderAdapter> = {
   openai: {
     toolUse: true,
@@ -329,10 +318,10 @@ export const PROVIDERS: Record<string, ProviderAdapter> = {
       };
     },
     logUsage(data: unknown, model: string): void {
-      const d = data as OpenAIResponseData;
-      if (!d.usage)
+      const parsed = OpenAIResponseDataSchema.safeParse(data);
+      if (!parsed.success || !parsed.data.usage)
         return;
-      const u = d.usage;
+      const u = parsed.data.usage;
       console.debug("[borrowed] usage", {
         model,
         input: u.input_tokens || 0,
@@ -376,7 +365,7 @@ export const PROVIDERS: Record<string, ProviderAdapter> = {
     extract(data: unknown): string {
       const text = extractOpenAIText(data);
       if (!text) {
-        const d = data as OpenAIResponseData;
+        const d = OpenAIResponseDataSchema.safeParse(data).data ?? {};
         const status = d.status || "unknown";
         const incomplete = d.incomplete_details?.reason ? ` Reason: ${d.incomplete_details.reason}.` : "";
         throw new BorrowedError("The page came back blank.", `OpenAI returned an empty response. Status: ${status}.${incomplete}`);
@@ -406,10 +395,10 @@ export const PROVIDERS: Record<string, ProviderAdapter> = {
       };
     },
     logUsage(data: unknown, model: string): void {
-      const d = data as GeminiResponseData;
-      if (!d.usageMetadata)
+      const parsed = GeminiResponseDataSchema.safeParse(data);
+      if (!parsed.success || !parsed.data.usageMetadata)
         return;
-      const u = d.usageMetadata;
+      const u = parsed.data.usageMetadata;
       console.debug("[borrowed] usage", {
         model,
         input: u.promptTokenCount || 0,
@@ -459,7 +448,7 @@ export const PROVIDERS: Record<string, ProviderAdapter> = {
     extract(data: unknown): string {
       const text = extractGeminiText(data);
       if (!text) {
-        const d = data as GeminiResponseData;
+        const d = GeminiResponseDataSchema.safeParse(data).data ?? {};
         const reason = d.promptFeedback?.blockReason || d.candidates?.[0]?.finishReason || "unknown";
         throw new BorrowedError("The page came back blank.", `Gemini returned an empty response. Reason: ${reason}.`);
       }
@@ -495,10 +484,10 @@ export const PROVIDERS: Record<string, ProviderAdapter> = {
       };
     },
     logUsage(data: unknown, model: string): void {
-      const d = data as ClaudeResponseData;
-      if (!d.usage)
+      const parsed = ClaudeResponseDataSchema.safeParse(data);
+      if (!parsed.success || !parsed.data.usage)
         return;
-      const u = d.usage;
+      const u = parsed.data.usage;
       console.debug("[borrowed] usage", {
         model,
         input: u.input_tokens || 0,
@@ -546,7 +535,7 @@ export const PROVIDERS: Record<string, ProviderAdapter> = {
       return out;
     },
     extract(data: unknown, useTool?: boolean, tool?: ToolDefinition | null, maxTokens?: number): string {
-      const d = data as ClaudeResponseData;
+      const d = ClaudeResponseDataSchema.safeParse(data).data ?? {};
       if (useTool) {
         const t = tool as ToolDefinition;
         const toolUse = (d.content || []).find((part) => part.type === "tool_use" && part.name === t.name);
