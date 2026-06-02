@@ -1,6 +1,19 @@
 import type { AmbienceInput, GMLogicParseResult, GMParseResult, GameState } from "../types";
 import { sanitizeAmbience } from "../ambience/tables";
 import { GMLogicResponseSchema, GMResponseSchema } from "./schemas";
+import { dlog } from "../debug/debugLog";
+
+/**
+ * Breadcrumb for the case where the model emitted an `ending` field but schema
+ * validation dropped it to null. With normalization in place this should only
+ * fire for a genuinely unrecognized tag — surfacing it in the debug console so a
+ * silently-uncommitted ending is no longer invisible.
+ */
+function logDroppedEnding(rawEnding: unknown, resolved: string | null): void {
+  if (rawEnding != null && resolved == null) {
+    dlog("parse: ending dropped by schema", { rawEnding, resolved });
+  }
+}
 
 export function firstString(...candidates: unknown[]): string {
   for (const c of candidates) {
@@ -219,6 +232,7 @@ export function parseGMLogicResponse(rawText: string): GMLogicParseResult {
     return { narrator_brief: "", state: null, ending: null, raw: rawText, malformed: true, diagnostic: buildParseDiagnostic(rawText, obj, `GM logic response failed schema validation — ${formatZodDiagnostic(result.error)}`) };
   }
 
+  logDroppedEnding((obj as RawGMObject & { ending?: unknown }).ending, result.data.ending ?? null);
   return {
     narrator_brief: result.data.narrator_brief,
     state: result.data.state,
@@ -254,6 +268,7 @@ export function parseGMResponse(rawText: string): GMParseResult {
     return { narration: "", state: null, ending: null, raw: rawText, malformed: true, diagnostic: buildParseDiagnostic(rawText, obj, `GM response failed schema validation — ${formatZodDiagnostic(result.error)}`) };
   }
 
+  logDroppedEnding((obj as RawGMObject & { ending?: unknown }).ending, result.data.ending ?? null);
   return {
     narration: result.data.narration,
     state: result.data.state,

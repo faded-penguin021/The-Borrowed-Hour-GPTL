@@ -98,6 +98,14 @@ describe("GMLogicResponseSchema", () => {
     if (!r.success) throw new Error("unreachable");
     expect(r.data.ending).toBeNull();
   });
+  it("normalizes case and whitespace on a valid ending", () => {
+    for (const raw of ["BAD", "Bad", " bad ", "BITTERSWEET"]) {
+      const r = GMLogicResponseSchema.safeParse({ narrator_brief: "b", state: {}, ending: raw });
+      expect(r.success).toBe(true);
+      if (!r.success) throw new Error("unreachable");
+      expect(r.data.ending).toBe(raw.trim().toLowerCase());
+    }
+  });
 });
 
 describe("parseGMResponse", () => {

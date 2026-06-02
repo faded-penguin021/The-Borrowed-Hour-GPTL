@@ -22,16 +22,25 @@ export const GameStateSchema = z.object({
   hidden_state: z.string().default("")
 });
 
+/** The canonical set of ending tags, lower-cased. */
+export const ENDING_VALUES = ["good", "bittersweet", "pyrrhic", "ambiguous", "bad"] as const;
+
 /**
  * Ending tag. Anything outside the known set (or absent) collapses to `null`
  * via `.catch`, matching the old `VALID_ENDINGS.has(...)` guard — an invalid
  * value must never fail the whole parse.
+ *
+ * The `preprocess` step normalizes case and surrounding whitespace BEFORE the
+ * enum check, because the model is primed by the tool description (which spells
+ * the types in caps: "GOOD", "BAD", …) to emit values like `"BAD"` or `" Bad "`.
+ * Without this, a case-sensitive `z.enum` would `.catch(null)` a genuine ending
+ * silently, and the chronicle would never close.
  */
 export const EndingSchema = z
-  .enum(["good", "bittersweet", "pyrrhic", "ambiguous", "bad"])
-  .nullable()
-  .optional()
-  .catch(null);
+  .preprocess(
+    (v) => (typeof v === "string" ? v.trim().toLowerCase() : v),
+    z.enum(ENDING_VALUES).nullable().optional().catch(null)
+  );
 
 /**
  * GM logic response: the structured decision the game master emits each turn.
