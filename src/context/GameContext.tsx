@@ -783,6 +783,11 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       return;
     }
     codex.revokeAllPlates(entries);
+    // Park the TTS cursor at the end of the restored entries BEFORE they land in
+    // state. setEntries triggers the autoSpeak effect, and without this the loaded
+    // narration would auto-play on reload — annoying and a needless API cost.
+    tts.stopTTS();
+    tts.resetTTSCursor((save.entries || []).length);
     setPremise(found);
     // Rehydrate illustrations: entries whose url is an `idb:` marker have their
     // bytes in IndexedDB. Pull each Blob, mint a live `blob:` URL, and swap it
@@ -824,8 +829,6 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
         : defaultAmbienceForRealm(found.realm);
       ambienceRef.current.applyAmbience(bed);
     }
-    tts.stopTTS();
-    tts.resetTTSCursor((save.entries || []).length);
   };
 
   const saveCurrent = () => saves.saveCurrent({
