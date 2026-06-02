@@ -2,7 +2,7 @@ import type { ProviderId } from "../types";
 import React from "react";
 import { encryptSecret } from "../storage/encryption";
 import { PROVIDER_META, resetProviderKey, checkProviderHealth } from "../llm/providers";
-import { requestPassphrase, getSessionPassphrase, setSessionPassphrase } from "../passphrase";
+import { usePassphrase } from "../context/PassphraseContext";
 
 interface ApiKeyRowProps {
   providerId: ProviderId;
@@ -10,6 +10,7 @@ interface ApiKeyRowProps {
 
 export function ApiKeyRow({ providerId }: ApiKeyRowProps) {
   const meta = PROVIDER_META[providerId];
+  const { requestPassphrase, getSessionPassphrase, setSessionPassphrase } = usePassphrase();
   const [stored, setStored] = React.useState(() => !!localStorage.getItem(meta.keyStorage));
   const [editing, setEditing] = React.useState(false);
   const [value, setValue] = React.useState("");

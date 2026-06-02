@@ -1,22 +1,20 @@
 import React, { useState, useEffect, useRef } from "react";
-import { getPassphraseState, onPassphraseChange, resolvePassphrase } from "../passphrase";
+import { usePassphrase } from "../context/PassphraseContext";
 
 export function PassphraseModal() {
-  const [state, setState] = useState(getPassphraseState);
+  const { prompt, pending, resolvePassphrase } = usePassphrase();
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => onPassphraseChange(() => {
-    const next = getPassphraseState();
-    setState(next);
-    if (next.pending) setValue("");
-  }), []);
+  useEffect(() => {
+    if (pending) setValue("");
+  }, [pending]);
 
   useEffect(() => {
-    if (state.pending && inputRef.current) inputRef.current.focus();
-  }, [state.pending]);
+    if (pending && inputRef.current) inputRef.current.focus();
+  }, [pending]);
 
-  if (!state.pending) return null;
+  if (!pending) return null;
 
   const submit = () => {
     const trimmed = value.trim();
@@ -41,7 +39,7 @@ export function PassphraseModal() {
             className="display-font text-base"
             style={{ color: "var(--cream-bright)", letterSpacing: "0.04em" }}
           >
-            {state.prompt}
+            {prompt}
           </h2>
         </div>
         <div className="px-6 py-5">
