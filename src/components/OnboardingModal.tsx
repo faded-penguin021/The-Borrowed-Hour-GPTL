@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { encryptSecret } from "../storage/encryption";
 import { ONBOARDING_KEY } from "../data/constants";
 import { PROVIDER_META } from "../llm/providers";
-import { setSessionPassphrase } from "../passphrase";
+import { usePassphrase } from "../context/PassphraseContext";
 
 /** The provider offered during onboarding — the default free engine. */
 const ONBOARD_PROVIDER = "mistral";
@@ -16,7 +16,7 @@ const ONBOARD_PROVIDER = "mistral";
  * a setup step where the reader picks a session passphrase and (optionally)
  * pastes a first key. The key is encrypted with `encryptSecret` — the same
  * primitive the settings rows use — and the chosen passphrase is held in
- * closure-scoped memory (via `setSessionPassphrase`, not on `window`) so nothing
+ * React-owned memory (via the passphrase context, not on `window`) so nothing
  * has to be re-entered this session.
  */
 interface OnboardingModalProps {
@@ -24,6 +24,7 @@ interface OnboardingModalProps {
 }
 
 export function OnboardingModal({ onComplete }: OnboardingModalProps) {
+  const { setSessionPassphrase } = usePassphrase();
   const [slide, setSlide] = useState(0);
   const [passphrase, setPassphrase] = useState("");
   const [apiKey, setApiKey] = useState("");

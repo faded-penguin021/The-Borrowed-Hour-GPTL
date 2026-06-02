@@ -3,6 +3,7 @@ import { SAVE_CAP, ONBOARDING_KEY } from "./data/constants";
 import { buildCustomPremise } from "./data/premises";
 import { GameProvider, useGame, useGameRun } from "./context/GameContext";
 import { SettingsProvider, useSettingsContext } from "./context/SettingsContext";
+import { PassphraseProvider } from "./context/PassphraseContext";
 import { AmbienceProvider } from "./context/AmbienceContext";
 import { TTSProvider } from "./context/TTSContext";
 import { TitleScreen } from "./components/TitleScreen";
@@ -117,7 +118,7 @@ function AppContent({
   );
 }
 
-export function App() {
+function AppGate() {
   const [showLedger, setShowLedger] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -153,5 +154,17 @@ export function App() {
         </TTSProvider>
       </AmbienceProvider>
     </SettingsProvider>
+  );
+}
+
+export function App() {
+  // PassphraseProvider wraps both the onboarding flow and the main tree so the
+  // session passphrase has a single React owner across the whole app — the
+  // onboarding step stashes the chosen passphrase through the same context the
+  // settings rows and key resolvers use.
+  return (
+    <PassphraseProvider>
+      <AppGate />
+    </PassphraseProvider>
   );
 }

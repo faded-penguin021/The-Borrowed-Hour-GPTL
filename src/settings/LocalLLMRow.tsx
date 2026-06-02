@@ -2,11 +2,12 @@ import React from "react";
 import { LOCAL_DEFAULT_URL } from "../data/constants";
 import { encryptSecret } from "../storage/encryption";
 import { PROVIDER_META } from "../llm/providers";
-import { requestPassphrase, getSessionPassphrase, setSessionPassphrase } from "../passphrase";
+import { usePassphrase } from "../context/PassphraseContext";
 
 /** No props. */
 export function LocalLLMRow() {
   const meta = PROVIDER_META.local;
+  const { requestPassphrase, getSessionPassphrase, setSessionPassphrase } = usePassphrase();
   // The local provider always defines urlStorage (see PROVIDER_META.local).
   const urlStorage = meta.urlStorage as string;
   const [url, setUrl] = React.useState(() => localStorage.getItem(urlStorage) || "");

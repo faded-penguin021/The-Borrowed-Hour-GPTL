@@ -1,59 +1,49 @@
-// Closure-scoped session passphrase. Held in module-private state rather than on
-// `window.__sessionPassphrase`, so a stray in-page script can't trivially scrape
-// it off the global object. This is NOT a guarantee against a determined
-// in-page attacker (the secret is still in memory and reachable by code that can
-// import this module), but it removes the cheapest XSS exfiltration vector and
-// gives the secret a single owner.
-let _sessionPassphrase: string | null = null;
+// Passphrase service boundary.
+//
+// The session passphrase, pending prompt, and pending resolver now live in
+// React-owned state inside <PassphraseProvider> (see context/PassphraseContext).
+// This module no longer holds any of that lifecycle state itself — it is a thin
+// injection point so non-React callers (the LLM/TTS key resolvers) can reach the
+// provider's operations through a single typed seam instead of a web of
+// module-level globals and listeners.
+//
+// Security note: this is a lifecycle/testability cleanup, not a security
+// improvement. The secret is still held in ordinary browser memory and is
+// reachable by any code that can call these operations — exactly as before. It
+// is not protected against a determined in-page (XSS) attacker; the exposure is
+// equivalent to the previous closure-scoped implementation.
 
-export function setSessionPassphrase(value: string | null): void {
-  _sessionPassphrase = value || null;
+export interface PassphraseService {
+  /** Request a passphrase from the user via in-app modal. Resolves null if cancelled. */
+  requestPassphrase(prompt: string): Promise<string | null>;
+  /** Resolve the pending request. Called by the modal component. */
+  resolvePassphrase(value: string | null): void;
+  /** Read the current session passphrase, or null if none is set. */
+  getSessionPassphrase(): string | null;
+  /** Set (or clear, with null) the current session passphrase. */
+  setSessionPassphrase(value: string | null): void;
+  /** Clear the current session passphrase. */
+  clearSessionPassphrase(): void;
 }
 
-export function getSessionPassphrase(): string | null {
-  return _sessionPassphrase;
-}
-
-export function clearSessionPassphrase(): void {
-  _sessionPassphrase = null;
-}
-
-let _pendingResolve: ((value: string | null) => void) | null = null;
-
-let _pendingPrompt: string | null = null;
-
-let _listener: (() => void) | null = null;
+let _service: PassphraseService | null = null;
 
 /**
- * Request a passphrase from the user via in-app modal.
- * Returns null if the user cancels.
+ * Wire the live service implementation. Called by <PassphraseProvider> on mount
+ * and cleared on unmount. Tests can inject a stub here.
  */
-export function requestPassphrase(prompt: string): Promise<string | null> {
-  if (_pendingResolve) return Promise.resolve(null);
-  _pendingPrompt = prompt;
-  return new Promise((resolve) => {
-    _pendingResolve = resolve;
-    _listener?.();
-  });
+export function setPassphraseService(service: PassphraseService | null): void {
+  _service = service;
 }
 
-/** Resolve the pending request. Called by the modal component. */
-export function resolvePassphrase(value: string | null): void {
-  const r = _pendingResolve;
-  _pendingResolve = null;
-  _pendingPrompt = null;
-  _listener?.();
-  r?.(value);
+function service(): PassphraseService {
+  if (!_service)
+    throw new Error("Passphrase service is not available — is the app wrapped in <PassphraseProvider>?");
+  return _service;
 }
 
-export function getPassphraseState(): { prompt: string | null; pending: boolean } {
-  return { prompt: _pendingPrompt, pending: !!_pendingResolve };
-}
-
-/** Subscribe to state changes. Returns unsubscribe function. */
-export function onPassphraseChange(fn: () => void): () => void {
-  _listener = fn;
-  return () => {
-    if (_listener === fn) _listener = null;
-  };
-}
+export const requestPassphrase = (prompt: string): Promise<string | null> => service().requestPassphrase(prompt);
+export const resolvePassphrase = (value: string | null): void => service().resolvePassphrase(value);
+export const getSessionPassphrase = (): string | null => service().getSessionPassphrase();
+export const setSessionPassphrase = (value: string | null): void => service().setSessionPassphrase(value);
+export const clearSessionPassphrase = (): void => service().clearSessionPassphrase();
