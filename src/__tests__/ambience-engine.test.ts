@@ -1,13 +1,11 @@
-/**
- * @import { AmbienceInput } from "../types"
- */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import type { AmbienceInput } from "../types";
 import {
   AMBIENCE_SPACE_VALUES,
   AMBIENCE_POPULATION_VALUES,
   AMBIENCE_MOOD_VALUES,
   AMBIENCE_PALETTE_VALUES
-} from "../ambience/enums.js";
+} from "../ambience/enums";
 
 // ── Minimal Web Audio mock ───────────────────────────────────────────────
 // Just enough surface for AmbienceEngine to run its control logic and fire
@@ -27,6 +25,10 @@ const audioNode = (extra = {}) => ({
   ...extra
 });
 class MockAudioContext {
+  currentTime: number;
+  sampleRate: number;
+  state: string;
+  destination: ReturnType<typeof audioNode>;
   constructor() {
     this.currentTime = 0;
     this.sampleRate = 44100;
@@ -45,7 +47,7 @@ class MockAudioContext {
     });
   }
   createDelay() { return audioNode({ delayTime: makeParam() }); }
-  createBuffer(/** @type {number} */ channels, /** @type {number} */ len) {
+  createBuffer(channels: number, len: number) {
     const data = new Float32Array(len);
     return { getChannelData: () => data, length: len };
   }
@@ -54,17 +56,16 @@ class MockAudioContext {
   close() { this.state = "closed"; return Promise.resolve(); }
 }
 
-/** @type {typeof import("../ambience/engine.js").AmbienceEngine} */
-let AmbienceEngine;
+let AmbienceEngine: typeof import("../ambience/engine").AmbienceEngine;
 beforeEach(async () => {
   vi.useFakeTimers();
   // Partial browser-global mock: only AudioContext is needed by the engine.
-  globalThis.window = /** @type {any} */ ({ AudioContext: MockAudioContext });
-  ({ AmbienceEngine } = await import("../ambience/engine.js"));
+  globalThis.window = { AudioContext: MockAudioContext } as unknown as Window & typeof globalThis;
+  ({ AmbienceEngine } = await import("../ambience/engine"));
 });
 afterEach(() => {
   vi.useRealTimers();
-  delete (/** @type {any} */ (globalThis)).window;
+  delete (globalThis as { window?: unknown }).window;
 });
 
 describe("AmbienceEngine — procedural bed", () => {
@@ -176,7 +177,7 @@ describe("palette", () => {
     const eng = new AmbienceEngine();
     eng.setIntensity("present");
     eng.applyAmbience({ palette: "synth" });
-    eng.applyAmbience(/** @type {any} */ ({ palette: null }));
+    eng.applyAmbience({ palette: null } as unknown as AmbienceInput);
     expect(eng.current.palette).toBe(null);
     eng.destroy();
   });
@@ -185,7 +186,7 @@ describe("palette", () => {
     const eng = new AmbienceEngine();
     eng.setIntensity("present");
     eng.applyAmbience({ palette: "synth" });
-    eng.applyAmbience(/** @type {any} */ ({ palette: "banjo" }));
+    eng.applyAmbience({ palette: "banjo" } as unknown as AmbienceInput);
     expect(eng.current.palette).toBe("synth");
     eng.destroy();
   });
@@ -217,7 +218,7 @@ describe("master guard bus", () => {
   });
 
   it("masterLPF default frequency ≤ AMBIENCE_MASTER_LPF_CAP", async () => {
-    const { AMBIENCE_MASTER_LPF_CAP, AMBIENCE_MASTER_LPF_DEFAULT } = await import("../ambience/tables.js");
+    const { AMBIENCE_MASTER_LPF_CAP, AMBIENCE_MASTER_LPF_DEFAULT } = await import("../ambience/tables");
     const eng = new AmbienceEngine();
     expect(eng.masterLPF.frequency.value).toBe(AMBIENCE_MASTER_LPF_DEFAULT);
     expect(eng.masterLPF.frequency.value).toBeLessThanOrEqual(AMBIENCE_MASTER_LPF_CAP);
@@ -233,7 +234,7 @@ describe("master guard bus", () => {
   });
 
   it("every palette config has cutoff ≤ AMBIENCE_MASTER_LPF_CAP and weights ≤ 1", async () => {
-    const { AMBIENCE_PALETTE, AMBIENCE_MASTER_LPF_CAP } = await import("../ambience/tables.js");
+    const { AMBIENCE_PALETTE, AMBIENCE_MASTER_LPF_CAP } = await import("../ambience/tables");
     for (const [, cfg] of Object.entries(AMBIENCE_PALETTE)) {
       expect(cfg.cutoff).toBeLessThanOrEqual(AMBIENCE_MASTER_LPF_CAP);
       for (const w of Object.values(cfg.weights)) {
@@ -256,42 +257,42 @@ describe("master guard bus", () => {
 
 describe("Wild seed classifier — deriveAmbienceFromSeed", () => {
   it("cyberpunk seed → synth / street", async () => {
-    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables");
     const r = deriveAmbienceFromSeed("A cyberpunk neon city at night");
     expect(r.palette).toBe("synth");
     expect(r.space).toBe("street");
   });
 
   it("desert seed → guitar / field", async () => {
-    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables");
     const r = deriveAmbienceFromSeed("A vast desert dune at dawn");
     expect(r.palette).toBe("guitar");
     expect(r.space).toBe("field");
   });
 
   it("starship seed → synth / void", async () => {
-    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables");
     const r = deriveAmbienceFromSeed("Aboard a starship in deep space");
     expect(r.palette).toBe("synth");
     expect(r.space).toBe("void");
   });
 
   it("gothic manor seed → strings / chamber", async () => {
-    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables");
     const r = deriveAmbienceFromSeed("In a gothic manor with candlelight");
     expect(r.palette).toBe("strings");
     expect(r.space).toBe("chamber");
   });
 
   it("forest seed → strings / forest", async () => {
-    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables");
     const r = deriveAmbienceFromSeed("Deep in an ancient forest");
     expect(r.palette).toBe("strings");
     expect(r.space).toBe("forest");
   });
 
   it("vague seed falls back to neutral intimate/solitary/calm/piano", async () => {
-    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables");
     const r = deriveAmbienceFromSeed("You wake and nothing is familiar");
     expect(r.space).toBe("intimate");
     expect(r.population).toBe("solitary");
@@ -300,21 +301,21 @@ describe("Wild seed classifier — deriveAmbienceFromSeed", () => {
   });
 
   it("result always uses valid enum values for any seed", async () => {
-    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
-    const { AMBIENCE_SPACE_VALUES: sp, AMBIENCE_POPULATION_VALUES: po, AMBIENCE_MOOD_VALUES: mo, AMBIENCE_PALETTE_VALUES: pa } = await import("../ambience/enums.js");
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables");
+    const { AMBIENCE_SPACE_VALUES: sp, AMBIENCE_POPULATION_VALUES: po, AMBIENCE_MOOD_VALUES: mo, AMBIENCE_PALETTE_VALUES: pa } = await import("../ambience/enums");
     const spaces = new Set(sp); const pops = new Set(po); const moods = new Set(mo); const palettes = new Set(pa);
     const seeds = ["cyberpunk alley", "starship", "desert dune", "forest", "temple", "gothic manor", "train journey", "city market", "nothing special here"];
     for (const s of seeds) {
       const r = deriveAmbienceFromSeed(s);
-      expect(spaces.has(r.space), `space invalid for: ${s}`).toBe(true);
-      expect(pops.has(r.population), `population invalid for: ${s}`).toBe(true);
-      expect(moods.has(r.mood), `mood invalid for: ${s}`).toBe(true);
-      expect(palettes.has(r.palette), `palette invalid for: ${s}`).toBe(true);
+      expect(spaces.has(r.space!), `space invalid for: ${s}`).toBe(true);
+      expect(pops.has(r.population!), `population invalid for: ${s}`).toBe(true);
+      expect(moods.has(r.mood!), `mood invalid for: ${s}`).toBe(true);
+      expect(palettes.has(r.palette!), `palette invalid for: ${s}`).toBe(true);
     }
   });
 
   it("returns a fresh object each call (not a shared reference)", async () => {
-    const { deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+    const { deriveAmbienceFromSeed } = await import("../ambience/tables");
     const r1 = deriveAmbienceFromSeed("cyberpunk");
     const r2 = deriveAmbienceFromSeed("cyberpunk");
     expect(r1).not.toBe(r2);
@@ -324,29 +325,29 @@ describe("Wild seed classifier — deriveAmbienceFromSeed", () => {
 describe("realm-derived opening ambience", () => {
   it("every realm default uses only valid enum values", async () => {
     const { AMBIENCE_REALM_DEFAULTS, AMBIENCE_REALM_FALLBACK } =
-      await import("../ambience/tables.js");
-    const spaces = /** @type {Set<string>} */ (new Set(AMBIENCE_SPACE_VALUES));
-    const moods = /** @type {Set<string>} */ (new Set(AMBIENCE_MOOD_VALUES));
-    const palettes = /** @type {Set<string>} */ (new Set(AMBIENCE_PALETTE_VALUES));
-    const populations = /** @type {Set<string>} */ (new Set(AMBIENCE_POPULATION_VALUES));
+      await import("../ambience/tables");
+    const spaces = new Set<string>(AMBIENCE_SPACE_VALUES);
+    const moods = new Set<string>(AMBIENCE_MOOD_VALUES);
+    const palettes = new Set<string>(AMBIENCE_PALETTE_VALUES);
+    const populations = new Set<string>(AMBIENCE_POPULATION_VALUES);
     for (const rawBed of [...Object.values(AMBIENCE_REALM_DEFAULTS), AMBIENCE_REALM_FALLBACK]) {
-      const bed = /** @type {Required<AmbienceInput>} */ (rawBed);
-      expect(spaces.has(bed.space)).toBe(true);
-      expect(moods.has(bed.mood)).toBe(true);
-      expect(palettes.has(bed.palette)).toBe(true);
-      expect(populations.has(bed.population)).toBe(true);
+      const bed = rawBed as Required<AmbienceInput>;
+      expect(spaces.has(bed.space!)).toBe(true);
+      expect(moods.has(bed.mood!)).toBe(true);
+      expect(palettes.has(bed.palette!)).toBe(true);
+      expect(populations.has(bed.population!)).toBe(true);
     }
   });
 
   it("falls back to a default bed for an unknown realm", async () => {
     const { defaultAmbienceForRealm, AMBIENCE_REALM_FALLBACK } =
-      await import("../ambience/tables.js");
+      await import("../ambience/tables");
     expect(defaultAmbienceForRealm("nonexistent-realm")).toEqual(AMBIENCE_REALM_FALLBACK);
     expect(defaultAmbienceForRealm("neon").space).toBe("street");
   });
 
   it("applying a realm default drives the held engine state", async () => {
-    const { defaultAmbienceForRealm } = await import("../ambience/tables.js");
+    const { defaultAmbienceForRealm } = await import("../ambience/tables");
     const eng = new AmbienceEngine();
     eng.setIntensity("present");
     eng.applyAmbience(defaultAmbienceForRealm("neon"));

@@ -36,6 +36,6 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["src/**/*.test.{js,jsx,ts,tsx}"],
-    setupFiles: ["src/__tests__/vitest-setup.js"]
+    setupFiles: ["src/__tests__/vitest-setup.ts"]
   }
 });

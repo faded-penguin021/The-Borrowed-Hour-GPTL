@@ -24,6 +24,6 @@ describe("cleanPlateCaption — epistemic-leak guard", () => {
   it("drops sentence-like or over-long captions", () => {
     expect(cleanPlateCaption("She turns to you and asks a question you did not expect to hear")).toBe("");
     expect(cleanPlateCaption("")).toBe("");
-    expect(cleanPlateCaption(/** @type {any} */ (undefined))).toBe("");
+    expect(cleanPlateCaption(undefined as unknown as string)).toBe("");
   });
 });

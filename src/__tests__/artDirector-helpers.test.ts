@@ -1,6 +1,4 @@
-/**
- * @import { VisualLedgerEntry } from "../types"
- */
+import type { VisualLedgerEntry } from "../types";
 import { describe, it, expect } from "vitest";
 import {
   mergeLedger, composeImagePrompt,
@@ -28,14 +26,14 @@ describe("mergeLedger", () => {
 
   it("filters non-string tags", () => {
     // Deliberately malformed tags to exercise the string-only filter.
-    const result = mergeLedger([], /** @type {VisualLedgerEntry[]} */ ([{ id: "npc:x", tags: ["ok", 42, null, "fine"] }]));
+    const result = mergeLedger([], [{ id: "npc:x", tags: ["ok", 42, null, "fine"] }] as unknown as VisualLedgerEntry[]);
     expect(result[0].tags).toEqual(["ok", "fine"]);
   });
 
   it("skips invalid updates (no id, no tags array)", () => {
     const current = [{ id: "a", tags: ["x"] }];
     // Deliberately invalid entries (null, missing id, missing tags) to exercise the skip path.
-    const result = mergeLedger(current, /** @type {VisualLedgerEntry[]} */ (/** @type {unknown} */ ([null, { tags: ["y"] }, { id: "b" }])));
+    const result = mergeLedger(current, [null, { tags: ["y"] }, { id: "b" }] as unknown as VisualLedgerEntry[]);
     expect(result).toHaveLength(1);
   });
 
@@ -104,7 +102,7 @@ describe("parseBootstrapResponse", () => {
 
   it("marks empty input as malformed", () => {
     expect(parseBootstrapResponse("").malformed).toBe(true);
-    expect(parseBootstrapResponse(/** @type {any} */ (null)).malformed).toBe(true);
+    expect(parseBootstrapResponse(null as unknown as string).malformed).toBe(true);
   });
 
   it("marks response without style_bible as malformed", () => {

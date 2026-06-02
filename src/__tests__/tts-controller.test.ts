@@ -1,8 +1,6 @@
-/**
- * @import { TTSAdapter, TTSAdapterOptions, TTSHandle } from "../types"
- */
 import { describe, it, expect, vi } from "vitest";
 import { TTSController } from "../tts/controller";
+import type { TTSAdapter, TTSAdapterOptions, TTSHandle } from "../types";
 
 // Mock TTS_PROVIDER_META so no real adapters or network are needed
 vi.mock("../tts/catalogue", () => ({
@@ -14,9 +12,9 @@ vi.mock("../tts/catalogue", () => ({
       adapterLoader: async () => {
         // return a minimal fake adapter class
         return class MockAdapter {
-          /** @param {TTSAdapterOptions} opts */
-          constructor(opts) { this.opts = opts; }
-          async synthesize() { return /** @type {TTSHandle} */ ({ play: () => {}, pause: () => {}, resume: () => {}, stop: () => {}, set onended(/** @type {(() => void) | null} */ cb) {} }); }
+          opts: TTSAdapterOptions;
+          constructor(opts: TTSAdapterOptions) { this.opts = opts; }
+          async synthesize() { return ({ play: () => {}, pause: () => {}, resume: () => {}, stop: () => {}, set onended(cb: (() => void) | null) {} } as TTSHandle); }
           destroy() {}
         };
       }
@@ -31,7 +29,7 @@ describe("TTSController", () => {
   });
   it("setModel updates model and clears adapter", () => {
     const ctrl = new TTSController();
-    ctrl.adapter = /** @type {TTSAdapter} */ ({}); // fake non-null adapter
+    ctrl.adapter = ({} as unknown as TTSAdapter); // fake non-null adapter
     ctrl.setModel("my-model");
     expect(ctrl.model).toBe("my-model");
     expect(ctrl.adapter).toBeNull();
@@ -53,7 +51,7 @@ describe("TTSController", () => {
   });
   it("setProvider no-ops when nothing changes", () => {
     const ctrl = new TTSController();
-    const fakeAdapter = /** @type {TTSAdapter} */ ({});
+    const fakeAdapter = ({} as unknown as TTSAdapter);
     ctrl.providerId = "mock";
     ctrl.adapter = fakeAdapter;
     ctrl.key = "k1";

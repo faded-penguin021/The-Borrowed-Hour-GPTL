@@ -1,13 +1,11 @@
-/**
- * @import { Entry, ThrownError } from "../types"
- */
+import type { Entry, ThrownError } from "../types";
 import { describe, it, expect } from "vitest";
 
 describe("abort / cancellation contract", () => {
   it("AbortController.abort() causes subsequent fetch to throw AbortError", async () => {
     const controller = new AbortController();
     controller.abort();
-    const fetchLike = async (/** @type {AbortSignal} */ signal) => {
+    const fetchLike = async (signal: AbortSignal) => {
       if (signal.aborted) {
         const e = new DOMException("The operation was aborted.", "AbortError");
         throw e;
@@ -18,7 +16,7 @@ describe("abort / cancellation contract", () => {
     try {
       await fetchLike(controller.signal);
     } catch (e) {
-      expect(/** @type {ThrownError} */ (e).name).toBe("AbortError");
+      expect((e as ThrownError).name).toBe("AbortError");
     }
   });
 
@@ -98,10 +96,9 @@ describe("turn-scoped stale detection (codex pattern)", () => {
     const turnIdRef = { current: 0 };
     const inflightRef = { current: 0 };
     const MAX_INFLIGHT = 2;
-    /** @type {string[]} */
-    const results = [];
+    const results: string[] = [];
 
-    const simulateTurn = async (/** @type {number} */ delay, /** @type {string} */ label) => {
+    const simulateTurn = async (delay: number, label: string) => {
       const myTurn = ++turnIdRef.current;
       const stale = () => myTurn !== turnIdRef.current;
 
@@ -133,10 +130,9 @@ describe("turn-scoped stale detection (codex pattern)", () => {
     const inflightRef = { current: 0 };
     const MAX_INFLIGHT = 2;
     const turnIdRef = { current: 0 };
-    /** @type {string[]} */
-    const results = [];
+    const results: string[] = [];
 
-    const simulateImage = async (/** @type {string} */ label) => {
+    const simulateImage = async (label: string) => {
       const _myTurn = turnIdRef.current;
       if (inflightRef.current >= MAX_INFLIGHT) { results.push(`${label}:gated`); return; }
       inflightRef.current++;
@@ -163,7 +159,7 @@ describe("turn-scoped stale detection (codex pattern)", () => {
 
 describe("blob URL lifecycle", () => {
   it("revokeObjectURL is safe to call on non-blob URLs", () => {
-    const revoke = (/** @type {string | null | undefined} */ url) => {
+    const revoke = (url: string | null | undefined) => {
       if (typeof url === "string" && url.startsWith("blob:")) {
         URL.revokeObjectURL(url);
       }
@@ -176,10 +172,9 @@ describe("blob URL lifecycle", () => {
   });
 
   it("revokes only blob: URLs from an entries array", () => {
-    /** @type {string[]} */
-    const revoked = [];
-    const mockRevoke = (/** @type {string} */ url) => revoked.push(url);
-    const revokeAllPlates = (/** @type {Entry[]} */ entries) => {
+    const revoked: string[] = [];
+    const mockRevoke = (url: string) => revoked.push(url);
+    const revokeAllPlates = (entries: Entry[]) => {
       for (const e of entries) {
         const url = e?.illustration?.url;
         if (typeof url === "string" && url.startsWith("blob:")) mockRevoke(url);
@@ -194,7 +189,7 @@ describe("blob URL lifecycle", () => {
       { type: "narration", text: "dark", illustration: { status: "failed" } },
     ];
 
-    revokeAllPlates(/** @type {Entry[]} */ (entries));
+    revokeAllPlates(entries as Entry[]);
     expect(revoked).toEqual(["blob:http://localhost/abc"]);
   });
 });

@@ -1,13 +1,11 @@
-/**
- * @import { ProviderId } from "../types"
- */
+import type { ProviderId } from "../types";
 import { describe, it, expect } from "vitest";
 import { PROVIDER_META, PROVIDER_ORDER } from "../llm/providers";
 
 describe("PROVIDER_META integrity", () => {
   it("every ordered provider exists in meta", () => {
     for (const id of PROVIDER_ORDER) {
-      expect(PROVIDER_META[/** @type {ProviderId} */ (id)], `provider ${id} missing from PROVIDER_META`).toBeDefined();
+      expect(PROVIDER_META[id as ProviderId], `provider ${id} missing from PROVIDER_META`).toBeDefined();
     }
   });
   it("every provider has a non-empty models array", () => {
