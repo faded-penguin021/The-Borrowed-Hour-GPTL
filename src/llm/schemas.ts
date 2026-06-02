@@ -11,8 +11,14 @@ export const NpcSchema = z.object({
   note: z.string().default("")
 });
 
-/** Full game state object. Missing fields fall back to empty values. */
-export const GameStateSchema = z.object({
+/**
+ * Internal, flat game-state shape. Missing fields fall back to empty values.
+ * The app carries state flat (one object), so this stays flat even though the
+ * GM tool now emits a nested `{ ledger, hidden_state }` split — see the
+ * preprocess in `GameStateSchema` below, which lifts a nested `ledger` up into
+ * these fields before validation.
+ */
+const FlatGameStateSchema = z.object({
   scene: z.string().default(""),
   time: z.string().default(""),
   inventory: z.array(z.string()).default([]),
@@ -21,6 +27,25 @@ export const GameStateSchema = z.object({
   summary: z.string().default(""),
   hidden_state: z.string().default("")
 });
+
+/**
+ * Full game state. The GM tool emits the player-facing fields inside a separate
+ * `ledger` sub-object (structurally split from `hidden_state` so GM-only data
+ * cannot leak into the diary). This preprocess flattens that nested shape into
+ * the internal flat representation, and also accepts an already-flat object for
+ * backward compatibility (legacy payloads, the empty-default case, and any model
+ * that ignores the nesting). Missing fields fall back to empty values.
+ */
+export const GameStateSchema = z.preprocess((val) => {
+  if (val && typeof val === "object" && !Array.isArray(val)) {
+    const v = val as Record<string, unknown>;
+    const ledger = v.ledger;
+    if (ledger && typeof ledger === "object" && !Array.isArray(ledger)) {
+      return { ...(ledger as Record<string, unknown>), hidden_state: v.hidden_state };
+    }
+  }
+  return val;
+}, FlatGameStateSchema);
 
 /** The canonical set of ending tags, lower-cased. */
 export const ENDING_VALUES = ["good", "bittersweet", "pyrrhic", "ambiguous", "bad"] as const;

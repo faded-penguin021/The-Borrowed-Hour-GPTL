@@ -621,7 +621,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
           { role: "assistant", content: priorAssistant },
           { role: "user", content: `Your previous response could not be parsed. Reason: ${gmParsed.diagnostic || "missing required fields"}.
 
-Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (string, keep it brief — under 120 words), narrator_brief (string, non-empty, the compressed brief for the narrator), state (object with: scene, time, inventory, npcs, clues, summary, hidden_state). Optional: ending. Output ONLY the tool call / JSON object — no prose, no markdown fences.` }
+Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (string, keep it brief — under 120 words), narrator_brief (string, non-empty, the compressed brief for the narrator), state (object with two sub-objects: ledger { scene, time, inventory, npcs, clues, summary } and hidden_state (string)). Optional: ending. Output ONLY the tool call / JSON object — no prose, no markdown fences.` }
         ];
         const retryGmReply = await callAPI(gmSys, correctiveHistory, true, settings.engineGM, 3600, 0.25, controller.signal, GM_LOGIC_TOOL);
         if (controller.signal.aborted) return false;
