@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import type { Entry, MetaMessage, Premise } from "../types";
-import { buildKeepsakeHTML, inlineImages } from "../export/keepsake.js";
+import { buildKeepsakeHTML, inlineImages } from "../export/keepsake";
 
 interface KeepsakeDeps {
   setExportFallbackText: (text: string) => void;

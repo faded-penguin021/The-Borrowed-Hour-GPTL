@@ -1,5 +1,3 @@
-// @ts-check
-
 export const gmNote = `This is a player-authored scenario. Take the player's description above as the canonical foundation — the world, the situation, the player's character, the texture of the place. You may invent NPCs, locations, complications, and atmosphere as needed, but stay faithful to the spirit of what they wrote.
 
 If the description is sparse, expand it with care: invent specific, evocative details (a name, a smell, a sound) rather than abstract description. If the description is dense, honor every load-bearing element they specified.

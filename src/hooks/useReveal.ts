@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import type { EngineConfig, Entry, GameState, Premise } from "../types";
 import type { StreamAPI } from "../llm/client";
-import { buildRevealSystem } from "../prompts/reveal.js";
+import { buildRevealSystem } from "../prompts/reveal";
 import { BorrowedError, formatError } from "../llm/errors";
 
 type RevealError = ReturnType<typeof formatError>;

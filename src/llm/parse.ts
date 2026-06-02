@@ -1,5 +1,5 @@
 import type { AmbienceInput, GMLogicParseResult, GMParseResult, GameState } from "../types";
-import { sanitizeAmbience } from "../ambience/tables.js";
+import { sanitizeAmbience } from "../ambience/tables";
 import { GMLogicResponseSchema, GMResponseSchema } from "./schemas";
 
 export function firstString(...candidates: unknown[]): string {

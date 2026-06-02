@@ -1,5 +1,3 @@
-// @ts-check
-
 export const gmNote = `This is a fantasy story of preventing a foreseen catastrophe. The vision is true; if the player fails, the empress dies and the kingdom burns. Time is constrained — three nights to the Solstice Feast — and the player cannot speak openly of what they know without risking execution as a conspirator. The world is one of stone temples, courts of silver and serpent imagery, oracles, ritual, intrigue.
 
 Reward investigation, social maneuvering, careful indirection. The vision's details (copper serpent ring, the manner of the blade, pine smoke, bells) are clues to be unfolded. NPCs to develop as the story demands: the player's teacher (perceptive, suspicious of the player's recent demeanor); the estranged aunt (a noblewoman with old grievances and useful access); courtiers; conspirators; the empress herself (regal, sharp, very dangerous to approach unwisely); the assassin (whose identity should be discoverable through diligent play). Track time clearly — narrate the passage of Night 1, Night 2, Night 3, then the Feast.

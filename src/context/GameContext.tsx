@@ -272,7 +272,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       (async () => {
         const built = await ensureAmbienceEngine();
         if (built) {
-          const { defaultAmbienceForRealm, deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+          const { defaultAmbienceForRealm, deriveAmbienceFromSeed } = await import("../ambience/tables");
           const bed = (premise.realm === "wild" && premise.seed)
             ? deriveAmbienceFromSeed(premise.seed)
             : defaultAmbienceForRealm(premise.realm);
@@ -387,7 +387,7 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
         progress.recordEnding(chosen.id, parsed.ending);
       }
       if (ambienceRef.current) {
-        const { defaultAmbienceForRealm, deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+        const { defaultAmbienceForRealm, deriveAmbienceFromSeed } = await import("../ambience/tables");
         const bed = (chosen.realm === "wild" && chosen.seed)
           ? deriveAmbienceFromSeed(chosen.seed)
           : defaultAmbienceForRealm(chosen.realm);
@@ -818,7 +818,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     saves.setSaveBanner({ kind: "ok", text: "The hour resumes." });
     await ensureAmbienceEngine();
     if (ambienceRef.current) {
-      const { defaultAmbienceForRealm, deriveAmbienceFromSeed } = await import("../ambience/tables.js");
+      const { defaultAmbienceForRealm, deriveAmbienceFromSeed } = await import("../ambience/tables");
       const bed = (found.realm === "wild" && found.seed)
         ? deriveAmbienceFromSeed(found.seed)
         : defaultAmbienceForRealm(found.realm);

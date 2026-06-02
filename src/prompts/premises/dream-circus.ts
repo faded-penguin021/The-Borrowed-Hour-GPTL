@@ -1,5 +1,3 @@
-// @ts-check
-
 export const gmNote = `This is a surreal, melancholy, dreamlike story. The setting is the dream of a dying woman; reality is mutable but not arbitrary — the dream obeys emotional logic, memory logic, the logic of grief and unfinished things. The carnival folk should be vivid and strange: a clown called Pell who speaks only in questions; a fortune-teller called Sorin whose cards change suit when no one is watching; a strongman called Ova, gentler than he looks, who knew Iarno longest; the missing ringmaster Iarno (find him, or what's left of him); and the lions — there are always lions, and they know things.
 
 Mara's leaking memories appear in the dream as objects, places, people: a kitchen, a husband, a younger sister, a song she sang once to a child. The player must navigate the failing dream, find Mara, and either help her wake or help her go in peace. Reward gentleness, curiosity, attention to small things. Allow real failure: the dream can collapse with both inside, and that is a true ending. This is, beneath everything, a story about being kind to a stranger at the end of her life.

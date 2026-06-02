@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import type { AmbienceEngine } from "../ambience/engine.js";
+import type { AmbienceEngine } from "../ambience/engine";
 
 export function useAmbience() {
   const [ambienceLevel, setAmbienceLevel] = useState("off");
@@ -57,7 +57,7 @@ export function useAmbience() {
     if (ambienceUnavailable) return null;
     if (!ambienceRef.current) {
       try {
-        const { AmbienceEngine } = await import("../ambience/engine.js");
+        const { AmbienceEngine } = await import("../ambience/engine");
         ambienceRef.current = new AmbienceEngine();
         setAmbienceEngineNonce((n) => n + 1);
       } catch (e) {

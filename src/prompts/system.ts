@@ -1,16 +1,11 @@
-// @ts-check
-/**
- * @import { NPC, Premise } from "../types"
- */
+import type { Premise } from "../types";
 import { languageNameFor, DEFAULT_LANGUAGE } from "../data/languages";
 
-/**
- * @param {Premise} premise
- * @param {string} [language]
- * @param {{ split?: boolean }} [options]
- * @returns {string}
- */
-export var buildSystem = (premise, language = DEFAULT_LANGUAGE, { split = false } = {}) => `You are the Game Master of an immersive text adventure called "The Borrowed Hour." The player has chosen this scenario:
+export const buildSystem = (
+  premise: Premise,
+  language: string = DEFAULT_LANGUAGE,
+  { split = false }: { split?: boolean } = {}
+): string => `You are the Game Master of an immersive text adventure called "The Borrowed Hour." The player has chosen this scenario:
 
 ${premise.seed}
 

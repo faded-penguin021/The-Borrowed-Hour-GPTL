@@ -34,10 +34,13 @@ export type AmbienceEvent =
   | "metal_clang" | "whisper_close";
 
 export interface AmbienceInput {
-  space?: AmbienceSpace;
-  population?: AmbiencePopulation;
-  mood?: AmbienceMood;
-  palette?: AmbiencePalette;
+  // A lane may be set to `null` to fade it to silence (the GM emits literal
+  // JSON null for that), omitted to hold the previous value, or set to a
+  // taxonomy value to change it.
+  space?: AmbienceSpace | null;
+  population?: AmbiencePopulation | null;
+  mood?: AmbienceMood | null;
+  palette?: AmbiencePalette | null;
   events?: AmbienceEvent[];
 }
 

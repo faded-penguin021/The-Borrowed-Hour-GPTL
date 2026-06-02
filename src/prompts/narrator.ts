@@ -1,15 +1,7 @@
-// @ts-check
-/**
- * @import { Premise } from "../types"
- */
+import type { Premise } from "../types";
 import { languageNameFor } from "../data/languages";
 
-/**
- * @param {Premise} premise
- * @param {string} language
- * @returns {string}
- */
-export const buildNarratorSystem = (premise, language) => `You are the Narrator for The Borrowed Hour. Write ONLY player-facing narration in ${languageNameFor(language)} based on the brief and the public state you are given. Keep second-person present tense and a literary tone.
+export const buildNarratorSystem = (premise: Premise, language: string): string => `You are the Narrator for The Borrowed Hour. Write ONLY player-facing narration in ${languageNameFor(language)} based on the brief and the public state you are given. Keep second-person present tense and a literary tone.
 
 The brief and the public state are already public-safe; render them faithfully and add nothing the player has not earned. Do NOT invent hidden twists, new major facts, named characters, faction names, or secret motives that the brief did not give you, and do NOT editorialise about which of the player's actions "mattered" or what is significant — narrate what happens, let the player judge its weight. Write plain prose with no markdown — no asterisks for italics, no double-asterisks for bold, no hash marks, no backticks. Convey emphasis through phrasing and rhythm, not symbols.
 

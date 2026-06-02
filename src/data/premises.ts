@@ -1,9 +1,9 @@
 import type { Premise } from "../types";
-import { gmNote as echoTrainGmNote } from "../prompts/premises/echo-train.js";
-import { gmNote as neonSpireGmNote } from "../prompts/premises/neon-spire.js";
-import { gmNote as omenSolsticeGmNote } from "../prompts/premises/omen-solstice.js";
-import { gmNote as dreamCircusGmNote } from "../prompts/premises/dream-circus.js";
-import { gmNote as customGmNote } from "../prompts/premises/custom.js";
+import { gmNote as echoTrainGmNote } from "../prompts/premises/echo-train";
+import { gmNote as neonSpireGmNote } from "../prompts/premises/neon-spire";
+import { gmNote as omenSolsticeGmNote } from "../prompts/premises/omen-solstice";
+import { gmNote as dreamCircusGmNote } from "../prompts/premises/dream-circus";
+import { gmNote as customGmNote } from "../prompts/premises/custom";
 
 export function realmGlyph(realm: string): string {
   switch (realm) {

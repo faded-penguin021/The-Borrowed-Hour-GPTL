@@ -1,19 +1,11 @@
-// @ts-check
-/**
- * @import { GameState, Premise } from "../types"
- */
+import type { GameState, Premise } from "../types";
 
 /**
  * System prompt for the post-ending hidden-state reveal.
  * The "Author" persona writes a short prose passage that surfaces what was
  * tracked in `hidden_state` — the causal machinery the player never saw.
- *
- * @param {Premise} premise
- * @param {string} language
- * @param {GameState} gameState
- * @returns {string}
  */
-export function buildRevealSystem(premise, language, gameState) {
+export function buildRevealSystem(premise: Premise, language: string, gameState: GameState): string {
   const hiddenState = (gameState?.hidden_state || "").trim() || "(nothing was recorded)";
 
   return `You are the author looking back at the story that just ended — not the GM who ran the turns, but the writer who conceived the hidden architecture. Your task: write the REVEAL.
