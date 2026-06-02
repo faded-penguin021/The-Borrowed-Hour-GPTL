@@ -72,6 +72,7 @@
    * wrap or clip. */
   .settings-tablist {
     @apply flex gap-[2px] overflow-x-auto;
+    overflow-y: hidden;
     scrollbar-width: none;
   }
   .settings-tablist::-webkit-scrollbar { display: none; }
