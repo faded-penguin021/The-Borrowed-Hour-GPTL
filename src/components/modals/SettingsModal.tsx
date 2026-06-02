@@ -91,7 +91,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
         <div
-          className="px-6 py-5 border-b flex items-center justify-between"
+          className="px-6 py-5 border-b flex items-center justify-between shrink-0"
           style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
         >
           <div>
@@ -118,7 +118,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div
-          className="settings-tablist px-6 pt-3 border-b"
+          className="settings-tablist px-6 pt-3 border-b shrink-0"
           role="tablist"
           aria-label="Settings sections"
           style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
@@ -298,7 +298,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <div
-          className="px-6 py-4 border-t flex justify-end"
+          className="px-6 py-4 border-t flex justify-end shrink-0"
           style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
         >
           <button onClick={onClose} className="icon-btn" style={{ padding: "8px 18px" }}>

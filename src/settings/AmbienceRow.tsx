@@ -54,9 +54,9 @@ export function AmbienceRow({ level, unavailable, onChange, ttsEnabled, duringNa
   return (
     <div
       className="settings-toggle"
-      style={{ cursor: "default", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}
+      style={{ cursor: "default", flexDirection: "column", alignItems: "stretch", gap: 10 }}
     >
-      <div className="flex-1 min-w-0">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <div
           className="display-font"
           style={{ color: "var(--cream-bright)", letterSpacing: "0.18em", fontSize: 11, textTransform: "uppercase" }}
@@ -64,8 +64,38 @@ export function AmbienceRow({ level, unavailable, onChange, ttsEnabled, duringNa
           Atmospheric audio
         </div>
         <div
+          role="radiogroup"
+          aria-label="Atmospheric audio intensity"
+          style={{ display: "flex", gap: 6, flexShrink: 0 }}
+        >
+          {options.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              role="radio"
+              aria-checked={level === opt.id ? "true" : "false"}
+              disabled={unavailable && opt.id !== "off"}
+              onClick={() => onChange(opt.id)}
+              className="icon-btn"
+              title={opt.hint}
+              style={{
+                padding: "6px 12px",
+                fontSize: 10,
+                letterSpacing: "0.2em",
+                borderColor: level === opt.id ? "rgba(212, 165, 116, 0.55)" : "rgba(232, 222, 197, 0.2)",
+                color: level === opt.id ? "var(--cream-bright)" : "var(--cream-dim)",
+                background: level === opt.id ? "rgba(212, 165, 116, 0.08)" : "transparent"
+              }}
+            >
+              {opt.label.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div
           className="body-font italic"
-          style={{ color: "var(--cream-dim)", fontSize: 12, marginTop: 4 }}
+          style={{ color: "var(--cream-dim)", fontSize: 12 }}
         >
           {description}
         </div>
@@ -124,34 +154,6 @@ export function AmbienceRow({ level, unavailable, onChange, ttsEnabled, duringNa
             </label>
           </div>
         )}
-      </div>
-      <div
-        role="radiogroup"
-        aria-label="Atmospheric audio intensity"
-        style={{ display: "flex", gap: 6, flexShrink: 0 }}
-      >
-        {options.map((opt) => (
-          <button
-            key={opt.id}
-            type="button"
-            role="radio"
-            aria-checked={level === opt.id ? "true" : "false"}
-            disabled={unavailable && opt.id !== "off"}
-            onClick={() => onChange(opt.id)}
-            className="icon-btn"
-            title={opt.hint}
-            style={{
-              padding: "6px 12px",
-              fontSize: 10,
-              letterSpacing: "0.2em",
-              borderColor: level === opt.id ? "rgba(212, 165, 116, 0.55)" : "rgba(232, 222, 197, 0.2)",
-              color: level === opt.id ? "var(--cream-bright)" : "var(--cream-dim)",
-              background: level === opt.id ? "rgba(212, 165, 116, 0.08)" : "transparent"
-            }}
-          >
-            {opt.label.toUpperCase()}
-          </button>
-        ))}
       </div>
     </div>
   );
