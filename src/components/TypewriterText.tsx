@@ -54,6 +54,7 @@ export function TypewriterText({
     if (skipSignal !== initialSkipRef.current) {
       setRevealed((c) => c < text.length ? text.length : c);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires only on an explicit skip-signal change; text.length is read fresh inside
   }, [skipSignal]);
   useEffect(() => {
     if (revealed >= text.length && !doneFiredRef.current) {

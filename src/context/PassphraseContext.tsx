@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- provider co-located with its context hook(s); splitting churns every import site for a dev-only Fast Refresh gain */
 import React, { createContext, useContext, useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { setPassphraseService } from "../passphrase";
 

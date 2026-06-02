@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- provider co-located with its context hook(s); splitting churns every import site for a dev-only Fast Refresh gain */
 import React, { createContext, useContext, useMemo } from "react";
 import { useAmbience } from "../hooks/useAmbience";
 
@@ -20,6 +21,7 @@ export function AmbienceProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo(
     () => ambience,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally memoized on individual ambience fields, not the (always-fresh) object identity
     [
       ambience.ambienceLevel,
       ambience.ambienceMuted,

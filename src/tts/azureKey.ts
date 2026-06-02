@@ -1,12 +1,11 @@
 import { ENC_PREFIX, decryptSecret, encryptSecret } from "../storage/encryption";
-import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase } from "../passphrase";
+import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase, requestPassphrase } from "../passphrase";
 
 export async function getTtsAzureKey(): Promise<string | null> {
   const stored = localStorage.getItem("borrowed:tts_azure_key:v1");
   if (!stored) return null;
   if (!stored.startsWith(ENC_PREFIX)) return stored.trim();
   if (!getSessionPassphrase()) {
-    const { requestPassphrase } = await import("../passphrase");
     setSessionPassphrase(await requestPassphrase("Enter your session passphrase to unlock API keys:"));
   }
   const passphrase = getSessionPassphrase();

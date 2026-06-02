@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────
-// TEMPORARY DEBUG OVERLAY — remove once the turn-submission bug is fixed.
+// DEBUG OVERLAY — opt-in panel surfaced through Settings.
 //
 // A floating, mobile-friendly panel that shows captured logs/errors with a
 // Copy button so the user can paste them back. All inline styles + very high

@@ -5,7 +5,6 @@ import { TTSController } from "../tts/controller";
 import { getTtsElevenLabsKey, saveTtsElevenLabsKey } from "../tts/elevenLabsKey";
 import { getTtsAzureKey, saveTtsAzureKey, getTtsAzureRegion, saveTtsAzureRegion } from "../tts/azureKey";
 import { getTtsGoogleKey, saveTtsGoogleKey } from "../tts/googleKey";
-import { fetchVoxtralVoices } from "../tts/adapters/voxtral";
 import { getProviderKey } from "../llm/providers";
 
 interface TtsPlayback {
@@ -200,6 +199,7 @@ export function useTTS({ showSettings }: { showSettings: boolean }) {
       const k = await getTtsGoogleKey().catch(() => null);
       if (k) setTtsGoogleKey(k);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot mount load; detectTtsProviderReady is intentionally not a trigger here
   }, []);
 
   // Persist prefs whenever they change.
@@ -217,6 +217,7 @@ export function useTTS({ showSettings }: { showSettings: boolean }) {
   }, [ttsEnabled, ttsMuted, ttsProviderId, ttsVoiceId, ttsRate, ttsModelOverrides]);
 
   // Re-check provider readiness when settings panel opens.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the panel opening; detectTtsProviderReady is stable enough and intentionally excluded
   useEffect(() => { if (showSettings) detectTtsProviderReady(); }, [showSettings]);
 
   // Fetch Voxtral voice catalogue.
@@ -229,6 +230,9 @@ export function useTTS({ showSettings }: { showSettings: boolean }) {
       try { key = await getProviderKey("mistral"); } catch {}
       if (!key) return;
       try {
+        // Loaded dynamically so the voxtral adapter stays in its own code-split
+        // chunk alongside the other TTS adapters (see tts/catalogue.ts).
+        const { fetchVoxtralVoices } = await import("../tts/adapters/voxtral");
         const voices = await fetchVoxtralVoices(key);
         if (!cancelled) { setTtsVoxtralVoices(voices); setTtsVoxtralVoicesError(null); }
       } catch (e) {
@@ -236,6 +240,7 @@ export function useTTS({ showSettings }: { showSettings: boolean }) {
       }
     })();
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch keyed on provider + panel state; ttsVoxtralVoices.length is read as a guard, not a trigger
   }, [ttsProviderId, showSettings]);
 
   /** Walk entries and auto-speak newly revealed narration. */

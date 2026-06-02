@@ -31,6 +31,17 @@ export default defineConfig({
     // which the strict production script-src (no 'unsafe-inline') forbids.
     // Native modulepreload is supported by all current target browsers.
     modulePreload: { polyfill: false },
+    rollupOptions: {
+      output: {
+        // Split heavy, rarely-changing vendor code into its own chunks so the
+        // app entry stays under the 500 kB warning limit and vendor bytes can
+        // be cached across app deploys.
+        manualChunks: {
+          react: ["react", "react-dom"],
+          zod: ["zod"],
+        },
+      },
+    },
   },
   test: {
     environment: "node",

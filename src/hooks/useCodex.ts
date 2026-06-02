@@ -12,6 +12,7 @@ import {
   parseBootstrapResponse, parseTurnResponse,
   composeImagePrompt, mergeLedger, cleanPlateCaption
 } from "../llm/artDirector";
+import { generateImage } from "../llm/imaging";
 
 /**
  * Runtime-tolerant view of the codex settings block. Fields are all optional
@@ -201,8 +202,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }: C
       if (stale()) return;
       const providerId = codex.provider || "pollinations";
       const providerCfg = (codex.providerConfig && codex.providerConfig[providerId]) || {};
-      const { generateImage: _generateImage } = await import("../llm/imaging");
-      const img = await _generateImage({
+      const img = await generateImage({
         providerId, providerConfig: providerCfg, prompt, negatives,
         signal, timeoutMs: codex.timeoutMs || 20000
       });

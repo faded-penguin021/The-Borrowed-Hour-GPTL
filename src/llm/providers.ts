@@ -12,7 +12,7 @@ import { BorrowedError } from "./errors";
 import { httpStatusHint, extractApiErrorMessage, scrubSecrets } from "./errors";
 import { LOCAL_DEFAULT_URL } from "../data/constants";
 import { ENC_PREFIX, decryptSecret } from "../storage/encryption";
-import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase } from "../passphrase";
+import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase, requestPassphrase } from "../passphrase";
 import { GM_TOOL } from "./definitions";
 import {
   OpenAIResponseDataSchema,
@@ -216,7 +216,6 @@ export const getProviderKey = async (id: ProviderId): Promise<string> => {
     if (!stored.startsWith(ENC_PREFIX))
       return stored.trim();
     if (!getSessionPassphrase()) {
-      const { requestPassphrase } = await import("../passphrase");
       setSessionPassphrase(await requestPassphrase("Enter your session passphrase to unlock API keys:"));
     }
     const passphrase = getSessionPassphrase();

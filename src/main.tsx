@@ -2,7 +2,7 @@ import "./storage/shim";
 import "./styles/tailwind.css";
 import "./styles/theme.css";
 
-// TEMPORARY: capture console/errors for the on-screen debug overlay (mobile).
+// Capture console/errors for the opt-in on-screen debug overlay (mobile).
 import { installDebugCapture } from "./debug/debugLog";
 installDebugCapture();
 
