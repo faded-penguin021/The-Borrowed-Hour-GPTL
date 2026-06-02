@@ -56,7 +56,7 @@ export function AmbienceRow({ level, unavailable, onChange, ttsEnabled, duringNa
       className="settings-toggle"
       style={{ cursor: "default", flexDirection: "column", alignItems: "stretch", gap: 10 }}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
         <div
           className="display-font"
           style={{ color: "var(--cream-bright)", letterSpacing: "0.18em", fontSize: 11, textTransform: "uppercase" }}
