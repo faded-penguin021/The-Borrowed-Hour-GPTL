@@ -30,9 +30,11 @@ interface TTSRowProps {
   onChangeAzureKey: (key: string) => Promise<void>;
   onChangeAzureRegion: (region: string) => void;
   onChangeGoogleKey: (key: string) => Promise<void>;
+  onChangeOpenAIKey?: (key: string) => Promise<void>;
+  onChangeMistralKey?: (key: string) => Promise<void>;
 }
 
-export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, browserVoices, voxtralVoices, voxtralVoicesError, rate, elevenKey, azureKey, azureRegion, googleKey, onChangeEnabled, onChangeProvider, onChangeVoice, onChangeModel, onChangeRate, onChangeElevenKey, onChangeAzureKey, onChangeAzureRegion, onChangeGoogleKey }: TTSRowProps) {
+export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, browserVoices, voxtralVoices, voxtralVoicesError, rate, elevenKey, azureKey, azureRegion, googleKey, onChangeEnabled, onChangeProvider, onChangeVoice, onChangeModel, onChangeRate, onChangeElevenKey, onChangeAzureKey, onChangeAzureRegion, onChangeGoogleKey, onChangeOpenAIKey, onChangeMistralKey }: TTSRowProps) {
   const [elevenInput, setElevenInput] = React.useState(elevenKey || "");
   const [elevenSaved, setElevenSaved] = React.useState(false);
   const [azureInput, setAzureInput] = React.useState(azureKey || "");
@@ -41,6 +43,10 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, 
   const [azureRegionSaved, setAzureRegionSaved] = React.useState(false);
   const [googleInput, setGoogleInput] = React.useState(googleKey || "");
   const [googleSaved, setGoogleSaved] = React.useState(false);
+  const [openaiInput, setOpenaiInput] = React.useState("");
+  const [openaiSaved, setOpenaiSaved] = React.useState(false);
+  const [mistralInput, setMistralInput] = React.useState("");
+  const [mistralSaved, setMistralSaved] = React.useState(false);
   const providers = TTS_PROVIDER_ORDER.map((id) => TTS_PROVIDER_META[id]);
   const ready = providerReady || {};
   const activeMeta = providerId ? TTS_PROVIDER_META[providerId] || null : null;
@@ -206,6 +212,62 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, 
               {googleSaved ? "SAVED ✓" : "SAVE"}
             </button>
           </div>
+        )}
+        {providerId === "openai" && (
+          ready["openai"] ? (
+            <div
+              className="body-font italic"
+              style={{ color: "var(--cream-dim)", fontSize: 11, marginBottom: 8 }}
+            >
+              OpenAI key is set. To update it, go to <b>Settings → System → API Keys</b>.
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
+              <input
+                type="password"
+                value={openaiInput}
+                onChange={(e) => { setOpenaiInput(e.target.value); setOpenaiSaved(false); }}
+                placeholder="OpenAI API key…"
+                className="body-font"
+                style={{ flex: 1, background: "rgba(0,0,0,0.3)", color: "var(--cream-bright)", border: "1px solid rgba(232,222,197,0.2)", padding: "5px 8px", fontSize: 12 }}
+              />
+              <button
+                className="icon-btn"
+                style={{ padding: "5px 10px", fontSize: 10, letterSpacing: "0.15em" }}
+                onClick={async () => { if (onChangeOpenAIKey) { await onChangeOpenAIKey(openaiInput); setOpenaiSaved(true); } }}
+              >
+                {openaiSaved ? "SAVED ✓" : "SAVE"}
+              </button>
+            </div>
+          )
+        )}
+        {providerId === "voxtral" && (
+          ready["voxtral"] ? (
+            <div
+              className="body-font italic"
+              style={{ color: "var(--cream-dim)", fontSize: 11, marginBottom: 8 }}
+            >
+              Mistral key is set. To update it, go to <b>Settings → System → API Keys</b>.
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
+              <input
+                type="password"
+                value={mistralInput}
+                onChange={(e) => { setMistralInput(e.target.value); setMistralSaved(false); }}
+                placeholder="Mistral API key…"
+                className="body-font"
+                style={{ flex: 1, background: "rgba(0,0,0,0.3)", color: "var(--cream-bright)", border: "1px solid rgba(232,222,197,0.2)", padding: "5px 8px", fontSize: 12 }}
+              />
+              <button
+                className="icon-btn"
+                style={{ padding: "5px 10px", fontSize: 10, letterSpacing: "0.15em" }}
+                onClick={async () => { if (onChangeMistralKey) { await onChangeMistralKey(mistralInput); setMistralSaved(true); } }}
+              >
+                {mistralSaved ? "SAVED ✓" : "SAVE"}
+              </button>
+            </div>
+          )
         )}
         {enabled && providerId === "voxtral" && voxtralVoicesError && (
           <div
