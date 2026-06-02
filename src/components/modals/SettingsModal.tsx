@@ -141,7 +141,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             </button>
           ))}
         </div>
-        <div className="overflow-y-auto flex-1 min-h-0 px-6 py-5">
+        <div className="overflow-y-auto overflow-x-hidden flex-1 min-h-0 px-6 py-5">
           {/* All panels stay mounted; the `hidden` attribute hides the inactive
               ones so half-typed inputs (e.g. a Proxy URL) survive a tab switch. */}
           <div
