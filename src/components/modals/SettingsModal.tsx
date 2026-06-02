@@ -9,6 +9,8 @@ import { CodexSection } from "../../settings/CodexSection";
 import { useSettingsContext } from "../../context/SettingsContext";
 import { useAmbienceContext } from "../../context/AmbienceContext";
 import { useTTSContext } from "../../context/TTSContext";
+import { PROVIDER_META } from "../../llm/providers";
+import { TTS_PROVIDER_META } from "../../tts/catalogue";
 
 type SettingsTabId = "reading" | "audio" | "codex" | "system" | "proxy";
 
@@ -51,7 +53,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const ttsModelOverridesMap = ttsModelOverrides as Record<string, string>;
   const ttsModel = ttsProviderId ? (ttsModelOverridesMap[ttsProviderId] || null) : null;
   const onChangeTtsEnabled = setTtsEnabled;
-  const onChangeTtsProvider = setTtsProviderId;
+  const onChangeTtsProvider = (id: string) => {
+    setTtsProviderId(id);
+    const meta = TTS_PROVIDER_META[id];
+    setTtsVoiceId(meta?.voices?.[0]?.id ?? null);
+  };
   const onChangeTtsVoice = setTtsVoiceId;
   const onChangeTtsRate = setTtsRate;
   const onChangeTtsModel = (m: string | null) => {
@@ -66,6 +72,16 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   const onChangeTtsAzureKey = async (k: string) => { setTtsAzureKey(k); await saveTtsAzureKey(k); detectTtsProviderReady(); };
   const onChangeTtsAzureRegion = (r: string) => { setTtsAzureRegion(r); saveTtsAzureRegion(r); };
   const onChangeTtsGoogleKey = async (k: string) => { setTtsGoogleKey(k); await saveTtsGoogleKey(k); detectTtsProviderReady(); };
+  const onChangeTtsOpenAIKey = async (k: string) => {
+    if (k) localStorage.setItem(PROVIDER_META.openai.keyStorage, k.trim());
+    else localStorage.removeItem(PROVIDER_META.openai.keyStorage);
+    detectTtsProviderReady();
+  };
+  const onChangeTtsMistralKey = async (k: string) => {
+    if (k) localStorage.setItem(PROVIDER_META.mistral.keyStorage, k.trim());
+    else localStorage.removeItem(PROVIDER_META.mistral.keyStorage);
+    detectTtsProviderReady();
+  };
 
   const [activeTab, setActiveTab] = useState<SettingsTabId>("reading");
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -263,6 +279,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               onChangeAzureKey={onChangeTtsAzureKey}
               onChangeAzureRegion={onChangeTtsAzureRegion}
               onChangeGoogleKey={onChangeTtsGoogleKey}
+              onChangeOpenAIKey={onChangeTtsOpenAIKey}
+              onChangeMistralKey={onChangeTtsMistralKey}
             />
           </div>
 
