@@ -81,7 +81,7 @@
     background: transparent;
     border: none;
     border-bottom: 2px solid transparent;
-    color: var(--cream-faint);
+    color: var(--cream-dim);
     font-family: 'Cinzel', serif;
     letter-spacing: 0.22em;
     transition: color 0.25s, border-color 0.25s;
