@@ -13,15 +13,7 @@ import { httpStatusHint, extractApiErrorMessage, scrubSecrets } from "./errors";
 import { LOCAL_DEFAULT_URL } from "../data/constants";
 import { ENC_PREFIX, decryptSecret } from "../storage/encryption";
 import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase } from "../passphrase";
-
-// GM_TOOL circular-dependency break: tools.js imports from providers.js, and
-// providers.js needs GM_TOOL (defined in tools.js) only inside buildStreamRequest
-// methods — which are called at runtime, not at module load time. We expose a
-// setGMTool() setter here; tools.js calls setGMTool(GM_TOOL) after it defines it.
-// That way neither module needs a top-level import of the other.
-let _gmTool: ToolDefinition | null = null;
-export function setGMTool(tool: ToolDefinition) { _gmTool = tool; }
-function _getGMTool() { return _gmTool; }
+import { GM_TOOL } from "./definitions";
 
 import {
   normalizeContent,
@@ -350,7 +342,7 @@ export const PROVIDERS: Record<string, ProviderAdapter> = {
       });
     },
     buildStreamRequest(params: BuildRequestParams): ProviderRequest {
-      const request = this.buildRequest({ ...params, useTool: false, tool: _getGMTool() });
+      const request = this.buildRequest({ ...params, useTool: false, tool: GM_TOOL });
       request.body.stream = true;
       return request;
     },
@@ -427,7 +419,7 @@ export const PROVIDERS: Record<string, ProviderAdapter> = {
       });
     },
     buildStreamRequest({ sys, msgs, model, maxTokens, temperature, apiKey }: BuildRequestParams): ProviderRequest {
-      const request = this.buildRequest({ sys, msgs, useTool: false, model, maxTokens, temperature, tool: _getGMTool(), apiKey });
+      const request = this.buildRequest({ sys, msgs, useTool: false, model, maxTokens, temperature, tool: GM_TOOL, apiKey });
       request.url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`;
       return request;
     },
@@ -516,7 +508,7 @@ export const PROVIDERS: Record<string, ProviderAdapter> = {
       });
     },
     buildStreamRequest(params: BuildRequestParams): ProviderRequest {
-      const request = this.buildRequest({ ...params, useTool: false, tool: _getGMTool() });
+      const request = this.buildRequest({ ...params, useTool: false, tool: GM_TOOL });
       request.body.stream = true;
       return request;
     },
