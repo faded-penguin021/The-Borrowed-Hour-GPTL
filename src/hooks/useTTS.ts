@@ -81,6 +81,32 @@ export function useTTS({ showSettings }: { showSettings: boolean }) {
     return ctrl;
   };
 
+  // Resolve the secret/region for a provider from in-memory state, falling back
+  // to persisted storage. Shared by the play paths and the provider-sync effect
+  // so the controller is never handed a stale or missing key.
+  const resolveProviderCreds = async (providerId: string): Promise<{ key: string | null; region: string | null }> => {
+    const meta = TTS_PROVIDER_META[providerId];
+    let key: string | null = null;
+    let region: string | null = null;
+    if (!meta) return { key, region };
+    if (meta.reusesLLMKey) { try { key = await getProviderKey(meta.reusesLLMKey as ProviderId); } catch {} }
+    else if (providerId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => null));
+    else if (providerId === "azure") {
+      key = ttsAzureKey || (await getTtsAzureKey().catch(() => null));
+      region = ttsAzureRegion;
+    }
+    else if (providerId === "google") key = ttsGoogleKey || (await getTtsGoogleKey().catch(() => null));
+    return { key, region };
+  };
+
+  // Push the current provider + resolved credentials onto the controller.
+  const applyProviderToController = async (ctrl: TTSController, providerId: string) => {
+    const meta = TTS_PROVIDER_META[providerId];
+    if (!meta) return;
+    const { key, region } = await resolveProviderCreds(providerId);
+    ctrl.setProvider(providerId, { voiceId: ttsVoiceId, key, model: ttsModelOverrides[providerId] || null, region });
+  };
+
   const playEntry = async (entries: Entry[], idx: number) => {
     const ctrl = ensureTTSController();
     const e = entries[idx];
@@ -102,19 +128,7 @@ export function useTTS({ showSettings }: { showSettings: boolean }) {
       providerId = pickBestReadyProvider(ready);
       setTtsProviderId(providerId);
     }
-    const meta = TTS_PROVIDER_META[providerId];
-    if (meta) {
-      let key: string | null = null;
-      let region: string | null = null;
-      if (meta.reusesLLMKey) { try { key = await getProviderKey(meta.reusesLLMKey as ProviderId); } catch {} }
-      else if (providerId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => null));
-      else if (providerId === "azure") {
-        key = ttsAzureKey || (await getTtsAzureKey().catch(() => null));
-        region = ttsAzureRegion;
-      }
-      else if (providerId === "google") key = ttsGoogleKey || (await getTtsGoogleKey().catch(() => null));
-      ctrl.setProvider(providerId, { voiceId: ttsVoiceId, key, model: ttsModelOverrides[providerId] || null, region });
-    }
+    await applyProviderToController(ctrl, providerId);
     ctrl.speak(e.text, { turnId: idx });
   };
 
@@ -140,19 +154,9 @@ export function useTTS({ showSettings }: { showSettings: boolean }) {
     if (!ttsProviderId) return;
     (async () => {
       const ctrl = ensureTTSController();
-      const meta = TTS_PROVIDER_META[ttsProviderId];
-      if (!meta) return;
-      let key: string | null = null;
-      let region: string | null = null;
-      if (meta.reusesLLMKey) { try { key = await getProviderKey(meta.reusesLLMKey as ProviderId); } catch {} }
-      else if (ttsProviderId === "elevenlabs") key = ttsElevenKey || (await getTtsElevenLabsKey().catch(() => null));
-      else if (ttsProviderId === "azure") {
-        key = ttsAzureKey || (await getTtsAzureKey().catch(() => null));
-        region = ttsAzureRegion;
-      }
-      else if (ttsProviderId === "google") key = ttsGoogleKey || (await getTtsGoogleKey().catch(() => null));
-      ctrl.setProvider(ttsProviderId, { voiceId: ttsVoiceId, key, model: ttsModelOverrides[ttsProviderId] || null, region });
+      await applyProviderToController(ctrl, ttsProviderId);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- applyProviderToController is redefined each render from these same inputs and is intentionally excluded to avoid re-running on every render
   }, [ttsProviderId, ttsVoiceId, ttsElevenKey, ttsAzureKey, ttsAzureRegion, ttsGoogleKey, ttsModelOverrides]);
 
   // Load persisted TTS prefs.
@@ -260,7 +264,14 @@ export function useTTS({ showSettings }: { showSettings: boolean }) {
       if (!e) break;
       if (e.type !== "narration") { ttsNextRef.current++; continue; }
       if (!e.fullyRevealed) break;
-      if (typeof e.text === "string" && e.text.trim()) ctrl.speak(e.text, { turnId: i });
+      if (typeof e.text === "string" && e.text.trim()) {
+        // Resolve and apply the provider credentials before speaking. The async
+        // provider-sync effect also keys on ttsProviderId, but on the very first
+        // narration of an hour it may not have settled yet — speaking without
+        // this would hand the controller a null key and yield an HTTP 401.
+        const providerId = ttsProviderId;
+        applyProviderToController(ctrl, providerId).then(() => ctrl.speak(e.text as string, { turnId: i }));
+      }
       ttsNextRef.current++;
       break;
     }
