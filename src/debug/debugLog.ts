@@ -1,10 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────
-// TEMPORARY DEBUG INSTRUMENTATION — remove once the turn-submission bug is fixed.
+// DEBUG INSTRUMENTATION — powers the opt-in on-screen debug overlay.
 //
 // A tiny in-memory ring buffer that mirrors console output and global errors so
 // a mobile user (no devtools) can read and copy them from an on-screen overlay
-// (see src/components/DebugOverlay.tsx). Import for side effects early in
-// main.tsx; call `dlog(...)` for explicit breadcrumbs in the code under test.
+// (see src/components/DebugOverlay.tsx, toggled from Settings). Import for side
+// effects early in main.tsx; call `dlog(...)` for explicit breadcrumbs.
 // ─────────────────────────────────────────────────────────────────────────
 
 export type DebugEntry = { t: number; level: string; msg: string };

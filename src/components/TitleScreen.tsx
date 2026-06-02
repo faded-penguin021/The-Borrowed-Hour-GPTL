@@ -61,6 +61,7 @@ export function TitleScreen({ onOpenCustom, onOpenSettings }: TitleScreenProps) 
             onClick={() => !loading && onChoose(p)}
             disabled={loading}
             data-realm={p.realm}
+            data-testid="premise-card"
             className="premise-card p-7 md:p-8"
             style={{ animation: `fadeIn 0.9s ease-out ${0.3 + i * 0.15}s both` }}
           >

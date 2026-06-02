@@ -255,7 +255,7 @@ export function GameScreen({
               const btnGlyph = isLoading ? "◐" : (isSpeaking ? "❙❙" : "▶");
               const btnLabel = isLoading ? "LOADING" : (isSpeaking ? "PAUSE" : (isPaused ? "RESUME" : "PLAY"));
               return (
-                <div key={i} className="fade-in">
+                <div key={i} className="fade-in" data-testid="narration-entry">
                   <div className="narration-text body-font text-lg" style={{ lineHeight: 1.7 }}>
                     <TypewriterText
                       text={entry.text}

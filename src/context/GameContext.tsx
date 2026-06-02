@@ -1,6 +1,6 @@
+/* eslint-disable react-refresh/only-export-components -- provider co-located with its context hook(s); splitting churns every import site for a dev-only Fast Refresh gain */
 import React, { createContext, useContext, useState, useRef, useEffect, useMemo } from "react";
 import type { ChatMessage, Entry, GameState, MetaMessage, NarrationEntry, Premise, SaveRecord, ThrownError } from "../types";
-import { dlog } from "../debug/debugLog"; // TEMPORARY
 import { EMPTY_STATE } from "../data/constants";
 import { DEFAULT_LANGUAGE } from "../data/languages";
 import { PREMISES, NARRATION_LOADING_PHRASES, META_LOADING_PHRASES, OPENING_LOADING_PHRASES, pickPhrase } from "../data/premises";
@@ -9,6 +9,8 @@ import { parseGMResponse, parseGMLogicResponse, isStateEmpty } from "../llm/pars
 import { formatStateForPrompt, stripHistoricalUser, stripHistoricalAssistant, serializeStatePublic } from "../llm/prompt";
 import { formatError, BorrowedError } from "../llm/errors";
 import { createLLMClient } from "../llm/client";
+import { defaultAmbienceForRealm, deriveAmbienceFromSeed } from "../ambience/tables";
+import { getImage } from "../storage/imageStore";
 import { useCodex } from "../hooks/useCodex";
 import { useSaves } from "../hooks/useSaves";
 import { useReveal } from "../hooks/useReveal";
@@ -262,6 +264,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   // ── Auto-speak newly revealed narration ──────────────────────────
   useEffect(() => {
     tts.autoSpeak(entries);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run on narration/TTS-flag changes only; `tts` is a fresh object each render and would loop
   }, [entries, tts.ttsEnabled, tts.ttsMuted, tts.ttsProviderId]);
 
   // ── Late-enable ambience during play ─────────────────────────────
@@ -272,7 +275,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       (async () => {
         const built = await ensureAmbienceEngine();
         if (built) {
-          const { defaultAmbienceForRealm, deriveAmbienceFromSeed } = await import("../ambience/tables");
           const bed = (premise.realm === "wild" && premise.seed)
             ? deriveAmbienceFromSeed(premise.seed)
             : defaultAmbienceForRealm(premise.realm);
@@ -280,6 +282,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         }
       })();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately fires only when the ambience level changes; reads current phase/premise/refs at run time
   }, [ambience.ambienceLevel]);
 
   // ── Auto-abort a request that was left stale in the background ────
@@ -303,6 +306,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     if (!saves.saveBanner) return;
     const t = setTimeout(() => saves.setSaveBanner(null), 2400);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the banner value; `saves` is a fresh object each render and the stable setter is read at run time
   }, [saves.saveBanner]);
 
   // ── Game actions ─────────────────────────────────────────────────
@@ -387,7 +391,6 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
         progress.recordEnding(chosen.id, parsed.ending);
       }
       if (ambienceRef.current) {
-        const { defaultAmbienceForRealm, deriveAmbienceFromSeed } = await import("../ambience/tables");
         const bed = (chosen.realm === "wild" && chosen.seed)
           ? deriveAmbienceFromSeed(chosen.seed)
           : defaultAmbienceForRealm(chosen.realm);
@@ -474,11 +477,9 @@ The narration above was interrupted and cut off before it finished. Continue it 
    */
   const submit = async (text: string): Promise<boolean> => {
     text = (text || "").trim();
-    dlog("ctx.submit: enter", { textLen: text.length, loading, metaMode, ended, hasPremise: !!premise, phase });
-    if (!text || loading) { dlog("ctx.submit: GUARD empty-or-loading", { loading }); return true; }
-    if (!metaMode && ended) { dlog("ctx.submit: GUARD ended"); return true; }
-    if (!premise) { dlog("ctx.submit: GUARD no-premise"); return true; }
-    dlog("ctx.submit: guards passed, proceeding", { metaMode });
+    if (!text || loading) return true;
+    if (!metaMode && ended) return true;
+    if (!premise) return true;
     skipReveal();
     setRecovery(null);
     if (!metaMode) await ensureAmbienceEngine();
@@ -557,7 +558,6 @@ The narration above was interrupted and cut off before it finished. Continue it 
     const previousEntries = entries;
     const previousHistory = history;
     const newEntries: Entry[] = [...entries, { type: "action", text, fullyRevealed: true }];
-    dlog("ctx.submit: appending action entry, setEntries", { prevCount: entries.length });
     setEntries(newEntries);
     if (tts.ttsRef.current) tts.ttsRef.current.stop();
     const { publicBlock, privateBlock } = formatStateForPrompt(gameState);
@@ -608,9 +608,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     abortRef.current = { controller, rollback, startedAt: Date.now() };
     try {
       const gmSys = buildSystem(premise, language, { split: true });
-      dlog("ctx.submit: calling GM callAPI", { provider: settings.engineGM?.provider, model: settings.engineGM?.model });
       const firstGmReply = await callAPI(gmSys, apiHistory, true, settings.engineGM, 2600, 0.35, controller.signal, GM_LOGIC_TOOL);
-      dlog("ctx.submit: GM callAPI returned", { len: firstGmReply?.length ?? 0 });
       if (controller.signal.aborted) return false;
       let gmReply = firstGmReply;
       let gmParsed = parseGMLogicResponse(gmReply);
@@ -690,14 +688,12 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       }
       return true;
     } catch (e) {
-      dlog("ctx.submit: CAUGHT error in turn", { aborted: controller.signal.aborted, err: e });
       if (controller.signal.aborted) return false;
       const cancelled = e instanceof BorrowedError && e.detail === "Request cancelled by the player.";
       if (!cancelled) setError(formatError(e));
       rollback();
       return false;
     } finally {
-      dlog("ctx.submit: finally (turn complete)");
       if (abortRef.current?.controller === controller) {
         setLoading(false);
         abortRef.current = null;
@@ -796,7 +792,6 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     const rawEntries: Entry[] = (save.entries || []).map((e) => ({ ...e, fullyRevealed: true }));
     setEntries(rawEntries);
     (async () => {
-      const { getImage } = await import("../storage/imageStore");
       const rehydrated = await Promise.all(rawEntries.map(async (e): Promise<Entry> => {
         const ill = e.illustration;
         if (!ill || typeof ill.url !== "string" || !ill.url.startsWith("idb:")) return e;
@@ -823,7 +818,6 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     saves.setSaveBanner({ kind: "ok", text: "The hour resumes." });
     await ensureAmbienceEngine();
     if (ambienceRef.current) {
-      const { defaultAmbienceForRealm, deriveAmbienceFromSeed } = await import("../ambience/tables");
       const bed = (found.realm === "wild" && found.seed)
         ? deriveAmbienceFromSeed(found.seed)
         : defaultAmbienceForRealm(found.realm);

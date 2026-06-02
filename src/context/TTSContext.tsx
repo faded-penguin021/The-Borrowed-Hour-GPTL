@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- provider co-located with its context hook(s); splitting churns every import site for a dev-only Fast Refresh gain */
 import React, { createContext, useContext, useEffect } from "react";
 import { useTTS } from "../hooks/useTTS";
 import { useAmbienceContext } from "./AmbienceContext";
@@ -31,11 +32,13 @@ export function TTSProvider({ showSettings, children }: { showSettings: boolean;
   // Gate the ambience bed to narration only while TTS is on.
   useEffect(() => {
     ambienceRef.current?.setSpeechGate(ambienceDuringNarrationOnly && tts.ttsEnabled);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ambienceRef is a stable ref deliberately excluded; re-run keyed on the gate inputs + engine nonce
   }, [ambienceDuringNarrationOnly, tts.ttsEnabled, ambienceEngineNonce]);
 
   // Boost (duck) the bed under spoken narration when requested.
   useEffect(() => {
     ambienceRef.current?.setBoost(ambienceBoostWithTTS && tts.ttsEnabled);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ambienceRef is a stable ref deliberately excluded; re-run keyed on the boost inputs + engine nonce
   }, [ambienceBoostWithTTS, tts.ttsEnabled, ambienceEngineNonce]);
 
   // Wire the speak start/end callbacks so the engine can react to narration.
@@ -46,6 +49,7 @@ export function TTSProvider({ showSettings, children }: { showSettings: boolean;
     const u1 = ctrl.onSpeakStart(() => eng.notifySpeechStart());
     const u2 = ctrl.onSpeakEnd(() => eng.notifySpeechEnd());
     return () => { u1(); u2(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ambienceRef/tts.ttsRef are stable refs deliberately excluded; re-wire keyed on enable/level + engine nonce
   }, [tts.ttsEnabled, ambienceLevel, ambienceEngineNonce]);
 
   // The hook returns a fresh object each render; pass it straight through so no

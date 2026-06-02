@@ -17,7 +17,7 @@ import { PassphraseModal } from "./components/PassphraseModal";
 import { OnboardingModal } from "./components/OnboardingModal";
 import { CustomModal } from "./components/modals/CustomModal";
 import { useViewport } from "./hooks/useViewport";
-import { DebugOverlay } from "./components/DebugOverlay"; // TEMPORARY
+import { DebugOverlay } from "./components/DebugOverlay";
 
 /**
  * The view layer that lives *inside* all the providers. Settings, ambience, and

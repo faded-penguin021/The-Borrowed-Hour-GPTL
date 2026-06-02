@@ -1,4 +1,5 @@
 import type { Entry, MetaMessage, Premise } from "../types";
+import { getImage } from "../storage/imageStore";
 
 export function escapeHtml(str: string): string {
   return String(str)
@@ -25,7 +26,6 @@ async function toBase64Capped(src: string): Promise<string> {
     } else if (src.startsWith("idb:")) {
       // Export ran before rehydration swapped the marker for a blob: URL —
       // pull the bytes straight from IndexedDB.
-      const { getImage } = await import("../storage/imageStore");
       const stored = await getImage(src.slice("idb:".length));
       if (!stored) return src;
       blob = stored;

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   tryParseJSON, extractJSONBlock,
   parseGMResponse, parseGMLogicResponse, isStateEmpty
@@ -125,10 +125,14 @@ describe("parseGMResponse", () => {
   });
 
   it("marks missing narration as malformed", () => {
+    // parseGMResponse warns on malformed input by design; silence the expected
+    // console.warn so the suite's stderr stays clean.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const raw = JSON.stringify({ state: { scene: "x" } });
     const result = parseGMResponse(raw);
     expect(result.malformed).toBe(true);
     expect(result.diagnostic).toContain("narration");
+    warn.mockRestore();
   });
 
   it("recovers from markdown-fenced response", () => {

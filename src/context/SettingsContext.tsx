@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- provider co-located with its context hook(s); splitting churns every import site for a dev-only Fast Refresh gain */
 import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
 import type { AppSettings } from "../types";
 import { useSettings } from "../hooks/useSettings";

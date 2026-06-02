@@ -497,14 +497,6 @@ export interface TurnParseResult {
 
 // ── Stream factory types ─────────────────────────────────────────────────────
 
-export interface ChatCompletionsProviderConfig {
-  url: string | (() => string);
-  label: string;
-  jsonSchema?: boolean;
-  tools?: boolean;
-  extraBody?: Record<string, unknown>;
-}
-
 export interface StatePromptBlocks {
   publicBlock: string;
   privateBlock: string;
