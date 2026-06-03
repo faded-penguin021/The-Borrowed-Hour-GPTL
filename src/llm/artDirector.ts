@@ -209,6 +209,7 @@ RULES:
 - When you do warrant one, REUSE ledger ids (\`npc:<name>\`, \`location:<slug>\`, \`self:protagonist\`) so the recurring subjects look the same across plates.
 - scene_clause is purely visual: what the eye sees, the composition, the light. No interior states, no dialogue, no narrative meta.
 - Add ledger_updates ONLY for genuinely new recurring subjects.
+- CONTINUITY: if a [Previous plate scene clause] is provided, ensure returning subjects match their ledger tags exactly — same gender, same clothing, same features. The ledger is the single source of truth for how recurring subjects look.
 
 THE CAPTION vs THE GATE REASON — CRITICAL (these must not be confused):
 - \`milestone_reason\` is PRIVATE. It explains your yes/no decision and the player never sees it. It is allowed to talk about significance ("first reveal", "routine transit, no shift").

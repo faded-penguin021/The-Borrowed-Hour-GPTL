@@ -56,7 +56,7 @@ export const DEFAULT_CODEX_SETTINGS: CodexSettings = {
   providerConfig: {
     pollinations: { model: "flux" },
     replicate: { model: "black-forest-labs/flux-schnell" },
-    openai: { model: "gpt-image-1-mini" },
+    openai: { model: "gpt-image-2" },
     local: {}
   },
   artDirectorEngine: { provider: "mistral", model: "mistral-small-latest" },
