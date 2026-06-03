@@ -15,7 +15,7 @@ import { ReplicatePredictionSchema } from "./responseSchemas";
 
 export const POLLINATIONS_DEFAULT_MODEL = "flux";
 export const REPLICATE_DEFAULT_MODEL = "black-forest-labs/flux-schnell";
-export const OPENAI_IMAGE_DEFAULT_MODEL = "gpt-image-1";
+export const OPENAI_IMAGE_DEFAULT_MODEL = "gpt-image-2";
 export const LOCAL_IMAGE_DEFAULT_URL = "http://localhost:7860/sdapi/v1/txt2img";
 
 // checked: 2026-05-28. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
@@ -181,7 +181,7 @@ const adapters: Record<ImageProviderId, (args: ImageAdapterArgs) => Promise<Gene
     const apiKey = await getProviderKey("openai");
     let model = (providerConfig?.model as string | undefined) || OPENAI_IMAGE_DEFAULT_MODEL;
     const DEPRECATED_OPENAI = ["gpt-image-1-mini", "gpt-image-1.5", "chatgpt-image-latest"];
-    if (DEPRECATED_OPENAI.includes(model)) model = "gpt-image-1";
+    if (DEPRECATED_OPENAI.includes(model)) model = "gpt-image-2";
     const body: Record<string, unknown> = { model, prompt, n: 1, size: "1024x1024" };
     body.quality = (providerConfig?.quality as string | undefined) || "low";
     body.output_format = (providerConfig?.output_format as string | undefined) || "png";
