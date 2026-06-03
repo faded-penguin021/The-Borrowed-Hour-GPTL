@@ -143,7 +143,7 @@ export function CodexSection({ settings, onChange }: CodexSectionProps) {
               className="body-font italic"
               style={{ color: "var(--cream-faint)", fontSize: 11, marginTop: 4 }}
             >
-              Uses your saved OpenAI API key. gpt-image-1 is the current flagship (needs org verification, ~$0.011–0.167/image). dall-e-3 is broadly available (~$0.04/image). dall-e-2 is cheapest legacy.
+              Uses your saved OpenAI API key. gpt-image-1 is the value tier (~$0.011–0.040/image, needs org verification). gpt-image-2 is the flagship with improved precision and text rendering.
             </div>
           )}
 

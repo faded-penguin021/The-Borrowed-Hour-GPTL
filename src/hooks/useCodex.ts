@@ -62,6 +62,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }: C
   const plateCountRef = useRef(0);
   const turnIdRef = useRef(0);
   const inflightRef = useRef(0);
+  const lastSceneClauseRef = useRef<string>("");
 
   useEffect(() => { styleBibleRef.current = styleBible; }, [styleBible]);
   useEffect(() => { visualLedgerRef.current = visualLedger; }, [visualLedger]);
@@ -98,6 +99,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }: C
     setVisualLedger([]); visualLedgerRef.current = [];
     setPlateCount(0); plateCountRef.current = 0;
     turnIdRef.current = 0;
+    lastSceneClauseRef.current = "";
   };
 
   const restoreCodex = (savedCodex: Partial<CodexSnapshot> | null | undefined) => {
@@ -121,8 +123,12 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }: C
       if (signal?.aborted) return;
       const parsed = parseBootstrapResponse(raw);
       if (parsed.malformed) return;
-      setStyleBible(parsed.style_bible || null);
-      setVisualLedger(parsed.visual_ledger || []);
+      const sb = parsed.style_bible || null;
+      const vl = parsed.visual_ledger || [];
+      styleBibleRef.current = sb;
+      visualLedgerRef.current = vl;
+      setStyleBible(sb);
+      setVisualLedger(vl);
     } catch (e) {
       const caught = e as ThrownError;
       if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Art Director bootstrap failed:", caught?.detail || caught?.message || e);
@@ -147,7 +153,9 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }: C
     let ad: ReturnType<typeof parseTurnResponse>;
     try {
       const sys = buildTurnSystem(premise, sb, visualLedgerRef.current, language);
-      const userPrompt = `[Scene]\n${gmParsed.state?.scene || ""}\n\n[Narrator brief]\n${gmParsed.narrator_brief || ""}\n\n[Named NPCs present this turn]\n${(gmParsed.state?.npcs || []).map((n) => `- ${n.name}: ${n.note}`).join("\n") || "(none)"}\n\nDecide if this turn warrants a plate. Be ruthless; the default is no.`;
+      const prevClause = lastSceneClauseRef.current;
+      const prevLine = prevClause ? `\n\n[Previous plate scene clause]\n${prevClause}` : "";
+      const userPrompt = `[Scene]\n${gmParsed.state?.scene || ""}\n\n[Narrator brief]\n${gmParsed.narrator_brief || ""}\n\n[Named NPCs present this turn]\n${(gmParsed.state?.npcs || []).map((n) => `- ${n.name}: ${n.note}`).join("\n") || "(none)"}${prevLine}\n\nDecide if this turn warrants a plate. Be ruthless; the default is no.`;
       const raw = await callAPI(sys, [{ role: "user", content: userPrompt }], true, engine, 900, 0.4, signal, ART_DIRECTOR_TURN_TOOL);
       if (stale()) return;
       const parsed = parseTurnResponse(raw);
@@ -180,6 +188,7 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }: C
       wants = ad.warrants_illustration && !looksNegative && sceneClause.length >= 12;
     }
     if (!wants) return;
+    lastSceneClauseRef.current = sceneClause;
 
     if (inflightRef.current >= MAX_INFLIGHT) return;
 

@@ -15,7 +15,7 @@ import { ReplicatePredictionSchema } from "./responseSchemas";
 
 export const POLLINATIONS_DEFAULT_MODEL = "flux";
 export const REPLICATE_DEFAULT_MODEL = "black-forest-labs/flux-schnell";
-export const OPENAI_IMAGE_DEFAULT_MODEL = "gpt-image-1-mini";
+export const OPENAI_IMAGE_DEFAULT_MODEL = "gpt-image-1";
 export const LOCAL_IMAGE_DEFAULT_URL = "http://localhost:7860/sdapi/v1/txt2img";
 
 // checked: 2026-05-28. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
@@ -53,9 +53,7 @@ export const IMAGE_PROVIDER_META: Record<ImageProviderId, ImageProviderMeta & { 
     description: "Reuses your OpenAI API key (gpt-image family).",
     defaultModel: OPENAI_IMAGE_DEFAULT_MODEL,
     models: [
-      { id: "gpt-image-1-mini", tier: "cheap" },
       { id: "gpt-image-1", tier: "quality" },
-      { id: "gpt-image-1.5", tier: "quality" },
       { id: "gpt-image-2", tier: "flagship" }
     ]
   },
@@ -181,17 +179,11 @@ const adapters: Record<ImageProviderId, (args: ImageAdapterArgs) => Promise<Gene
 
   async openai({ prompt, providerConfig, signal }) {
     const apiKey = await getProviderKey("openai");
-    const model = (providerConfig?.model as string | undefined) || OPENAI_IMAGE_DEFAULT_MODEL;
-    // Param shapes for the gpt-image-* family (DALL-E 2/3 retired 2026-05-12):
-    //   gpt-image-1-mini (default): cheapest tier — quality "medium" 1024×1024
-    //     is ~$0.01/image and has noticeably better coherence than "low"
-    //     (~$0.005). Always returns b64_json; response_format rejected.
-    //   gpt-image-1 / 1.5 / 2: quality "low" pinned by default since
-    //     "auto"/"high" can run >$0.05/image. gpt-image-1 needs OpenAI
-    //     organization verification on the key.
+    let model = (providerConfig?.model as string | undefined) || OPENAI_IMAGE_DEFAULT_MODEL;
+    const DEPRECATED_OPENAI = ["gpt-image-1-mini", "gpt-image-1.5", "chatgpt-image-latest"];
+    if (DEPRECATED_OPENAI.includes(model)) model = "gpt-image-1";
     const body: Record<string, unknown> = { model, prompt, n: 1, size: "1024x1024" };
-    const isMini = model === "gpt-image-1-mini";
-    body.quality = (providerConfig?.quality as string | undefined) || (isMini ? "medium" : "low");
+    body.quality = (providerConfig?.quality as string | undefined) || "low";
     body.output_format = (providerConfig?.output_format as string | undefined) || "png";
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
