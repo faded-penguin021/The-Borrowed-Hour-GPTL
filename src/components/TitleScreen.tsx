@@ -164,7 +164,7 @@ export function TitleScreen({ onOpenCustom, onOpenSettings }: TitleScreenProps) 
           className="icon-btn"
           style={{ padding: "8px 18px" }}
         >
-          <Bookmark size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />RESUME AN HOUR
+          <Bookmark size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />RESUME AN HOUR
         </button>
         <button
           onClick={onOpenSettings}
@@ -174,7 +174,7 @@ export function TitleScreen({ onOpenCustom, onOpenSettings }: TitleScreenProps) 
           aria-label="Reader preferences"
           title="Reader preferences — contrast, motion, typewriter"
         >
-          <Settings size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />READING
+          <Settings size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />READING
         </button>
       </div>
       {loading && (

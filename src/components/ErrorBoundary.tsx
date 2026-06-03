@@ -87,7 +87,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                 cursor: "pointer"
               }}
             >
-              <RefreshCw size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} /> TRY AGAIN
+              <RefreshCw size={12} strokeWidth={1.5} style={{ marginRight: 4 }} /> TRY AGAIN
             </button>
             <button
               onClick={reload}
@@ -102,7 +102,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                 cursor: "pointer"
               }}
             >
-              <RotateCcw size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} /> RELOAD
+              <RotateCcw size={12} strokeWidth={1.5} style={{ marginRight: 4 }} /> RELOAD
             </button>
           </div>
         </div>

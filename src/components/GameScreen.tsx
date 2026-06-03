@@ -334,7 +334,7 @@ export function GameScreen({
                 letterSpacing: "0.02em"
               }}
             >
-              <span style={{ color: `var(--${premise.realm})`, opacity: 0.7 }}><HeartHandshake size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle" }} /></span>{" "}
+              <span style={{ color: `var(--${premise.realm})`, opacity: 0.7 }}><HeartHandshake size={12} strokeWidth={1.5}  /></span>{" "}
               when this hour is spent, you may speak with its author about it
             </div>
           )}
@@ -367,7 +367,7 @@ export function GameScreen({
                       color: `var(--${premise.realm})`
                     }}
                   >
-                    <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />UNVEIL THE HIDDEN HOUR
+                    <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />UNVEIL THE HIDDEN HOUR
                   </button>
                 )}
                 <button
@@ -379,13 +379,13 @@ export function GameScreen({
                     color: `var(--${premise.realm})`
                   }}
                 >
-                  <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />SPEAK WITH THE AUTHOR
+                  <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />SPEAK WITH THE AUTHOR
                 </button>
                 <button onClick={saveCurrent} className="icon-btn" style={{ padding: "10px 22px" }}>
-                  <Bookmark size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />KEEP THIS HOUR
+                  <Bookmark size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />KEEP THIS HOUR
                 </button>
                 <button onClick={restart} className="icon-btn" style={{ padding: "10px 22px" }}>
-                  <RotateCcw size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />BEGIN A NEW HOUR
+                  <RotateCcw size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />BEGIN A NEW HOUR
                 </button>
                 {!keepsakeBlob && !keepsakeLoading && (
                   <button
@@ -394,7 +394,7 @@ export function GameScreen({
                     style={{ padding: "10px 22px" }}
                     title="Generate a self-contained HTML keepsake of this chronicle"
                   >
-                    <BookMarked size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />GENERATE BOOK
+                    <BookMarked size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />GENERATE BOOK
                   </button>
                 )}
                 {keepsakeLoading && (
@@ -416,7 +416,7 @@ export function GameScreen({
                     }}
                     title="Download the HTML keepsake file"
                   >
-                    <Download size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />TAP TO SAVE FILE
+                    <Download size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />TAP TO SAVE FILE
                   </button>
                 )}
                 {keepsakeError && (
@@ -600,7 +600,7 @@ export function GameScreen({
                 }}
                 title="Have the narrator finish the interrupted passage"
               >
-                <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />CONTINUE THE NARRATION
+                <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />CONTINUE THE NARRATION
               </button>
             </div>
           )}

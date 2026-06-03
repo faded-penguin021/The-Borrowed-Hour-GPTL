@@ -8,7 +8,7 @@ import { gmNote as customGmNote } from "../prompts/premises/custom";
 import { Clock4, Diamond, Sparkles, Flower2, Asterisk } from "lucide-react";
 
 export function realmGlyph(realm: string): React.ReactNode {
-  const props = { size: 14, strokeWidth: 1.5, "aria-hidden": true as const, style: { display: "inline" as const, verticalAlign: "middle" as const } };
+  const props = { size: 14, strokeWidth: 1.5, "aria-hidden": true as const };
   switch (realm) {
     case "echo":
       return <Clock4 {...props} />;
