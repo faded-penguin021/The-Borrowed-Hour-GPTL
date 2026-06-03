@@ -13,8 +13,8 @@ import { IllustrationPlate } from "./IllustrationPlate";
 import { GameComposer } from "./GameComposer";
 import {
   Undo2, BookOpen, Bookmark, Copy, CopyPlus, Clock, Settings,
-  Volume2, VolumeX, Mic, MicOff, X, Sparkles, Play, Pause, Loader,
-  BookMarked, RotateCcw, Download, Flower2, HeartHandshake,
+  Volume2, VolumeX, Mic, MicOff, Sparkles, Play, Pause, Loader,
+  BookMarked, RotateCcw, Download, HeartHandshake,
 } from "lucide-react";
 
 /**
