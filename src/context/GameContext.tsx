@@ -1,8 +1,8 @@
 /* eslint-disable react-refresh/only-export-components -- provider co-located with its context hook(s); splitting churns every import site for a dev-only Fast Refresh gain */
-import React, { createContext, useContext, useState, useRef, useEffect, useMemo } from "react";
+import React, { createContext, useContext, useReducer, useState, useRef, useEffect, useMemo } from "react";
 import type { ChatMessage, Entry, GameState, MetaMessage, NarrationEntry, Premise, SaveRecord, ThrownError } from "../types";
+import type { SetStateAction, Dispatch } from "react";
 import { EMPTY_STATE } from "../data/constants";
-import { DEFAULT_LANGUAGE } from "../data/languages";
 import { PREMISES, NARRATION_LOADING_PHRASES, META_LOADING_PHRASES, OPENING_LOADING_PHRASES, pickPhrase } from "../data/premises";
 import { GM_LOGIC_TOOL, buildSystem, buildNarratorSystem, buildMetaSystem } from "../llm/tools";
 import { parseGMResponse, parseGMLogicResponse, isStateEmpty } from "../llm/parse";
@@ -20,25 +20,10 @@ import { useLatest } from "../hooks/useLatest";
 import { useSettingsContext } from "./SettingsContext";
 import { useAmbienceContext } from "./AmbienceContext";
 import { useTTSContext } from "./TTSContext";
-
-/**
- * Slice of a parsed GM/logic result the narration recovery path needs. Both the
- * GM-logic result and the opener stand-in satisfy it.
- */
-type RecoveryGMParsed = { state?: GameState | null; ending?: string | null; narration?: string; narrator_brief?: string };
-
-/**
- * Snapshot captured when a narration stream is interrupted, so the player can
- * resume it via `continueNarration`.
- */
-type Recovery = {
-  narratorSys: string;
-  narratorPrompt: string;
-  gmParsed: RecoveryGMParsed;
-  baseEntries: Entry[];
-  baseHistory: ChatMessage[];
-  partial: string;
-};
+import {
+  storyReducer, INITIAL_STATE, createStreamingStore,
+  type Recovery, type RecoveryGMParsed, type StreamingStore,
+} from "./storyReducer";
 
 /** In-flight request handle: the abort controller plus its rollback closure. */
 type AbortRef = { controller: AbortController; rollback?: () => void; startedAt: number };
@@ -100,6 +85,7 @@ interface GameLiveValue {
   metaMessages: MetaMessage[];
   skipNonce: number;
   recovery: Recovery | null;
+  streamingStore: StreamingStore;
   saveBanner: SavesHook["saveBanner"];
   showSaves: SavesHook["showSaves"];
   saveList: SavesHook["saveList"];
@@ -121,7 +107,7 @@ interface GameLiveValue {
 interface GameRunValue {
   loading: boolean;
   loadingPhrase: string;
-  error: ReturnType<typeof formatError> | null;
+  error: { message: string; detail: string | null; raw: unknown } | null;
   sessionTokens: { input: number; output: number };
 }
 
@@ -209,22 +195,23 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const ambience = useAmbienceContext();
   const tts = useTTSContext();
 
-  const [phase, setPhase] = useState("title");
-  const [premise, setPremise] = useState<Premise | null>(null);
-  const [entries, setEntries] = useState<Entry[]>([]);
-  const [history, setHistory] = useState<ChatMessage[]>([]);
+  // ── Core story state (reducer) ────────────────────────────────────
+  const [s, dispatch] = useReducer(storyReducer, INITIAL_STATE);
+  const { phase, premise, entries, history, ended, gameState, language,
+          metaMode, metaMessages, skipNonce, recovery } = s;
+  const error = s.error;
+
+  // Transient runtime state stays outside the reducer — loading, phrase, and
+  // tokens are high-frequency / ephemeral and have no cross-field invariants.
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<ReturnType<typeof formatError> | null>(null);
-  const [ended, setEnded] = useState(false);
-  const [gameState, setGameState] = useState<GameState>(EMPTY_STATE);
-  const [language, setLanguage] = useState(DEFAULT_LANGUAGE);
-  const [metaMode, setMetaMode] = useState(false);
-  const [metaMessages, setMetaMessages] = useState<MetaMessage[]>([]);
-  const [skipNonce, setSkipNonce] = useState(0);
   const [loadingPhrase, setLoadingPhrase] = useState("");
-  const [recovery, setRecovery] = useState<Recovery | null>(null);
   const [sessionTokens, setSessionTokens] = useState({ input: 0, output: 0 });
   const sessionTokensRef = useRef({ input: 0, output: 0 });
+
+  // Streaming store: text accumulator for in-flight narration deltas.
+  // Components subscribe via useSyncExternalStore; onDelta writes here instead
+  // of dispatching per-token state updates.
+  const streamingStore = useRef(createStreamingStore()).current;
 
   const abortRef = useRef<AbortRef | null>(null);
   // Mirror settings so the long-lived API client closure always reads the
@@ -250,7 +237,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const { callAPI, streamAPI } = clientRef.current;
 
   // ── Domain hooks owned by the loop ───────────────────────────────
-  const codex = useCodex({ callAPI, settings, premise, language, setEntries });
+  // useCodex expects a React-style setEntries (value or updater). Wrap dispatch.
+  const dispatchSetEntries: Dispatch<SetStateAction<Entry[]>> = (action) => {
+    if (typeof action === "function") {
+      dispatch({ type: "UPDATE_ENTRIES", updater: action });
+    } else {
+      dispatch({ type: "SET_ENTRIES", entries: action });
+    }
+  };
+  const codex = useCodex({ callAPI, settings, premise, language, setEntries: dispatchSetEntries });
   const saves = useSaves();
   const reveal = useReveal({
     streamAPI,
@@ -310,7 +305,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, [saves.saveBanner]);
 
   // ── Game actions ─────────────────────────────────────────────────
-  const skipReveal = () => setSkipNonce((n) => n + 1);
+  const skipReveal = () => dispatch({ type: "SKIP_REVEAL" });
 
   const finalizeNarration = (
     narration: string,
@@ -320,19 +315,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     fullyRevealed: boolean
   ) => {
     const assistantPayload = JSON.stringify({ gm_scratchpad: "", narration, state: gmParsed.state, ending: gmParsed.ending });
-    setHistory([...baseHistory, { role: "assistant", content: assistantPayload }]);
-    setEntries((prev) => {
-      const existing = prev[baseEntries.length];
-      const entry: NarrationEntry = { type: "narration", text: narration, fullyRevealed };
-      if (existing && existing.illustration) entry.illustration = existing.illustration;
-      return [...baseEntries, entry];
+    const newHistory = [...baseHistory, { role: "assistant" as const, content: assistantPayload }];
+    const shouldUpdateState = gmParsed.state && !(isStateEmpty(gmParsed.state) && !isStateEmpty(s.gameState));
+    dispatch({
+      type: "STREAM_FINALIZE",
+      narrationIndex: baseEntries.length,
+      text: narration,
+      fullyRevealed,
+      history: newHistory,
+      gameState: shouldUpdateState ? gmParsed.state : undefined,
+      ended: !!gmParsed.ending,
     });
-    if (gmParsed.state && !(isStateEmpty(gmParsed.state) && !isStateEmpty(gameState))) {
-      setGameState(gmParsed.state);
-    }
     if (gmParsed.ending) {
-      setEnded(true);
-      progress.recordEnding(premise?.id, gmParsed.ending);
+      progress.recordEnding(s.premise?.id, gmParsed.ending);
     }
   };
 
@@ -340,24 +335,20 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     codex.revokeAllPlates(entries);
     sessionTokensRef.current = { input: 0, output: 0 };
     setSessionTokens({ input: 0, output: 0 });
-    setPremise(chosen);
-    setPhase("playing");
-    setGameState(EMPTY_STATE);
+    dispatch({ type: "START_GAME", premise: chosen });
     codex.resetCodex();
     setLoadingPhrase(pickPhrase(OPENING_LOADING_PHRASES));
     setLoading(true);
-    setError(null);
-    setRecovery(null);
     await ensureAmbienceEngine();
     const controller = new AbortController;
     const rollback = () => {
-      setPhase("title");
-      setPremise(null);
+      dispatch({ type: "SET_PHASE", phase: "title" });
+      dispatch({ type: "SET_PREMISE", premise: null });
     };
     abortRef.current = { controller, rollback, startedAt: Date.now() };
     try {
       const sys = buildSystem(chosen, language);
-            const msgs: ChatMessage[] = [{ role: "user", content: "Begin." }];
+      const msgs: ChatMessage[] = [{ role: "user", content: "Begin." }];
       const bootstrapPromise = codex.runArtDirectorBootstrap(chosen, controller.signal);
       const firstRaw = await callAPI(sys, msgs, true, settings.engineOpening, 4500, 0.7, controller.signal);
       bootstrapPromise.catch(() => {});
@@ -366,7 +357,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       let parsed = parseGMResponse(openingRaw);
       if (parsed.malformed) {
         const priorAssistant = (openingRaw && openingRaw.trim()) ? openingRaw : "(empty response)";
-                const correctiveMsgs: ChatMessage[] = [
+        const correctiveMsgs: ChatMessage[] = [
           ...msgs,
           { role: "assistant", content: priorAssistant },
           { role: "user", content: `Your previous response could not be parsed. Reason: ${parsed.diagnostic || "missing required fields"}.
@@ -383,11 +374,14 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
         if (parsed.raw) err.raw = parsed.raw;
         throw err;
       }
-      setHistory([...msgs, { role: "assistant", content: openingRaw }]);
-      setEntries([{ type: "narration", text: parsed.narration, fullyRevealed: false }]);
-      if (parsed.state) setGameState(parsed.state);
+      dispatch({
+        type: "APPEND_TURN",
+        entries: [{ type: "narration", text: parsed.narration, fullyRevealed: false }],
+        history: [...msgs, { role: "assistant", content: openingRaw }],
+        gameState: parsed.state,
+        ended: !!parsed.ending,
+      });
       if (parsed.ending) {
-        setEnded(true);
         progress.recordEnding(chosen.id, parsed.ending);
       }
       if (ambienceRef.current) {
@@ -412,7 +406,7 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
     } catch (e) {
       if (controller.signal.aborted) return;
       const cancelled = e instanceof BorrowedError && e.detail === "Request cancelled by the player.";
-      if (!cancelled) setError(formatError(e));
+      if (!cancelled) dispatch({ type: "SET_ERROR", error: formatError(e) });
       rollback();
     } finally {
       if (abortRef.current?.controller === controller) {
@@ -425,16 +419,15 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
   const continueNarration = async () => {
     const rec = recovery;
     if (!rec || loading) return;
-    setError(null);
-    setRecovery(null);
+    dispatch({ type: "SET_ERROR", error: null });
+    dispatch({ type: "SET_RECOVERY", recovery: null });
     setLoadingPhrase(pickPhrase(NARRATION_LOADING_PHRASES));
     setLoading(true);
-    const narrationIndex = rec.baseEntries.length;
     let acc = rec.partial;
     const controller = new AbortController;
     const rollback = () => {
       finalizeNarration(rec.partial, rec.gmParsed, rec.baseEntries, rec.baseHistory, true);
-      setRecovery(rec);
+      dispatch({ type: "SET_RECOVERY", recovery: rec });
     };
     abortRef.current = { controller, rollback, startedAt: Date.now() };
     const continuePrompt = `${rec.narratorPrompt}
@@ -443,16 +436,13 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
 ${rec.partial}
 
 The narration above was interrupted and cut off before it finished. Continue it seamlessly from exactly where it stops — do not repeat or restate any of it, do not open a new scene. Write only the continuation, carrying the same passage to a natural close.`;
+    streamingStore.reset();
+    streamingStore.emit(rec.partial);
     const onDelta = (chunk: string) => {
       acc += chunk;
-      setEntries((prev) => {
-        if (!prev[narrationIndex] || prev[narrationIndex].type !== "narration") return prev;
-        const next = prev.slice();
-        next[narrationIndex] = { ...next[narrationIndex], text: acc } as NarrationEntry;
-        return next;
-      });
+      streamingStore.emit(acc);
     };
-    setEntries([...rec.baseEntries, { type: "narration", text: rec.partial, streaming: true, fullyRevealed: false }]);
+    dispatch({ type: "SET_ENTRIES", entries: [...rec.baseEntries, { type: "narration", text: "", streaming: true, fullyRevealed: false }] });
     try {
       await streamAPI(rec.narratorSys, [{ role: "user", content: continuePrompt }], settings.engineNarrator, 700, 0.8, controller.signal, onDelta);
       if (controller.signal.aborted) return;
@@ -460,9 +450,9 @@ The narration above was interrupted and cut off before it finished. Continue it 
     } catch (e) {
       if (controller.signal.aborted) return;
       if (e instanceof BorrowedError && e.detail === "Request cancelled by the player.") return;
-      setError(formatError(e));
+      dispatch({ type: "SET_ERROR", error: formatError(e) });
       finalizeNarration(acc, rec.gmParsed, rec.baseEntries, rec.baseHistory, true);
-      setRecovery({ ...rec, partial: acc });
+      dispatch({ type: "SET_RECOVERY", recovery: { ...rec, partial: acc } });
     } finally {
       if (abortRef.current?.controller === controller) {
         setLoading(false);
@@ -481,7 +471,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     if (!metaMode && ended) return true;
     if (!premise) return true;
     skipReveal();
-    setRecovery(null);
+    dispatch({ type: "SET_RECOVERY", recovery: null });
     if (!metaMode) await ensureAmbienceEngine();
     if (metaMode) {
       const previousMeta = metaMessages;
@@ -489,13 +479,13 @@ The narration above was interrupted and cut off before it finished. Continue it 
         ...metaMessages,
         { role: "user", text, fullyRevealed: true }
       ];
-      setMetaMessages(newMeta);
+      dispatch({ type: "SET_META_MESSAGES", metaMessages: newMeta });
       setLoadingPhrase(pickPhrase(META_LOADING_PHRASES));
       setLoading(true);
-      setError(null);
+      dispatch({ type: "SET_ERROR", error: null });
       const controller2 = new AbortController;
       const rollback2 = () => {
-        setMetaMessages(previousMeta);
+        dispatch({ type: "SET_META_MESSAGES", metaMessages: previousMeta });
       };
       abortRef.current = { controller: controller2, rollback: rollback2, startedAt: Date.now() };
       try {
@@ -537,15 +527,15 @@ The narration above was interrupted and cut off before it finished. Continue it 
         ];
         const reply = await callAPI(sys, metaApiMessages, false, settings.engineNarrator, 3000, 0.8, controller2.signal);
         if (controller2.signal.aborted) return false;
-        setMetaMessages([
+        dispatch({ type: "SET_META_MESSAGES", metaMessages: [
           ...newMeta,
           { role: "assistant", text: reply, fullyRevealed: false }
-        ]);
+        ] });
         return true;
       } catch (e) {
         if (controller2.signal.aborted) return false;
         const cancelled = e instanceof BorrowedError && e.detail === "Request cancelled by the player.";
-        if (!cancelled) setError(formatError(e));
+        if (!cancelled) dispatch({ type: "SET_ERROR", error: formatError(e) });
         rollback2();
         return false;
       } finally {
@@ -558,7 +548,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     const previousEntries = entries;
     const previousHistory = history;
     const newEntries: Entry[] = [...entries, { type: "action", text, fullyRevealed: true }];
-    setEntries(newEntries);
+    dispatch({ type: "SET_ENTRIES", entries: newEntries });
     if (tts.ttsRef.current) tts.ttsRef.current.stop();
     const { publicBlock, privateBlock } = formatStateForPrompt(gameState);
     const parts: string[] = [];
@@ -566,7 +556,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     parts.push(`[Player action]\n${text}`);
     if (privateBlock) parts.push(privateBlock);
     const playerMessage = parts.join("\n\n");
-        const newHistory: ChatMessage[] = [...history, { role: "user", content: playerMessage }];
+    const newHistory: ChatMessage[] = [...history, { role: "user", content: playerMessage }];
     const tailStart = newHistory.length - 1;
     let apiHistory = newHistory.map((msg, i) => {
       if (i >= tailStart) return msg;
@@ -596,14 +586,14 @@ The narration above was interrupted and cut off before it finished. Continue it 
         estTokens: Math.round(charsOf(apiHistory) / 4)
       });
     }
-    setHistory(newHistory);
+    dispatch({ type: "SET_HISTORY", history: newHistory });
     setLoadingPhrase(pickPhrase(NARRATION_LOADING_PHRASES));
     setLoading(true);
-    setError(null);
+    dispatch({ type: "SET_ERROR", error: null });
     const controller = new AbortController;
     const rollback = () => {
-      setEntries(previousEntries);
-      setHistory(previousHistory);
+      dispatch({ type: "SET_ENTRIES", entries: previousEntries });
+      dispatch({ type: "SET_HISTORY", history: previousHistory });
     };
     abortRef.current = { controller, rollback, startedAt: Date.now() };
     try {
@@ -614,7 +604,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
       let gmParsed = parseGMLogicResponse(gmReply);
       if (gmParsed.malformed) {
         const priorAssistant = (gmReply && gmReply.trim()) ? gmReply : "(empty response)";
-                const correctiveHistory: ChatMessage[] = [
+        const correctiveHistory: ChatMessage[] = [
           ...apiHistory,
           { role: "assistant", content: priorAssistant },
           { role: "user", content: `Your previous response could not be parsed. Reason: ${gmParsed.diagnostic || "missing required fields"}.
@@ -645,20 +635,16 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       if (settings.streamNarration) {
         const narrationIndex = newEntries.length;
         let acc = "";
-        setEntries((prev) => {
+        streamingStore.reset();
+        dispatch({ type: "UPDATE_ENTRIES", updater: (prev) => {
           const existing = prev[narrationIndex];
           const entry: NarrationEntry = { type: "narration", text: "", streaming: true, fullyRevealed: false };
           if (existing && existing.illustration) entry.illustration = existing.illustration;
           return [...newEntries, entry];
-        });
+        } });
         const onDelta = (chunk: string) => {
           acc += chunk;
-          setEntries((prev) => {
-            if (!prev[narrationIndex] || prev[narrationIndex].type !== "narration") return prev;
-            const next = prev.slice();
-            next[narrationIndex] = { ...next[narrationIndex], text: acc } as NarrationEntry;
-            return next;
-          });
+          streamingStore.emit(acc);
         };
         let narration;
         try {
@@ -669,12 +655,12 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
           const caught = e as ThrownError;
           if (caught && typeof caught.partial === "string" && caught.partial) {
             finalizeNarration(caught.partial, gmParsed, newEntries, newHistory, true);
-            setError(formatError(e));
-            setRecovery({
+            dispatch({ type: "SET_ERROR", error: formatError(e) });
+            dispatch({ type: "SET_RECOVERY", recovery: {
               narratorSys, narratorPrompt, gmParsed,
               baseEntries: newEntries, baseHistory: newHistory,
               partial: caught.partial
-            });
+            } });
             return true;
           }
           throw e;
@@ -690,7 +676,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     } catch (e) {
       if (controller.signal.aborted) return false;
       const cancelled = e instanceof BorrowedError && e.detail === "Request cancelled by the player.";
-      if (!cancelled) setError(formatError(e));
+      if (!cancelled) dispatch({ type: "SET_ERROR", error: formatError(e) });
       rollback();
       return false;
     } finally {
@@ -707,7 +693,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     const { controller, rollback } = ref;
     abortRef.current = null;
     setLoading(false);
-    setError(null);
+    dispatch({ type: "SET_ERROR", error: null });
     try { rollback?.(); } catch {}
     if (controller && !controller.signal.aborted) {
       try { controller.abort(); } catch {}
@@ -726,39 +712,19 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       const parsed = parseGMResponse(lastAssistant.content);
       if (parsed.state) newState = parsed.state;
     }
-    setHistory(newHistory);
-    setEntries(newEntries);
-    setGameState(newState);
-    setEnded(false);
-    setError(null);
-    setRecovery(null);
+    dispatch({ type: "UNDO", entries: newEntries, history: newHistory, gameState: newState });
     saves.setSaveBanner({ kind: "ok", text: "The last turn is unmade." });
   };
 
-  const enterMetaMode = () => {
-    setMetaMode(true);
-    setMetaMessages([]);
-  };
+  const enterMetaMode = () => dispatch({ type: "ENTER_META" });
 
-  const exitMetaMode = () => {
-    setMetaMode(false);
-    setMetaMessages([]);
-  };
+  const exitMetaMode = () => dispatch({ type: "EXIT_META" });
 
   const restart = () => {
     codex.revokeAllPlates(entries);
     sessionTokensRef.current = { input: 0, output: 0 };
     setSessionTokens({ input: 0, output: 0 });
-    setPhase("title");
-    setPremise(null);
-    setEntries([]);
-    setHistory([]);
-    setError(null);
-    setRecovery(null);
-    setEnded(false);
-    setGameState(EMPTY_STATE);
-    setMetaMode(false);
-    setMetaMessages([]);
+    dispatch({ type: "RESET" });
     reveal.resetReveal();
     keepsake.resetKeepsake();
     if (ambienceRef.current) ambienceRef.current.applyAmbience(null);
@@ -779,18 +745,24 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       return;
     }
     codex.revokeAllPlates(entries);
-    // Park the TTS cursor at the end of the restored entries BEFORE they land in
-    // state. setEntries triggers the autoSpeak effect, and without this the loaded
-    // narration would auto-play on reload — annoying and a needless API cost.
     tts.stopTTS();
     tts.resetTTSCursor((save.entries || []).length);
-    setPremise(found);
-    // Rehydrate illustrations: entries whose url is an `idb:` marker have their
-    // bytes in IndexedDB. Pull each Blob, mint a live `blob:` URL, and swap it
-    // in. `useCodex.revokeAllPlates`/`setEntryIllustration` already revoke
-    // `blob:` URLs on the next swap or reset, so this introduces no leak.
     const rawEntries: Entry[] = (save.entries || []).map((e) => ({ ...e, fullyRevealed: true }));
-    setEntries(rawEntries);
+    dispatch({
+      type: "LOAD_SAVE",
+      payload: {
+        premise: found,
+        entries: rawEntries,
+        history: save.history || [],
+        ended: !!save.ended,
+        gameState: save.gameState || EMPTY_STATE,
+        language: save.language || "en",
+        metaMessages: (save.metaMessages || []).map((m) => ({ ...m, fullyRevealed: true })),
+        metaMode: !!save.metaMode,
+      },
+    });
+    // Rehydrate illustrations: entries whose url is an `idb:` marker have their
+    // bytes in IndexedDB. Pull each Blob, mint a live `blob:` URL, and swap it in.
     (async () => {
       const rehydrated = await Promise.all(rawEntries.map(async (e): Promise<Entry> => {
         const ill = e.illustration;
@@ -800,20 +772,11 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
         if (!blob) return { ...e, illustration: { ...ill, status: "failed", url: undefined } };
         return { ...e, illustration: { ...ill, url: URL.createObjectURL(blob) } };
       }));
-      setEntries(rehydrated);
+      dispatch({ type: "SET_ENTRIES", entries: rehydrated });
     })();
-    setHistory(save.history || []);
-    setError(null);
-    setRecovery(null);
-    setEnded(!!save.ended);
-    setGameState(save.gameState || EMPTY_STATE);
-    setLanguage(save.language || DEFAULT_LANGUAGE);
-    setMetaMessages((save.metaMessages || []).map((m) => ({ ...m, fullyRevealed: true })));
-    setMetaMode(!!save.metaMode);
     codex.restoreCodex(save.codex);
     reveal.resetReveal();
     keepsake.resetKeepsake();
-    setPhase("playing");
     saves.setShowSaves(false);
     saves.setSaveBanner({ kind: "ok", text: "The hour resumes." });
     await ensureAmbienceEngine();
@@ -850,11 +813,11 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     : "the-borrowed-hour.html";
 
   const markEntryRevealed = (index: number) => {
-    setEntries((prev) => prev.map((e, i) => i === index ? { ...e, fullyRevealed: true } : e));
+    dispatch({ type: "UPDATE_ENTRIES", updater: (prev) => prev.map((e, i) => i === index ? { ...e, fullyRevealed: true } : e) });
   };
 
   const markMetaRevealed = (index: number) => {
-    setMetaMessages((prev) => prev.map((m, i) => i === index ? { ...m, fullyRevealed: true } : m));
+    dispatch({ type: "SET_META_MESSAGES", metaMessages: s.metaMessages.map((m, i) => i === index ? { ...m, fullyRevealed: true } : m) });
   };
 
   const entriesCount = entries.length;
@@ -866,6 +829,10 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   // closures from a ref. The wrappers' identities never change, so the actions
   // object can be memoized once — dispatch-only consumers (e.g. the composer)
   // stop re-rendering on narration churn, with no stale-closure hazard.
+  const setLanguage = (lang: React.SetStateAction<string>) => {
+    const resolved = typeof lang === "function" ? lang(s.language) : lang;
+    dispatch({ type: "SET_LANGUAGE", language: resolved });
+  };
   const liveActions: GameActions = {
     setLanguage, beginAdventure, submit, continueNarration,
     undoLastTurn, restart, loadSave,
@@ -908,7 +875,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
 
   // ── High-churn live state + saves/reveal/keepsake surfaces ───────────────
   const live: GameLiveValue = useMemo(() => ({
-    entries, gameState, history, metaMessages, skipNonce, recovery,
+    entries, gameState, history, metaMessages, skipNonce, recovery, streamingStore,
     saveBanner: saves.saveBanner,
     showSaves: saves.showSaves,
     saveList: saves.saveList,
@@ -922,7 +889,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     keepsakeLoading: keepsake.keepsakeLoading,
     keepsakeError: keepsake.keepsakeError,
   }), [
-    entries, gameState, history, metaMessages, skipNonce, recovery,
+    entries, gameState, history, metaMessages, skipNonce, recovery, streamingStore,
     saves.saveBanner, saves.showSaves, saves.saveList, saves.saveListLoading,
     saves.savesTotalBytes, saves.exportFallbackText,
     reveal.revealText, reveal.revealLoading, reveal.revealError,

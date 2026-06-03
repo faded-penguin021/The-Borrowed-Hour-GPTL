@@ -7,6 +7,7 @@ import { useSettingsContext } from "../context/SettingsContext";
 import { useAmbienceContext } from "../context/AmbienceContext";
 import { useTTSContext } from "../context/TTSContext";
 import { TypewriterText } from "./TypewriterText";
+import { StreamingNarration } from "./StreamingNarration";
 import { ErrorRawDetail } from "./ErrorRawDetail";
 import { IllustrationPlate } from "./IllustrationPlate";
 import { GameComposer } from "./GameComposer";
@@ -28,6 +29,7 @@ export function GameScreen({
   const {
     premise, entries, skipNonce, ended,
     metaMode, metaMessages, recovery, saveBanner, canUndo,
+    streamingStore,
     revealText, revealLoading, revealError,
     keepsakeBlob, keepsakeLoading, keepsakeError, keepsakeFilename,
     markEntryRevealed, markMetaRevealed, enterMetaMode,
@@ -257,13 +259,17 @@ export function GameScreen({
               return (
                 <div key={i} className="fade-in" data-testid="narration-entry">
                   <div className="narration-text body-font text-lg" style={{ lineHeight: 1.7 }}>
-                    <TypewriterText
-                      text={entry.text}
-                      instant={entry.fullyRevealed || entry.streaming || instantReveal}
-                      skipSignal={skipNonce}
-                      onDone={() => markEntryRevealed(i)}
-                      scrollRef={scrollRef}
-                    />
+                    {entry.streaming ? (
+                      <StreamingNarration store={streamingStore} scrollRef={scrollRef} />
+                    ) : (
+                      <TypewriterText
+                        text={entry.text}
+                        instant={entry.fullyRevealed || instantReveal}
+                        skipSignal={skipNonce}
+                        onDone={() => markEntryRevealed(i)}
+                        scrollRef={scrollRef}
+                      />
+                    )}
                   </div>
                   {entry.illustration && (
                     <IllustrationPlate plate={entry.illustration} realm={premise.realm} />
