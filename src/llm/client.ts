@@ -19,6 +19,7 @@ export type CallAPI = (
   signal?: AbortSignal | null,
   tool?: ToolDefinition,
   cacheBreakpoint?: number,
+  cacheKey?: string,
 ) => Promise<string>;
 
 /** Signature of the streaming `streamAPI` returned by {@link createLLMClient}. */
@@ -63,7 +64,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
     return request;
   };
 
-  const callAPI = async (sys: string, msgs: ChatMessage[], useTool = false, engine: EngineConfig = getDefaultEngine(), maxTokens = 3000, temperature = 0.6, signal: AbortSignal | null = null, tool: ToolDefinition = GM_TOOL, cacheBreakpoint?: number): Promise<string> => {
+  const callAPI = async (sys: string, msgs: ChatMessage[], useTool = false, engine: EngineConfig = getDefaultEngine(), maxTokens = 3000, temperature = 0.6, signal: AbortSignal | null = null, tool: ToolDefinition = GM_TOOL, cacheBreakpoint?: number, cacheKey?: string): Promise<string> => {
     const providerId = engine?.provider;
     const model = engine?.model;
     const provider = PROVIDERS[providerId];
@@ -89,7 +90,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
       try {
         apiKey = await getProviderKey(providerId as ProviderId);
         request = provider.buildRequest({
-          sys, msgs, useTool, model, maxTokens, temperature: temp, tool, apiKey, cacheBreakpoint
+          sys, msgs, useTool, model, maxTokens, temperature: temp, tool, apiKey, cacheBreakpoint, cacheKey
         });
       } catch (e) {
         if (e instanceof BorrowedError) throw e;

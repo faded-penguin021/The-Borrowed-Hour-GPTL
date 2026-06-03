@@ -603,7 +603,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     abortRef.current = { controller, rollback, startedAt: Date.now() };
     try {
       const gmSys = buildSystem(premise, language, { split: true });
-      const firstGmReply = await callAPI(gmSys, apiHistory, true, settings.engineGM, 2600, 0.35, controller.signal, GM_LOGIC_TOOL, cacheBreakpoint);
+      const firstGmReply = await callAPI(gmSys, apiHistory, true, settings.engineGM, 2600, 0.35, controller.signal, GM_LOGIC_TOOL, cacheBreakpoint, premise?.id);
       if (controller.signal.aborted) return false;
       let gmReply = firstGmReply;
       let gmParsed = parseGMLogicResponse(gmReply);

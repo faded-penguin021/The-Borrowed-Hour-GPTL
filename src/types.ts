@@ -191,6 +191,7 @@ export interface BuildRequestParams {
   tool?: ToolDefinition | null;
   apiKey?: string;
   cacheBreakpoint?: number;
+  cacheKey?: string;
 }
 
 export interface ProviderRequest {
@@ -223,6 +224,7 @@ export interface ChatCompletionsProviderConfig {
   tools?: boolean;
   jsonSchema?: boolean;
   extraBody?: Record<string, unknown>;
+  promptCacheKey?: boolean;
 }
 
 // ── TTS types ─────────────────────────────────────────────────────────────────

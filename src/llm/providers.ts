@@ -588,7 +588,8 @@ export const PROVIDERS: Record<string, ProviderAdapter> = {
   mistral: makeChatCompletionsProvider({
     url: "https://api.mistral.ai/v1/chat/completions",
     label: "Mistral",
-    tools: true
+    tools: true,
+    promptCacheKey: true
   }),
   groq: makeChatCompletionsProvider({
     url: "https://api.groq.com/openai/v1/chat/completions",
