@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useGameActions, useGameStory, useGameRun } from "../context/GameContext";
+import { Sparkles, ChevronRight } from "lucide-react";
 
 /**
  * The input row. Owns `input` and the per-session input history locally so a
@@ -111,7 +112,7 @@ export const GameComposer = React.memo(function GameComposer() {
             className="display-font text-2xl leading-none mt-2 select-none"
             style={{ color: metaMode && premise ? `var(--${premise.realm})` : "var(--rose-ember)" }}
           >
-            {metaMode ? "✦" : "›"}
+            {metaMode ? <Sparkles size={20} strokeWidth={1.5} /> : <ChevronRight size={20} strokeWidth={1.5} />}
           </span>
           <textarea
             ref={textareaRef}

@@ -1,6 +1,7 @@
 import React from "react";
 import { TTS_PROVIDER_META, TTS_PROVIDER_ORDER } from "../tts/catalogue";
 import { ModelPicker } from "./ModelPicker";
+import { Check } from "lucide-react";
 
 interface TTSVoiceOption {
   id: string;
@@ -152,7 +153,7 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, 
               style={{ padding: "5px 10px", fontSize: 10, letterSpacing: "0.15em" }}
               onClick={async () => { await onChangeElevenKey(elevenInput); setElevenSaved(true); }}
             >
-              {elevenSaved ? "SAVED ✓" : "SAVE"}
+              {elevenSaved ? <>SAVED <Check size={11} strokeWidth={2} style={{ display: "inline", verticalAlign: "middle" }} /></> : "SAVE"}
             </button>
           </div>
         )}
@@ -172,7 +173,7 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, 
                 style={{ padding: "5px 10px", fontSize: 10, letterSpacing: "0.15em" }}
                 onClick={async () => { await onChangeAzureKey(azureInput); setAzureSaved(true); }}
               >
-                {azureSaved ? "SAVED ✓" : "SAVE"}
+                {azureSaved ? <>SAVED <Check size={11} strokeWidth={2} style={{ display: "inline", verticalAlign: "middle" }} /></> : "SAVE"}
               </button>
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -189,7 +190,7 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, 
                 style={{ padding: "5px 10px", fontSize: 10, letterSpacing: "0.15em" }}
                 onClick={() => { onChangeAzureRegion(azureRegionInput); setAzureRegionSaved(true); }}
               >
-                {azureRegionSaved ? "SAVED ✓" : "SAVE"}
+                {azureRegionSaved ? <>SAVED <Check size={11} strokeWidth={2} style={{ display: "inline", verticalAlign: "middle" }} /></> : "SAVE"}
               </button>
             </div>
           </div>
@@ -209,7 +210,7 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, 
               style={{ padding: "5px 10px", fontSize: 10, letterSpacing: "0.15em" }}
               onClick={async () => { await onChangeGoogleKey(googleInput); setGoogleSaved(true); }}
             >
-              {googleSaved ? "SAVED ✓" : "SAVE"}
+              {googleSaved ? <>SAVED <Check size={11} strokeWidth={2} style={{ display: "inline", verticalAlign: "middle" }} /></> : "SAVE"}
             </button>
           </div>
         )}
@@ -236,7 +237,7 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, 
                 style={{ padding: "5px 10px", fontSize: 10, letterSpacing: "0.15em" }}
                 onClick={async () => { if (onChangeOpenAIKey) { await onChangeOpenAIKey(openaiInput); setOpenaiSaved(true); } }}
               >
-                {openaiSaved ? "SAVED ✓" : "SAVE"}
+                {openaiSaved ? <>SAVED <Check size={11} strokeWidth={2} style={{ display: "inline", verticalAlign: "middle" }} /></> : "SAVE"}
               </button>
             </div>
           )
@@ -264,7 +265,7 @@ export function TTSRow({ enabled, providerId, providerReady, voiceId, ttsModel, 
                 style={{ padding: "5px 10px", fontSize: 10, letterSpacing: "0.15em" }}
                 onClick={async () => { if (onChangeMistralKey) { await onChangeMistralKey(mistralInput); setMistralSaved(true); } }}
               >
-                {mistralSaved ? "SAVED ✓" : "SAVE"}
+                {mistralSaved ? <>SAVED <Check size={11} strokeWidth={2} style={{ display: "inline", verticalAlign: "middle" }} /></> : "SAVE"}
               </button>
             </div>
           )

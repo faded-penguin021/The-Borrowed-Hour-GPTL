@@ -11,6 +11,11 @@ import { StreamingNarration } from "./StreamingNarration";
 import { ErrorRawDetail } from "./ErrorRawDetail";
 import { IllustrationPlate } from "./IllustrationPlate";
 import { GameComposer } from "./GameComposer";
+import {
+  Undo2, BookOpen, Bookmark, Copy, CopyPlus, Clock, Settings,
+  Volume2, VolumeX, Mic, MicOff, X, Sparkles, Play, Pause, Loader,
+  BookMarked, RotateCcw, Download, Flower2, HeartHandshake,
+} from "lucide-react";
 
 /**
  * Story state comes from `useGame()`, runtime state from `useGameRun()`, and
@@ -95,7 +100,7 @@ export function GameScreen({
             title="Undo the last turn"
             aria-label="Undo the last turn"
           >
-            <span aria-hidden="true">⟲</span>
+            <Undo2 size={14} strokeWidth={1.5} aria-hidden="true" />
             <span className="btn-label"> UNDO</span>
           </button>
           <button
@@ -105,7 +110,7 @@ export function GameScreen({
             title="Open the ledger — see what's tracked"
             aria-label="Open the ledger"
           >
-            <span aria-hidden="true">❖</span>
+            <BookOpen size={14} strokeWidth={1.5} aria-hidden="true" />
             <span className="btn-label"> LEDGER</span>
           </button>
           <button
@@ -115,7 +120,7 @@ export function GameScreen({
             title="Set aside this hour"
             aria-label="Set aside this hour"
           >
-            <span aria-hidden="true">❀</span>
+            <Bookmark size={14} strokeWidth={1.5} aria-hidden="true" />
             <span className="btn-label"> SET ASIDE</span>
           </button>
           <button
@@ -125,7 +130,7 @@ export function GameScreen({
             title={hasMeta ? "Copy the chronicle as text — narration only, no commentary" : "Copy the chronicle as text — to keep, or to share"}
             aria-label="Copy the chronicle"
           >
-            <span aria-hidden="true">❧</span>
+            <Copy size={14} strokeWidth={1.5} aria-hidden="true" />
             <span className="btn-label"> COPY</span>
           </button>
           {hasMeta && (
@@ -135,7 +140,7 @@ export function GameScreen({
               title="Copy the chronicle and the director's commentary together"
               aria-label="Copy the chronicle with commentary"
             >
-              <span aria-hidden="true">❧+</span>
+              <CopyPlus size={14} strokeWidth={1.5} aria-hidden="true" />
               <span className="btn-label"> COPY ALL</span>
             </button>
           )}
@@ -145,7 +150,7 @@ export function GameScreen({
             title="Open hours"
             aria-label="Open saved hours"
           >
-            <span aria-hidden="true">❍</span>
+            <Clock size={14} strokeWidth={1.5} aria-hidden="true" />
             <span className="btn-label"> HOURS</span>
           </button>
           <button
@@ -154,7 +159,7 @@ export function GameScreen({
             title="Reader preferences — contrast, motion, typewriter"
             aria-label="Reader preferences"
           >
-            <span aria-hidden="true">⚙</span>
+            <Settings size={14} strokeWidth={1.5} aria-hidden="true" />
             <span className="btn-label"> READING</span>
           </button>
           {ambienceEnabled && (
@@ -165,7 +170,7 @@ export function GameScreen({
               aria-label={ambienceMuted ? "Unmute ambience" : "Mute ambience"}
               aria-pressed={ambienceMuted ? "true" : "false"}
             >
-              <span aria-hidden="true">{ambienceMuted ? "♪̸" : "♪"}</span>
+              {ambienceMuted ? <VolumeX size={14} strokeWidth={1.5} aria-hidden="true" /> : <Volume2 size={14} strokeWidth={1.5} aria-hidden="true" />}
               <span className="btn-label">{ambienceMuted ? " MUTED" : " AMBIENT"}</span>
             </button>
           )}
@@ -177,7 +182,7 @@ export function GameScreen({
               aria-label={ttsMuted ? "Resume narration aloud" : "Silence narration aloud"}
               aria-pressed={ttsMuted ? "true" : "false"}
             >
-              <span aria-hidden="true">{ttsMuted ? "▷̸" : "▷"}</span>
+              {ttsMuted ? <MicOff size={14} strokeWidth={1.5} aria-hidden="true" /> : <Mic size={14} strokeWidth={1.5} aria-hidden="true" />}
               <span className="btn-label">{ttsMuted ? " SILENT" : " VOICE"}</span>
             </button>
           )}
@@ -187,7 +192,7 @@ export function GameScreen({
             title="Begin a new hour"
             aria-label="Begin a new hour"
           >
-            <span aria-hidden="true">✕</span>
+            <RotateCcw size={14} strokeWidth={1.5} aria-hidden="true" />
             <span className="btn-label"> ANEW</span>
           </button>
         </div>
@@ -254,7 +259,6 @@ export function GameScreen({
               const isActive = ttsPlayback?.activeTurnId === i;
               const isSpeaking = isActive && ttsPlayback?.speaking;
               const isPaused = isActive && ttsPlayback?.paused;
-              const btnGlyph = isLoading ? "◐" : (isSpeaking ? "❙❙" : "▶");
               const btnLabel = isLoading ? "LOADING" : (isSpeaking ? "PAUSE" : (isPaused ? "RESUME" : "PLAY"));
               return (
                 <div key={i} className="fade-in" data-testid="narration-entry">
@@ -289,7 +293,7 @@ export function GameScreen({
                         aria-busy={isLoading ? "true" : "false"}
                         style={{ padding: "4px 10px", fontSize: "10px", opacity: isLoading ? 0.75 : 1 }}
                       >
-                        <span aria-hidden="true" className={isLoading ? "tts-spin" : ""}>{btnGlyph}</span>
+                        <span aria-hidden="true" className={isLoading ? "tts-spin" : ""}>{isLoading ? <Loader size={12} strokeWidth={1.5} /> : (isSpeaking ? <Pause size={12} strokeWidth={1.5} /> : <Play size={12} strokeWidth={1.5} />)}</span>
                         <span className="btn-label"> {btnLabel}</span>
                         {isLoading && (
                           <span className="typing-dots" style={{ marginLeft: "4px" }}>
@@ -330,7 +334,7 @@ export function GameScreen({
                 letterSpacing: "0.02em"
               }}
             >
-              <span style={{ color: `var(--${premise.realm})`, opacity: 0.7 }}>❧</span>{" "}
+              <span style={{ color: `var(--${premise.realm})`, opacity: 0.7 }}><HeartHandshake size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle" }} /></span>{" "}
               when this hour is spent, you may speak with its author about it
             </div>
           )}
@@ -344,7 +348,7 @@ export function GameScreen({
                   fontSize: "12px"
                 }}
               >
-                <span>❦ THE HOUR IS SPENT ❦</span>
+                <span className="divider-ornament">THE HOUR IS SPENT</span>
               </div>
               <div
                 className="text-center mt-6 body-font italic text-base"
@@ -363,7 +367,7 @@ export function GameScreen({
                       color: `var(--${premise.realm})`
                     }}
                   >
-                    ✦ UNVEIL THE HIDDEN HOUR
+                    <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />UNVEIL THE HIDDEN HOUR
                   </button>
                 )}
                 <button
@@ -375,13 +379,13 @@ export function GameScreen({
                     color: `var(--${premise.realm})`
                   }}
                 >
-                  ✦ SPEAK WITH THE AUTHOR
+                  <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />SPEAK WITH THE AUTHOR
                 </button>
                 <button onClick={saveCurrent} className="icon-btn" style={{ padding: "10px 22px" }}>
-                  ❀ KEEP THIS HOUR
+                  <Bookmark size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />KEEP THIS HOUR
                 </button>
                 <button onClick={restart} className="icon-btn" style={{ padding: "10px 22px" }}>
-                  ❀ BEGIN A NEW HOUR
+                  <RotateCcw size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />BEGIN A NEW HOUR
                 </button>
                 {!keepsakeBlob && !keepsakeLoading && (
                   <button
@@ -390,7 +394,7 @@ export function GameScreen({
                     style={{ padding: "10px 22px" }}
                     title="Generate a self-contained HTML keepsake of this chronicle"
                   >
-                    ❀ GENERATE BOOK
+                    <BookMarked size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />GENERATE BOOK
                   </button>
                 )}
                 {keepsakeLoading && (
@@ -412,7 +416,7 @@ export function GameScreen({
                     }}
                     title="Download the HTML keepsake file"
                   >
-                    ✦ TAP TO SAVE FILE
+                    <Download size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />TAP TO SAVE FILE
                   </button>
                 )}
                 {keepsakeError && (
@@ -453,7 +457,7 @@ export function GameScreen({
                       fontSize: "10px"
                     }}
                   >
-                    <span>✦ THE HIDDEN HOUR ✦</span>
+                    <span className="divider-ornament">THE HIDDEN HOUR</span>
                   </div>
                   <div
                     className="narration-text body-font text-base mt-6"
@@ -490,7 +494,7 @@ export function GameScreen({
                   fontSize: "11px"
                 }}
               >
-                <span>✦ AUTHOR'S TABLE ✦</span>
+                <span className="divider-ornament">AUTHOR'S TABLE</span>
               </div>
               <div
                 className="text-center mt-3 mb-6 body-font italic text-sm"
@@ -596,7 +600,7 @@ export function GameScreen({
                 }}
                 title="Have the narrator finish the interrupted passage"
               >
-                ✦ CONTINUE THE NARRATION
+                <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />CONTINUE THE NARRATION
               </button>
             </div>
           )}

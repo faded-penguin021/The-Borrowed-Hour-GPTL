@@ -77,7 +77,7 @@ const getReplicateKey = async (): Promise<string> => {
   const injected = (window as unknown as Record<string, string>)[windowKey] || (document.querySelector(`meta[name="replicate-api-key"]`) as HTMLMetaElement | null)?.content;
   if (injected) return injected.trim();
   const stored = localStorage.getItem(keyStorage);
-  if (!stored) throw new BorrowedError("The plate cannot be drawn.", "No Replicate API key is saved. Open ⚙ Settings → Codex → Replicate to paste your key.");
+  if (!stored) throw new BorrowedError("The plate cannot be drawn.", "No Replicate API key is saved. Open Settings → Codex → Replicate to paste your key.");
   if (!stored.startsWith(ENC_PREFIX)) return stored.trim();
   const passphrase = getSessionPassphrase();
   if (!passphrase) throw new BorrowedError("The plate cannot be drawn.", "Session passphrase missing for encrypted Replicate key.");

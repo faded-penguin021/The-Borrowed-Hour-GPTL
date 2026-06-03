@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { SAVE_CAP, APPROX_CHARS_PER_TOKEN, formatKB, formatTokens } from "../../data/constants";
 import { realmGlyph } from "../../data/premises";
 import type { SaveListEntry, SaveRecord } from "../../types";
+import { X, Bookmark } from "lucide-react";
 
 interface SavesModalProps {
   saves: SaveListEntry[];
@@ -90,7 +91,7 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
             style={{ color: "var(--cream-dim)", letterSpacing: "0.2em" }}
             aria-label="Close"
           >
-            ✕
+            <X size={16} strokeWidth={1.5} />
           </button>
         </div>
         <div className="overflow-y-auto px-6 py-5 space-y-3" style={{ minHeight: 200 }}>
@@ -111,7 +112,7 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
             >
               No hours set aside yet.
               {inGame && (
-                <div className="mt-2 text-sm">Use ❀ SET ASIDE to keep your current hour.</div>
+                <div className="mt-2 text-sm flex items-center justify-center gap-1">Use <Bookmark size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle" }} /> SET ASIDE to keep your current hour.</div>
               )}
             </div>
           ) : (
@@ -161,7 +162,7 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
                             letterSpacing: "0.3em"
                           }}
                         >
-                          ❦ COMPLETE
+                          COMPLETE
                         </span>
                       </>
                     )}
@@ -186,7 +187,7 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
                   title={armedKey === save.key ? "Tap again to release this hour permanently" : "Release this hour (tap, then confirm)"}
                   aria-label={armedKey === save.key ? `Confirm releasing ${save.title}` : `Release ${save.title}`}
                 >
-                  {armedKey === save.key ? "✕ CONFIRM" : "RELEASE"}
+                  {armedKey === save.key ? <><X size={11} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 2 }} />CONFIRM</> : "RELEASE"}
                 </span>
               </button>
             ))

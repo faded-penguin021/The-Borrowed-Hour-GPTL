@@ -11,6 +11,7 @@ import { useAmbienceContext } from "../../context/AmbienceContext";
 import { useTTSContext } from "../../context/TTSContext";
 import { PROVIDER_META } from "../../llm/providers";
 import { TTS_PROVIDER_META } from "../../tts/catalogue";
+import { Settings, X } from "lucide-react";
 
 type SettingsTabId = "reading" | "audio" | "codex" | "system" | "proxy";
 
@@ -115,7 +116,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               className="display-font text-[10px] mb-1"
               style={{ color: "var(--cream-faint)", letterSpacing: "0.4em" }}
             >
-              ⚙ READING PREFERENCES
+              <Settings size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />READING PREFERENCES
             </div>
             <h2
               className="display-font text-xl"
@@ -130,7 +131,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             style={{ color: "var(--cream-dim)", letterSpacing: "0.2em" }}
             aria-label="Close"
           >
-            ✕
+            <X size={16} strokeWidth={1.5} />
           </button>
         </div>
         <div
@@ -320,7 +321,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
         >
           <button onClick={onClose} className="icon-btn" style={{ padding: "8px 18px" }}>
-            ✕ DONE
+            <X size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />DONE
           </button>
         </div>
       </div>

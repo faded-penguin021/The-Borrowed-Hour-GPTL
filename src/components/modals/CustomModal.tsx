@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { X, Sparkles } from "lucide-react";
 
 interface CustomModalProps {
   onClose: () => void;
@@ -31,7 +32,7 @@ export function CustomModal({ onClose, onBegin, disabled }: CustomModalProps) {
               className="display-font text-[10px] mb-1"
               style={{ color: "var(--wild)", letterSpacing: "0.4em" }}
             >
-              ✷ THE UNWRITTEN HOUR
+              <Sparkles size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />THE UNWRITTEN HOUR
             </div>
             <h2
               className="display-font text-xl"
@@ -45,7 +46,7 @@ export function CustomModal({ onClose, onBegin, disabled }: CustomModalProps) {
             className="display-font text-sm"
             style={{ color: "var(--cream-dim)", letterSpacing: "0.2em" }}
           >
-            ✕
+            <X size={16} strokeWidth={1.5} />
           </button>
         </div>
         <div className="overflow-y-auto px-6 py-5 space-y-4">
@@ -103,7 +104,7 @@ export function CustomModal({ onClose, onBegin, disabled }: CustomModalProps) {
               color: "var(--wild)"
             }}
           >
-            ✷ BEGIN THIS HOUR
+            <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />BEGIN THIS HOUR
           </button>
         </div>
       </div>

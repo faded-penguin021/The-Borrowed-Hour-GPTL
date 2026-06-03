@@ -41,7 +41,7 @@ export function IllustrationPlate({ plate, realm }: IllustrationPlateProps) {
     return (
       <figure className="codex-plate" style={frameStyle} aria-hidden="true">
         <div className="codex-plate-frame">
-          <div className="codex-plate-missing">❦ PLATE MISSING ❦</div>
+          <div className="codex-plate-missing"><span className="divider-ornament">PLATE MISSING</span></div>
         </div>
       </figure>
     );
@@ -52,7 +52,7 @@ export function IllustrationPlate({ plate, realm }: IllustrationPlateProps) {
       <figure className="codex-plate" style={frameStyle}>
         <div className="codex-plate-frame">
           <div className="codex-plate-pending" aria-label="An illustration is developing">
-            ❦ DEVELOPING ❦
+            <span className="divider-ornament">DEVELOPING</span>
           </div>
         </div>
       </figure>
