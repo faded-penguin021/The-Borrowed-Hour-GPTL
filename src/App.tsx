@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { lazy, Suspense, useState } from "react";
 import { SAVE_CAP, ONBOARDING_KEY } from "./data/constants";
 import { buildCustomPremise } from "./data/premises";
 import { GameProvider, useGame, useGameRun } from "./context/GameContext";
@@ -8,16 +8,17 @@ import { AmbienceProvider } from "./context/AmbienceContext";
 import { TTSProvider } from "./context/TTSContext";
 import { TitleScreen } from "./components/TitleScreen";
 import { GameScreen } from "./components/GameScreen";
-import { SavesModal } from "./components/modals/SavesModal";
-import { SettingsModal } from "./components/modals/SettingsModal";
-import { LedgerModal } from "./components/modals/LedgerModal";
 import { toPlayerLedger } from "./llm/prompt";
-import { ExportFallbackModal } from "./components/modals/ExportFallbackModal";
 import { PassphraseModal } from "./components/PassphraseModal";
 import { OnboardingModal } from "./components/OnboardingModal";
-import { CustomModal } from "./components/modals/CustomModal";
 import { useViewport } from "./hooks/useViewport";
-import { DebugOverlay } from "./components/DebugOverlay";
+
+const SavesModal = lazy(() => import("./components/modals/SavesModal").then(m => ({ default: m.SavesModal })));
+const SettingsModal = lazy(() => import("./components/modals/SettingsModal").then(m => ({ default: m.SettingsModal })));
+const LedgerModal = lazy(() => import("./components/modals/LedgerModal").then(m => ({ default: m.LedgerModal })));
+const ExportFallbackModal = lazy(() => import("./components/modals/ExportFallbackModal").then(m => ({ default: m.ExportFallbackModal })));
+const CustomModal = lazy(() => import("./components/modals/CustomModal").then(m => ({ default: m.CustomModal })));
+const DebugOverlay = lazy(() => import("./components/DebugOverlay").then(m => ({ default: m.DebugOverlay })));
 
 /**
  * The view layer that lives *inside* all the providers. Settings, ambience, and
@@ -76,45 +77,49 @@ function AppContent({
             onOpenSettings={() => setShowSettings(true)}
           />
         )}
-        {showSaves && (
-          <SavesModal
-            saves={saveList}
-            totalBytes={savesTotalBytes}
-            cap={SAVE_CAP}
-            loading={saveListLoading}
-            onClose={() => setShowSaves(false)}
-            onLoad={loadSave}
-            onDelete={deleteSave}
-            inGame={phase === "playing"}
-          />
-        )}
-        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
-        {showLedger && premise && (
-          <LedgerModal
-            premise={premise}
-            ledger={toPlayerLedger(gameState)}
-            onClose={() => setShowLedger(false)}
-          />
-        )}
-        {showCustom && (
-          <CustomModal
-            onClose={() => setShowCustom(false)}
-            onBegin={(description) => {
-              setShowCustom(false);
-              beginAdventure(buildCustomPremise(description));
-            }}
-            disabled={loading}
-          />
-        )}
-        {exportFallbackText !== null && (
-          <ExportFallbackModal
-            text={exportFallbackText}
-            onClose={() => setExportFallbackText(null)}
-          />
-        )}
+        <Suspense fallback={null}>
+          {showSaves && (
+            <SavesModal
+              saves={saveList}
+              totalBytes={savesTotalBytes}
+              cap={SAVE_CAP}
+              loading={saveListLoading}
+              onClose={() => setShowSaves(false)}
+              onLoad={loadSave}
+              onDelete={deleteSave}
+              inGame={phase === "playing"}
+            />
+          )}
+          {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+          {showLedger && premise && (
+            <LedgerModal
+              premise={premise}
+              ledger={toPlayerLedger(gameState)}
+              onClose={() => setShowLedger(false)}
+            />
+          )}
+          {showCustom && (
+            <CustomModal
+              onClose={() => setShowCustom(false)}
+              onBegin={(description) => {
+                setShowCustom(false);
+                beginAdventure(buildCustomPremise(description));
+              }}
+              disabled={loading}
+            />
+          )}
+          {exportFallbackText !== null && (
+            <ExportFallbackModal
+              text={exportFallbackText}
+              onClose={() => setExportFallbackText(null)}
+            />
+          )}
+        </Suspense>
         <PassphraseModal />
       </div>
-      <DebugOverlay enabled={settings.debugOverlay} />
+      <Suspense fallback={null}>
+        <DebugOverlay enabled={settings.debugOverlay} />
+      </Suspense>
     </div>
   );
 }

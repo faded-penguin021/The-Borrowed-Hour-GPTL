@@ -82,12 +82,13 @@ const REALM_COLORS: Record<string, { accent: string; border: string; bg: string 
  * Builds a self-contained HTML keepsake document. Call `inlineImages` on entries
  * before passing them here so illustrations survive as embedded data URLs.
  */
-export function buildKeepsakeHTML({ premise, entries, revealText, metaMessages, ended }: {
+export function buildKeepsakeHTML({ premise, entries, revealText, metaMessages, ended, hiddenState }: {
   premise: Premise;
   entries: Entry[];
   revealText?: string;
   metaMessages?: MetaMessage[];
   ended: boolean;
+  hiddenState?: string;
 }): string {
   const realm = premise.realm || "echo";
   const rc = REALM_COLORS[realm] || REALM_COLORS.echo;
@@ -208,6 +209,31 @@ footer {
   text-align: center;
   margin-top: 2em;
 }
+.directors-notes {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--cream-faint);
+  white-space: pre-wrap;
+  margin: 0.8em 0 0;
+  padding: 0;
+  background: none;
+  border: none;
+}
+.directors-notes-toggle {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  color: var(--cream-faint);
+  cursor: pointer;
+  text-align: center;
+  margin: 1.5em 0 0.5em;
+}
+.directors-notes-toggle summary {
+  list-style: none;
+  text-align: center;
+}
+.directors-notes-toggle summary::-webkit-details-marker { display: none; }
 @media print {
   body { background: #fff !important; color: #111 !important; }
   .narration { color: #111 !important; }
@@ -250,6 +276,10 @@ footer {
     ? `<hr><section><h2 class="section-title">Director's Commentary</h2>${metaBlocks.join("\n")}</section>`
     : "";
 
+  const directorsBlock = ended && hiddenState?.trim()
+    ? `<details class="directors-notes-toggle"><summary>Director's Notes</summary><pre class="directors-notes">${escapeHtml(hiddenState.trim())}</pre></details>`
+    : "";
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -267,6 +297,7 @@ ${entryBlocks.join("\n")}
 ${endingBlock}
 ${revealBlock}
 ${metaBlock}
+${directorsBlock}
 <hr>
 <footer>The Borrowed Hour</footer>
 </body>
