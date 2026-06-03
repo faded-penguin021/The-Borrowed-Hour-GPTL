@@ -127,6 +127,12 @@
     cursor: pointer;
     transition: all 0.3s;
   }
+  .icon-btn svg,
+  .display-font svg,
+  .body-font svg {
+    display: inline;
+    vertical-align: middle;
+  }
   .icon-btn:hover:not(:disabled) {
     border-color: rgba(212, 165, 116, 0.5);
     color: var(--cream-bright);

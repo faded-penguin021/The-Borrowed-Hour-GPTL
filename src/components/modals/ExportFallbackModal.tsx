@@ -28,7 +28,7 @@ export function ExportFallbackModal({ text, onClose }: ExportFallbackModalProps)
               className="display-font text-[10px] mb-1"
               style={{ color: "var(--cream-faint)", letterSpacing: "0.4em" }}
             >
-              <Copy size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />COPY THE CHRONICLE
+              <Copy size={12} strokeWidth={1.5} style={{ marginRight: 4 }} />COPY THE CHRONICLE
             </div>
             <h2
               className="display-font text-xl"
@@ -75,7 +75,7 @@ export function ExportFallbackModal({ text, onClose }: ExportFallbackModalProps)
           style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
         >
           <button onClick={onClose} className="icon-btn" style={{ padding: "8px 18px" }}>
-            <X size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />DONE
+            <X size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 4 }} />DONE
           </button>
         </div>
       </div>

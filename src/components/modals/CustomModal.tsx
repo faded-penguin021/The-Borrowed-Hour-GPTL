@@ -32,7 +32,7 @@ export function CustomModal({ onClose, onBegin, disabled }: CustomModalProps) {
               className="display-font text-[10px] mb-1"
               style={{ color: "var(--wild)", letterSpacing: "0.4em" }}
             >
-              <Sparkles size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />THE UNWRITTEN HOUR
+              <Sparkles size={12} strokeWidth={1.5} style={{ marginRight: 4 }} />THE UNWRITTEN HOUR
             </div>
             <h2
               className="display-font text-xl"
@@ -104,7 +104,7 @@ export function CustomModal({ onClose, onBegin, disabled }: CustomModalProps) {
               color: "var(--wild)"
             }}
           >
-            <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />BEGIN THIS HOUR
+            <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />BEGIN THIS HOUR
           </button>
         </div>
       </div>

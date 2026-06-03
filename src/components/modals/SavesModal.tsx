@@ -112,7 +112,7 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
             >
               No hours set aside yet.
               {inGame && (
-                <div className="mt-2 text-sm flex items-center justify-center gap-1">Use <Bookmark size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle" }} /> SET ASIDE to keep your current hour.</div>
+                <div className="mt-2 text-sm flex items-center justify-center gap-1">Use <Bookmark size={12} strokeWidth={1.5}  /> SET ASIDE to keep your current hour.</div>
               )}
             </div>
           ) : (
@@ -187,7 +187,7 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
                   title={armedKey === save.key ? "Tap again to release this hour permanently" : "Release this hour (tap, then confirm)"}
                   aria-label={armedKey === save.key ? `Confirm releasing ${save.title}` : `Release ${save.title}`}
                 >
-                  {armedKey === save.key ? <><X size={11} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 2 }} />CONFIRM</> : "RELEASE"}
+                  {armedKey === save.key ? <><X size={11} strokeWidth={1.5} style={{ marginRight: 2 }} />CONFIRM</> : "RELEASE"}
                 </span>
               </button>
             ))

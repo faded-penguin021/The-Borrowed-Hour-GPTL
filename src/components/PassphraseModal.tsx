@@ -34,7 +34,7 @@ export function PassphraseModal() {
             className="display-font text-[10px] mb-1"
             style={{ color: "var(--cream-faint)", letterSpacing: "0.4em" }}
           >
-            <Lock size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />PASSPHRASE
+            <Lock size={12} strokeWidth={1.5} style={{ marginRight: 4 }} />PASSPHRASE
           </div>
           <h2
             className="display-font text-base"

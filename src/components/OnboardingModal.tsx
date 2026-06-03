@@ -195,12 +195,12 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
                   SKIP
                 </button>
                 <button onClick={() => setSlide(slide + 1)} className="icon-btn" style={{ padding: "8px 18px" }}>
-                  NEXT <ArrowRight size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginLeft: 2 }} />
+                  NEXT <ArrowRight size={12} strokeWidth={1.5} style={{ marginLeft: 2 }} />
                 </button>
               </>
             ) : (
               <button onClick={finish} className="icon-btn" style={{ padding: "8px 18px" }} disabled={saving}>
-                {saving ? "SAVING…" : <><Sparkles size={14} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />BEGIN</>}
+                {saving ? "SAVING…" : <><Sparkles size={14} strokeWidth={1.5} style={{ marginRight: 4 }} />BEGIN</>}
               </button>
             )}
           </div>
