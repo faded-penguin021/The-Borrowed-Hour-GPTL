@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   storyReducer, INITIAL_STATE,
-  type StoryState, type StoryAction, type LoadSavePayload,
+  type StoryState, type LoadSavePayload,
 } from "../context/storyReducer";
 import { EMPTY_STATE } from "../data/constants";
 import type { ChatMessage, Entry, GameState, Premise } from "../types";
