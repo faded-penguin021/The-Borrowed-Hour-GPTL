@@ -1,5 +1,6 @@
 import React from "react";
 import type { PlayerLedger, Premise } from "../../types";
+import { X } from "lucide-react";
 
 interface LedgerModalProps {
   premise: Premise;
@@ -39,7 +40,7 @@ export function LedgerModal({ premise, ledger, onClose }: LedgerModalProps) {
             className="display-font text-sm"
             style={{ color: "var(--cream-dim)", letterSpacing: "0.2em" }}
           >
-            ✕
+            <X size={16} strokeWidth={1.5} />
           </button>
         </div>
         <div className="overflow-y-auto px-6 py-5 space-y-5">
@@ -135,7 +136,7 @@ export function LedgerBlock({ label, color, children }: LedgerBlockProps) {
           fontSize: "10px"
         }}
       >
-        ❦ {label}
+        <span className="divider-ornament-inline">{label}</span>
       </div>
       <div className="body-font text-base" style={{ lineHeight: 1.6 }}>
         {children}

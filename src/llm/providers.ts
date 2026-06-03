@@ -230,7 +230,7 @@ export const getProviderKey = async (id: ProviderId): Promise<string> => {
   }
   if (m.keyOptional)
     return "";
-  throw new BorrowedError("The hour cannot open yet.", `No ${m.name} API key is saved. Open ⚙ Settings → API keys and paste your key there.`);
+  throw new BorrowedError("The hour cannot open yet.", `No ${m.name} API key is saved. Open Settings → API keys and paste your key there.`);
 };
 export const resetProviderKey = (id: ProviderId) => {
   const m = PROVIDER_META[id];

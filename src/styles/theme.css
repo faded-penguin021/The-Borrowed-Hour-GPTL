@@ -204,6 +204,21 @@
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(232, 222, 197, 0.2), transparent);
 }
+.divider-ornament::before, .divider-ornament::after {
+  content: "—";
+  opacity: 0.4;
+  margin: 0 0.35em;
+}
+.divider-ornament-inline::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.35;
+  vertical-align: middle;
+  margin-right: 6px;
+}
 
 .modal-backdrop {
   position: fixed;

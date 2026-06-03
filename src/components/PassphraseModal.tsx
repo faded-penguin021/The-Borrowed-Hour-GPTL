@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { usePassphrase } from "../context/PassphraseContext";
+import { Lock } from "lucide-react";
 
 export function PassphraseModal() {
   const { prompt, pending, resolvePassphrase } = usePassphrase();
@@ -33,7 +34,7 @@ export function PassphraseModal() {
             className="display-font text-[10px] mb-1"
             style={{ color: "var(--cream-faint)", letterSpacing: "0.4em" }}
           >
-            ❧ PASSPHRASE
+            <Lock size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />PASSPHRASE
           </div>
           <h2
             className="display-font text-base"

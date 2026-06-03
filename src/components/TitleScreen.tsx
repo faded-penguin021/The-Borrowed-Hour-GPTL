@@ -4,6 +4,7 @@ import { TOTAL_ENDINGS } from "../hooks/useProgress";
 import { LANGUAGES } from "../data/languages";
 import { useGameActions, useGameStory, useGameRun } from "../context/GameContext";
 import { ErrorRawDetail } from "./ErrorRawDetail";
+import { Bookmark, Settings } from "lucide-react";
 
 /**
  * Modal toggles come from `App`; the rest comes from the narrow game hooks:
@@ -163,7 +164,7 @@ export function TitleScreen({ onOpenCustom, onOpenSettings }: TitleScreenProps) 
           className="icon-btn"
           style={{ padding: "8px 18px" }}
         >
-          ❀ RESUME AN HOUR
+          <Bookmark size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />RESUME AN HOUR
         </button>
         <button
           onClick={onOpenSettings}
@@ -173,7 +174,7 @@ export function TitleScreen({ onOpenCustom, onOpenSettings }: TitleScreenProps) 
           aria-label="Reader preferences"
           title="Reader preferences — contrast, motion, typewriter"
         >
-          ⚙ READING
+          <Settings size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />READING
         </button>
       </div>
       {loading && (

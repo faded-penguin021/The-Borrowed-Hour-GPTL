@@ -1,4 +1,5 @@
 import React from "react";
+import { RotateCcw, RefreshCw } from "lucide-react";
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -44,7 +45,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
           <div
             style={{ fontFamily: "'Cinzel', serif", letterSpacing: "0.4em", fontSize: 10, color: "#9a8d7a", marginBottom: 10 }}
           >
-            ❦ THE PAGE FALTERED ❦
+            <span style={{ opacity: 0.4 }}>—</span> THE PAGE FALTERED <span style={{ opacity: 0.4 }}>—</span>
           </div>
           <h2
             style={{ fontFamily: "'Cinzel', serif", fontSize: 22, color: "#f4ecd8", letterSpacing: "0.04em", marginBottom: 14 }}
@@ -86,7 +87,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                 cursor: "pointer"
               }}
             >
-              ↻ TRY AGAIN
+              <RefreshCw size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} /> TRY AGAIN
             </button>
             <button
               onClick={reload}
@@ -101,7 +102,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                 cursor: "pointer"
               }}
             >
-              ⟲ RELOAD
+              <RotateCcw size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} /> RELOAD
             </button>
           </div>
         </div>

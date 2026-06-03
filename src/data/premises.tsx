@@ -1,24 +1,27 @@
+import React from "react";
 import type { Premise } from "../types";
 import { gmNote as echoTrainGmNote } from "../prompts/premises/echo-train";
 import { gmNote as neonSpireGmNote } from "../prompts/premises/neon-spire";
 import { gmNote as omenSolsticeGmNote } from "../prompts/premises/omen-solstice";
 import { gmNote as dreamCircusGmNote } from "../prompts/premises/dream-circus";
 import { gmNote as customGmNote } from "../prompts/premises/custom";
+import { Clock4, Diamond, Sparkles, Flower2, Asterisk } from "lucide-react";
 
-export function realmGlyph(realm: string): string {
+export function realmGlyph(realm: string): React.ReactNode {
+  const props = { size: 14, strokeWidth: 1.5, "aria-hidden": true as const, style: { display: "inline" as const, verticalAlign: "middle" as const } };
   switch (realm) {
     case "echo":
-      return "◷";
+      return <Clock4 {...props} />;
     case "neon":
-      return "◈";
+      return <Diamond {...props} />;
     case "omen":
-      return "✦";
+      return <Sparkles {...props} />;
     case "dream":
-      return "❋";
+      return <Flower2 {...props} />;
     case "wild":
-      return "✷";
+      return <Asterisk {...props} />;
     default:
-      return "·";
+      return <span>·</span>;
   }
 }
 

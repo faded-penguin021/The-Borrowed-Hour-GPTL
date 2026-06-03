@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from "react";
+import { Copy, X } from "lucide-react";
 
 interface ExportFallbackModalProps {
   text: string;
@@ -27,7 +28,7 @@ export function ExportFallbackModal({ text, onClose }: ExportFallbackModalProps)
               className="display-font text-[10px] mb-1"
               style={{ color: "var(--cream-faint)", letterSpacing: "0.4em" }}
             >
-              ❧ COPY THE CHRONICLE
+              <Copy size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />COPY THE CHRONICLE
             </div>
             <h2
               className="display-font text-xl"
@@ -41,7 +42,7 @@ export function ExportFallbackModal({ text, onClose }: ExportFallbackModalProps)
             className="display-font text-sm"
             style={{ color: "var(--cream-dim)", letterSpacing: "0.2em" }}
           >
-            ✕
+            <X size={16} strokeWidth={1.5} />
           </button>
         </div>
         <div className="px-6 py-5">
@@ -74,7 +75,7 @@ export function ExportFallbackModal({ text, onClose }: ExportFallbackModalProps)
           style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
         >
           <button onClick={onClose} className="icon-btn" style={{ padding: "8px 18px" }}>
-            ✕ DONE
+            <X size={14} strokeWidth={1.5} aria-hidden="true" style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />DONE
           </button>
         </div>
       </div>

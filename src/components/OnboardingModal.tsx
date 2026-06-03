@@ -3,6 +3,7 @@ import { encryptSecret } from "../storage/encryption";
 import { ONBOARDING_KEY } from "../data/constants";
 import { PROVIDER_META } from "../llm/providers";
 import { usePassphrase } from "../context/PassphraseContext";
+import { Sparkles, ArrowRight } from "lucide-react";
 
 /** The provider offered during onboarding — the default free engine. */
 const ONBOARD_PROVIDER = "mistral";
@@ -64,7 +65,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
 
   const SLIDES = [
     {
-      eyebrow: "❧ WELCOME",
+      eyebrow: "WELCOME",
       title: "The Borrowed Hour",
       body: (
         <>
@@ -78,7 +79,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
       ),
     },
     {
-      eyebrow: "❧ YOUR KEYS, YOUR BROWSER",
+      eyebrow: "YOUR KEYS, YOUR BROWSER",
       title: "Bring your own model",
       body: (
         <>
@@ -92,7 +93,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
       ),
     },
     {
-      eyebrow: "❧ SET THE LOCK",
+      eyebrow: "SET THE LOCK",
       title: "Choose a passphrase",
       body: (
         <div className="space-y-4">
@@ -194,12 +195,12 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
                   SKIP
                 </button>
                 <button onClick={() => setSlide(slide + 1)} className="icon-btn" style={{ padding: "8px 18px" }}>
-                  NEXT →
+                  NEXT <ArrowRight size={12} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginLeft: 2 }} />
                 </button>
               </>
             ) : (
               <button onClick={finish} className="icon-btn" style={{ padding: "8px 18px" }} disabled={saving}>
-                {saving ? "SAVING…" : "✦ BEGIN"}
+                {saving ? "SAVING…" : <><Sparkles size={14} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />BEGIN</>}
               </button>
             )}
           </div>
