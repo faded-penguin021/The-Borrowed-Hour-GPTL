@@ -40,8 +40,8 @@ const normalizeGeminiMessages = (msgs: ChatMessage[]) => msgs.map((m) => ({
   role: m.role === "assistant" ? "model" : "user",
   parts: [{ text: normalizeContent(m.content) }]
 }));
-const normalizeClaudeMessages = (msgs: ChatMessage[]) => msgs.map((m) => ({
-  role: m.role === "assistant" ? "assistant" : "user",
+const normalizeClaudeMessages = (msgs: ChatMessage[]): Array<{ role: string; content: string | Array<Record<string, unknown>> }> => msgs.map((m) => ({
+  role: m.role === "assistant" ? "assistant" as const : "user" as const,
   content: normalizeContent(m.content)
 }));
 
