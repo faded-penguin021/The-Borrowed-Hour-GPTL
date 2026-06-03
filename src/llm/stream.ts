@@ -175,10 +175,10 @@ export const extractChatToolCallArgs = (data: unknown): string => {
   return "";
 };
 
-export const makeChatCompletionsProvider = ({ url, label, jsonSchema, tools: useToolsApi, extraBody }: ChatCompletionsProviderConfig): ProviderAdapter => ({
+export const makeChatCompletionsProvider = ({ url, label, jsonSchema, tools: useToolsApi, extraBody, promptCacheKey }: ChatCompletionsProviderConfig): ProviderAdapter => ({
   toolUse: !!(jsonSchema || useToolsApi),
   retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
-  buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }: BuildRequestParams): ProviderRequest {
+  buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey, cacheKey }: BuildRequestParams): ProviderRequest {
     let system = sys;
     const body: Record<string, unknown> = {
       model,
@@ -211,6 +211,8 @@ Respond ONLY with a single valid JSON object matching this schema (no prose, no 
       }
     }
     body.messages = normalizeChatMessages(system, msgs);
+    if (promptCacheKey && cacheKey)
+      body.prompt_cache_key = cacheKey;
     if (extraBody && typeof extraBody === "object")
       Object.assign(body, extraBody);
     const resolvedUrl = typeof url === "function" ? url() : url;

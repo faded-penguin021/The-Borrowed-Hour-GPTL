@@ -198,7 +198,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   // ── Core story state (reducer) ────────────────────────────────────
   const [s, dispatch] = useReducer(storyReducer, INITIAL_STATE);
   const { phase, premise, entries, history, ended, gameState, language,
-          metaMode, metaMessages, skipNonce, recovery } = s;
+          metaMode, metaMessages, skipNonce, recovery, frozenPrefixLength } = s;
   const error = s.error;
 
   // Transient runtime state stays outside the reducer — loading, phrase, and
@@ -562,28 +562,33 @@ The narration above was interrupted and cut off before it finished. Continue it 
       if (i >= tailStart) return msg;
       return msg.role === "user" ? { ...msg, content: stripHistoricalUser(msg.content) } : { ...msg, content: stripHistoricalAssistant(msg.content) };
     });
-    const TRIM_THRESHOLD = 60;
-    const KEEP_RECENT = 44;
+    const FLUSH_THRESHOLD = 16;
+    const FLUSH_SIZE = 8;
+    let currentFrozen = frozenPrefixLength;
+    if (apiHistory.length - currentFrozen > FLUSH_THRESHOLD) {
+      currentFrozen += FLUSH_SIZE;
+      dispatch({ type: "SET_FROZEN_PREFIX", length: currentFrozen });
+    }
     const CHAR_CAP = settings.engineGM?.provider === "groq" ? 60000 : 80000;
     const charsOf = (msgs: ChatMessage[]) => msgs.reduce((sum: number, m: ChatMessage) => sum + (typeof m.content === "string" ? m.content.length : 0), 0);
-    if (apiHistory.length > TRIM_THRESHOLD) {
-      const head = apiHistory.slice(0, 2);
-      const tail = apiHistory.slice(-KEEP_RECENT);
-      apiHistory = [...head, ...tail];
-    }
     if (charsOf(apiHistory) > CHAR_CAP) {
+      const beforeLen = apiHistory.length;
       const head = apiHistory.slice(0, 2);
       let tail = apiHistory.slice(2);
       while (tail.length > 4 && charsOf([...head, ...tail]) > CHAR_CAP) {
         tail = tail.slice(2);
       }
       apiHistory = [...head, ...tail];
+      const removed = beforeLen - apiHistory.length;
+      currentFrozen = Math.max(0, currentFrozen - removed);
     }
+    const cacheBreakpoint = currentFrozen > 0 ? currentFrozen : undefined;
     if (typeof console !== "undefined" && console.debug) {
       console.debug("[borrowed] apiHistory", {
         msgs: apiHistory.length,
         chars: charsOf(apiHistory),
-        estTokens: Math.round(charsOf(apiHistory) / 4)
+        estTokens: Math.round(charsOf(apiHistory) / 4),
+        frozenPrefix: currentFrozen
       });
     }
     dispatch({ type: "SET_HISTORY", history: newHistory });
@@ -598,7 +603,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     abortRef.current = { controller, rollback, startedAt: Date.now() };
     try {
       const gmSys = buildSystem(premise, language, { split: true });
-      const firstGmReply = await callAPI(gmSys, apiHistory, true, settings.engineGM, 2600, 0.35, controller.signal, GM_LOGIC_TOOL);
+      const firstGmReply = await callAPI(gmSys, apiHistory, true, settings.engineGM, 2600, 0.35, controller.signal, GM_LOGIC_TOOL, cacheBreakpoint, premise?.id);
       if (controller.signal.aborted) return false;
       let gmReply = firstGmReply;
       let gmParsed = parseGMLogicResponse(gmReply);

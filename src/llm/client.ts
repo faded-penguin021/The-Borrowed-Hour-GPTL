@@ -18,6 +18,8 @@ export type CallAPI = (
   temperature?: number,
   signal?: AbortSignal | null,
   tool?: ToolDefinition,
+  cacheBreakpoint?: number,
+  cacheKey?: string,
 ) => Promise<string>;
 
 /** Signature of the streaming `streamAPI` returned by {@link createLLMClient}. */
@@ -62,7 +64,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
     return request;
   };
 
-  const callAPI = async (sys: string, msgs: ChatMessage[], useTool = false, engine: EngineConfig = getDefaultEngine(), maxTokens = 3000, temperature = 0.6, signal: AbortSignal | null = null, tool: ToolDefinition = GM_TOOL): Promise<string> => {
+  const callAPI = async (sys: string, msgs: ChatMessage[], useTool = false, engine: EngineConfig = getDefaultEngine(), maxTokens = 3000, temperature = 0.6, signal: AbortSignal | null = null, tool: ToolDefinition = GM_TOOL, cacheBreakpoint?: number, cacheKey?: string): Promise<string> => {
     const providerId = engine?.provider;
     const model = engine?.model;
     const provider = PROVIDERS[providerId];
@@ -88,7 +90,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
       try {
         apiKey = await getProviderKey(providerId as ProviderId);
         request = provider.buildRequest({
-          sys, msgs, useTool, model, maxTokens, temperature: temp, tool, apiKey
+          sys, msgs, useTool, model, maxTokens, temperature: temp, tool, apiKey, cacheBreakpoint, cacheKey
         });
       } catch (e) {
         if (e instanceof BorrowedError) throw e;
@@ -268,7 +270,11 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
       };
       const handleEvent = (rawEvent: string) => {
         if (!rawEvent.trim()) return;
-        const parsed = parseStreamEvent(rawEvent);
+        const lines = rawEvent.split("\n");
+        const filtered = lines.filter((l) => !l.startsWith(":"));
+        if (filtered.length === 0) return;
+        const cleaned = filtered.join("\n");
+        const parsed = parseStreamEvent(cleaned);
         if (!parsed) return;
         if (parsed.usage) usage = (Object.assign(usage || {}, parsed.usage) as { input?: number; output?: number });
         if (parsed.error)
@@ -284,7 +290,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
           const { done, value } = await reader.read();
           armStall();
           if (done) break;
-          buffer += decoder.decode(value, { stream: true }).replace(/\r/g, "");
+          buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
           let idx;
           while ((idx = buffer.indexOf("\n\n")) !== -1) {
             const rawEvent = buffer.slice(0, idx);
