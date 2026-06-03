@@ -114,7 +114,6 @@ export type StoryAction =
       history: ChatMessage[];
       gameState?: GameState | null;
       ended?: boolean;
-      currentGameState?: GameState;
     }
   | {
       type: "UNDO";
@@ -221,10 +220,7 @@ export function storyReducer(state: StoryState, action: StoryAction): StoryState
         entries,
         history: action.history,
       };
-      if (
-        action.gameState != null &&
-        action.currentGameState !== undefined
-      ) {
+      if (action.gameState != null) {
         next.gameState = action.gameState;
       }
       if (action.ended) next.ended = true;
