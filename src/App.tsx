@@ -63,7 +63,7 @@ function AppContent({
     <div
       className={`borrowed-root borrowed-vignette borrowed-grain min-h-screen relative overflow-hidden${settings.highContrast ? " high-contrast" : ""}`}
     >
-      <div className="sr-only" aria-live="polite" aria-atomic="true">{liveRegionText}</div>
+      <div className="sr-only" aria-live="polite" aria-atomic="true" aria-busy={loading}>{liveRegionText}</div>
       <div className="relative z-10">
         {phase === "title" ? (
           <TitleScreen

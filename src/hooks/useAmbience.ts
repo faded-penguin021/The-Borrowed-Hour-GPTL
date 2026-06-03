@@ -95,6 +95,10 @@ export function useAmbience() {
     if (eng.musicLevel !== ambienceMusicLevel) eng.setMusicLevel(ambienceMusicLevel as "off" | "sparse" | "full");
   }, [ambienceMusicLevel]);
 
+  useEffect(() => {
+    return () => { ambienceRef.current?.destroy(); };
+  }, []);
+
   // Audio autoplay unlock.
   useEffect(() => {
     const tryResume = () => {
