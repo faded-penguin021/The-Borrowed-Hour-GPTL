@@ -110,7 +110,7 @@ test.describe("The Borrowed Hour — smoke", () => {
     await page.reload();
 
     await page.getByRole("button", { name: /RESUME AN HOUR/ }).click();
-    await page.locator(".save-row").first().click();
+    await page.getByTestId("save-row").first().click();
 
     await expect(page.getByTestId("narration-entry").first()).toBeVisible();
     await expect(page.getByTestId("composer-input")).toBeVisible();

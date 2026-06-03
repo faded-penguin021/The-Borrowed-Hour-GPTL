@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { SAVE_CAP, APPROX_CHARS_PER_TOKEN, formatKB, formatTokens } from "../../data/constants";
 import { realmGlyph } from "../../data/premises";
+import { realmPill } from "../../data/realmStyles";
 import type { SaveListEntry, SaveRecord } from "../../types";
+import { Modal } from "../ui/Modal";
 import { X, Bookmark } from "lucide-react";
 
 interface SavesModalProps {
@@ -37,43 +39,23 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
   const countColor = countTone === "full" ? "var(--rose-ember)" : countTone === "warn" ? "var(--rose-gold)" : "var(--cream-dim)";
   const totalKB = totalBytes / 1024;
   return (
-    <div
-      className="modal-backdrop"
-      onClick={() => {
+    <Modal
+      onClose={() => {
         setArmedKey(null);
         onClose();
       }}
     >
-      <div
-        className="modal-panel"
-        onClick={(e) => {
-          setArmedKey(null);
-          e.stopPropagation();
-        }}
-      >
-        <div
-          className="px-6 py-5 border-b flex items-center justify-between"
-          style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
-        >
+        <div className="px-6 py-5 border-b border-cream/10 flex items-center justify-between">
           <div>
-            <div
-              className="display-font text-[10px] mb-1"
-              style={{ color: "var(--cream-faint)", letterSpacing: "0.4em" }}
-            >
+            <div className="font-display font-medium text-[10px] mb-1 text-cream-faint tracking-[0.4em]">
               HOURS SET ASIDE
             </div>
-            <h2
-              className="display-font text-xl"
-              style={{ color: "var(--cream-bright)", letterSpacing: "0.04em" }}
-            >
+            <h2 className="font-display font-medium text-xl text-cream-bright tracking-[0.04em]">
               Take an hour up again
             </h2>
             {!loading && saves.length > 0 && (
-              <div
-                className="body-font italic mt-1 flex flex-wrap gap-x-3"
-                style={{ fontSize: 12, color: "var(--cream-dim)" }}
-              >
-                <span style={{ color: countColor }}>
+              <div className="font-body italic mt-1 flex flex-wrap gap-x-3 text-[12px] text-cream-dim">
+                <span className={countColor}>
                   {saves.length} of {cap} kept
                   {countTone === "full" && " — full"}
                   {countTone === "warn" && " — nearing the cap"}
@@ -87,29 +69,22 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
           </div>
           <button
             onClick={onClose}
-            className="display-font text-sm"
-            style={{ color: "var(--cream-dim)", letterSpacing: "0.2em" }}
+            className="font-display font-medium text-sm text-cream-dim tracking-[0.2em]"
             aria-label="Close"
           >
             <X size={16} strokeWidth={1.5} />
           </button>
         </div>
-        <div className="overflow-y-auto px-6 py-5 space-y-3" style={{ minHeight: 200 }}>
+        <div className="overflow-y-auto px-6 py-5 space-y-3 min-h-[200px]">
           {loading ? (
-            <div
-              className="text-center body-font italic py-12"
-              style={{ color: "var(--cream-dim)" }}
-            >
+            <div className="text-center font-body italic py-12 text-cream-dim">
               Counting the hours
               <span className="typing-dots">
                 <span>.</span><span>.</span><span>.</span>
               </span>
             </div>
           ) : saves.length === 0 ? (
-            <div
-              className="text-center body-font italic py-12"
-              style={{ color: "var(--cream-faint)" }}
-            >
+            <div className="text-center font-body italic py-12 text-cream-faint">
               No hours set aside yet.
               {inGame && (
                 <div className="mt-2 text-sm flex items-center justify-center gap-1">Use <Bookmark size={12} strokeWidth={1.5}  /> SET ASIDE to keep your current hour.</div>
@@ -117,26 +92,22 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
             </div>
           ) : (
             saves.map((save) => (
-              <button key={save.key} className="save-row" onClick={() => onLoad(save)}>
+              <button
+                key={save.key}
+                data-testid="save-row"
+                className="flex items-center justify-between gap-3 px-[18px] py-[14px] border border-cream/[0.08] bg-[#1c162c]/40 transition-all duration-300 cursor-pointer text-left w-full hover:border-rose-gold/30 hover:bg-[#1c162c]/70"
+                onClick={() => onLoad(save)}
+              >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span
-                      className={`realm-pill realm-${save.realm}`}
-                      style={{ fontSize: 8, padding: "2px 7px" }}
-                    >
+                    <span className={`inline-block font-display text-[8px] tracking-[0.4em] px-[7px] py-[2px] border ${realmPill[save.realm]}`}>
                       {realmGlyph(save.realm)} {save.realmLabel || save.realm?.toUpperCase()}
                     </span>
-                    <span
-                      className="display-font text-base"
-                      style={{ color: "var(--cream-bright)", letterSpacing: "0.02em" }}
-                    >
+                    <span className="font-display font-medium text-base text-cream-bright tracking-[0.02em]">
                       {save.title}
                     </span>
                   </div>
-                  <div
-                    className="body-font italic text-sm flex flex-wrap gap-x-3 items-center"
-                    style={{ color: "var(--cream-dim)" }}
-                  >
+                  <div className="font-body italic text-sm flex flex-wrap gap-x-3 items-center text-cream-dim">
                     <span>{save.turns || 0} turns taken</span>
                     <span>·</span>
                     <span>{formatRelative(save.savedAt)}</span>
@@ -145,7 +116,7 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
                         <span>·</span>
                         <span
                           title={`${formatKB(save.size.kb)} on disk · ${formatTokens(save.size.tokens)} if reloaded`}
-                          style={{ color: "var(--cream-faint)" }}
+                          className="text-cream-faint"
                         >
                           {formatKB(save.size.kb)} · {formatTokens(save.size.tokens)}
                         </span>
@@ -154,14 +125,7 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
                     {save.ended && (
                       <>
                         <span>·</span>
-                        <span
-                          className="display-font"
-                          style={{
-                            color: "var(--rose-gold)",
-                            fontSize: 9,
-                            letterSpacing: "0.3em"
-                          }}
-                        >
+                        <span className="font-display font-medium text-rose-gold text-[9px] tracking-[0.3em]">
                           COMPLETE
                         </span>
                       </>
@@ -170,14 +134,11 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
                 </div>
                 <span
                   onClick={(e) => handleReleaseTap(save.key, e)}
-                  className="icon-btn icon-btn-danger"
-                  style={{
-                    padding: "5px 10px",
-                    fontSize: 9,
-                    background: armedKey === save.key ? "rgba(180, 70, 70, 0.25)" : undefined,
-                    borderColor: armedKey === save.key ? "rgba(220, 100, 100, 0.7)" : undefined,
-                    color: armedKey === save.key ? "rgba(255, 200, 200, 1)" : undefined
-                  }}
+                  className={`bg-transparent border font-display text-[9px] tracking-[0.25em] cursor-pointer transition-all duration-300 px-2.5 py-[5px] ${
+                    armedKey === save.key
+                      ? "bg-[rgba(180,70,70,0.25)] border-[rgba(220,100,100,0.7)] text-[rgba(255,200,200,1)]"
+                      : "border-cream/20 text-cream-dim hover:border-rose-ember/50 hover:text-rose-ember"
+                  }`}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
@@ -187,14 +148,13 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
                   title={armedKey === save.key ? "Tap again to release this hour permanently" : "Release this hour (tap, then confirm)"}
                   aria-label={armedKey === save.key ? `Confirm releasing ${save.title}` : `Release ${save.title}`}
                 >
-                  {armedKey === save.key ? <><X size={11} strokeWidth={1.5} style={{ marginRight: 2 }} />CONFIRM</> : "RELEASE"}
+                  {armedKey === save.key ? <><X size={11} strokeWidth={1.5} className="mr-0.5" />CONFIRM</> : "RELEASE"}
                 </span>
               </button>
             ))
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

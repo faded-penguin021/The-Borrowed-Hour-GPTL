@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import type { Entry } from "../types";
 import { realmGlyph } from "../data/premises";
+import { realmText, realmBorder } from "../data/realmStyles";
 import { formatTokens } from "../data/constants";
 import { useGame, useGameRun } from "../context/GameContext";
 import { useSettingsContext } from "../context/SettingsContext";
@@ -11,11 +12,19 @@ import { StreamingNarration } from "./StreamingNarration";
 import { ErrorRawDetail } from "./ErrorRawDetail";
 import { IllustrationPlate } from "./IllustrationPlate";
 import { GameComposer } from "./GameComposer";
+import { IconButton } from "./ui/IconButton";
 import {
   Undo2, BookOpen, Bookmark, Copy, CopyPlus, Clock, Settings,
   Volume2, VolumeX, Mic, MicOff, Sparkles, Play, Pause, Loader,
   BookMarked, RotateCcw, Download, HeartHandshake,
 } from "lucide-react";
+
+// The quiet inline "STOP" beside a loading phrase. Repeated for each loading
+// state below, so its utility recipe lives here once.
+const STOP_BTN =
+  "ml-[14px] px-[10px] py-[2px] bg-transparent border border-cream/[0.18] text-cream-faint " +
+  "font-display text-[9px] not-italic tracking-[0.3em] cursor-pointer align-middle " +
+  "transition-all duration-[250ms] hover:border-rose-ember/50 hover:text-rose-ember";
 
 /**
  * Story state comes from `useGame()`, runtime state from `useGameRun()`, and
@@ -81,151 +90,121 @@ export function GameScreen({
       className="relative flex flex-col"
       style={{ height: "var(--app-vh, 100dvh)", minHeight: "var(--app-vh, 100dvh)" }}
     >
-      <header
-        className="game-header relative flex items-center justify-between px-6 py-4 border-b"
-        style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
-      >
-        <div
-          className="header-title display-font text-xs flex items-center gap-3"
-          style={{ color: "var(--cream-dim)", letterSpacing: "0.3em" }}
-        >
-          <span style={{ color: `var(--${premise.realm})` }}>{realmGlyph(premise.realm)}</span>
+      <header className="game-header relative flex items-center justify-between px-6 py-4 border-b border-cream/10">
+        <div className="header-title font-display font-medium text-xs flex items-center gap-3 text-cream-dim tracking-[0.3em]">
+          <span className={realmText[premise.realm]}>{realmGlyph(premise.realm)}</span>
           {premise.title.toUpperCase()}
         </div>
         <div className="header-actions flex items-center gap-2">
-          <button
+          <IconButton
             onClick={undoLastTurn}
             disabled={!canUndo}
-            className="icon-btn"
             title="Undo the last turn"
             aria-label="Undo the last turn"
           >
             <Undo2 size={14} strokeWidth={1.5} aria-hidden="true" />
             <span className="btn-label"> UNDO</span>
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             onClick={onOpenLedger}
             disabled={entries.length === 0}
-            className="icon-btn"
             title="Open the ledger — see what's tracked"
             aria-label="Open the ledger"
           >
             <BookOpen size={14} strokeWidth={1.5} aria-hidden="true" />
             <span className="btn-label"> LEDGER</span>
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             onClick={saveCurrent}
             disabled={loading || entries.length === 0}
-            className="icon-btn"
             title="Set aside this hour"
             aria-label="Set aside this hour"
           >
             <Bookmark size={14} strokeWidth={1.5} aria-hidden="true" />
             <span className="btn-label"> SET ASIDE</span>
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             onClick={() => exportChronicle(false)}
             disabled={entries.length === 0}
-            className="icon-btn"
             title={hasMeta ? "Copy the chronicle as text — narration only, no commentary" : "Copy the chronicle as text — to keep, or to share"}
             aria-label="Copy the chronicle"
           >
             <Copy size={14} strokeWidth={1.5} aria-hidden="true" />
             <span className="btn-label"> COPY</span>
-          </button>
+          </IconButton>
           {hasMeta && (
-            <button
+            <IconButton
               onClick={() => exportChronicle(true)}
-              className="icon-btn"
               title="Copy the chronicle and the director's commentary together"
               aria-label="Copy the chronicle with commentary"
             >
               <CopyPlus size={14} strokeWidth={1.5} aria-hidden="true" />
               <span className="btn-label"> COPY ALL</span>
-            </button>
+            </IconButton>
           )}
-          <button
+          <IconButton
             onClick={openSavesModal}
-            className="icon-btn"
             title="Open hours"
             aria-label="Open saved hours"
           >
             <Clock size={14} strokeWidth={1.5} aria-hidden="true" />
             <span className="btn-label"> HOURS</span>
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             onClick={onOpenSettings}
-            className="icon-btn"
             title="Reader preferences — contrast, motion, typewriter"
             aria-label="Reader preferences"
           >
             <Settings size={14} strokeWidth={1.5} aria-hidden="true" />
             <span className="btn-label"> READING</span>
-          </button>
+          </IconButton>
           {ambienceEnabled && (
-            <button
+            <IconButton
               onClick={onToggleAmbienceMute}
-              className="icon-btn"
               title={ambienceMuted ? "Unmute the ambience bed" : "Mute the ambience bed"}
               aria-label={ambienceMuted ? "Unmute ambience" : "Mute ambience"}
               aria-pressed={ambienceMuted ? "true" : "false"}
             >
               {ambienceMuted ? <VolumeX size={14} strokeWidth={1.5} aria-hidden="true" /> : <Volume2 size={14} strokeWidth={1.5} aria-hidden="true" />}
               <span className="btn-label">{ambienceMuted ? " MUTED" : " AMBIENT"}</span>
-            </button>
+            </IconButton>
           )}
           {ttsEnabled && (
-            <button
+            <IconButton
               onClick={onToggleTtsMute}
-              className="icon-btn"
               title={ttsMuted ? "Resume narration aloud" : "Silence narration aloud"}
               aria-label={ttsMuted ? "Resume narration aloud" : "Silence narration aloud"}
               aria-pressed={ttsMuted ? "true" : "false"}
             >
               {ttsMuted ? <MicOff size={14} strokeWidth={1.5} aria-hidden="true" /> : <Mic size={14} strokeWidth={1.5} aria-hidden="true" />}
               <span className="btn-label">{ttsMuted ? " SILENT" : " VOICE"}</span>
-            </button>
+            </IconButton>
           )}
-          <button
+          <IconButton
             onClick={restart}
-            className="icon-btn icon-btn-danger"
+            danger
             title="Begin a new hour"
             aria-label="Begin a new hour"
           >
             <RotateCcw size={14} strokeWidth={1.5} aria-hidden="true" />
             <span className="btn-label"> ANEW</span>
-          </button>
+          </IconButton>
         </div>
       </header>
       {(sessionTokens?.input > 0 || sessionTokens?.output > 0) && (
-        <div
-          className="display-font"
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 16,
-            padding: "4px 20px",
-            fontSize: 9,
-            letterSpacing: "0.2em",
-            color: "var(--cream-faint)",
-            borderBottom: "1px solid rgba(232,222,197,0.07)",
-            userSelect: "none"
-          }}
-        >
+        <div className="font-display font-medium flex justify-end gap-4 px-5 py-1 text-[9px] tracking-[0.2em] text-cream-faint border-b border-cream/[0.07] select-none">
           <span>{formatTokens(sessionTokens.input)} IN</span>
-          <span style={{ opacity: 0.35 }}>·</span>
+          <span className="opacity-[0.35]">·</span>
           <span>{formatTokens(sessionTokens.output)} OUT</span>
         </div>
       )}
       {saveBanner && (
         <div
-          className="mx-auto mt-3 px-4 py-2 body-font italic text-sm fade-in"
-          style={{
-            color: saveBanner.kind === "ok" ? "var(--rose-gold)" : "var(--rose-ember)",
-            border: "1px solid",
-            borderColor: saveBanner.kind === "ok" ? "rgba(212, 165, 116, 0.3)" : "rgba(217, 122, 122, 0.3)",
-            background: "rgba(10, 8, 20, 0.65)"
-          }}
+          className={`mx-auto mt-3 px-4 py-2 font-body italic text-sm fade-in border bg-twilight/65 ${
+            saveBanner.kind === "ok"
+              ? "text-rose-gold border-rose-gold/30"
+              : "text-rose-ember border-rose-ember/30"
+          }`}
         >
           {saveBanner.text}
         </div>
@@ -237,14 +216,14 @@ export function GameScreen({
       >
         <div className="max-w-3xl mx-auto space-y-8">
           {entries.length === 0 && loading && (
-            <div className="divider-mark body-font italic text-base slow-fade-in">
+            <div className="divider-mark font-body italic text-base slow-fade-in text-cream-faint">
               <span>{loadingPhrase || "the hour begins to write itself"}</span>
-              <span className="typing-dots" style={{ marginLeft: "6px" }}>
+              <span className="typing-dots ml-1.5">
                 <span>.</span><span>.</span><span>.</span>
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); cancelRequest?.(); }}
-                className="loading-stop-btn"
+                className={STOP_BTN}
                 aria-label="Stop this request"
                 title="Stop this request"
               >
@@ -262,7 +241,7 @@ export function GameScreen({
               const btnLabel = isLoading ? "LOADING" : (isSpeaking ? "PAUSE" : (isPaused ? "RESUME" : "PLAY"));
               return (
                 <div key={i} className="fade-in" data-testid="narration-entry">
-                  <div className="narration-text body-font text-lg" style={{ lineHeight: 1.7 }}>
+                  <div className="narration-text font-body text-lg text-cream-bright leading-[1.7]">
                     {entry.streaming ? (
                       <StreamingNarration store={streamingStore} scrollRef={scrollRef} />
                     ) : (
@@ -280,32 +259,28 @@ export function GameScreen({
                   )}
                   {showPlay && (
                     <div
-                      className="mt-2"
-                      style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "4px" }}
+                      className="mt-2 flex flex-col items-start gap-1"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button
+                      <IconButton
                         onClick={(e) => { e.stopPropagation(); onPlayEntry?.(i); }}
-                        className="icon-btn"
+                        size="sm"
                         disabled={isLoading}
                         title={isLoading ? "Preparing narration…" : (isSpeaking ? "Pause narration" : (isPaused ? "Resume narration" : "Play this passage aloud"))}
                         aria-label={btnLabel}
                         aria-busy={isLoading ? "true" : "false"}
-                        style={{ padding: "4px 10px", fontSize: "10px", opacity: isLoading ? 0.75 : 1 }}
+                        className={isLoading ? "opacity-75" : ""}
                       >
                         <span aria-hidden="true" className={isLoading ? "tts-spin" : ""}>{isLoading ? <Loader size={12} strokeWidth={1.5} /> : (isSpeaking ? <Pause size={12} strokeWidth={1.5} /> : <Play size={12} strokeWidth={1.5} />)}</span>
                         <span className="btn-label"> {btnLabel}</span>
                         {isLoading && (
-                          <span className="typing-dots" style={{ marginLeft: "4px" }}>
+                          <span className="typing-dots ml-1">
                             <span>.</span><span>.</span><span>.</span>
                           </span>
                         )}
-                      </button>
+                      </IconButton>
                       {ttsPlayback?.lastError && ttsPlayback?.lastErrorTurnId === i && (
-                        <div
-                          className="body-font italic"
-                          style={{ fontSize: "11px", color: "var(--rose-ember)", opacity: 0.85, lineHeight: 1.4, maxWidth: "100%", wordBreak: "break-word" }}
-                        >
+                        <div className="font-body italic text-[11px] text-rose-ember opacity-[0.85] leading-[1.4] max-w-full break-words">
                           tts: {ttsPlayback.lastError}
                         </div>
                       )}
@@ -317,129 +292,83 @@ export function GameScreen({
             return (
               <div
                 key={i}
-                className="action-text body-font text-base fade-in"
-                style={{ lineHeight: 1.6 }}
+                className="action-text font-body text-base fade-in leading-[1.6]"
               >
                 {entry.text}
               </div>
             );
           })}
           {entries.length === 1 && entries[0].type === "narration" && entries[0].fullyRevealed && !ended && !metaMode && (
-            <div
-              className="text-center body-font italic slow-fade-in"
-              style={{
-                color: "var(--cream-faint)",
-                fontSize: "13px",
-                paddingTop: "4px",
-                letterSpacing: "0.02em"
-              }}
-            >
-              <span style={{ color: `var(--${premise.realm})`, opacity: 0.7 }}><HeartHandshake size={12} strokeWidth={1.5}  /></span>{" "}
+            <div className="text-center font-body italic slow-fade-in text-cream-faint text-[13px] pt-1 tracking-[0.02em]">
+              <span className={`${realmText[premise.realm]} opacity-70`}><HeartHandshake size={12} strokeWidth={1.5} /></span>{" "}
               when this hour is spent, you may speak with its author about it
             </div>
           )}
           {showResolution && (
             <div className="fade-in pt-4">
-              <div
-                className="divider-mark display-font"
-                style={{
-                  color: `var(--${premise.realm})`,
-                  letterSpacing: "0.4em",
-                  fontSize: "12px"
-                }}
-              >
+              <div className={`divider-mark font-display font-medium ${realmText[premise.realm]} tracking-[0.4em] text-[12px]`}>
                 <span className="divider-ornament">THE HOUR IS SPENT</span>
               </div>
-              <div
-                className="text-center mt-6 body-font italic text-base"
-                style={{ color: "var(--cream-faint)" }}
-              >
+              <div className="text-center mt-6 font-body italic text-base text-cream-faint">
                 The chronicle is closed. You may now speak with its author — ask what you missed, point out what felt amiss.
               </div>
               <div className="text-center mt-6 flex justify-center gap-3 flex-wrap">
                 {!revealText && !revealLoading && (
-                  <button
-                    onClick={startReveal}
-                    className="icon-btn"
-                    style={{
-                      padding: "10px 22px",
-                      borderColor: `var(--${premise.realm}-border)`,
-                      color: `var(--${premise.realm})`
-                    }}
-                  >
-                    <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />UNVEIL THE HIDDEN HOUR
-                  </button>
+                  <IconButton onClick={startReveal} size="lg" accent={premise.realm}>
+                    <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />UNVEIL THE HIDDEN HOUR
+                  </IconButton>
                 )}
-                <button
-                  onClick={enterMetaMode}
-                  className="icon-btn"
-                  style={{
-                    padding: "10px 22px",
-                    borderColor: `var(--${premise.realm}-border)`,
-                    color: `var(--${premise.realm})`
-                  }}
-                >
-                  <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />SPEAK WITH THE AUTHOR
-                </button>
-                <button onClick={saveCurrent} className="icon-btn" style={{ padding: "10px 22px" }}>
-                  <Bookmark size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />KEEP THIS HOUR
-                </button>
-                <button onClick={restart} className="icon-btn" style={{ padding: "10px 22px" }}>
-                  <RotateCcw size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />BEGIN A NEW HOUR
-                </button>
+                <IconButton onClick={enterMetaMode} size="lg" accent={premise.realm}>
+                  <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />SPEAK WITH THE AUTHOR
+                </IconButton>
+                <IconButton onClick={saveCurrent} size="lg">
+                  <Bookmark size={14} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />KEEP THIS HOUR
+                </IconButton>
+                <IconButton onClick={restart} size="lg">
+                  <RotateCcw size={14} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />BEGIN A NEW HOUR
+                </IconButton>
                 {!keepsakeBlob && !keepsakeLoading && (
-                  <button
+                  <IconButton
                     onClick={(e) => { e.stopPropagation(); startKeepsake(); }}
-                    className="icon-btn"
-                    style={{ padding: "10px 22px" }}
+                    size="lg"
                     title="Generate a self-contained HTML keepsake of this chronicle"
                   >
-                    <BookMarked size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />GENERATE BOOK
-                  </button>
+                    <BookMarked size={14} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />GENERATE BOOK
+                  </IconButton>
                 )}
                 {keepsakeLoading && (
-                  <button disabled className="icon-btn" style={{ padding: "10px 22px", opacity: 0.6 }}>
+                  <IconButton disabled size="lg" className="opacity-60">
                     binding the hour
-                    <span className="typing-dots" style={{ marginLeft: "6px" }}>
+                    <span className="typing-dots ml-1.5">
                       <span>.</span><span>.</span><span>.</span>
                     </span>
-                  </button>
+                  </IconButton>
                 )}
                 {keepsakeBlob && !keepsakeLoading && (
-                  <button
+                  <IconButton
                     onClick={(e) => { e.stopPropagation(); downloadKeepsake(keepsakeFilename); }}
-                    className="icon-btn"
-                    style={{
-                      padding: "10px 22px",
-                      borderColor: `var(--${premise.realm}-border)`,
-                      color: `var(--${premise.realm})`
-                    }}
+                    size="lg"
+                    accent={premise.realm}
                     title="Download the HTML keepsake file"
                   >
-                    <Download size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />TAP TO SAVE FILE
-                  </button>
+                    <Download size={14} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />TAP TO SAVE FILE
+                  </IconButton>
                 )}
                 {keepsakeError && (
-                  <div
-                    className="body-font italic"
-                    style={{ fontSize: "12px", color: "var(--rose-ember)", width: "100%", textAlign: "center", marginTop: "4px" }}
-                  >
+                  <div className="font-body italic text-[12px] text-rose-ember w-full text-center mt-1">
                     {keepsakeError}
                   </div>
                 )}
               </div>
               {revealLoading && !revealText && (
-                <div
-                  className="mt-8 italic body-font slow-fade-in"
-                  style={{ color: "var(--cream-dim)" }}
-                >
+                <div className="mt-8 italic font-body slow-fade-in text-cream-dim">
                   the hidden hour surfaces
                   <span className="typing-dots">
                     <span>.</span><span>.</span><span>.</span>
                   </span>
                   <button
                     onClick={(e) => { e.stopPropagation(); cancelReveal?.(); }}
-                    className="loading-stop-btn"
+                    className={STOP_BTN}
                     aria-label="Stop this request"
                     title="Stop this request"
                   >
@@ -449,20 +378,10 @@ export function GameScreen({
               )}
               {revealText && (
                 <div className="mt-8 fade-in">
-                  <div
-                    className="divider-mark display-font"
-                    style={{
-                      color: `var(--${premise.realm})`,
-                      letterSpacing: "0.35em",
-                      fontSize: "10px"
-                    }}
-                  >
+                  <div className={`divider-mark font-display font-medium ${realmText[premise.realm]} tracking-[0.35em] text-[10px]`}>
                     <span className="divider-ornament">THE HIDDEN HOUR</span>
                   </div>
-                  <div
-                    className="narration-text body-font text-base mt-6"
-                    style={{ lineHeight: 1.75, fontStyle: "italic", color: "var(--cream-dim)" }}
-                  >
+                  <div className="narration-text font-body text-base mt-6 leading-[1.75] italic text-cream-dim">
                     <TypewriterText
                       text={revealText}
                       instant={true}
@@ -475,10 +394,7 @@ export function GameScreen({
                 </div>
               )}
               {revealError && (
-                <div
-                  className="mt-4 italic body-font"
-                  style={{ color: "var(--rose-ember)", fontSize: "13px" }}
-                >
+                <div className="mt-4 italic font-body text-rose-ember text-[13px]">
                   {revealError.message}
                 </div>
               )}
@@ -486,29 +402,16 @@ export function GameScreen({
           )}
           {metaMode && (
             <div className="pt-4 fade-in">
-              <div
-                className="divider-mark display-font"
-                style={{
-                  color: `var(--${premise.realm})`,
-                  letterSpacing: "0.4em",
-                  fontSize: "11px"
-                }}
-              >
+              <div className={`divider-mark font-display font-medium ${realmText[premise.realm]} tracking-[0.4em] text-[11px]`}>
                 <span className="divider-ornament">AUTHOR'S TABLE</span>
               </div>
-              <div
-                className="text-center mt-3 mb-6 body-font italic text-sm"
-                style={{ color: "var(--cream-faint)" }}
-              >
+              <div className="text-center mt-3 mb-6 font-body italic text-sm text-cream-faint">
                 Out of character. Ask about plot threads you missed, things that felt inconsistent, or anything else about the story.
               </div>
               {metaMessages.length === 0 && (
-                <div
-                  className="body-font text-base"
-                  style={{ color: "var(--cream-dim)", lineHeight: 1.7 }}
-                >
-                  <span style={{ fontStyle: "italic" }}>A few things you might ask:</span>
-                  <ul className="mt-2 space-y-1" style={{ color: "var(--cream-dim)" }}>
+                <div className="font-body text-base text-cream-dim leading-[1.7]">
+                  <span className="italic">A few things you might ask:</span>
+                  <ul className="mt-2 space-y-1 text-cream-dim">
                     <li>— What plot threads or characters did I miss?</li>
                     <li>— Were there other endings I could have reached?</li>
                     <li>— That part where X happened — did it contradict Y?</li>
@@ -522,13 +425,7 @@ export function GameScreen({
                     return (
                       <div
                         key={i}
-                        className="body-font fade-in"
-                        style={{
-                          color: "var(--cream-bright)",
-                          padding: "10px 16px",
-                          borderLeft: `2px solid var(--${premise.realm}-border)`,
-                          background: "rgba(28, 22, 44, 0.35)"
-                        }}
+                        className={`font-body fade-in text-cream-bright px-4 py-[10px] border-l-2 ${realmBorder[premise.realm]} bg-[#1c162c]/35`}
                       >
                         {m.text}
                       </div>
@@ -537,12 +434,7 @@ export function GameScreen({
                   return (
                     <div
                       key={i}
-                      className="body-font text-base fade-in"
-                      style={{
-                        color: "var(--cream)",
-                        lineHeight: 1.7,
-                        whiteSpace: "pre-wrap"
-                      }}
+                      className="font-body text-base fade-in text-cream leading-[1.7] whitespace-pre-wrap"
                     >
                       <TypewriterText
                         text={m.text}
@@ -559,14 +451,14 @@ export function GameScreen({
             </div>
           )}
           {loading && entries.length > 0 && !lastEntry?.streaming && (
-            <div className="italic body-font slow-fade-in" style={{ color: "var(--cream-dim)" }}>
+            <div className="italic font-body slow-fade-in text-cream-dim">
               {loadingPhrase || (metaMode ? "the author considers" : "the hour considers")}
               <span className="typing-dots">
                 <span>.</span><span>.</span><span>.</span>
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); cancelRequest?.(); }}
-                className="loading-stop-btn"
+                className={STOP_BTN}
                 aria-label="Stop this request"
                 title="Stop this request"
               >
@@ -575,13 +467,10 @@ export function GameScreen({
             </div>
           )}
           {error && (
-            <div className="italic body-font" style={{ color: "var(--rose-ember)" }}>
+            <div className="italic font-body text-rose-ember">
               <div>{error.message}</div>
               {error.detail && (
-                <div
-                  className="mt-1"
-                  style={{ fontSize: "12px", opacity: 0.6, fontStyle: "italic" }}
-                >
+                <div className="mt-1 text-[12px] opacity-60 italic">
                   {error.detail}
                 </div>
               )}
@@ -590,18 +479,14 @@ export function GameScreen({
           )}
           {recovery && !loading && (
             <div className="mt-3 fade-in">
-              <button
+              <IconButton
                 onClick={(e) => { e.stopPropagation(); continueNarration?.(); }}
-                className="icon-btn"
-                style={{
-                  padding: "9px 20px",
-                  borderColor: `var(--${premise.realm}-border)`,
-                  color: `var(--${premise.realm})`
-                }}
+                accent={premise.realm}
+                pad="px-5 py-[9px]"
                 title="Have the narrator finish the interrupted passage"
               >
-                <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />CONTINUE THE NARRATION
-              </button>
+                <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />CONTINUE THE NARRATION
+              </IconButton>
             </div>
           )}
         </div>

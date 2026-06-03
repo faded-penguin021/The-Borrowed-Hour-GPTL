@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { FIELD_SETTINGS } from "../components/ui/styleClasses";
 
 interface ProxyUrlRowProps {
   value: string;
@@ -29,10 +30,10 @@ export function ProxyUrlRow({ value, onChange }: ProxyUrlRowProps) {
 
   return (
     <div className="mt-3">
-      <div className="display-font text-cream-dim tracking-display text-[10px] uppercase mb-[5px]">
+      <div className="font-display font-medium text-cream-dim tracking-display text-[10px] uppercase mb-[5px]">
         System: proxy URL
       </div>
-      <div className="body-font italic text-cream-faint text-[11px] leading-normal mb-1">
+      <div className="font-body italic text-cream-faint text-[11px] leading-normal mb-1">
         Route every model request through your own backend instead of calling the provider directly. Your API key headers are stripped before the request leaves the browser — your proxy is expected to attach the real credentials server-side. Leave blank to call providers directly.
       </div>
       <input
@@ -42,7 +43,7 @@ export function ProxyUrlRow({ value, onChange }: ProxyUrlRowProps) {
         aria-label="Proxy URL"
         onChange={(e) => setDraft(e.target.value)}
         onBlur={(e) => commit(e.target.value)}
-        className="field-settings w-full mt-1"
+        className={`${FIELD_SETTINGS} w-full mt-1`}
         autoComplete="off"
         spellCheck={false}
       />

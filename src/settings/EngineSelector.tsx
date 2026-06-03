@@ -17,28 +17,13 @@ export function EngineSelector({ label, hint, engine, onChange, requireToolUse =
   const meta = PROVIDER_META[provider as ProviderId];
   const model = engine?.model || "";
   const isCustom = !meta.models.some((m: ModelEntry) => m.id === model);
-  const fieldStyle = {
-    width: "100%",
-    marginTop: 6,
-    padding: "7px 9px",
-    fontSize: 12,
-    borderRadius: 6,
-    border: "1px solid rgba(232,222,197,0.22)",
-    background: "rgba(22,18,21,0.9)",
-    color: "var(--cream-bright)"
-  };
+  const fieldClass = "w-full mt-1.5 px-[9px] py-[7px] text-[12px] rounded-md border border-cream/[0.22] bg-[#161215]/90 text-cream-bright";
   return (
-    <div style={{ marginTop: 14 }}>
-      <div
-        className="display-font"
-        style={{ color: "var(--cream-dim)", letterSpacing: "0.16em", fontSize: 10, textTransform: "uppercase" }}
-      >
+    <div className="mt-[14px]">
+      <div className="font-display font-medium text-cream-dim tracking-[0.16em] text-[10px] uppercase">
         {label}
       </div>
-      <div
-        className="body-font italic"
-        style={{ color: "var(--cream-faint)", fontSize: 11, marginTop: 2 }}
-      >
+      <div className="font-body italic text-cream-faint text-[11px] mt-0.5">
         {hint}
       </div>
       <select
@@ -48,7 +33,7 @@ export function EngineSelector({ label, hint, engine, onChange, requireToolUse =
           const np = e.target.value as ProviderId;
           onChange({ provider: np, model: PROVIDER_META[np].models[0].id });
         }}
-        style={fieldStyle}
+        className={fieldClass}
       >
         {allowedProviders.map((id) => (
           <option key={id} value={id}>{PROVIDER_META[id as ProviderId].name}</option>
@@ -61,7 +46,7 @@ export function EngineSelector({ label, hint, engine, onChange, requireToolUse =
           const v = e.target.value;
           onChange({ provider, model: v === "__custom__" ? "" : v });
         }}
-        style={fieldStyle}
+        className={fieldClass}
       >
         {meta.models.map((m: ModelEntry) => (
           <option key={m.id} value={m.id}>{`${m.id} · ${m.tier}`}</option>
@@ -75,7 +60,7 @@ export function EngineSelector({ label, hint, engine, onChange, requireToolUse =
           placeholder="Enter a model ID"
           aria-label={`${label} — custom model ID`}
           onChange={(e) => onChange({ provider, model: e.target.value })}
-          style={fieldStyle}
+          className={fieldClass}
         />
       )}
     </div>

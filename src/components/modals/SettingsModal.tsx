@@ -11,9 +11,18 @@ import { useAmbienceContext } from "../../context/AmbienceContext";
 import { useTTSContext } from "../../context/TTSContext";
 import { PROVIDER_META } from "../../llm/providers";
 import { TTS_PROVIDER_META } from "../../tts/catalogue";
+import { Modal } from "../ui/Modal";
+import { IconButton } from "../ui/IconButton";
 import { Settings, X } from "lucide-react";
 
 type SettingsTabId = "reading" | "audio" | "codex" | "system" | "proxy";
+
+// Roving-tabindex tablist; the active tab gets the rose-gold underline. The
+// strip scrolls horizontally on narrow viewports so the five labels never wrap.
+const TAB_CLASS =
+  "px-[14px] py-[10px] text-[10px] uppercase cursor-pointer whitespace-nowrap bg-transparent " +
+  "border-0 border-b-2 border-transparent text-cream-dim font-display tracking-[0.22em] " +
+  "transition-[color,border-color] duration-[250ms] aria-selected:text-cream-bright aria-selected:border-rose-gold";
 
 const TABS: { id: SettingsTabId; label: string }[] = [
   { id: "reading", label: "Reading" },
@@ -105,40 +114,28 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
-        <div
-          className="px-6 py-5 border-b flex items-center justify-between shrink-0"
-          style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
-        >
+    <Modal onClose={onClose}>
+        <div className="px-6 py-5 border-b border-cream/10 flex items-center justify-between shrink-0">
           <div>
-            <div
-              className="display-font text-[10px] mb-1"
-              style={{ color: "var(--cream-faint)", letterSpacing: "0.4em" }}
-            >
-              <Settings size={12} strokeWidth={1.5} style={{ marginRight: 4 }} />READING PREFERENCES
+            <div className="font-display font-medium text-[10px] mb-1 text-cream-faint tracking-[0.4em]">
+              <Settings size={12} strokeWidth={1.5} className="mr-1" />READING PREFERENCES
             </div>
-            <h2
-              className="display-font text-xl"
-              style={{ color: "var(--cream-bright)", letterSpacing: "0.04em" }}
-            >
+            <h2 className="font-display font-medium text-xl text-cream-bright tracking-[0.04em]">
               Set the page to your eyes
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="display-font text-sm"
-            style={{ color: "var(--cream-dim)", letterSpacing: "0.2em" }}
+            className="font-display font-medium text-sm text-cream-dim tracking-[0.2em]"
             aria-label="Close"
           >
             <X size={16} strokeWidth={1.5} />
           </button>
         </div>
         <div
-          className="settings-tablist px-6 pt-3 border-b shrink-0"
+          className="flex gap-[2px] overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-6 pt-3 border-b border-cream/10 shrink-0"
           role="tablist"
           aria-label="Settings sections"
-          style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
         >
           {TABS.map((tab, i) => (
             <button
@@ -150,7 +147,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               aria-selected={activeTab === tab.id}
               aria-controls={`settings-panel-${tab.id}`}
               tabIndex={activeTab === tab.id ? 0 : -1}
-              className="settings-tab"
+              className={TAB_CLASS}
               onClick={() => setActiveTab(tab.id)}
               onKeyDown={(e) => onTabKeyDown(e, i)}
             >
@@ -168,10 +165,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             hidden={activeTab !== "reading"}
             className="space-y-3"
           >
-            <p
-              className="body-font italic text-sm"
-              style={{ color: "var(--cream-dim)", lineHeight: 1.6 }}
-            >
+            <p className="font-body italic text-sm text-cream-dim leading-[1.6]">
               The hour is told in cream-and-twilight by default. If that's hard on your reading, soften the rules below. Your choices are kept between sessions.
             </p>
             <SettingsToggleRow
@@ -202,37 +196,18 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
               value={settings.debugOverlay}
               onChange={(v) => onChange("debugOverlay", v)}
             />
-            <div className="settings-toggle" style={{ cursor: "default", opacity: 0.85 }}>
+            <div className="flex items-center justify-between gap-4 px-4 py-3 border border-cream/10 bg-[#1c162c]/40 text-left w-full cursor-default opacity-[0.85]">
               <div className="flex-1 min-w-0">
-                <div
-                  className="display-font"
-                  style={{
-                    color: "var(--cream-dim)",
-                    letterSpacing: "0.18em",
-                    fontSize: 11,
-                    textTransform: "uppercase"
-                  }}
-                >
+                <div className="font-display font-medium text-cream-dim tracking-[0.18em] text-[11px] uppercase">
                   System: reduce motion
                 </div>
-                <div
-                  className="body-font italic"
-                  style={{ color: "var(--cream-faint)", fontSize: 12, marginTop: 4 }}
-                >
+                <div className="font-body italic text-cream-faint text-[12px] mt-1">
                   {osReducedMotion
                     ? "On — read from your operating system. Animations are stilled and the typewriter is bypassed."
                     : "Off — your operating system is not asking for reduced motion."}
                 </div>
               </div>
-              <span
-                className="display-font"
-                style={{
-                  color: osReducedMotion ? "var(--rose-gold)" : "var(--cream-faint)",
-                  fontSize: 10,
-                  letterSpacing: "0.3em",
-                  flexShrink: 0
-                }}
-              >
+              <span className={`font-display font-medium text-[10px] tracking-[0.3em] shrink-0 ${osReducedMotion ? "text-rose-gold" : "text-cream-faint"}`}>
                 {osReducedMotion ? "ACTIVE" : "INACTIVE"}
               </span>
             </div>
@@ -316,15 +291,11 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             <ProxyUrlRow value={settings.proxyUrl} onChange={(v) => onChange("proxyUrl", v)} />
           </div>
         </div>
-        <div
-          className="px-6 py-4 border-t flex justify-end shrink-0"
-          style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
-        >
-          <button onClick={onClose} className="icon-btn" style={{ padding: "8px 18px" }}>
-            <X size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 4 }} />DONE
-          </button>
+        <div className="px-6 py-4 border-t border-cream/10 flex justify-end shrink-0">
+          <IconButton onClick={onClose} pad="px-[18px] py-2">
+            <X size={14} strokeWidth={1.5} aria-hidden="true" className="mr-1" />DONE
+          </IconButton>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

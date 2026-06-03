@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { usePassphrase } from "../context/PassphraseContext";
+import { Modal } from "./ui/Modal";
+import { IconButton } from "./ui/IconButton";
 import { Lock } from "lucide-react";
 
 export function PassphraseModal() {
@@ -24,22 +26,12 @@ export function PassphraseModal() {
   const cancel = () => resolvePassphrase(null);
 
   return (
-    <div className="modal-backdrop" onClick={cancel}>
-      <div className="modal-panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
-        <div
-          className="px-6 py-5 border-b"
-          style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
-        >
-          <div
-            className="display-font text-[10px] mb-1"
-            style={{ color: "var(--cream-faint)", letterSpacing: "0.4em" }}
-          >
-            <Lock size={12} strokeWidth={1.5} style={{ marginRight: 4 }} />PASSPHRASE
+    <Modal onClose={cancel} panelClassName="!max-w-[420px]">
+        <div className="px-6 py-5 border-b border-cream/10">
+          <div className="font-display font-medium text-[10px] mb-1 text-cream-faint tracking-[0.4em]">
+            <Lock size={12} strokeWidth={1.5} className="mr-1" />PASSPHRASE
           </div>
-          <h2
-            className="display-font text-base"
-            style={{ color: "var(--cream-bright)", letterSpacing: "0.04em" }}
-          >
+          <h2 className="font-display font-medium text-base text-cream-bright tracking-[0.04em]">
             {prompt}
           </h2>
         </div>
@@ -56,33 +48,21 @@ export function PassphraseModal() {
             placeholder="Passphrase…"
             aria-label="Session passphrase"
             autoComplete="off"
-            className="w-full body-font text-sm"
-            style={{
-              padding: "10px 12px",
-              background: "rgba(0,0,0,0.3)",
-              border: "1px solid rgba(232, 222, 197, 0.15)",
-              borderRadius: 6,
-              color: "var(--cream-bright)",
-            }}
+            className="w-full font-body text-sm px-3 py-2.5 bg-black/30 border border-cream/15 rounded-md text-cream-bright"
           />
         </div>
-        <div
-          className="px-6 py-4 border-t flex justify-end gap-3"
-          style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
-        >
-          <button onClick={cancel} className="icon-btn" style={{ padding: "8px 18px" }}>
+        <div className="px-6 py-4 border-t border-cream/10 flex justify-end gap-3">
+          <IconButton onClick={cancel} pad="px-[18px] py-2">
             CANCEL
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             onClick={submit}
-            className="icon-btn"
-            style={{ padding: "8px 18px", opacity: value.trim() ? 1 : 0.45 }}
+            pad="px-[18px] py-2"
             disabled={!value.trim()}
           >
             UNLOCK
-          </button>
+          </IconButton>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
