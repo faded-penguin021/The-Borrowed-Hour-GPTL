@@ -11,6 +11,7 @@ import { formatError, BorrowedError } from "../llm/errors";
 import { createLLMClient } from "../llm/client";
 import { defaultAmbienceForRealm, deriveAmbienceFromSeed } from "../ambience/tables";
 import { getImage } from "../storage/imageStore";
+import { migrateSave } from "../saves/migrate";
 import { useCodex } from "../hooks/useCodex";
 import { useSaves } from "../hooks/useSaves";
 import { useReveal } from "../hooks/useReveal";
@@ -738,7 +739,8 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     codex.resetCodex();
   };
 
-  const loadSave = async (save: SaveRecord) => {
+  const loadSave = async (rawSave: SaveRecord) => {
+    const save = migrateSave(rawSave);
     let found = null;
     if (save.isCustom && save.premise) {
       found = save.premise;
