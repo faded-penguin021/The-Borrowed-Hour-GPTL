@@ -424,6 +424,7 @@ export interface SaveRecord {
   metaMode: boolean;
   language: string;
   codex: CodexSnapshot | null;
+  schemaVersion?: number;
 }
 
 // A save as surfaced in the saves modal: the stored record plus the runtime

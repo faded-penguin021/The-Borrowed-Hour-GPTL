@@ -6,6 +6,7 @@ import type {
 } from "../types";
 import { SAVE_PREFIX, SAVE_CAP, estimateSize, formatKB, formatTokens } from "../data/constants";
 import { putImage, deleteImagesForSave } from "../storage/imageStore";
+import { migrateSave, CURRENT_SAVE_VERSION } from "../saves/migrate";
 
 interface SaveCurrentArgs {
   premise: Premise | null;
@@ -47,7 +48,7 @@ export function useSaves() {
           if (r?.value) {
             const size = estimateSize(r.value);
             totalBytes += size.bytes;
-            const parsed = JSON.parse(r.value);
+            const parsed = migrateSave(JSON.parse(r.value));
             saves.push({ key, size, ...parsed });
           }
         } catch {}
@@ -130,7 +131,8 @@ export function useSaves() {
       metaMessages: metaMessages.map((m) => ({ ...m, fullyRevealed: true })),
       metaMode,
       language,
-      codex
+      codex,
+      schemaVersion: CURRENT_SAVE_VERSION
     };
     const serialized = JSON.stringify(payload);
     const size = estimateSize(serialized);
