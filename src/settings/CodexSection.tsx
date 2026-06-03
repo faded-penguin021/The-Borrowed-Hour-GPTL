@@ -4,20 +4,10 @@ import { IMAGE_PROVIDER_META, IMAGE_PROVIDER_ORDER, setReplicateKey, getReplicat
 import { PROVIDER_META, TOOL_USE_PROVIDER_ORDER } from "../llm/providers";
 import { CODEX_MODE_OPTIONS } from "../data/constants";
 import { ModelPicker } from "./ModelPicker";
+import { IconButton } from "../components/ui/IconButton";
 
-const fieldStyle = {
-  width: "100%",
-  marginTop: 6,
-  padding: "7px 9px",
-  fontSize: 12,
-  borderRadius: 6,
-  border: "1px solid rgba(232,222,197,0.22)",
-  background: "rgba(22,18,21,0.9)",
-  color: "var(--cream-bright)"
-};
-const subLabel = {
-  color: "var(--cream-dim)", letterSpacing: "0.16em", fontSize: 10, textTransform: "uppercase", marginTop: 14
-};
+const fieldClass = "w-full mt-1.5 px-[9px] py-[7px] text-[12px] rounded-md border border-cream/[0.22] bg-[#161215]/90 text-cream-bright";
+const subLabelClass = "font-display font-medium text-cream-dim tracking-[0.16em] text-[10px] uppercase mt-[14px]";
 
 interface CodexSectionProps {
   settings: AppSettings;
@@ -46,66 +36,51 @@ export function CodexSection({ settings, onChange }: CodexSectionProps) {
   const modeOptions = CODEX_MODE_OPTIONS;
 
   return (
-    <div className="settings-toggle" style={{ cursor: "default", display: "block" }}>
-      <div
-        className="display-font"
-        style={{ color: "var(--cream-bright)", letterSpacing: "0.18em", fontSize: 11, textTransform: "uppercase" }}
-      >
+    <div className="block px-4 py-3 border border-cream/10 bg-[#1c162c]/40 transition-[border-color] duration-[250ms] cursor-default text-left w-full hover:border-rose-gold/30">
+      <div className="font-display font-medium text-cream-bright tracking-[0.18em] text-[11px] uppercase">
         Prestige codex — illustrations
       </div>
-      <div
-        className="body-font italic"
-        style={{ color: "var(--cream-dim)", fontSize: 12, marginTop: 4, lineHeight: 1.6 }}
-      >
+      <div className="font-body italic text-cream-dim text-[12px] mt-1 leading-[1.6]">
         Occasional plates rendered like inserts in a leather-bound manuscript. Text always arrives first; images develop in the background and never block your move.
       </div>
 
-      <div style={subLabel}>Frequency</div>
+      <div className={subLabelClass}>Frequency</div>
       <div
         role="radiogroup"
         aria-label="Illustration frequency"
-        style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}
+        className="flex gap-1.5 mt-1.5 flex-wrap"
       >
         {modeOptions.map((opt) => (
-          <button
+          <IconButton
             key={opt.id}
             type="button"
             role="radio"
             aria-checked={mode === opt.id ? "true" : "false"}
             onClick={() => update({ mode: opt.id })}
-            className="icon-btn"
             title={opt.hint}
-            style={{
-              padding: "6px 12px",
-              fontSize: 10,
-              letterSpacing: "0.2em",
-              borderColor: mode === opt.id ? "rgba(212,165,116,0.55)" : "rgba(232,222,197,0.2)",
-              color: mode === opt.id ? "var(--cream-bright)" : "var(--cream-dim)",
-              background: mode === opt.id ? "rgba(212,165,116,0.08)" : "transparent"
-            }}
+            pad="px-3 py-1.5"
+            className="text-[10px] tracking-[0.2em]"
+            active={mode === opt.id}
           >
             {opt.label.toUpperCase()}
-          </button>
+          </IconButton>
         ))}
       </div>
 
       {mode !== "off" && (
         <>
-          <div style={subLabel}>Image provider</div>
+          <div className={subLabelClass}>Image provider</div>
           <select
             value={providerId}
             aria-label="Image provider"
             onChange={(e) => update({ provider: (e.target.value as ImageProviderId) })}
-            style={fieldStyle}
+            className={fieldClass}
           >
             {IMAGE_PROVIDER_ORDER.map((id) => (
               <option key={id} value={id}>{IMAGE_PROVIDER_META[(id as ImageProviderId)].name}</option>
             ))}
           </select>
-          <div
-            className="body-font italic"
-            style={{ color: "var(--cream-faint)", fontSize: 11, marginTop: 4 }}
-          >
+          <div className="font-body italic text-cream-faint text-[11px] mt-1">
             {IMAGE_PROVIDER_META[providerId].description}
           </div>
 
@@ -120,53 +95,44 @@ export function CodexSection({ settings, onChange }: CodexSectionProps) {
 
           {providerId === "replicate" && (
             <>
-              <div style={subLabel}>Replicate API key</div>
+              <div className={subLabelClass}>Replicate API key</div>
               <input
                 type="password"
                 value={replicateKey}
                 onChange={(e) => { setReplicateKeyState(e.target.value); setReplicateKey(e.target.value); }}
                 placeholder="r8_..."
                 autoComplete="off"
-                style={fieldStyle}
+                className={fieldClass}
               />
-              <div
-                className="body-font italic"
-                style={{ color: "var(--cream-faint)", fontSize: 11, marginTop: 4 }}
-              >
+              <div className="font-body italic text-cream-faint text-[11px] mt-1">
                 Stored locally in plaintext. For encrypted-at-rest storage, set REPLICATE_API_KEY on window or as a meta tag.
               </div>
             </>
           )}
 
           {providerId === "openai" && (
-            <div
-              className="body-font italic"
-              style={{ color: "var(--cream-faint)", fontSize: 11, marginTop: 4 }}
-            >
+            <div className="font-body italic text-cream-faint text-[11px] mt-1">
               Uses your saved OpenAI API key. gpt-image-1 is the value tier (~$0.011–0.040/image, needs org verification). gpt-image-2 is the flagship with improved precision and text rendering.
             </div>
           )}
 
           {providerId === "local" && (
             <>
-              <div style={subLabel}>Endpoint URL</div>
+              <div className={subLabelClass}>Endpoint URL</div>
               <input
                 type="text"
                 value={localUrl}
                 onChange={(e) => { setLocalUrl(e.target.value); setLocalImageUrl(e.target.value); }}
                 placeholder={LOCAL_IMAGE_DEFAULT_URL}
-                style={fieldStyle}
+                className={fieldClass}
               />
-              <div
-                className="body-font italic"
-                style={{ color: "var(--cream-faint)", fontSize: 11, marginTop: 4 }}
-              >
+              <div className="font-body italic text-cream-faint text-[11px] mt-1">
                 A1111-compatible txt2img endpoint (default). Returns base64 images.
               </div>
             </>
           )}
 
-          <div style={subLabel}>Art Director — provider</div>
+          <div className={subLabelClass}>Art Director — provider</div>
           <select
             value={ad.provider}
             aria-label="Art Director provider"
@@ -175,7 +141,7 @@ export function CodexSection({ settings, onChange }: CodexSectionProps) {
               const model = PROVIDER_META[(prov as ProviderId)]?.models?.[0]?.id || ad.model;
               update({ artDirectorEngine: { provider: prov, model } });
             }}
-            style={fieldStyle}
+            className={fieldClass}
           >
             {TOOL_USE_PROVIDER_ORDER.map((id) => (
               <option key={id} value={id}>{PROVIDER_META[(id as ProviderId)].name}</option>
@@ -187,14 +153,11 @@ export function CodexSection({ settings, onChange }: CodexSectionProps) {
             value={ad.model}
             onChange={(m) => update({ artDirectorEngine: { ...ad, model: m } })}
           />
-          <div
-            className="body-font italic"
-            style={{ color: "var(--cream-faint)", fontSize: 11, marginTop: 4 }}
-          >
+          <div className="font-body italic text-cream-faint text-[11px] mt-1">
             A small, cheap LLM is best — its only job is to gate plates and write tight visual briefs.
           </div>
 
-          <div style={subLabel}>Per-session plate cap</div>
+          <div className={subLabelClass}>Per-session plate cap</div>
           <input
             type="number"
             min={0}
@@ -202,12 +165,9 @@ export function CodexSection({ settings, onChange }: CodexSectionProps) {
             step={1}
             value={codex.maxPerSession ?? 12}
             onChange={(e) => update({ maxPerSession: Math.max(0, Math.min(60, parseInt(e.target.value, 10) || 0)) })}
-            style={fieldStyle}
+            className={fieldClass}
           />
-          <div
-            className="body-font italic"
-            style={{ color: "var(--cream-faint)", fontSize: 11, marginTop: 4 }}
-          >
+          <div className="font-body italic text-cream-faint text-[11px] mt-1">
             Hard ceiling on illustrations per session. After the cap, the Art Director still runs but no images are requested.
           </div>
         </>

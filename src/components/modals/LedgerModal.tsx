@@ -1,5 +1,7 @@
 import React from "react";
 import type { PlayerLedger, Premise } from "../../types";
+import { realmText } from "../../data/realmStyles";
+import { Modal } from "../ui/Modal";
 import { X } from "lucide-react";
 
 interface LedgerModalProps {
@@ -11,53 +13,39 @@ interface LedgerModalProps {
 }
 
 export function LedgerModal({ premise, ledger, onClose }: LedgerModalProps) {
-  const realmColor = `var(--${premise.realm})`;
+  const realmColor = realmText[premise.realm];
   const has = (a: unknown) => Array.isArray(a) && a.length > 0;
   const empty = !ledger || !ledger.scene && !ledger.time && !has(ledger.inventory) && !has(ledger.npcs) && !has(ledger.clues) && !ledger.summary;
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
-        <div
-          className="px-6 py-5 border-b flex items-center justify-between"
-          style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
-        >
+    <Modal onClose={onClose}>
+        <div className="px-6 py-5 border-b border-cream/10 flex items-center justify-between">
           <div>
-            <div
-              className="display-font text-[10px] mb-1"
-              style={{ color: "var(--cream-faint)", letterSpacing: "0.4em" }}
-            >
+            <div className="font-display font-medium text-[10px] mb-1 text-cream-faint tracking-[0.4em]">
               WHAT IS KEPT IN THE LEDGER
             </div>
-            <h2
-              className="display-font text-xl"
-              style={{ color: "var(--cream-bright)", letterSpacing: "0.04em" }}
-            >
+            <h2 className="font-display font-medium text-xl text-cream-bright tracking-[0.04em]">
               The current state of your hour
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="display-font text-sm"
-            style={{ color: "var(--cream-dim)", letterSpacing: "0.2em" }}
+            className="font-display font-medium text-sm text-cream-dim tracking-[0.2em]"
           >
             <X size={16} strokeWidth={1.5} />
           </button>
         </div>
         <div className="overflow-y-auto px-6 py-5 space-y-5">
           {empty ? (
-            <div
-              className="text-center body-font italic py-8"
-              style={{ color: "var(--cream-faint)" }}
-            >
+            <div className="text-center font-body italic py-8 text-cream-faint">
               The ledger is still blank. Take an action to fill it.
             </div>
           ) : (
             <>
               {(ledger.scene || ledger.time) && (
                 <LedgerBlock label="WHERE / WHEN" color={realmColor}>
-                  {ledger.scene && <div style={{ color: "var(--cream-bright)" }}>{ledger.scene}</div>}
+                  {ledger.scene && <div className="text-cream-bright">{ledger.scene}</div>}
                   {ledger.time && (
-                    <div className="italic mt-1" style={{ color: "var(--cream-dim)" }}>{ledger.time}</div>
+                    <div className="italic mt-1 text-cream-dim">{ledger.time}</div>
                   )}
                 </LedgerBlock>
               )}
@@ -65,7 +53,7 @@ export function LedgerModal({ premise, ledger, onClose }: LedgerModalProps) {
                 <LedgerBlock label="ON YOUR PERSON" color={realmColor}>
                   <ul className="space-y-1">
                     {ledger.inventory.map((it, i) => (
-                      <li key={i} style={{ color: "var(--cream)" }}>— {it}</li>
+                      <li key={i} className="text-cream">— {it}</li>
                     ))}
                   </ul>
                 </LedgerBlock>
@@ -75,18 +63,11 @@ export function LedgerModal({ premise, ledger, onClose }: LedgerModalProps) {
                   <ul className="space-y-2">
                     {ledger.npcs.map((n, i) => (
                       <li key={i}>
-                        <span
-                          className="display-font"
-                          style={{
-                            color: "var(--cream-bright)",
-                            letterSpacing: "0.04em",
-                            fontSize: "14px"
-                          }}
-                        >
+                        <span className="font-display font-medium text-cream-bright tracking-[0.04em] text-[14px]">
                           {n.name}
                         </span>
                         {n.note && (
-                          <span className="italic" style={{ color: "var(--cream-dim)" }}>
+                          <span className="italic text-cream-dim">
                             {" "}— {n.note}
                           </span>
                         )}
@@ -99,14 +80,14 @@ export function LedgerModal({ premise, ledger, onClose }: LedgerModalProps) {
                 <LedgerBlock label="WHAT YOU KNOW" color={realmColor}>
                   <ul className="space-y-1">
                     {ledger.clues.map((c, i) => (
-                      <li key={i} style={{ color: "var(--cream)" }}>— {c}</li>
+                      <li key={i} className="text-cream">— {c}</li>
                     ))}
                   </ul>
                 </LedgerBlock>
               )}
               {ledger.summary && (
                 <LedgerBlock label="THE STORY SO FAR" color={realmColor}>
-                  <div className="italic" style={{ color: "var(--cream)", lineHeight: 1.6 }}>
+                  <div className="italic text-cream leading-[1.6]">
                     {ledger.summary}
                   </div>
                 </LedgerBlock>
@@ -114,8 +95,7 @@ export function LedgerModal({ premise, ledger, onClose }: LedgerModalProps) {
             </>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -128,17 +108,10 @@ interface LedgerBlockProps {
 export function LedgerBlock({ label, color, children }: LedgerBlockProps) {
   return (
     <div>
-      <div
-        className="display-font mb-2"
-        style={{
-          color: color || "var(--cream-faint)",
-          letterSpacing: "0.35em",
-          fontSize: "10px"
-        }}
-      >
+      <div className={`font-display font-medium mb-2 tracking-[0.35em] text-[10px] ${color || "text-cream-faint"}`}>
         <span className="divider-ornament-inline">{label}</span>
       </div>
-      <div className="body-font text-base" style={{ lineHeight: 1.6 }}>
+      <div className="font-body text-base leading-[1.6]">
         {children}
       </div>
     </div>

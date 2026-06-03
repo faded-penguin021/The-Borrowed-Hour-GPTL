@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { IconButton } from "./ui/IconButton";
 
 interface ErrorRawDetailProps {
   raw?: unknown;
@@ -23,37 +24,18 @@ export function ErrorRawDetail({ raw }: ErrorRawDetailProps) {
     }
   };
   return (
-    <div className="mt-2" style={{ textAlign: "left", opacity: 0.75 }}>
-      <div
-        style={{
-          fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-          fontSize: "11px",
-          lineHeight: 1.4,
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          maxHeight: "200px",
-          overflowY: "auto",
-          padding: "8px 10px",
-          border: "1px solid rgba(217,122,122,0.35)",
-          borderRadius: "4px",
-          background: "rgba(0,0,0,0.18)"
-        }}
-      >
+    <div className="mt-2 text-left opacity-[0.75]">
+      <div className="font-mono text-[11px] leading-[1.4] whitespace-pre-wrap break-words max-h-[200px] overflow-y-auto py-2 px-2.5 border border-[rgba(217,122,122,0.35)] rounded-[4px] bg-black/[0.18]">
         {preview}
       </div>
-      <button
+      <IconButton
         onClick={handleCopy}
-        className="icon-btn"
-        style={{
-          marginTop: "6px",
-          fontSize: "10px",
-          letterSpacing: "0.18em",
-          padding: "4px 10px"
-        }}
+        pad="px-[10px] py-1"
+        className="mt-1.5 text-[10px] tracking-[0.18em]"
         title="Copy the full raw model response to the clipboard"
       >
         {copied ? "COPIED" : "COPY RAW RESPONSE"}
-      </button>
+      </IconButton>
     </div>
   );
 }

@@ -13,16 +13,7 @@ interface EngineSectionProps {
 export function EngineSection({ settings, onChange }: EngineSectionProps) {
   const stack = settings.engineStack || "gemini";
   const free = !!settings.freeModelSelection;
-  const fieldStyle = {
-    width: "100%",
-    marginTop: 6,
-    padding: "7px 9px",
-    fontSize: 12,
-    borderRadius: 6,
-    border: "1px solid rgba(232,222,197,0.22)",
-    background: "rgba(22,18,21,0.9)",
-    color: "var(--cream-bright)"
-  };
+  const fieldClass = "w-full mt-1.5 px-[9px] py-[7px] text-[12px] rounded-md border border-cream/[0.22] bg-[#161215]/90 text-cream-bright";
   const handleStackChange = (newStack: string) => {
     const preset = FREE_MODELS_BY_PROVIDER[newStack as keyof typeof FREE_MODELS_BY_PROVIDER];
     onChange("engineStack", newStack);
@@ -40,32 +31,23 @@ export function EngineSection({ settings, onChange }: EngineSectionProps) {
     }
   };
   return (
-    <div className="settings-toggle" style={{ cursor: "default", display: "block" }}>
-      <div
-        className="display-font"
-        style={{ color: "var(--cream-bright)", letterSpacing: "0.18em", fontSize: 11, textTransform: "uppercase" }}
-      >
+    <div className="block px-4 py-3 border border-cream/10 bg-[#1c162c]/40 transition-[border-color] duration-[250ms] cursor-default text-left w-full hover:border-rose-gold/30">
+      <div className="font-display font-medium text-cream-bright tracking-[0.18em] text-[11px] uppercase">
         Story engines
       </div>
-      <div
-        className="body-font italic"
-        style={{ color: "var(--cream-dim)", fontSize: 12, marginTop: 4, lineHeight: 1.6 }}
-      >
+      <div className="font-body italic text-cream-dim text-[12px] mt-1 leading-[1.6]">
         Three separate models handle distinct roles: the Opener sets the literary tone, the GM resolves logic and state, the Narrator renders player-facing prose. The Opener and GM call structured tools, so they are restricted to providers with reliable tool-use support; the Narrator can use any provider.
       </div>
       {!free && (
         <>
-          <div
-            className="display-font"
-            style={{ color: "var(--cream-dim)", letterSpacing: "0.16em", fontSize: 10, textTransform: "uppercase", marginTop: 14 }}
-          >
+          <div className="font-display font-medium text-cream-dim tracking-[0.16em] text-[10px] uppercase mt-[14px]">
             Model stack
           </div>
           <select
             value={stack}
             aria-label="Model stack"
             onChange={(e) => handleStackChange(e.target.value)}
-            style={fieldStyle}
+            className={fieldClass}
           >
             <option key="free" value="free">Free (Mistral)</option>
             {TOOL_USE_PROVIDER_ORDER.map((id) => (

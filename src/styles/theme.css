@@ -1,46 +1,44 @@
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap');
 
+/* Palette. Held as space-separated RGB channels so Tailwind can apply opacity
+ * modifiers (`border-cream/10`, `bg-twilight/65`) — see tailwind.config.js,
+ * which names these as `rgb(var(--x) / <alpha-value>)`. The vars are the
+ * runtime source of truth; the high-contrast theme below overrides them and
+ * every colour utility follows automatically. */
 :root {
-  --twilight: #0a0814;
-  --twilight-deep: #050309;
-  --gloaming: #14101e;
-  --cream: #e8dec5;
-  --cream-bright: #f4ecd8;
-  --cream-dim: #9a8d7a;
-  --cream-faint: #524a3e;
-  --rose-gold: #d4a574;
-  --rose-ember: #d97a7a;
+  --twilight: 10 8 20;
+  --twilight-deep: 5 3 9;
+  --gloaming: 20 16 30;
+  --cream: 232 222 197;
+  --cream-bright: 244 236 216;
+  --cream-dim: 154 141 122;
+  --cream-faint: 82 74 62;
+  --rose-gold: 212 165 116;
+  --rose-ember: 217 122 122;
 
-  --echo: #b8c8d8;
-  --echo-border: rgba(184, 200, 216, 0.4);
-  --echo-bg: rgba(184, 200, 216, 0.06);
-
-  --neon: #e87faa;
-  --neon-border: rgba(232, 127, 170, 0.45);
-  --neon-bg: rgba(232, 127, 170, 0.06);
-
-  --omen: #d4a574;
-  --omen-border: rgba(212, 165, 116, 0.45);
-  --omen-bg: rgba(212, 165, 116, 0.06);
-
-  --dream: #c8a8e0;
-  --dream-border: rgba(200, 168, 224, 0.45);
-  --dream-bg: rgba(200, 168, 224, 0.06);
-
-  --wild: #b8c896;
-  --wild-border: rgba(184, 200, 150, 0.45);
-  --wild-bg: rgba(184, 200, 150, 0.06);
+  --echo: 184 200 216;
+  --neon: 232 127 170;
+  --omen: 212 165 116;
+  --dream: 200 168 224;
+  --wild: 184 200 150;
 }
 
 .borrowed-root {
   background:
     radial-gradient(ellipse at 25% 15%, rgba(200, 168, 224, 0.06) 0%, transparent 55%),
     radial-gradient(ellipse at 80% 85%, rgba(212, 165, 116, 0.05) 0%, transparent 55%),
-    radial-gradient(ellipse at center, var(--gloaming) 0%, var(--twilight) 80%);
-  color: var(--cream);
+    radial-gradient(ellipse at center, rgb(var(--gloaming)) 0%, rgb(var(--twilight)) 80%);
+  color: rgb(var(--cream));
   font-family: 'Cormorant Garamond', serif;
   font-size: 18px;
   line-height: 1.7;
+}
+
+/* Inline lucide icons read as glyphs throughout — keep them baseline-aligned
+ * wherever they sit inside a run of small-caps label text. */
+svg.lucide {
+  display: inline;
+  vertical-align: middle;
 }
 
 .borrowed-grain::before {
@@ -63,62 +61,31 @@
   background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.6) 95%);
 }
 
-.display-font { font-family: 'Cinzel', serif; font-weight: 500; }
-.body-font    { font-family: 'Cormorant Garamond', serif; }
-
-.realm-pill {
-  display: inline-block;
-  font-family: 'Cinzel', serif;
-  font-size: 9px;
-  letter-spacing: 0.4em;
-  padding: 4px 10px;
-  border: 1px solid;
-}
-.realm-echo   { color: var(--echo);   border-color: var(--echo-border);   background: var(--echo-bg); }
-.realm-neon   { color: var(--neon);   border-color: var(--neon-border);   background: var(--neon-bg); }
-.realm-omen   { color: var(--omen);   border-color: var(--omen-border);   background: var(--omen-bg); }
-.realm-dream  { color: var(--dream);  border-color: var(--dream-border);  background: var(--dream-bg); }
-.realm-wild   { color: var(--wild);   border-color: var(--wild-border);   background: var(--wild-bg); }
-
-
+/* Narration prose. The faint text-shadow and pre-wrap are awkward as utilities
+ * and the high-contrast theme silences the shadow, so this stays a class. Text
+ * colour is supplied by the element (bright for narration, dim for the reveal)
+ * so it never depends on stylesheet order. */
 .narration-text {
-  color: var(--cream-bright);
   text-shadow: 0 0 24px rgba(232, 222, 197, 0.04);
   white-space: pre-wrap;
 }
 
+/* Player actions, prefixed with a rose chevron via ::before. */
 .action-text {
-  color: var(--cream-dim);
+  color: rgb(var(--cream-dim));
   font-style: italic;
   white-space: pre-wrap;
 }
 .action-text::before {
   content: "› ";
-  color: var(--rose-ember);
+  color: rgb(var(--rose-ember));
   font-style: normal;
   font-weight: 500;
 }
 
-.borrowed-input {
-  background: rgba(10, 8, 20, 0.65);
-  border: 1px solid rgba(232, 222, 197, 0.15);
-  color: var(--cream-bright);
-  font-family: 'Cormorant Garamond', serif;
-  transition: border-color 0.3s, box-shadow 0.3s;
-}
-.borrowed-input::placeholder {
-  color: var(--cream-faint);
-  font-style: italic;
-}
-.borrowed-input:focus {
-  outline: none;
-  border-color: rgba(212, 165, 116, 0.45);
-  box-shadow: 0 0 30px rgba(212, 165, 116, 0.08), inset 0 0 0 1px rgba(212, 165, 116, 0.1);
-}
-
 .cursor-blink::after {
   content: "▍";
-  color: var(--rose-gold);
+  color: rgb(var(--rose-gold));
   animation: blink 1.05s steps(2) infinite;
   margin-left: 2px;
 }
@@ -169,34 +136,12 @@
   to   { transform: rotate(360deg); }
 }
 
-/* The inline STOP button next to the loading phrase. Quiet by default —
- * doesn't compete with the loading texture — but readable enough that a
- * player who wants to cancel can find it. Danger-tinted on hover to make
- * the action's weight visible at the moment of clicking. */
-.loading-stop-btn {
-  margin-left: 14px;
-  padding: 2px 10px;
-  background: transparent;
-  border: 1px solid rgba(232, 222, 197, 0.18);
-  color: var(--cream-faint);
-  font-family: 'Cinzel', serif;
-  font-size: 9px;
-  font-style: normal;
-  letter-spacing: 0.3em;
-  cursor: pointer;
-  vertical-align: middle;
-  transition: all 0.25s;
-}
-.loading-stop-btn:hover {
-  border-color: rgba(217, 122, 122, 0.5);
-  color: var(--rose-ember);
-}
-
+/* The text colour is set by the element (cream-faint, or a realm accent on the
+ * resolution screen); the gradient rules below are colour-fixed. */
 .divider-mark {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: var(--cream-faint);
 }
 .divider-mark::before, .divider-mark::after {
   content: "";
@@ -220,58 +165,16 @@
   margin-right: 6px;
 }
 
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(5, 3, 9, 0.85);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.3s ease-out;
-  padding: 20px;
-}
+/* Mobile compositor blur is dropped at the Modal level via utilities; nothing
+ * modal-specific remains here. */
 
-.modal-panel {
-  background: linear-gradient(180deg, #16121f 0%, #0a0814 100%);
-  border: 1px solid rgba(232, 222, 197, 0.15);
-  max-width: 560px;
-  width: 100%;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-  /* min-height: 0 lets the inner overflow-y-auto child actually scroll inside
-   * a flex column on mobile (otherwise content can spill out / vanish off
-   * the bottom on small viewports). overflow: hidden keeps gradient borders
-   * crisp on Fennec, which is happy to paint slightly outside otherwise. */
-  min-height: 0;
-  overflow: hidden;
-}
-
-/* The blurred backdrop is expensive enough on Firefox-Android (Fennec) to
- * stall the compositor when a modal opens — the Ledger button being the
- * obvious offender since gameState renders can be large. Drop the blur on
- * mobile and lean the background opacity up a touch to compensate. */
-@media (max-width: 720px) {
-  .modal-backdrop {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    background: rgba(5, 3, 9, 0.94);
-  }
-}
-
-
-/* Language selector on the title screen. Matches .icon-btn's twilight-cream
- * register but uses a slightly larger letter-spacing-friendly font size so
- * native-script labels (中文, 한국어, 日本語) read clearly without dwarfing
- * the all-caps Latin neighbors. The custom dropdown chevron replaces the
- * platform default, which clashes with the dark backdrop. */
+/* Language selector on the title screen. Kept as a class because theming a
+ * native <select> needs the custom dropdown chevron (a background SVG) and
+ * <option> styling that utilities can't reach. */
 .lang-select {
   background: transparent;
   border: 1px solid rgba(232, 222, 197, 0.2);
-  color: var(--cream-dim);
+  color: rgb(var(--cream-dim));
   padding: 6px 32px 6px 14px;
   font-family: 'Cormorant Garamond', 'Cinzel', serif;
   font-size: 13px;
@@ -288,24 +191,23 @@
 }
 .lang-select:hover:not(:disabled) {
   border-color: rgba(212, 165, 116, 0.5);
-  color: var(--cream-bright);
+  color: rgb(var(--cream-bright));
 }
 .lang-select:disabled { opacity: 0.4; cursor: not-allowed; }
 .lang-select option {
   background: #1a1612;
-  color: var(--cream);
+  color: rgb(var(--cream));
   font-family: 'Cormorant Garamond', serif;
 }
 
-button:focus-visible, textarea:focus-visible {
+button:focus-visible, textarea:focus-visible, select:focus-visible {
   outline: 1px solid rgba(212, 165, 116, 0.4);
   outline-offset: 2px;
 }
 
-/* Mobile-specific adjustments. The header would otherwise overflow with all
-   six action buttons; we drop the text labels and let icons + tooltips
-   carry the meaning. The input row gets safe-area padding so the iOS home
-   indicator doesn't sit on top of the textarea. */
+/* Responsive layout for the game shell. These stay as classes because they are
+ * pure layout concerns keyed to a single breakpoint; the colour/typographic
+ * styling lives on the elements as utilities. */
 @media (max-width: 720px) {
   .borrowed-root { font-size: 17px; }
   .header-actions {
@@ -315,16 +217,12 @@ button:focus-visible, textarea:focus-visible {
     scrollbar-width: none;
   }
   .header-actions::-webkit-scrollbar { display: none; }
-  .header-actions .icon-btn {
+  .header-actions button {
     padding: 6px 8px;
     letter-spacing: 0.12em;
     flex-shrink: 0;
     font-size: 9px;
   }
-  /* Mobile previously hid btn-label entirely, leaving title/aria-label as
-   * the only carrier of meaning — useless for sighted players who can't
-   * hover on a phone. Keep the text, just tighter. The header already
-   * scrolls horizontally so the extra width is absorbed. */
   .btn-label { display: inline; }
   .game-header {
     padding-left: 14px !important;
@@ -374,27 +272,25 @@ button:focus-visible, textarea:focus-visible {
   border: 0;
 }
 
-/* HIGH-CONTRAST MODE. Toggle-driven; opt-in. The aesthetic loses its
- * twilight register on purpose — the choice here is legibility for readers
- * who need it, not preservation of mood. We override the CSS variables at
- * the root scope, then silence the decorative grain/vignette overlays
- * (which sit at 0.06 opacity in regular mode but visibly muddy text in
- * high-contrast), and stiffen the borders that are otherwise rgba'd down
- * to ghost-strength. The realm-tinted accents stay because they carry
- * meaning (which premise is active) more than mood. */
+/* HIGH-CONTRAST MODE. Toggle-driven; opt-in. Overriding the palette vars does
+ * almost all the work — every colour utility re-resolves against white/black.
+ * What remains here is non-colour: killing the decorative grain/vignette and
+ * the narration text-shadow that muddy text at this contrast. Border
+ * strengthening that the var swap can't express lives in the markup as the
+ * `high-contrast:` Tailwind variant. */
 .borrowed-root.high-contrast {
-  --cream:        #ffffff;
-  --cream-bright: #ffffff;
-  --cream-dim:    #d8d2c4;
-  --cream-faint:  #b8b0a0;
-  --twilight:      #000000;
-  --twilight-deep: #000000;
-  --gloaming:      #0a0a0f;
-  --rose-gold:    #ffc788;
-  --rose-ember:   #ff9a9a;
+  --cream:        255 255 255;
+  --cream-bright: 255 255 255;
+  --cream-dim:    216 210 196;
+  --cream-faint:  184 176 160;
+  --twilight:      0 0 0;
+  --twilight-deep: 0 0 0;
+  --gloaming:      10 10 15;
+  --rose-gold:    255 199 136;
+  --rose-ember:   255 154 154;
 }
 .borrowed-root.high-contrast {
-  background: var(--twilight) !important;
+  background: rgb(var(--twilight)) !important;
 }
 .borrowed-root.high-contrast .borrowed-grain::before,
 .borrowed-root.high-contrast .borrowed-vignette::after {
@@ -403,43 +299,18 @@ button:focus-visible, textarea:focus-visible {
 .borrowed-root.high-contrast .narration-text {
   text-shadow: none;
 }
-.borrowed-root.high-contrast .premise-card {
-  border-color: rgba(255, 255, 255, 0.4);
-  background: rgba(0, 0, 0, 0.6);
-}
-.borrowed-root.high-contrast .icon-btn,
-.borrowed-root.high-contrast .borrowed-input,
-.borrowed-root.high-contrast .lang-select,
-.borrowed-root.high-contrast .save-row {
+.borrowed-root.high-contrast .lang-select {
   border-color: rgba(255, 255, 255, 0.5);
-}
-.borrowed-root.high-contrast .icon-btn { color: var(--cream-bright); }
-.borrowed-root.high-contrast .save-row {
-  background: rgba(0, 0, 0, 0.55);
-}
-.borrowed-root.high-contrast .modal-panel {
-  background: #050505;
-  border-color: rgba(255, 255, 255, 0.45);
-}
-.borrowed-root.high-contrast .modal-backdrop {
-  background: rgba(0, 0, 0, 0.92);
-}
-.borrowed-root.high-contrast button:focus-visible,
-.borrowed-root.high-contrast textarea:focus-visible,
-.borrowed-root.high-contrast select:focus-visible {
-  outline: 2px solid #ffd28a;
-  outline-offset: 2px;
 }
 
 /* prefers-reduced-motion: respect the OS-level signal in addition to the
- * in-app toggle. Kills page-load fades, the typing-dot pulse, the blink
- * cursor, and the premise-card lift. The typewriter ANIMATION itself is
- * driven by JS and is handled there — see the typewriter component, which
- * reads the same matchMedia query and renders instantly when reduce is on.
- * We deliberately leave the slow-fade-in alone for loading phrases since
- * a single, slow opacity transition is more like UI continuity than
- * "motion" in the vestibular sense; reduced-motion specs explicitly allow
- * non-vestibular fades. */
+ * in-app toggle. Kills page-load fades, the typing-dot pulse, and the blink
+ * cursor. The typewriter ANIMATION itself is driven by JS and is handled there
+ * — see the typewriter component, which reads the same matchMedia query and
+ * renders instantly when reduce is on. We deliberately leave the slow-fade-in
+ * alone for loading phrases since a single, slow opacity transition is more
+ * like UI continuity than "motion" in the vestibular sense; reduced-motion
+ * specs explicitly allow non-vestibular fades. */
 @media (prefers-reduced-motion: reduce) {
   .fade-in,
   .slow-fade-in {
@@ -454,62 +325,9 @@ button:focus-visible, textarea:focus-visible {
   }
 }
 
-/* Settings panel — a small, dignified popover, not a full modal.
- * Triggered from the gear button on the title screen and the game header.
- * Stays close to the aesthetic of icon-btn (twilight + cream + small
- * caps) and uses toggle rows that match the save-row pattern. */
-.settings-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 16px;
-  border: 1px solid rgba(232, 222, 197, 0.1);
-  background: rgba(28, 22, 44, 0.4);
-  transition: border-color 0.25s;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-}
-.settings-toggle:hover {
-  border-color: rgba(212, 165, 116, 0.3);
-}
-.settings-toggle-track {
-  position: relative;
-  width: 34px;
-  height: 18px;
-  border-radius: 9px;
-  background: rgba(232, 222, 197, 0.15);
-  border: 1px solid rgba(232, 222, 197, 0.25);
-  transition: all 0.25s;
-  flex-shrink: 0;
-}
-.settings-toggle-track[data-on="true"] {
-  background: rgba(212, 165, 116, 0.35);
-  border-color: rgba(212, 165, 116, 0.7);
-}
-.settings-toggle-thumb {
-  position: absolute;
-  top: 1px;
-  left: 1px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--cream-bright);
-  transition: transform 0.25s;
-}
-.settings-toggle-track[data-on="true"] .settings-toggle-thumb {
-  transform: translateX(16px);
-  background: var(--rose-gold);
-}
-@media (prefers-reduced-motion: reduce) {
-  .settings-toggle-track,
-  .settings-toggle-thumb {
-    transition: none !important;
-  }
-}
-
 /* ── Prestige Codex — illustration plates ────────────────────────── */
+/* Kept whole: the "darkroom developing" reveal is a multi-stage filter
+ * animation with pending/missing pseudo-states that utilities can't express. */
 .codex-plate {
   margin: 18px 0 8px;
   padding: 10px;
@@ -552,7 +370,7 @@ button:focus-visible, textarea:focus-visible {
   font-family: 'Cinzel', serif;
   font-size: 10px;
   letter-spacing: 0.35em;
-  color: var(--cream-faint);
+  color: rgb(var(--cream-faint));
   background:
     repeating-linear-gradient(
       45deg,
@@ -593,7 +411,7 @@ button:focus-visible, textarea:focus-visible {
   font-family: 'Cinzel', serif;
   font-size: 9px;
   letter-spacing: 0.3em;
-  color: var(--cream-faint);
+  color: rgb(var(--cream-faint));
   text-transform: uppercase;
   text-align: center;
   font-style: normal;
@@ -602,4 +420,34 @@ button:focus-visible, textarea:focus-visible {
   .codex-plate-img { transition: opacity 0.2s ease-out, filter 0.2s ease-out; }
   .codex-plate-pending { animation: none; }
   .codex-plate-missing { animation: none; opacity: 0.4; }
+}
+
+/* ── Premise cards (title screen) ── */
+/* Only the realm-keyed radial glow (::before) and the realm hover accent stay
+ * in CSS — pseudo-elements and per-realm shadows that utilities can't carry.
+ * The card's base look (border, gradient, padding, hover lift) lives on the
+ * element as utilities. */
+.premise-card { position: relative; overflow: hidden; }
+.premise-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.6s;
+  pointer-events: none;
+}
+.premise-card[data-realm="echo"]::before  { background: radial-gradient(circle at 50% 0%, rgba(184, 200, 216, 0.13), transparent 60%); }
+.premise-card[data-realm="neon"]::before  { background: radial-gradient(circle at 50% 0%, rgba(232, 127, 170, 0.13), transparent 60%); }
+.premise-card[data-realm="omen"]::before  { background: radial-gradient(circle at 50% 0%, rgba(212, 165, 116, 0.13), transparent 60%); }
+.premise-card[data-realm="dream"]::before { background: radial-gradient(circle at 50% 0%, rgba(200, 168, 224, 0.13), transparent 60%); }
+.premise-card[data-realm="wild"]::before  { background: radial-gradient(circle at 50% 0%, rgba(184, 200, 150, 0.13), transparent 60%); }
+.premise-card:hover::before { opacity: 1; }
+.premise-card[data-realm="echo"]:hover  { border-color: rgba(184, 200, 216, 0.4); box-shadow: 0 20px 60px -25px rgba(184, 200, 216, 0.22); }
+.premise-card[data-realm="neon"]:hover  { border-color: rgba(232, 127, 170, 0.45); box-shadow: 0 20px 60px -25px rgba(232, 127, 170, 0.22); }
+.premise-card[data-realm="omen"]:hover  { border-color: rgba(212, 165, 116, 0.45); box-shadow: 0 20px 60px -25px rgba(212, 165, 116, 0.22); }
+.premise-card[data-realm="dream"]:hover { border-color: rgba(200, 168, 224, 0.45); box-shadow: 0 20px 60px -25px rgba(200, 168, 224, 0.22); }
+.premise-card[data-realm="wild"]:hover  { border-color: rgba(184, 200, 150, 0.45); box-shadow: 0 20px 60px -25px rgba(184, 200, 150, 0.22); }
+.borrowed-root.high-contrast .premise-card {
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  background: rgba(0, 0, 0, 0.6) !important;
 }

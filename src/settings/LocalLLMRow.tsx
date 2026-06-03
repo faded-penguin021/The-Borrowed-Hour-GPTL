@@ -3,6 +3,7 @@ import { LOCAL_DEFAULT_URL } from "../data/constants";
 import { encryptSecret } from "../storage/encryption";
 import { PROVIDER_META } from "../llm/providers";
 import { usePassphrase } from "../context/PassphraseContext";
+import { BTN_SETTINGS, FIELD_SETTINGS } from "../components/ui/styleClasses";
 
 /** No props. */
 export function LocalLLMRow() {
@@ -48,10 +49,10 @@ export function LocalLLMRow() {
   };
   return (
     <div className="mt-3">
-      <div className="display-font text-cream-dim tracking-display text-[10px] uppercase mb-[5px]">
+      <div className="font-display font-medium text-cream-dim tracking-display text-[10px] uppercase mb-[5px]">
         Local LLM
       </div>
-      <div className="body-font italic text-cream-faint text-[11px] leading-normal mb-1">
+      <div className="font-body italic text-cream-faint text-[11px] leading-normal mb-1">
         Paste the chat-completions endpoint of your local server (Ollama, LM Studio, llama.cpp). No API key required for most local setups. For Ollama, set OLLAMA_ORIGINS to this page's origin (e.g. http://localhost:5173) before starting.
       </div>
       <input
@@ -61,20 +62,20 @@ export function LocalLLMRow() {
         aria-label="Local LLM endpoint URL"
         onChange={(e) => setUrl(e.target.value)}
         onBlur={(e) => saveUrl(e.target.value)}
-        className="field-settings w-full mt-1"
+        className={`${FIELD_SETTINGS} w-full mt-1`}
         autoComplete="off"
         spellCheck={false}
       />
-      <div className="display-font text-cream-faint tracking-wide text-[10px] uppercase mt-2 mb-1">
+      <div className="font-display font-medium text-cream-faint tracking-wide text-[10px] uppercase mt-2 mb-1">
         Bearer token (optional)
       </div>
       {keyStored && !editingKey ? (
         <div className="flex gap-1.5 items-center">
-          <span className="body-font italic text-cream-faint text-[11px] flex-1">
+          <span className="font-body italic text-cream-faint text-[11px] flex-1">
             Token stored
           </span>
-          <button className="btn-settings" onClick={() => setEditingKey(true)}>REPLACE</button>
-          <button className="btn-settings !text-[rgba(200,100,100,0.8)]" onClick={forgetKey}>FORGET</button>
+          <button className={BTN_SETTINGS} onClick={() => setEditingKey(true)}>REPLACE</button>
+          <button className={`${BTN_SETTINGS} !text-[rgba(200,100,100,0.8)]`} onClick={forgetKey}>FORGET</button>
         </div>
       ) : (
         <div className="flex gap-1.5">
@@ -88,19 +89,18 @@ export function LocalLLMRow() {
             }}
             placeholder="Bearer token (leave blank if not needed)"
             aria-label="Local LLM bearer token"
-            className="field-settings"
+            className={FIELD_SETTINGS}
             autoComplete="off"
           />
           <button
-            className="btn-settings"
-            style={{ opacity: key.trim() ? 1 : 0.45, cursor: key.trim() ? "pointer" : "default" }}
+            className={BTN_SETTINGS}
             onClick={saveKey}
             disabled={!key.trim()}
           >
             SAVE
           </button>
           {keyStored && (
-            <button className="btn-settings" onClick={() => { setEditingKey(false); setKey(""); }}>CANCEL</button>
+            <button className={BTN_SETTINGS} onClick={() => { setEditingKey(false); setKey(""); }}>CANCEL</button>
           )}
         </div>
       )}

@@ -7,17 +7,11 @@ import { PROVIDER_ORDER } from "../llm/providers";
 /** No props. */
 export function ApiKeysSection() {
   return (
-    <div className="settings-toggle" style={{ cursor: "default", display: "block" }}>
-      <div
-        className="display-font"
-        style={{ color: "var(--cream-bright)", letterSpacing: "0.18em", fontSize: 11, textTransform: "uppercase" }}
-      >
+    <div className="block px-4 py-3 border border-cream/10 bg-[#1c162c]/40 cursor-default text-left w-full">
+      <div className="font-display font-medium text-cream-bright tracking-[0.18em] text-[11px] uppercase">
         API keys
       </div>
-      <div
-        className="body-font italic"
-        style={{ color: "var(--cream-dim)", fontSize: 12, marginTop: 4, lineHeight: 1.6 }}
-      >
+      <div className="font-body italic text-cream-dim text-xs mt-1 leading-[1.6]">
         Keys are stored only in this browser's localStorage and are never sent anywhere except the provider's own API.
       </div>
       {PROVIDER_ORDER.filter((id) => id !== "local").map((id) => (

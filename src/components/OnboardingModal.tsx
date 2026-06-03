@@ -3,6 +3,9 @@ import { encryptSecret } from "../storage/encryption";
 import { ONBOARDING_KEY } from "../data/constants";
 import { PROVIDER_META } from "../llm/providers";
 import { usePassphrase } from "../context/PassphraseContext";
+import { Modal } from "./ui/Modal";
+import { IconButton } from "./ui/IconButton";
+import { FIELD_SETTINGS } from "./ui/styleClasses";
 import { Sparkles, ArrowRight } from "lucide-react";
 
 /** The provider offered during onboarding — the default free engine. */
@@ -69,10 +72,10 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
       title: "The Borrowed Hour",
       body: (
         <>
-          <p className="body-font italic text-sm" style={{ color: "var(--cream-dim)", lineHeight: 1.7 }}>
+          <p className="font-body italic text-sm text-cream-dim leading-[1.7]">
             An hour is lent to you — a single turn of a story told in cream and twilight. You choose what happens; an AI narrator tells how it unfolds.
           </p>
-          <p className="body-font italic text-sm" style={{ color: "var(--cream-faint)", lineHeight: 1.7, marginTop: 12 }}>
+          <p className="font-body italic text-sm text-cream-faint leading-[1.7] mt-3">
             A few things before the clock starts.
           </p>
         </>
@@ -83,10 +86,10 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
       title: "Bring your own model",
       body: (
         <>
-          <p className="body-font italic text-sm" style={{ color: "var(--cream-dim)", lineHeight: 1.7 }}>
+          <p className="font-body italic text-sm text-cream-dim leading-[1.7]">
             The story is told by a model you bring. Your API keys are encrypted with a passphrase you choose and kept only in this browser's storage — they're never sent anywhere except the provider's own API.
           </p>
-          <p className="body-font italic text-sm" style={{ color: "var(--cream-faint)", lineHeight: 1.7, marginTop: 12 }}>
+          <p className="font-body italic text-sm text-cream-faint leading-[1.7] mt-3">
             The passphrase is asked for once a session and held in memory. Forget it and your stored keys simply stay locked — nothing is lost, you just re-enter them.
           </p>
         </>
@@ -100,7 +103,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
           <div>
             <label
               htmlFor="onboarding-passphrase"
-              className="display-font text-cream-dim tracking-display text-[10px] uppercase block mb-[5px]"
+              className="font-display font-medium text-cream-dim tracking-display text-[10px] uppercase block mb-[5px]"
             >
               Session passphrase
             </label>
@@ -112,15 +115,15 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
               placeholder="Choose a passphrase…"
               aria-label="Session passphrase"
               autoComplete="new-password"
-              className="field-settings w-full"
+              className={`${FIELD_SETTINGS} w-full`}
             />
           </div>
           <div>
             <label
               htmlFor="onboarding-apikey"
-              className="display-font text-cream-dim tracking-display text-[10px] uppercase block mb-[5px]"
+              className="font-display font-medium text-cream-dim tracking-display text-[10px] uppercase block mb-[5px]"
             >
-              {meta.name} API key <span style={{ opacity: 0.6 }}>(optional)</span>
+              {meta.name} API key <span className="opacity-60">(optional)</span>
             </label>
             <input
               id="onboarding-apikey"
@@ -130,14 +133,14 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
               placeholder={`Paste a ${meta.name} key, or add one later…`}
               aria-label={`${meta.name} API key`}
               autoComplete="off"
-              className="field-settings w-full"
+              className={`${FIELD_SETTINGS} w-full`}
             />
-            <p className="body-font italic text-cream-faint text-[11px] leading-normal mt-1">
+            <p className="font-body italic text-cream-faint text-[11px] leading-normal mt-1">
               Encrypted with your passphrase before it touches storage. You can add or change keys anytime under Settings → System.
             </p>
           </div>
           {error && (
-            <p className="body-font text-[11px] leading-normal" style={{ color: "rgba(200,120,100,0.9)" }}>
+            <p className="font-body text-[11px] leading-normal text-[rgba(200,120,100,0.9)]">
               {error}
             </p>
           )}
@@ -150,62 +153,51 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   const isLast = slide === SLIDES.length - 1;
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-panel" style={{ maxWidth: 480 }}>
-        <div className="px-6 py-5 border-b" style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}>
-          <div className="display-font text-[10px] mb-1" style={{ color: "var(--cream-faint)", letterSpacing: "0.4em" }}>
+    <Modal onClose={() => {}} panelClassName="!max-w-[480px]">
+        <div className="px-6 py-5 border-b border-cream/10">
+          <div className="font-display font-medium text-[10px] mb-1 text-cream-faint tracking-[0.4em]">
             {current.eyebrow}
           </div>
-          <h2 className="display-font text-xl" style={{ color: "var(--cream-bright)", letterSpacing: "0.04em" }}>
+          <h2 className="font-display font-medium text-xl text-cream-bright tracking-[0.04em]">
             {current.title}
           </h2>
         </div>
 
-        <div className="overflow-y-auto px-6 py-5" style={{ minHeight: 180 }}>
+        <div className="overflow-y-auto px-6 py-5 min-h-[180px]">
           {current.body}
         </div>
 
-        <div
-          className="px-6 py-4 border-t flex items-center justify-between gap-3"
-          style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
-        >
+        <div className="px-6 py-4 border-t border-cream/10 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2" aria-hidden="true">
             {SLIDES.map((_, i) => (
               <span
                 key={i}
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  background: i === slide ? "var(--rose-gold)" : "rgba(232, 222, 197, 0.25)",
-                  transition: "background 0.25s",
-                }}
+                className={`w-1.5 h-1.5 rounded-full transition-[background] duration-[250ms] ${i === slide ? "bg-rose-gold" : "bg-cream/25"}`}
               />
             ))}
           </div>
           <div className="flex items-center gap-2">
             {slide > 0 && (
-              <button onClick={() => setSlide(slide - 1)} className="icon-btn" style={{ padding: "8px 16px" }} disabled={saving}>
+              <IconButton onClick={() => setSlide(slide - 1)} pad="px-4 py-2" disabled={saving}>
                 BACK
-              </button>
+              </IconButton>
             )}
             {!isLast ? (
               <>
-                <button onClick={skip} className="icon-btn" style={{ padding: "8px 16px", opacity: 0.7 }}>
+                <IconButton onClick={skip} pad="px-4 py-2" className="opacity-70">
                   SKIP
-                </button>
-                <button onClick={() => setSlide(slide + 1)} className="icon-btn" style={{ padding: "8px 18px" }}>
-                  NEXT <ArrowRight size={12} strokeWidth={1.5} style={{ marginLeft: 2 }} />
-                </button>
+                </IconButton>
+                <IconButton onClick={() => setSlide(slide + 1)} pad="px-[18px] py-2">
+                  NEXT <ArrowRight size={12} strokeWidth={1.5} className="ml-0.5" />
+                </IconButton>
               </>
             ) : (
-              <button onClick={finish} className="icon-btn" style={{ padding: "8px 18px" }} disabled={saving}>
-                {saving ? "SAVING…" : <><Sparkles size={14} strokeWidth={1.5} style={{ marginRight: 4 }} />BEGIN</>}
-              </button>
+              <IconButton onClick={finish} pad="px-[18px] py-2" disabled={saving}>
+                {saving ? "SAVING…" : <><Sparkles size={14} strokeWidth={1.5} className="mr-1" />BEGIN</>}
+              </IconButton>
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

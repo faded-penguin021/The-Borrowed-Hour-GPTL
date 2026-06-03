@@ -3,6 +3,7 @@ import React from "react";
 import { encryptSecret } from "../storage/encryption";
 import { PROVIDER_META, resetProviderKey, checkProviderHealth } from "../llm/providers";
 import { usePassphrase } from "../context/PassphraseContext";
+import { BTN_SETTINGS, FIELD_SETTINGS } from "../components/ui/styleClasses";
 
 interface ApiKeyRowProps {
   providerId: ProviderId;
@@ -51,23 +52,23 @@ export function ApiKeyRow({ providerId }: ApiKeyRowProps) {
   };
   return (
     <div className="mt-3">
-      <div className="display-font text-cream-dim tracking-display text-[10px] uppercase mb-[5px]">
+      <div className="font-display font-medium text-cream-dim tracking-display text-[10px] uppercase mb-[5px]">
         {meta.name}
       </div>
       {stored && !editing ? (
         <div>
           <div className="flex gap-1.5 items-center">
-            <span className="body-font italic text-cream-faint text-[11px] flex-1">
+            <span className="font-body italic text-cream-faint text-[11px] flex-1">
               Key stored
             </span>
-            <button className="btn-settings" onClick={testKey} disabled={testing}>
+            <button className={BTN_SETTINGS} onClick={testKey} disabled={testing}>
               {testing ? "TESTING…" : "TEST"}
             </button>
-            <button className="btn-settings" onClick={() => setEditing(true)}>REPLACE</button>
-            <button className="btn-settings !text-[rgba(200,100,100,0.8)]" onClick={forgetKey}>FORGET</button>
+            <button className={BTN_SETTINGS} onClick={() => setEditing(true)}>REPLACE</button>
+            <button className={`${BTN_SETTINGS} !text-[rgba(200,100,100,0.8)]`} onClick={forgetKey}>FORGET</button>
           </div>
           {testResult && (
-            <div className="body-font text-[10px] mt-1 leading-normal" style={{ color: testResult.ok ? "rgba(120,200,120,0.85)" : "rgba(200,120,100,0.85)" }}>
+            <div className={`font-body text-[10px] mt-1 leading-normal ${testResult.ok ? "text-[rgba(120,200,120,0.85)]" : "text-[rgba(200,120,100,0.85)]"}`}>
               {testResult.detail}
             </div>
           )}
@@ -84,19 +85,18 @@ export function ApiKeyRow({ providerId }: ApiKeyRowProps) {
             }}
             placeholder={`Paste ${meta.name} API key…`}
             aria-label={`${meta.name} API key`}
-            className="field-settings"
+            className={FIELD_SETTINGS}
             autoComplete="off"
           />
           <button
-            className="btn-settings"
-            style={{ opacity: value.trim() ? 1 : 0.45, cursor: value.trim() ? "pointer" : "default" }}
+            className={BTN_SETTINGS}
             onClick={saveKey}
             disabled={!value.trim()}
           >
             SAVE
           </button>
           {stored && (
-            <button className="btn-settings" onClick={() => { setEditing(false); setValue(""); }}>CANCEL</button>
+            <button className={BTN_SETTINGS} onClick={() => { setEditing(false); setValue(""); }}>CANCEL</button>
           )}
         </div>
       )}

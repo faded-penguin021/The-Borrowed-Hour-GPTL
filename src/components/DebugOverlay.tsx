@@ -13,12 +13,12 @@ function useEntries(): DebugEntry[] {
 }
 
 const levelColor: Record<string, string> = {
-  error: "#ff8a8a",
-  warn: "#ffd479",
-  dbg: "#8ad6ff",
-  info: "#cfcfcf",
-  log: "#e8e8e8",
-  debug: "#b0b0b0",
+  error: "text-[#ff8a8a]",
+  warn: "text-[#ffd479]",
+  dbg: "text-[#8ad6ff]",
+  info: "text-[#cfcfcf]",
+  log: "text-[#e8e8e8]",
+  debug: "text-[#b0b0b0]",
 };
 
 export function DebugOverlay({ enabled = false }: { enabled?: boolean }) {
@@ -55,69 +55,37 @@ export function DebugOverlay({ enabled = false }: { enabled?: boolean }) {
     }
   };
 
-  const btn: React.CSSProperties = {
-    position: "fixed",
-    bottom: 8,
-    right: 8,
-    zIndex: 2147483647,
-    padding: "8px 12px",
-    fontSize: 12,
-    fontFamily: "monospace",
-    borderRadius: 8,
-    border: "1px solid rgba(255,255,255,0.3)",
-    background: errorCount > 0 ? "#7a1d1d" : "rgba(20,20,30,0.9)",
-    color: "#fff",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.5)",
-  };
+  const btnBase =
+    "fixed bottom-2 right-2 z-[2147483647] py-2 px-3 text-[12px] font-mono rounded-lg " +
+    "border border-white/30 text-white shadow-[0_2px_10px_rgba(0,0,0,0.5)]";
 
   if (!open) {
     return (
-      <button style={btn} onClick={() => setOpen(true)}>
+      <button
+        className={`${btnBase} ${errorCount > 0 ? "bg-[#7a1d1d]" : "bg-[rgba(20,20,30,0.9)]"}`}
+        onClick={() => setOpen(true)}
+      >
         DEBUG{errorCount > 0 ? ` ⚠${errorCount}` : ` (${entries.length})`}
       </button>
     );
   }
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: "55vh",
-        zIndex: 2147483647,
-        display: "flex",
-        flexDirection: "column",
-        background: "rgba(8,8,14,0.97)",
-        borderTop: "1px solid rgba(255,255,255,0.25)",
-        color: "#e8e8e8",
-        fontFamily: "monospace",
-        fontSize: 11,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          padding: "8px 10px",
-          borderBottom: "1px solid rgba(255,255,255,0.15)",
-        }}
-      >
-        <strong style={{ flex: 1 }}>Debug log ({entries.length})</strong>
-        <button onClick={copy} style={miniBtn}>{copied ? "Copied!" : "Copy"}</button>
-        <button onClick={() => clearDebug()} style={miniBtn}>Clear</button>
-        <button onClick={() => setOpen(false)} style={miniBtn}>Close</button>
+    <div className="fixed left-0 right-0 bottom-0 h-[55vh] z-[2147483647] flex flex-col bg-[#08080e]/[0.97] border-t border-white/25 text-[#e8e8e8] font-mono text-[11px]">
+      <div className="flex gap-2 items-center py-2 px-2.5 border-b border-white/15">
+        <strong className="flex-1">Debug log ({entries.length})</strong>
+        <button onClick={copy} className={miniBtn}>{copied ? "Copied!" : "Copy"}</button>
+        <button onClick={() => clearDebug()} className={miniBtn}>Clear</button>
+        <button onClick={() => setOpen(false)} className={miniBtn}>Close</button>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "6px 10px", WebkitOverflowScrolling: "touch" }}>
+      <div className="flex-1 overflow-y-auto py-1.5 px-2.5 [-webkit-overflow-scrolling:touch]">
         {entries.length === 0 ? (
-          <div style={{ opacity: 0.6 }}>No log entries yet.</div>
+          <div className="opacity-60">No log entries yet.</div>
         ) : (
           entries.map((e, i) => (
-            <div key={i} style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", marginBottom: 2 }}>
-              <span style={{ opacity: 0.5 }}>{new Date(e.t).toISOString().slice(14, 23)} </span>
-              <span style={{ color: levelColor[e.level] || "#e8e8e8" }}>[{e.level}] </span>
+            <div key={i} className="whitespace-pre-wrap break-words mb-0.5">
+              <span className="opacity-50">{new Date(e.t).toISOString().slice(14, 23)} </span>
+              <span className={levelColor[e.level] || "text-[#e8e8e8]"}>[{e.level}] </span>
               {e.msg}
             </div>
           ))
@@ -127,12 +95,5 @@ export function DebugOverlay({ enabled = false }: { enabled?: boolean }) {
   );
 }
 
-const miniBtn: React.CSSProperties = {
-  padding: "4px 10px",
-  fontSize: 12,
-  fontFamily: "monospace",
-  borderRadius: 6,
-  border: "1px solid rgba(255,255,255,0.3)",
-  background: "rgba(40,40,55,0.95)",
-  color: "#fff",
-};
+const miniBtn =
+  "py-1 px-2.5 text-[12px] font-mono rounded-md border border-white/30 bg-[#282837]/95 text-white";

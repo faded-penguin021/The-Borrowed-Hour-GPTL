@@ -1,4 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
+import { Modal } from "../ui/Modal";
+import { IconButton } from "../ui/IconButton";
+import { BORROWED_INPUT } from "../ui/styleClasses";
 import { X, Sparkles } from "lucide-react";
 
 interface CustomModalProps {
@@ -21,41 +24,27 @@ export function CustomModal({ onClose, onBegin, disabled }: CustomModalProps) {
     onBegin(text.trim());
   };
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
-        <div
-          className="px-6 py-5 border-b flex items-center justify-between"
-          style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
-        >
+    <Modal onClose={onClose}>
+        <div className="px-6 py-5 border-b border-cream/10 flex items-center justify-between">
           <div>
-            <div
-              className="display-font text-[10px] mb-1"
-              style={{ color: "var(--wild)", letterSpacing: "0.4em" }}
-            >
-              <Sparkles size={12} strokeWidth={1.5} style={{ marginRight: 4 }} />THE UNWRITTEN HOUR
+            <div className="font-display font-medium text-[10px] mb-1 text-wild tracking-[0.4em]">
+              <Sparkles size={12} strokeWidth={1.5} className="mr-1" />THE UNWRITTEN HOUR
             </div>
-            <h2
-              className="display-font text-xl"
-              style={{ color: "var(--cream-bright)", letterSpacing: "0.04em" }}
-            >
+            <h2 className="font-display font-medium text-xl text-cream-bright tracking-[0.04em]">
               Describe your scenario
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="display-font text-sm"
-            style={{ color: "var(--cream-dim)", letterSpacing: "0.2em" }}
+            className="font-display font-medium text-sm text-cream-dim tracking-[0.2em]"
           >
             <X size={16} strokeWidth={1.5} />
           </button>
         </div>
         <div className="overflow-y-auto px-6 py-5 space-y-4">
-          <p
-            className="body-font italic text-sm"
-            style={{ color: "var(--cream-dim)", lineHeight: 1.6 }}
-          >
+          <p className="font-body italic text-sm text-cream-dim leading-[1.6]">
             Describe enough to set the hour. Tell us where you are, what is happening, what is at stake — and most of all,{" "}
-            <span style={{ color: "var(--cream-bright)" }}>who you are</span>
+            <span className="text-cream-bright">who you are</span>
             : a name, a calling, a fear or appetite, a small particular truth that gives the hour a soul to pour through. A paragraph is plenty; even rich sentences will do.
           </p>
           <textarea
@@ -69,45 +58,27 @@ export function CustomModal({ onClose, onBegin, disabled }: CustomModalProps) {
               }
             }}
             placeholder="Example: A lighthouse keeper on a remote island during a long winter. Three nights ago a ship was wrecked on the rocks below — but the bodies on the beach are not from any crew you know, and they are wearing uniforms from a war that ended a hundred years ago. Tonight, something is climbing the spiral stair."
-            className="borrowed-input w-full px-4 py-3 resize-y text-base"
-            style={{
-              minHeight: "180px",
-              maxHeight: "320px",
-              fontFamily: "'Cormorant Garamond', serif",
-              lineHeight: 1.55,
-              borderColor: "rgba(184, 200, 150, 0.25)"
-            }}
+            className={`${BORROWED_INPUT} w-full px-4 py-3 resize-y text-base min-h-[180px] max-h-[320px] leading-[1.55] !border-wild/25`}
           />
-          <div
-            className="text-xs italic body-font flex items-center justify-between"
-            style={{ color: "var(--cream-faint)" }}
-          >
+          <div className="text-xs italic font-body flex items-center justify-between text-cream-faint">
             <span>
               {tooShort ? "A little more, please — at least 30 characters." : `${text.trim().length} characters · ⌘/Ctrl + ↵ to begin`}
             </span>
           </div>
         </div>
-        <div
-          className="px-6 py-4 border-t flex items-center justify-end gap-3"
-          style={{ borderColor: "rgba(232, 222, 197, 0.1)" }}
-        >
-          <button onClick={onClose} className="icon-btn" style={{ padding: "8px 18px" }}>
+        <div className="px-6 py-4 border-t border-cream/10 flex items-center justify-end gap-3">
+          <IconButton onClick={onClose} pad="px-[18px] py-2">
             CANCEL
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             onClick={handleBegin}
             disabled={tooShort || disabled}
-            className="icon-btn"
-            style={{
-              padding: "8px 22px",
-              borderColor: "var(--wild-border)",
-              color: "var(--wild)"
-            }}
+            accent="wild"
+            pad="px-[22px] py-2"
           >
-            <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" style={{ marginRight: 6 }} />BEGIN THIS HOUR
-          </button>
+            <Sparkles size={14} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />BEGIN THIS HOUR
+          </IconButton>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useGameActions, useGameStory, useGameRun } from "../context/GameContext";
+import { realmText } from "../data/realmStyles";
+import { BORROWED_INPUT } from "./ui/styleClasses";
 import { Sparkles, ChevronRight } from "lucide-react";
 
 /**
@@ -98,19 +100,11 @@ export const GameComposer = React.memo(function GameComposer() {
   };
 
   return (
-    <div
-      className="game-input-row relative px-6 py-5 border-t"
-      style={{
-        borderColor: "rgba(232, 222, 197, 0.1)",
-        background: "rgba(5, 3, 9, 0.8)",
-        backdropFilter: "blur(4px)"
-      }}
-    >
+    <div className="game-input-row relative px-6 py-5 border-t border-cream/10 bg-twilight-deep/80 backdrop-blur-[4px]">
       <div className="max-w-3xl mx-auto">
         <div className="flex gap-3 items-start">
           <span
-            className="display-font text-2xl leading-none mt-2 select-none"
-            style={{ color: metaMode && premise ? `var(--${premise.realm})` : "var(--rose-ember)" }}
+            className={`font-display font-medium text-2xl leading-none mt-2 select-none ${metaMode && premise ? realmText[premise.realm] : "text-rose-ember"}`}
           >
             {metaMode ? <Sparkles size={20} strokeWidth={1.5} /> : <ChevronRight size={20} strokeWidth={1.5} />}
           </span>
@@ -124,37 +118,17 @@ export const GameComposer = React.memo(function GameComposer() {
             rows={1}
             autoFocus={!ended || metaMode}
             placeholder={ended && !metaMode ? "The chronicle is closed." : metaMode ? "Ask the author. Speak frankly." : loading ? "" : "Speak. Move. Search your pockets. Lie. Run. Ask a question."}
-            className="borrowed-input flex-1 px-4 py-3 resize-none text-lg disabled:opacity-50"
-            style={{
-              minHeight: "52px",
-              maxHeight: "160px",
-              fontFamily: "'Cormorant Garamond', serif",
-              lineHeight: 1.5
-            }}
+            className={`${BORROWED_INPUT} flex-1 px-4 py-3 resize-none text-lg disabled:opacity-50 min-h-[52px] max-h-[160px] leading-[1.5]`}
           />
         </div>
-        <div
-          className="text-xs mt-2 ml-8 italic body-font flex flex-wrap items-center gap-x-4 gap-y-1"
-          style={{ color: "var(--cream-faint)" }}
-        >
+        <div className="text-xs mt-2 ml-8 italic font-body flex flex-wrap items-center gap-x-4 gap-y-1 text-cream-faint">
           <span>↵ {metaMode ? "ask" : "act"}</span>
           <span>⇧ ↵ new line</span>
           <span>click the page to skip the writing</span>
           {metaMode && (
             <button
               onClick={exitMetaMode}
-              className="ml-auto"
-              style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                color: "var(--cream-dim)",
-                fontStyle: "italic",
-                fontFamily: "'Cormorant Garamond', serif",
-                fontSize: "12px",
-                textDecoration: "underline",
-                textUnderlineOffset: "3px"
-              }}
+              className="ml-auto bg-transparent border-0 cursor-pointer text-cream-dim italic font-body text-[12px] underline underline-offset-[3px]"
             >
               leave the author's table
             </button>

@@ -29,80 +29,32 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     const reset = () => this.setState({ error: null });
     const reload = () => { try { window.location.reload(); } catch {} };
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "24px",
-          background: "#0a0814",
-          color: "#e8dec5",
-          fontFamily: "'Cormorant Garamond', serif"
-        }}
-      >
-        <div style={{ maxWidth: 520, textAlign: "center" }}>
-          <div
-            style={{ fontFamily: "'Cinzel', serif", letterSpacing: "0.4em", fontSize: 10, color: "#9a8d7a", marginBottom: 10 }}
-          >
-            <span style={{ opacity: 0.4 }}>—</span> THE PAGE FALTERED <span style={{ opacity: 0.4 }}>—</span>
+      <div className="min-h-screen flex items-center justify-center p-6 bg-twilight text-cream font-body">
+        <div className="max-w-[520px] text-center">
+          <div className="font-display tracking-[0.4em] text-[10px] text-cream-dim mb-2.5">
+            <span className="opacity-40">—</span> THE PAGE FALTERED <span className="opacity-40">—</span>
           </div>
-          <h2
-            style={{ fontFamily: "'Cinzel', serif", fontSize: 22, color: "#f4ecd8", letterSpacing: "0.04em", marginBottom: 14 }}
-          >
+          <h2 className="font-display text-[22px] text-cream-bright tracking-[0.04em] mb-[14px]">
             Something in the chronicle broke mid-stroke.
           </h2>
-          <p style={{ fontStyle: "italic", lineHeight: 1.6, color: "#9a8d7a", marginBottom: 18 }}>
+          <p className="italic leading-[1.6] text-cream-dim mb-[18px]">
             Your saved hours are kept. You can try to recover the page in place, or reload to start fresh. If this keeps happening, the model may be returning state in an unexpected shape — try a different engine.
           </p>
-          <pre
-            style={{
-              fontSize: 11,
-              textAlign: "left",
-              background: "rgba(0,0,0,0.3)",
-              border: "1px solid rgba(217,122,122,0.35)",
-              padding: "8px 10px",
-              borderRadius: 4,
-              color: "#d97a7a",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-              maxHeight: 140,
-              overflow: "auto",
-              marginBottom: 18
-            }}
-          >
+          <pre className="text-[11px] text-left bg-black/30 border border-[rgba(217,122,122,0.35)] py-2 px-2.5 rounded-[4px] text-rose-ember whitespace-pre-wrap break-words max-h-[140px] overflow-auto mb-[18px]">
             {msg}
           </pre>
-          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+          <div className="flex gap-2.5 justify-center flex-wrap">
             <button
               onClick={reset}
-              style={{
-                background: "transparent",
-                border: "1px solid rgba(212,165,116,0.5)",
-                color: "#f4ecd8",
-                padding: "8px 18px",
-                fontFamily: "'Cinzel', serif",
-                fontSize: 10,
-                letterSpacing: "0.25em",
-                cursor: "pointer"
-              }}
+              className="bg-transparent border border-rose-gold/50 text-cream-bright py-2 px-[18px] font-display text-[10px] tracking-[0.25em] cursor-pointer"
             >
-              <RefreshCw size={12} strokeWidth={1.5} style={{ marginRight: 4 }} /> TRY AGAIN
+              <RefreshCw size={12} strokeWidth={1.5} className="mr-1" /> TRY AGAIN
             </button>
             <button
               onClick={reload}
-              style={{
-                background: "transparent",
-                border: "1px solid rgba(232,222,197,0.3)",
-                color: "#9a8d7a",
-                padding: "8px 18px",
-                fontFamily: "'Cinzel', serif",
-                fontSize: 10,
-                letterSpacing: "0.25em",
-                cursor: "pointer"
-              }}
+              className="bg-transparent border border-cream/30 text-cream-dim py-2 px-[18px] font-display text-[10px] tracking-[0.25em] cursor-pointer"
             >
-              <RotateCcw size={12} strokeWidth={1.5} style={{ marginRight: 4 }} /> RELOAD
+              <RotateCcw size={12} strokeWidth={1.5} className="mr-1" /> RELOAD
             </button>
           </div>
         </div>
