@@ -12,6 +12,7 @@ interface GenerateKeepsakeArgs {
   revealText?: string;
   metaMessages?: MetaMessage[];
   ended: boolean;
+  hiddenState?: string;
 }
 
 /**
@@ -47,7 +48,7 @@ export function useKeepsake({ setExportFallbackText }: KeepsakeDeps) {
    * Tap 1: Inline images and assemble the HTML Blob. Stores the result in state;
    * does not trigger a download.
    */
-  const generateKeepsake = async ({ premise, entries, revealText, metaMessages, ended }: GenerateKeepsakeArgs) => {
+  const generateKeepsake = async ({ premise, entries, revealText, metaMessages, ended, hiddenState }: GenerateKeepsakeArgs) => {
     if (keepsakeLoading) return;
     setKeepsakeLoading(true);
     setKeepsakeError(null);
@@ -56,7 +57,7 @@ export function useKeepsake({ setExportFallbackText }: KeepsakeDeps) {
 
     try {
       const inlinedEntries = await inlineImages(entries);
-      const html = buildKeepsakeHTML({ premise, entries: inlinedEntries, revealText, metaMessages, ended });
+      const html = buildKeepsakeHTML({ premise, entries: inlinedEntries, revealText, metaMessages, ended, hiddenState });
       const blob = new Blob([html], { type: "text/html;charset=utf-8" });
       setKeepsakeBlob(blob);
     } catch (e) {

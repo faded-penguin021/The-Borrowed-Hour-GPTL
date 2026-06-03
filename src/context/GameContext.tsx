@@ -811,7 +811,8 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   const startKeepsake = () => {
     if (!premise) return;
     return keepsake.generateKeepsake({
-      premise, entries, revealText: reveal.revealText, metaMessages, ended
+      premise, entries, revealText: reveal.revealText, metaMessages, ended,
+      hiddenState: ended ? gameState?.hidden_state : undefined
     });
   };
 
