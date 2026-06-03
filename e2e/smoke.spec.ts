@@ -81,8 +81,30 @@ test.describe("The Borrowed Hour — smoke", () => {
     await expect(page.getByTestId("narration-entry").first()).toBeVisible();
 
     await page.getByRole("button", { name: "Set aside this hour" }).click();
+    // Saves persist to the IndexedDB `saves` store (borrowed-images DB), not
+    // localStorage — wait until the record lands there before reloading.
     await page.waitForFunction(() =>
-      Object.keys(localStorage).some((k) => k.startsWith("borrowed:save:")),
+      new Promise<boolean>((resolve) => {
+        let req: IDBOpenDBRequest;
+        try {
+          req = indexedDB.open("borrowed-images");
+        } catch {
+          resolve(false);
+          return;
+        }
+        req.onsuccess = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains("saves")) {
+            resolve(false);
+            return;
+          }
+          const keysReq = db.transaction("saves", "readonly").objectStore("saves").getAllKeys();
+          keysReq.onsuccess = () =>
+            resolve(keysReq.result.some((k) => String(k).startsWith("borrowed:save:")));
+          keysReq.onerror = () => resolve(false);
+        };
+        req.onerror = () => resolve(false);
+      }),
     );
 
     await page.reload();

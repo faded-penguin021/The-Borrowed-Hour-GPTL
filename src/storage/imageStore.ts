@@ -7,8 +7,9 @@
 // rule is lifted. Vite handles `.ts` out of the box.
 
 const DB_NAME = "borrowed-images";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = "plates";
+const SAVES_STORE = "saves";
 
 /**
  * True when IndexedDB is usable. Some private-mode/embedded browsers expose the
@@ -35,6 +36,9 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE)) {
         db.createObjectStore(STORE);
       }
+      if (!db.objectStoreNames.contains(SAVES_STORE)) {
+        db.createObjectStore(SAVES_STORE);
+      }
     };
     req.onsuccess = () => {
       // Best-effort: ask the browser to persist this origin's storage so the
@@ -53,20 +57,28 @@ function openDB(): Promise<IDBDatabase> {
   return _dbPromise;
 }
 
-function runStore<T>(
+function runNamedStore<T>(
+  storeName: string,
   mode: IDBTransactionMode,
   fn: (store: IDBObjectStore) => IDBRequest<T>
 ): Promise<T> {
   return openDB().then(
     (db) =>
       new Promise<T>((resolve, reject) => {
-        const tx = db.transaction(STORE, mode);
-        const store = tx.objectStore(STORE);
+        const tx = db.transaction(storeName, mode);
+        const store = tx.objectStore(storeName);
         const req = fn(store);
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
       })
   );
+}
+
+function runStore<T>(
+  mode: IDBTransactionMode,
+  fn: (store: IDBObjectStore) => IDBRequest<T>
+): Promise<T> {
+  return runNamedStore(STORE, mode, fn);
 }
 
 /**
@@ -127,6 +139,42 @@ export function deleteImagesForSave(saveId: string): Promise<void> {
 export function deleteImage(key: string): Promise<void> {
   if (!hasImageStore) return Promise.resolve();
   return runStore<undefined>("readwrite", (store) => store.delete(key))
+    .then((): void => undefined)
+    .catch((): void => undefined);
+}
+
+// ── Generic document store (saves) ───────────────────────────────────────────
+
+/** Persist a string document. Rejects if IndexedDB is unavailable. */
+export function putDoc(key: string, value: string): Promise<void> {
+  if (!hasImageStore) return Promise.reject(new Error("IndexedDB unavailable"));
+  return runNamedStore<IDBValidKey>(SAVES_STORE, "readwrite", (store) => store.put(value, key))
+    .then((): void => undefined);
+}
+
+/** Read a document, or `null` if absent or IndexedDB is unavailable. */
+export function getDoc(key: string): Promise<string | null> {
+  if (!hasImageStore) return Promise.resolve(null);
+  return runNamedStore<unknown>(SAVES_STORE, "readonly", (store) => store.get(key))
+    .then((v): string | null => (typeof v === "string" ? v : null))
+    .catch((): null => null);
+}
+
+/** List all keys in the saves store, optionally filtered by prefix. */
+export function listDocs(prefix = ""): Promise<string[]> {
+  if (!hasImageStore) return Promise.resolve([]);
+  return runNamedStore<IDBValidKey[]>(SAVES_STORE, "readonly", (store) => store.getAllKeys())
+    .then((keys): string[] => {
+      const all = keys.map((k) => String(k));
+      return prefix ? all.filter((k) => k.startsWith(prefix)) : all;
+    })
+    .catch((): string[] => []);
+}
+
+/** Delete a document by key. Best-effort. */
+export function deleteDoc(key: string): Promise<void> {
+  if (!hasImageStore) return Promise.resolve();
+  return runNamedStore<undefined>(SAVES_STORE, "readwrite", (store) => store.delete(key))
     .then((): void => undefined)
     .catch((): void => undefined);
 }
