@@ -67,6 +67,45 @@ export const EndingSchema = z
     z.enum(ENDING_VALUES).nullable().optional().catch(null)
   );
 
+/** Ambience input schema matching the AmbienceInput interface in types.ts. */
+const AmbienceSpaceSchema = z.enum([
+  "intimate", "chamber", "hall", "cavern",
+  "street", "field", "forest", "vehicle", "void",
+]).nullable().optional().catch(undefined);
+
+const AmbiencePopulationSchema = z.enum([
+  "solitary", "sparse_voices", "crowd", "machinery",
+  "nature", "ceremony", "creature", "wild",
+]).nullable().optional().catch(undefined);
+
+const AmbienceMoodSchema = z.enum([
+  "calm", "tender", "tense", "ominous",
+  "joyous", "melancholy", "urgent", "mysterious",
+]).nullable().optional().catch(undefined);
+
+const AmbiencePaletteSchema = z.enum([
+  "strings", "piano", "synth", "glass",
+  "choir", "reed", "brass", "guitar",
+]).nullable().optional().catch(undefined);
+
+const AmbienceEventSchema = z.enum([
+  "bell_toll", "bell_distant", "clock_chime",
+  "door_close", "door_creak",
+  "footsteps_close", "footsteps_recede",
+  "wind_gust", "distant_thunder",
+  "paper_rustle", "chair_scrape", "glass_set_down", "coin_drop",
+  "crowd_hush", "cough_distant", "breath_held",
+  "metal_clang", "whisper_close",
+]);
+
+export const AmbienceInputSchema = z.object({
+  space: AmbienceSpaceSchema,
+  population: AmbiencePopulationSchema,
+  mood: AmbienceMoodSchema,
+  palette: AmbiencePaletteSchema,
+  events: z.array(AmbienceEventSchema).optional().default([]).catch([]),
+}).nullable().optional();
+
 /**
  * GM logic response: the structured decision the game master emits each turn.
  * `state` is required (a turn without state is malformed and triggers a retry);
@@ -76,7 +115,7 @@ export const GMLogicResponseSchema = z.object({
   narrator_brief: z.string().min(1),
   state: GameStateSchema,
   ending: EndingSchema,
-  ambience: z.any().nullable().optional()
+  ambience: AmbienceInputSchema,
 });
 
 /**
@@ -88,7 +127,7 @@ export const GMResponseSchema = z.object({
   narration: z.string().min(1),
   state: GameStateSchema.optional().default(() => GameStateSchema.parse({})),
   ending: EndingSchema,
-  ambience: z.any().nullable().optional()
+  ambience: AmbienceInputSchema,
 });
 
 // Type exports — keep parity with the `src/types.ts` names so consumers retain
