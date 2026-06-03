@@ -457,12 +457,18 @@ export const PROVIDERS: Record<string, ProviderAdapter> = {
   anthropic: {
     toolUse: true,
     retryable: new Set([408, 409, 429, 500, 502, 503, 504, 529]),
-    buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }: BuildRequestParams): ProviderRequest {
+    buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey, cacheBreakpoint }: BuildRequestParams): ProviderRequest {
+      const normalized = normalizeClaudeMessages(msgs);
+      if (cacheBreakpoint && cacheBreakpoint > 0 && cacheBreakpoint <= normalized.length) {
+        const target = normalized[cacheBreakpoint - 1];
+        const text = typeof target.content === "string" ? target.content : "";
+        target.content = [{ type: "text", text, cache_control: { type: "ephemeral" } }];
+      }
       const body: Record<string, unknown> = {
         model,
         max_tokens: maxTokens,
         system: [{ type: "text", text: sys, cache_control: { type: "ephemeral", ttl: "1h" } }],
-        messages: normalizeClaudeMessages(msgs)
+        messages: normalized
       };
       if (temperature !== undefined)
         body.temperature = temperature;

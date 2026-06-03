@@ -190,6 +190,7 @@ export interface BuildRequestParams {
   temperature?: number;
   tool?: ToolDefinition | null;
   apiKey?: string;
+  cacheBreakpoint?: number;
 }
 
 export interface ProviderRequest {

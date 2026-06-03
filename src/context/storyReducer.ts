@@ -33,6 +33,7 @@ export interface StoryState {
   metaMessages: MetaMessage[];
   skipNonce: number;
   recovery: Recovery | null;
+  frozenPrefixLength: number;
 }
 
 // ── Streaming store ────────────────────────────────────────────────────────
@@ -77,6 +78,7 @@ export const INITIAL_STATE: StoryState = {
   metaMessages: [],
   skipNonce: 0,
   recovery: null,
+  frozenPrefixLength: 0,
 };
 
 export type StoryAction =
@@ -93,6 +95,7 @@ export type StoryAction =
   | { type: "SET_LANGUAGE"; language: string }
   | { type: "SET_META_MODE"; metaMode: boolean }
   | { type: "SET_META_MESSAGES"; metaMessages: MetaMessage[] }
+  | { type: "SET_FROZEN_PREFIX"; length: number }
   | { type: "SKIP_REVEAL" }
   | { type: "ENTER_META" }
   | { type: "EXIT_META" }
@@ -179,6 +182,9 @@ export function storyReducer(state: StoryState, action: StoryAction): StoryState
     case "SET_META_MESSAGES":
       return { ...state, metaMessages: action.metaMessages };
 
+    case "SET_FROZEN_PREFIX":
+      return { ...state, frozenPrefixLength: action.length };
+
     case "SKIP_REVEAL":
       return { ...state, skipNonce: state.skipNonce + 1 };
 
@@ -234,6 +240,7 @@ export function storyReducer(state: StoryState, action: StoryAction): StoryState
         ended: false,
         error: null,
         recovery: null,
+        frozenPrefixLength: Math.min(state.frozenPrefixLength, action.history.length),
       };
 
     case "LOAD_SAVE":
@@ -250,6 +257,7 @@ export function storyReducer(state: StoryState, action: StoryAction): StoryState
         language: action.payload.language,
         metaMessages: action.payload.metaMessages,
         metaMode: action.payload.metaMode,
+        frozenPrefixLength: 0,
       };
 
     case "RESET":
