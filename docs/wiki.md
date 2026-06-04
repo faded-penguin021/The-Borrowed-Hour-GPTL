@@ -193,4 +193,4 @@ The Local LLM endpoint URL is configurable per-session in Settings; no API key i
 - `public/` — static assets copied verbatim to the site root: `manifest.webmanifest`, the service worker `sw.js`, `favicon.svg`, and the generated PNG app icons.
 - `scripts/gen-icons.mjs` — dependency-free PNG app-icon generator (run via `npm run gen:icons`).
 - `dist/` — `npm run build` output (deployed to Pages).
-- `.github/workflows/pages.yml` — GitHub Pages deployment workflow (builds with Node 20 and deploys `dist/` on push to `main`).
+- `.github/workflows/pages.yml` — GitHub Pages deployment workflow (builds with Node 24 and deploys `dist/` on push to `main`).
