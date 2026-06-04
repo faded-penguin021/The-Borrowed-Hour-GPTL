@@ -1,6 +1,6 @@
 import type { AppSettings, CodexSettings, ImageProviderId, ProviderId } from "../types";
 import React, { useState } from "react";
-import { IMAGE_PROVIDER_META, IMAGE_PROVIDER_ORDER, setReplicateKey, getReplicateKeyPlaintext, setLocalImageUrl, getLocalImageUrl, LOCAL_IMAGE_DEFAULT_URL } from "../llm/imaging";
+import { IMAGE_PROVIDER_META, IMAGE_PROVIDER_ORDER, setReplicateKey, getReplicateKeyPlaintext, setLocalImageUrl, getLocalImageUrl, LOCAL_IMAGE_DEFAULT_URL, OPENAI_IMAGE_SIZES, OPENAI_IMAGE_QUALITIES, OPENAI_IMAGE_FORMATS, OPENAI_IMAGE_DEFAULT_SIZE, OPENAI_IMAGE_DEFAULT_QUALITY, OPENAI_IMAGE_DEFAULT_FORMAT } from "../llm/imaging";
 import { PROVIDER_META, TOOL_USE_PROVIDER_ORDER } from "../llm/providers";
 import { CODEX_MODE_OPTIONS } from "../data/constants";
 import { ModelPicker } from "./ModelPicker";
@@ -24,8 +24,13 @@ export function CodexSection({ settings, onChange }: CodexSectionProps) {
   const [replicateKey, setReplicateKeyState] = useState(() => getReplicateKeyPlaintext());
   const [localUrl, setLocalUrl] = useState(() => getLocalImageUrl());
 
+  // The OpenAI image provider carries extra tunables beyond `model`; read them
+  // off the shared provider-config bag (typed loosely here, validated for real
+  // in the imaging adapter).
+  const openaiCfg = providerCfg as { size?: string; quality?: string; output_format?: string };
+
   const update = (patch: Partial<CodexSettings>) => onChange("codex", { ...codex, ...patch });
-  const updateProviderCfg = (provId: string, patch: { model?: string }) => onChange("codex", {
+  const updateProviderCfg = (provId: string, patch: Record<string, string>) => onChange("codex", {
     ...codex,
     providerConfig: {
       ...(codex.providerConfig || {}),
@@ -111,9 +116,50 @@ export function CodexSection({ settings, onChange }: CodexSectionProps) {
           )}
 
           {providerId === "openai" && (
-            <div className="font-body italic text-cream-faint text-[11px] mt-1">
-              Uses your saved OpenAI API key. gpt-image-1 is the value tier (~$0.011–0.040/image, needs org verification). gpt-image-2 is the flagship with improved precision and text rendering.
-            </div>
+            <>
+              <div className="font-body italic text-cream-faint text-[11px] mt-1">
+                Uses your saved OpenAI API key. gpt-image-1 is the value tier (~$0.011–0.040/image, needs org verification). gpt-image-2 is the flagship with improved precision and text rendering.
+              </div>
+
+              <div className={subLabelClass}>Plate size</div>
+              <select
+                value={openaiCfg.size || OPENAI_IMAGE_DEFAULT_SIZE}
+                aria-label="OpenAI image size"
+                onChange={(e) => updateProviderCfg("openai", { size: e.target.value })}
+                className={fieldClass}
+              >
+                {OPENAI_IMAGE_SIZES.map((s) => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
+              </select>
+
+              <div className={subLabelClass}>Quality</div>
+              <select
+                value={openaiCfg.quality || OPENAI_IMAGE_DEFAULT_QUALITY}
+                aria-label="OpenAI image quality"
+                onChange={(e) => updateProviderCfg("openai", { quality: e.target.value })}
+                className={fieldClass}
+              >
+                {OPENAI_IMAGE_QUALITIES.map((q) => (
+                  <option key={q} value={q}>{q[0].toUpperCase() + q.slice(1)}</option>
+                ))}
+              </select>
+
+              <div className={subLabelClass}>Output format</div>
+              <select
+                value={openaiCfg.output_format || OPENAI_IMAGE_DEFAULT_FORMAT}
+                aria-label="OpenAI image output format"
+                onChange={(e) => updateProviderCfg("openai", { output_format: e.target.value })}
+                className={fieldClass}
+              >
+                {OPENAI_IMAGE_FORMATS.map((f) => (
+                  <option key={f} value={f}>{f.toUpperCase()}</option>
+                ))}
+              </select>
+              <div className="font-body italic text-cream-faint text-[11px] mt-1">
+                Higher quality and larger sizes cost more. gpt-image-2 supports flexible aspect ratios; portrait suits a manuscript plate. Transparent backgrounds aren’t available on gpt-image-2 — use PNG on gpt-image-1 if you need them.
+              </div>
+            </>
           )}
 
           {providerId === "local" && (
