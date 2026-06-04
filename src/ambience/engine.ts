@@ -39,8 +39,8 @@ import {
 type PaletteConfig = {
   cutoff: number;
   melodyOsc: string;
-  weights: { chord: number, melody: number, pulse: number, piano: number, pluck: number, strings: number, drums: number, celeste?: number, choir_voice?: number, marimba?: number, glock?: number };
-  allow: { piano: boolean, pluck: boolean, pizz: boolean, bow: boolean, celeste?: boolean, choir_voice?: boolean, marimba?: boolean, glock?: boolean };
+  weights: { chord: number, melody: number, pulse: number, piano: number, pluck: number, strings: number, drums: number, celeste: number, choir_voice: number, marimba: number, glock: number };
+  allow: { piano: boolean, pluck: boolean, pizz: boolean, bow: boolean, celeste: boolean, choir_voice: boolean, marimba: boolean, glock: boolean };
 };
 
 // Per-mood instrument peak-gain map (entries omit instruments that stay silent).
@@ -933,7 +933,10 @@ export class AmbienceEngine {
     // play every melody beat — sparseness sells the minimalist feel.
     // Palette allow gating suppresses instrument types outside this palette's
     // character; palette can suppress but never invent lanes the mood didn't ask for.
-    const allow = this._paletteWeights?.allow || { piano: true, pluck: true, pizz: true, bow: true };
+    const allow = this._paletteWeights?.allow || { piano: true, pluck: true, pizz: true, bow: true, celeste: false, choir_voice: false, marimba: false, glock: false };
+    const prog = this._activeProgression[mood] || MOOD_PROGRESSION[mood];
+    const prevIdx = (this.chordPad.progressionIdx + prog.length - 1) % prog.length;
+    const [chordRoot] = prog[prevIdx];
     if (instr.piano && allow.piano && Math.random() < 0.45) {
       this._firePiano(freq * 0.5, 0.10, 2.5 + Math.random() * 1.2);
     }
@@ -944,19 +947,13 @@ export class AmbienceEngine {
       this._firePizz(freq);
     }
     if (instr.bow && allow.bow && Math.random() < 0.25) {
-      const prog = (this._activeProgression[mood]) || MOOD_PROGRESSION[mood];
-      const [chordRoot] = prog[(this.chordPad.progressionIdx + prog.length - 1) % prog.length];
-      const bowFreq = 110 * Math.pow(2, chordRoot / 12) * 2;
-      this._fireBow(bowFreq, 3.5 + Math.random() * 2);
+      this._fireBow(110 * Math.pow(2, chordRoot / 12) * 2, 3.5 + Math.random() * 2);
     }
     if (instr.celeste && allow.celeste && Math.random() < 0.35) {
       this._fireCeleste(freq * 2, 0.08);
     }
     if (instr.choir_voice && allow.choir_voice && Math.random() < 0.20) {
-      const prog = (this._activeProgression[mood]) || MOOD_PROGRESSION[mood];
-      const [chordRoot] = prog[(this.chordPad.progressionIdx + prog.length - 1) % prog.length];
-      const choirFreq = 110 * Math.pow(2, chordRoot / 12);
-      this._fireChoir(choirFreq, 0.06);
+      this._fireChoir(110 * Math.pow(2, chordRoot / 12), 0.06);
     }
     if (instr.marimba && allow.marimba && Math.random() < 0.40) {
       this._fireMarimba(freq, 0.10);
@@ -1063,10 +1060,10 @@ export class AmbienceEngine {
     const stringPeak = Math.max(instr.pizz || 0, instr.bow || 0);
     this.strings.out.gain.setTargetAtTime(clamp(stringPeak * melodicScale * (pw.weights.strings ?? 1)), t, TC);
     this.drums.out.gain.setTargetAtTime(clamp((MOOD_DRUM_PATTERN[mood] ? 1.0 : 0) * drumScale * (pw.weights.drums ?? 1)), t, TC);
-    this.celeste.out.gain.setTargetAtTime(clamp((instr.celeste || 0) * melodicScale * (pw.weights.celeste ?? 0)), t, TC);
-    this.choir.out.gain.setTargetAtTime(clamp((instr.choir_voice || 0) * melodicScale * (pw.weights.choir_voice ?? 0)), t, TC);
-    this.marimba.out.gain.setTargetAtTime(clamp((instr.marimba || 0) * melodicScale * (pw.weights.marimba ?? 0)), t, TC);
-    this.glockenspiel.out.gain.setTargetAtTime(clamp((instr.glock || 0) * melodicScale * (pw.weights.glock ?? 0)), t, TC);
+    this.celeste.out.gain.setTargetAtTime(clamp((instr.celeste || 0) * melodicScale * pw.weights.celeste), t, TC);
+    this.choir.out.gain.setTargetAtTime(clamp((instr.choir_voice || 0) * melodicScale * pw.weights.choir_voice), t, TC);
+    this.marimba.out.gain.setTargetAtTime(clamp((instr.marimba || 0) * melodicScale * pw.weights.marimba), t, TC);
+    this.glockenspiel.out.gain.setTargetAtTime(clamp((instr.glock || 0) * melodicScale * pw.weights.glock), t, TC);
   }
   _applyMood(mood: AmbienceMood | null) {
     if (this.destroyed) return;
@@ -1081,11 +1078,17 @@ export class AmbienceEngine {
       this.pluck.out.gain.setTargetAtTime(0, t, TC);
       this.strings.out.gain.setTargetAtTime(0, t, TC);
       this.drums.out.gain.setTargetAtTime(0, t, TC);
+      this.celeste.out.gain.setTargetAtTime(0, t, TC);
+      this.choir.out.gain.setTargetAtTime(0, t, TC);
+      this.marimba.out.gain.setTargetAtTime(0, t, TC);
+      this.glockenspiel.out.gain.setTargetAtTime(0, t, TC);
       return;
     }
-    // Snap chord progression to a fresh starting voicing on mood change.
+    // Randomly select primary or alt chord progression on mood change.
+    this._activeProgression = Math.random() < 0.5 ? MOOD_PROGRESSION : MOOD_PROGRESSION_ALT;
+    // Snap chord progression to a fresh starting voicing.
     this.chordPad.progressionIdx = 0;
-    const prog = MOOD_PROGRESSION[mood];
+    const prog = this._activeProgression[mood] || MOOD_PROGRESSION[mood];
     if (prog && prog[0]) {
       const [root, quality] = prog[0];
       const third = quality === "min" ? root + 3 : root + 4;
@@ -1152,6 +1155,9 @@ export class AmbienceEngine {
     this.drumsArmed = false;
     if (this.intensity === "off") {
       this._applyMaster();
+      this._stopRoomTone();
+      if (this._microTimer) { clearTimeout(this._microTimer); this._microTimer = 0; }
+      this._stopSceneBreathing();
       this.suspendTimer = setTimeout(() => {
         this.suspendTimer = 0;
         if (this.destroyed || gen !== this._gen) return;
@@ -1167,6 +1173,9 @@ export class AmbienceEngine {
       this.pulseArmed  = true; this._schedulePulse(gen);
       this.chordArmed  = true; this._scheduleNextChord(gen);
       this.drumsArmed  = true; this._scheduleDrums(gen);
+      this._startRoomTone();
+      this._startMicroEvents(gen);
+      this._startSceneBreathing(gen);
       if (prev === "off") this.startTime = this.ctx.currentTime;
       this._applyMaster();
     }
@@ -1268,6 +1277,81 @@ export class AmbienceEngine {
     this.speechActive = false;
     this._applyMaster(false);
   }
+  // ── Ambient micro-layers ───────────────────────────────────────────
+  _startRoomTone() {
+    if (this.destroyed || this._roomTone) return;
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = this._noiseBuffer(3, "brown");
+    src.loop = true;
+    const g = ctx.createGain();
+    g.gain.value = 0.04;
+    src.connect(g);
+    g.connect(this.master);
+    src.start();
+    this._roomTone = { src, gain: g };
+  }
+  _stopRoomTone() {
+    if (!this._roomTone) return;
+    try { this._roomTone.src.stop(); } catch (_) {}
+    try { this._roomTone.src.disconnect(); } catch (_) {}
+    try { this._roomTone.gain.disconnect(); } catch (_) {}
+    this._roomTone = null;
+  }
+  _startMicroEvents(gen: number) {
+    if (this.destroyed || gen !== this._gen) return;
+    const fire = () => {
+      if (this.destroyed || gen !== this._gen) return;
+      if (this.intensity !== "off" && !this.muted) {
+        const mood = this.current.mood || "calm";
+        const pool = AMBIENCE_MICRO_EVENTS[mood] || AMBIENCE_MICRO_EVENTS.calm;
+        if (pool && pool.length) {
+          const name = pool[Math.floor(Math.random() * pool.length)];
+          const recipe = AMBIENCE_EVENT_RECIPES[name];
+          if (recipe) {
+            const ctx = this.ctx;
+            const startAt = ctx.currentTime + 0.05;
+            const g = ctx.createGain();
+            g.gain.value = 0.05;
+            g.connect(this.master);
+            try { recipe({ ctx, master: g, _noiseBuffer: this._noiseBuffer.bind(this) }, startAt); } catch (_) {}
+            setTimeout(() => { try { g.disconnect(); } catch (_) {} }, 3000);
+          }
+        }
+      }
+      const baseMs = 20000 + Math.random() * 25000;
+      this._microTimer = this._jitteredTimeout(fire, baseMs);
+    };
+    this._microTimer = this._jitteredTimeout(fire, 20000 + Math.random() * 25000);
+  }
+  _startSceneBreathing(gen: number) {
+    if (this.destroyed || gen !== this._gen) return;
+    this._stopSceneBreathing();
+    const breathe = (lane: SceneLane) => {
+      const tick = () => {
+        if (this.destroyed || gen !== this._gen) return;
+        if (lane.targetGain <= 0) {
+          const timer = this._jitteredTimeout(tick, 30000);
+          this._sceneBreathTimers.push(timer);
+          return;
+        }
+        const depth = 0.04;
+        const offset = (Math.random() - 0.5) * 2 * depth;
+        const target = Math.max(0, lane.targetGain + offset);
+        lane.gain.gain.setTargetAtTime(target, this.ctx.currentTime, 8);
+        const timer = this._jitteredTimeout(tick, 20000 + Math.random() * 20000);
+        this._sceneBreathTimers.push(timer);
+      };
+      const timer = this._jitteredTimeout(tick, 20000 + Math.random() * 20000);
+      this._sceneBreathTimers.push(timer);
+    };
+    breathe(this.scene.space);
+    breathe(this.scene.population);
+  }
+  _stopSceneBreathing() {
+    this._sceneBreathTimers.forEach(t => clearTimeout(t));
+    this._sceneBreathTimers = [];
+  }
   destroy() {
     this.destroyed = true;
     clearInterval(this.comfortInterval);
@@ -1284,6 +1368,10 @@ export class AmbienceEngine {
     if (this.pulse && this.pulse.scheduled) clearTimeout(this.pulse.scheduled);
     if (this.chordPad && this.chordPad.scheduled) clearTimeout(this.chordPad.scheduled);
     if (this.drumScheduled) clearTimeout(this.drumScheduled);
+    if (this._reverbLfoTimer) clearTimeout(this._reverbLfoTimer);
+    if (this._microTimer) clearTimeout(this._microTimer);
+    this._stopSceneBreathing();
+    this._stopRoomTone();
     if (this.scene) {
       [this.scene.space, this.scene.population].forEach((lane) => {
         if (lane && lane.voice) this._disposeSceneVoice(lane.voice);

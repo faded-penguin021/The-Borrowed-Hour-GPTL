@@ -36,7 +36,7 @@ class MockAudioContext {
     this.destination = audioNode();
   }
   createGain() { return audioNode({ gain: makeParam() }); }
-  createBiquadFilter() { return audioNode({ type: "lowpass", frequency: makeParam(), Q: makeParam() }); }
+  createBiquadFilter() { return audioNode({ type: "lowpass", frequency: makeParam(), Q: makeParam(), gain: makeParam() }); }
   createOscillator() { return audioNode({ type: "sine", frequency: makeParam(), detune: makeParam(), start() {}, stop() {} }); }
   createBufferSource() { return audioNode({ buffer: null, loop: false, start() {}, stop() {} }); }
   createConvolver() { return audioNode({ buffer: null }); }
@@ -47,6 +47,7 @@ class MockAudioContext {
     });
   }
   createDelay() { return audioNode({ delayTime: makeParam() }); }
+  createStereoPanner() { return audioNode({ pan: makeParam() }); }
   createBuffer(channels: number, len: number) {
     const data = new Float32Array(len);
     return { getChannelData: () => data, length: len };
