@@ -1,13 +1,15 @@
 import type { StorageShim, ThrownError } from "../types";
-import { SAVE_PREFIX } from "../data/constants";
+import { SAVE_PREFIX, AUTOSAVE_KEY } from "../data/constants";
 import { hasImageStore, putDoc, getDoc, listDocs, deleteDoc } from "./imageStore";
 
 // Only saved chronicles move to IndexedDB — they're the large payloads that can
-// blow localStorage's ~5MB ceiling on a long session. Everything else (settings,
-// API keys, ambience, TTS) is tiny and, crucially, some of it is read straight
-// from localStorage elsewhere (providers.ts reads API keys directly), so those
-// keys must stay where they are. Routing is by key prefix.
-const isSaveKey = (key: string): boolean => key.startsWith(SAVE_PREFIX);
+// blow localStorage's ~5MB ceiling on a long session. The autosave slot is the
+// same kind of large payload (rewritten every turn), so it joins them. Everything
+// else (settings, API keys, ambience, TTS) is tiny and, crucially, some of it is
+// read straight from localStorage elsewhere (providers.ts reads API keys
+// directly), so those keys must stay where they are. Routing is by key.
+const isSaveKey = (key: string): boolean =>
+  key.startsWith(SAVE_PREFIX) || key === AUTOSAVE_KEY;
 
 // Sentinel kept in localStorage (never itself migrated) recording that the
 // one-time move of existing localStorage saves into IndexedDB has run.

@@ -1,14 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { SyntheticEvent as ReactSyntheticEvent } from "react";
 import type {
   ChatMessage, CodexSnapshot, Entry, GameState, MetaMessage, Premise,
-  SaveBanner, SaveListEntry, ThrownError
+  SaveBanner, SaveListEntry, SaveRecord, ThrownError
 } from "../types";
-import { SAVE_PREFIX, SAVE_CAP, estimateSize, formatKB, formatTokens } from "../data/constants";
+import { SAVE_PREFIX, AUTOSAVE_KEY, SAVE_CAP, estimateSize, formatKB, formatTokens } from "../data/constants";
 import { putImage, deleteImagesForSave } from "../storage/imageStore";
 import { migrateSave, CURRENT_SAVE_VERSION } from "../saves/migrate";
 
-interface SaveCurrentArgs {
+export interface SaveCurrentArgs {
   premise: Premise | null;
   entries: Entry[];
   ended: boolean;
@@ -27,6 +27,59 @@ interface ExportChronicleArgs {
   metaMessages: MetaMessage[];
 }
 
+// The fixed id carried inside the autosave slot's payload. Manual saves use a
+// timestamp id; the autosave is a single slot, so its id is constant.
+const AUTOSAVE_ID = "autosave";
+
+/**
+ * Assemble the persisted record shared by manual saves and the autosave slot.
+ * The two differ only in their `id` and how `entries` were prepared
+ * (image-offloaded for a manual save, slimmed for the autosave), so everything
+ * else is built here once. `turns` is counted from the live `entries` so it is
+ * unaffected by either transform.
+ */
+function buildSavePayload(
+  premise: Premise,
+  args: SaveCurrentArgs,
+  id: string,
+  entries: Entry[]
+): SaveRecord {
+  return {
+    id,
+    premiseId: premise.id,
+    premise,
+    title: premise.title,
+    realm: premise.realm,
+    realmLabel: premise.realmLabel,
+    isCustom: !!premise.isCustom,
+    savedAt: Date.now(),
+    turns: args.entries.filter((e) => e.type === "action").length,
+    ended: args.ended,
+    gameState: args.gameState,
+    entries,
+    history: args.history,
+    metaMessages: args.metaMessages.map((m) => ({ ...m, fullyRevealed: true })),
+    metaMode: args.metaMode,
+    language: args.language,
+    codex: args.codex,
+    schemaVersion: CURRENT_SAVE_VERSION,
+  };
+}
+
+// Prepare entries for the autosave slot. Unlike a manual save (which offloads
+// each plate's bytes to IndexedDB), the slot is rewritten every turn, so we keep
+// it cheap: references to bytes already persisted by a manual save (`idb:`
+// markers) are retained, while live `blob:`/`data:` plates are dropped. Crash
+// recovery is about the prose, state, and history — illustrations are a bonus.
+function slimEntriesForAutosave(entries: Entry[]): Entry[] {
+  return entries.map((e) => {
+    const base: Entry = { ...e, fullyRevealed: true };
+    const ill = e.illustration;
+    if (ill && typeof ill.url === "string" && ill.url.startsWith("idb:")) return base;
+    return { ...base, illustration: undefined };
+  });
+}
+
 export function useSaves() {
   const [saveList, setSaveList] = useState<SaveListEntry[]>([]);
   const [saveListLoading, setSaveListLoading] = useState(false);
@@ -34,6 +87,18 @@ export function useSaves() {
   const [savesTotalBytes, setSavesTotalBytes] = useState(0);
   const [showSaves, setShowSaves] = useState(false);
   const [exportFallbackText, setExportFallbackText] = useState<string | null>(null);
+  // Whether an autosave slot is present on disk. Drives the title-screen resume
+  // affordance. Kept as a boolean (not the record) so the per-turn slot rewrite
+  // doesn't churn React state — the latest record is read fresh on resume.
+  const [hasAutosave, setHasAutosave] = useState(false);
+
+  // Probe for an existing autosave once on mount so the title screen can offer
+  // to resume it after a reload or crash.
+  useEffect(() => {
+    let alive = true;
+    readAutosave().then((rec) => { if (alive) setHasAutosave(!!rec); });
+    return () => { alive = false; };
+  }, []);
 
   const loadSaveList = async () => {
     setSaveListLoading(true);
@@ -69,7 +134,8 @@ export function useSaves() {
     await loadSaveList();
   };
 
-  const saveCurrent = async ({ premise, entries, ended, gameState, history, metaMessages, metaMode, language, codex }: SaveCurrentArgs) => {
+  const saveCurrent = async (args: SaveCurrentArgs) => {
+    const { premise, entries } = args;
     if (!premise || entries.length === 0) return;
     const id = Date.now().toString(36);
     const key = SAVE_PREFIX + id;
@@ -114,26 +180,7 @@ export function useSaves() {
       }
       return { ...base, illustration: undefined };
     }));
-    const payload = {
-      id,
-      premiseId: premise.id,
-      premise,
-      title: premise.title,
-      realm: premise.realm,
-      realmLabel: premise.realmLabel,
-      isCustom: !!premise.isCustom,
-      savedAt: Date.now(),
-      turns: entries.filter((e) => e.type === "action").length,
-      ended,
-      gameState,
-      entries: processedEntries,
-      history,
-      metaMessages: metaMessages.map((m) => ({ ...m, fullyRevealed: true })),
-      metaMode,
-      language,
-      codex,
-      schemaVersion: CURRENT_SAVE_VERSION
-    };
+    const payload = buildSavePayload(premise, args, id, processedEntries);
     const serialized = JSON.stringify(payload);
     const size = estimateSize(serialized);
     try {
@@ -154,6 +201,48 @@ export function useSaves() {
         text: looksQuota ? "Could not set the hour aside — the save exceeds the storage limit. Try releasing other hours first." : "Could not set the hour aside."
       });
     }
+  };
+
+  // ── Autosave slot ────────────────────────────────────────────────────────
+  // One implicit slot that mirrors the live session so an interrupted hour (a
+  // crash, a reload, the passphrase modal taking over) can be taken up again.
+  // It lives outside SAVE_PREFIX, so it never appears in the manual saves list,
+  // and is rewritten in place every settled turn.
+
+  /** Read and migrate the autosave slot, or null when none is present. */
+  const readAutosave = async (): Promise<SaveRecord | null> => {
+    try {
+      const r = await window.storage.get(AUTOSAVE_KEY);
+      if (!r?.value) return null;
+      return migrateSave(JSON.parse(r.value));
+    } catch {
+      return null;
+    }
+  };
+
+  /**
+   * Overwrite the autosave slot with the live session. Best-effort: a failed
+   * write never surfaces a banner or interrupts play, since the player didn't
+   * ask for it. Called from the useAutosave trigger after each settled turn.
+   */
+  const writeAutosave = async (args: SaveCurrentArgs) => {
+    const { premise, entries } = args;
+    if (!premise || entries.length === 0) return;
+    const payload = buildSavePayload(premise, args, AUTOSAVE_ID, slimEntriesForAutosave(entries));
+    try {
+      await window.storage.set(AUTOSAVE_KEY, JSON.stringify(payload));
+      setHasAutosave(true);
+    } catch {
+      // Autosave is silent by design — keep playing.
+    }
+  };
+
+  /** Drop the autosave slot (a new hour is being started in its place). */
+  const clearAutosave = async () => {
+    try {
+      await window.storage.delete(AUTOSAVE_KEY);
+    } catch {}
+    setHasAutosave(false);
   };
 
   const deleteSave = async (key: string, e: ReactSyntheticEvent) => {
@@ -264,5 +353,9 @@ export function useSaves() {
     loadSave: null, // not used directly; App orchestrates load
     deleteSave,
     exportChronicle,
+    hasAutosave,
+    readAutosave,
+    writeAutosave,
+    clearAutosave,
   };
 }
