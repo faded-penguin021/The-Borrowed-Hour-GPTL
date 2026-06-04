@@ -342,7 +342,9 @@ export type CodexMode = "off" | "key_moments" | "always";
 export interface CodexProviderConfig {
   pollinations?: { model: string };
   replicate?: { model: string };
-  openai?: { model: string };
+  // gpt-image tunables. All optional; the imaging adapter validates each value
+  // against its allowlist and falls back to a safe default when unset/unknown.
+  openai?: { model?: string; size?: string; quality?: string; output_format?: string };
   local?: Record<string, never>;
   [key: string]: { model?: string } | undefined;
 }

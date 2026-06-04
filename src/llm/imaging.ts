@@ -18,6 +18,29 @@ export const REPLICATE_DEFAULT_MODEL = "black-forest-labs/flux-schnell";
 export const OPENAI_IMAGE_DEFAULT_MODEL = "gpt-image-2";
 export const LOCAL_IMAGE_DEFAULT_URL = "http://localhost:7860/sdapi/v1/txt2img";
 
+// gpt-image models OpenAI has retired or folded into gpt-image-2. Any of these
+// is silently upgraded so a stale saved config never hits a dead model.
+export const DEPRECATED_OPENAI_IMAGE_MODELS = ["gpt-image-1-mini", "gpt-image-1.5", "chatgpt-image-latest"];
+
+// Tunable parameters for the OpenAI images endpoint, shared by the adapter and
+// the settings UI so the two can never drift. gpt-image-2 accepts flexible
+// aspect ratios from 3:1 to 1:3; we surface a tasteful subset suited to
+// manuscript plates. `label` is for the picker; `id` is the API `size` value.
+export const OPENAI_IMAGE_SIZES: { id: string; label: string }[] = [
+  { id: "1024x1024", label: "Square · 1024²" },
+  { id: "1024x1536", label: "Portrait · 2:3" },
+  { id: "1536x1024", label: "Landscape · 3:2" },
+  { id: "1024x3072", label: "Tall plate · 1:3" },
+  { id: "3072x1024", label: "Panorama · 3:1" },
+  { id: "auto", label: "Auto" }
+];
+export const OPENAI_IMAGE_QUALITIES = ["low", "medium", "high", "auto"];
+export const OPENAI_IMAGE_FORMATS = ["png", "webp", "jpeg"];
+
+export const OPENAI_IMAGE_DEFAULT_SIZE = "1024x1024";
+export const OPENAI_IMAGE_DEFAULT_QUALITY = "low";
+export const OPENAI_IMAGE_DEFAULT_FORMAT = "png";
+
 // checked: 2026-05-28. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
 // gpt-image-* models remain for the OpenAI images endpoint.
 export const IMAGE_PROVIDER_META: Record<ImageProviderId, ImageProviderMeta & { keyless?: boolean, reusesLLMProvider?: string, windowKey?: string, description?: string }> = {
@@ -120,6 +143,34 @@ interface LocalImageResponse {
   image?: unknown;
 }
 
+// Pick a configured value only when it is a known-good option, else fall back.
+// Guards the API against a stale or hand-edited config emitting an unknown
+// `size`/`quality`/`output_format` that gpt-image would reject with a 400.
+const pickOption = (value: unknown, allowed: readonly string[], fallback: string): string =>
+  (typeof value === "string" && allowed.includes(value)) ? value : fallback;
+
+const formatToMime = (fmt: string): string =>
+  fmt === "jpeg" ? "image/jpeg" : fmt === "webp" ? "image/webp" : "image/png";
+
+// Pure builder for the OpenAI images request body. Exported so it can be unit
+// tested without a browser. Note what is deliberately ABSENT for gpt-image-2
+// compliance: `input_fidelity` (removed — inputs are processed at high fidelity
+// natively) and `background: "transparent"` (unsupported — would 400). The
+// returned `mime` matches `output_format`, so the decoded data: URL is labelled
+// correctly even when the format is webp/jpeg rather than png.
+export const buildOpenAIImageBody = (
+  prompt: string,
+  providerConfig?: Record<string, unknown>
+): { body: Record<string, unknown>; mime: string } => {
+  let model = (providerConfig?.model as string | undefined) || OPENAI_IMAGE_DEFAULT_MODEL;
+  if (DEPRECATED_OPENAI_IMAGE_MODELS.includes(model)) model = OPENAI_IMAGE_DEFAULT_MODEL;
+  const size = pickOption(providerConfig?.size, OPENAI_IMAGE_SIZES.map((s) => s.id), OPENAI_IMAGE_DEFAULT_SIZE);
+  const quality = pickOption(providerConfig?.quality, OPENAI_IMAGE_QUALITIES, OPENAI_IMAGE_DEFAULT_QUALITY);
+  const outputFormat = pickOption(providerConfig?.output_format, OPENAI_IMAGE_FORMATS, OPENAI_IMAGE_DEFAULT_FORMAT);
+  const body: Record<string, unknown> = { model, prompt, n: 1, size, quality, output_format: outputFormat };
+  return { body, mime: formatToMime(outputFormat) };
+};
+
 const adapters: Record<ImageProviderId, (args: ImageAdapterArgs) => Promise<GeneratedImage>> = {
   async pollinations({ prompt, negatives, providerConfig, signal }) {
     const model = (providerConfig?.model as string | undefined) || POLLINATIONS_DEFAULT_MODEL;
@@ -179,12 +230,7 @@ const adapters: Record<ImageProviderId, (args: ImageAdapterArgs) => Promise<Gene
 
   async openai({ prompt, providerConfig, signal }) {
     const apiKey = await getProviderKey("openai");
-    let model = (providerConfig?.model as string | undefined) || OPENAI_IMAGE_DEFAULT_MODEL;
-    const DEPRECATED_OPENAI = ["gpt-image-1-mini", "gpt-image-1.5", "chatgpt-image-latest"];
-    if (DEPRECATED_OPENAI.includes(model)) model = "gpt-image-2";
-    const body: Record<string, unknown> = { model, prompt, n: 1, size: "1024x1024" };
-    body.quality = (providerConfig?.quality as string | undefined) || "low";
-    body.output_format = (providerConfig?.output_format as string | undefined) || "png";
+    const { body, mime } = buildOpenAIImageBody(prompt, providerConfig);
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
@@ -197,7 +243,9 @@ const adapters: Record<ImageProviderId, (args: ImageAdapterArgs) => Promise<Gene
     }
     const data = await res.json() as OpenAIImageResponse;
     const item = data?.data?.[0];
-    if (item?.b64_json) return { url: `data:image/png;base64,${item.b64_json}`, provider: "openai" };
+    // gpt-image returns base64 by default; honour the requested output_format
+    // in the data: URL so the bytes are labelled with the right MIME type.
+    if (item?.b64_json) return { url: `data:${mime};base64,${item.b64_json}`, provider: "openai" };
     if (item?.url) return { url: await blobify(item.url, signal), provider: "openai" };
     throw new BorrowedError("The plate cannot be drawn.", "OpenAI image response had no payload.");
   },
