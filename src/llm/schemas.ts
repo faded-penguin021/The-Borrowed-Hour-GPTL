@@ -1,4 +1,18 @@
 import { z } from "zod";
+import {
+  AMBIENCE_SPACE_VALUES,
+  AMBIENCE_POPULATION_VALUES,
+  AMBIENCE_MOOD_VALUES,
+  AMBIENCE_PALETTE_VALUES,
+  AMBIENCE_EVENT_VALUES,
+} from "../ambience/enums";
+import type {
+  AmbienceSpace,
+  AmbiencePopulation,
+  AmbienceMood,
+  AmbiencePalette,
+  AmbienceEvent,
+} from "../types";
 
 // Runtime validation contracts for LLM JSON output. These mirror the
 // `GameState` / `GMLogicParseResult` interfaces in `src/types.ts`. Arrays use
@@ -67,36 +81,34 @@ export const EndingSchema = z
     z.enum(ENDING_VALUES).nullable().optional().catch(null)
   );
 
-/** Ambience input schema matching the AmbienceInput interface in types.ts. */
-const AmbienceSpaceSchema = z.enum([
-  "intimate", "chamber", "hall", "cavern",
-  "street", "field", "forest", "vehicle", "void",
-]).nullable().optional().catch(undefined);
+/**
+ * Ambience input schema matching the AmbienceInput interface in types.ts.
+ *
+ * The enum members are derived directly from the canonical taxonomy in
+ * `ambience/enums.ts` — the same arrays the audio engine and GM tool schemas
+ * consume — so this schema can never silently drift out of sync with the set of
+ * values the model is actually told it may emit. (Previously these lists were
+ * hand-copied here and had fallen behind, missing `tavern`/`underwater`,
+ * `spirits`/`rain`, and half the event vocabulary.)
+ */
+const AmbienceSpaceSchema = z
+  .enum(AMBIENCE_SPACE_VALUES as [AmbienceSpace, ...AmbienceSpace[]])
+  .nullable().optional().catch(undefined);
 
-const AmbiencePopulationSchema = z.enum([
-  "solitary", "sparse_voices", "crowd", "machinery",
-  "nature", "ceremony", "creature", "wild",
-]).nullable().optional().catch(undefined);
+const AmbiencePopulationSchema = z
+  .enum(AMBIENCE_POPULATION_VALUES as [AmbiencePopulation, ...AmbiencePopulation[]])
+  .nullable().optional().catch(undefined);
 
-const AmbienceMoodSchema = z.enum([
-  "calm", "tender", "tense", "ominous",
-  "joyous", "melancholy", "urgent", "mysterious",
-]).nullable().optional().catch(undefined);
+const AmbienceMoodSchema = z
+  .enum(AMBIENCE_MOOD_VALUES as [AmbienceMood, ...AmbienceMood[]])
+  .nullable().optional().catch(undefined);
 
-const AmbiencePaletteSchema = z.enum([
-  "strings", "piano", "synth", "glass",
-  "choir", "reed", "brass", "guitar",
-]).nullable().optional().catch(undefined);
+const AmbiencePaletteSchema = z
+  .enum(AMBIENCE_PALETTE_VALUES as [AmbiencePalette, ...AmbiencePalette[]])
+  .nullable().optional().catch(undefined);
 
-const AmbienceEventSchema = z.enum([
-  "bell_toll", "bell_distant", "clock_chime",
-  "door_close", "door_creak",
-  "footsteps_close", "footsteps_recede",
-  "wind_gust", "distant_thunder",
-  "paper_rustle", "chair_scrape", "glass_set_down", "coin_drop",
-  "crowd_hush", "cough_distant", "breath_held",
-  "metal_clang", "whisper_close",
-]);
+const AmbienceEventSchema = z
+  .enum(AMBIENCE_EVENT_VALUES as [AmbienceEvent, ...AmbienceEvent[]]);
 
 export const AmbienceInputSchema = z.object({
   space: AmbienceSpaceSchema,

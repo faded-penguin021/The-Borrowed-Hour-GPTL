@@ -2,13 +2,13 @@
 
 **The Borrowed Hour** is a literary interactive text adventure built with Vite, React, and Tailwind. It ships with built-in scenarios plus a custom **Wild** mode, and lets players choose LLM, image, text-to-speech, and ambience settings at runtime.
 
-The project began as a single-file HTML artifact and is now a small web app. The main game still lives in `src/App.jsx`, while providers, settings, storage, TTS, ambience, and UI pieces are split into focused modules under `src/`.
+The project began as a single-file HTML artifact and is now a small web app. The main game still lives in `src/App.tsx`, while providers, settings, storage, TTS, ambience, and UI pieces are split into focused modules under `src/`.
 
 ## Run locally
 
 ### Prerequisites
 
-- Node.js 20 or newer
+- Node.js 24 (the version CI and the Pages deploy build with; 20+ should work locally)
 - npm
 
 ### Development
