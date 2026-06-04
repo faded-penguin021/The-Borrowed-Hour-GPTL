@@ -14,6 +14,7 @@ import { getImage } from "../storage/imageStore";
 import { migrateSave } from "../saves/migrate";
 import { useCodex } from "../hooks/useCodex";
 import { useSaves } from "../hooks/useSaves";
+import { useAutosave } from "../hooks/useAutosave";
 import { useReveal } from "../hooks/useReveal";
 import { useKeepsake } from "../hooks/useKeepsake";
 import { useProgress } from "../hooks/useProgress";
@@ -45,6 +46,7 @@ interface GameActions {
   undoLastTurn: () => void;
   restart: () => void;
   loadSave: (save: SaveRecord) => Promise<void>;
+  resumeAutosave: () => Promise<void>;
   enterMetaMode: () => void;
   exitMetaMode: () => void;
   skipReveal: () => void;
@@ -75,6 +77,7 @@ interface GameStoryValue {
   canUndo: boolean;
   entriesCount: number;
   hasMeta: boolean;
+  hasAutosave: boolean;
   keepsakeFilename: string;
 }
 
@@ -258,6 +261,20 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const { ensureAmbienceEngine, ambienceRef } = ambience;
 
+  // The codex slice captured by both manual saves and the autosave slot.
+  // Memoized on its parts so the autosave trigger doesn't fire on every render.
+  const codexSnapshot = useMemo(
+    () => ({ styleBible: codex.styleBible, visualLedger: codex.visualLedger, plateCount: codex.plateCount }),
+    [codex.styleBible, codex.visualLedger, codex.plateCount]
+  );
+
+  // ── Autosave: mirror the live session into its single slot ───────
+  // Persists after each settled turn so an interrupted hour can be resumed.
+  useAutosave(
+    { phase, loading, premise, entries, ended, gameState, history, metaMessages, metaMode, language, codex: codexSnapshot },
+    saves.writeAutosave
+  );
+
   // ── Auto-speak newly revealed narration ──────────────────────────
   useEffect(() => {
     tts.autoSpeak(entries);
@@ -338,6 +355,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     sessionTokensRef.current = { input: 0, output: 0 };
     setSessionTokens({ input: 0, output: 0 });
     dispatch({ type: "START_GAME", premise: chosen });
+    // A new hour supersedes the old autosave; the opening turn re-fills the slot.
+    saves.clearAutosave();
     codex.resetCodex();
     setLoadingPhrase(pickPhrase(OPENING_LOADING_PHRASES));
     setLoading(true);
@@ -815,9 +834,21 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     }
   };
 
+  // Take up the autosaved hour. Reads the freshest slot from disk (not a stale
+  // React snapshot) and routes it through the normal load path; the live session
+  // then keeps mirroring back into the same slot.
+  const resumeAutosave = async () => {
+    const rec = await saves.readAutosave();
+    if (!rec) {
+      saves.setSaveBanner({ kind: "err", text: "There is no unfinished hour to resume." });
+      return;
+    }
+    await loadSave(rec);
+  };
+
   const saveCurrent = () => saves.saveCurrent({
     premise, entries, ended, gameState, history, metaMessages, metaMode, language,
-    codex: { styleBible: codex.styleBible, visualLedger: codex.visualLedger, plateCount: codex.plateCount }
+    codex: codexSnapshot
   });
 
   const exportChronicle = (includeMeta = false) =>
@@ -863,7 +894,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   };
   const liveActions: GameActions = {
     setLanguage, beginAdventure, submit, continueNarration,
-    undoLastTurn, restart, loadSave,
+    undoLastTurn, restart, loadSave, resumeAutosave,
     enterMetaMode, exitMetaMode,
     skipReveal, cancelRequest,
     saveCurrent, exportChronicle,
@@ -898,8 +929,8 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   // across the per-delta `entries`/`metaMessages` updates during streaming.
   const story: GameStoryValue = useMemo(() => ({
     phase, premise, language, ended, metaMode,
-    canUndo, entriesCount, hasMeta, keepsakeFilename,
-  }), [phase, premise, language, ended, metaMode, canUndo, entriesCount, hasMeta, keepsakeFilename]);
+    canUndo, entriesCount, hasMeta, hasAutosave: saves.hasAutosave, keepsakeFilename,
+  }), [phase, premise, language, ended, metaMode, canUndo, entriesCount, hasMeta, saves.hasAutosave, keepsakeFilename]);
 
   // ── High-churn live state + saves/reveal/keepsake surfaces ───────────────
   const live: GameLiveValue = useMemo(() => ({

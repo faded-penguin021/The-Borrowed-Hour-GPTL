@@ -3,6 +3,11 @@ import type {
 } from "../types";
 
 export const SAVE_PREFIX = "borrowed:save:";
+// The single autosave slot. Deliberately outside SAVE_PREFIX so it never shows
+// up in the manual saves list, yet the storage shim still routes it to
+// IndexedDB (see storage/shim.ts) so a long chronicle can't blow the
+// localStorage cap.
+export const AUTOSAVE_KEY = "borrowed:autosave:v1";
 export const SETTINGS_KEY = "borrowed:settings:v1";
 export const ONBOARDING_KEY = "borrowed:onboarding:v1";
 export const SAVE_CAP = 30;

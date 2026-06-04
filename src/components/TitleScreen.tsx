@@ -6,7 +6,7 @@ import { LANGUAGES } from "../data/languages";
 import { useGameActions, useGameStory, useGameRun } from "../context/GameContext";
 import { ErrorRawDetail } from "./ErrorRawDetail";
 import { IconButton } from "./ui/IconButton";
-import { Bookmark, Settings } from "lucide-react";
+import { Bookmark, Settings, History } from "lucide-react";
 
 // Base look for a premise card. The realm-keyed radial glow and hover accent
 // still live on the `.premise-card` class (pseudo-element + per-realm shadow);
@@ -32,10 +32,11 @@ export function TitleScreen({ onOpenCustom, onOpenSettings }: TitleScreenProps) 
   const {
     beginAdventure: onChoose,
     openSavesModal: onOpenSaves,
+    resumeAutosave: onResumeAutosave,
     setLanguage: onChangeLanguage,
     getDiscoveredEndings,
   } = useGameActions();
-  const { language } = useGameStory();
+  const { language, hasAutosave } = useGameStory();
   const { loading, error } = useGameRun();
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center px-6 py-16">
@@ -111,6 +112,21 @@ export function TitleScreen({ onOpenCustom, onOpenSettings }: TitleScreenProps) 
           </p>
         </button>
       </div>
+      {hasAutosave && (
+        <div className="mt-10 -mb-2 flex flex-col items-center gap-1.5 fade-in">
+          <IconButton
+            onClick={onResumeAutosave}
+            disabled={loading}
+            active
+            pad="px-[22px] py-[10px]"
+          >
+            <History size={14} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />RESUME UNFINISHED HOUR
+          </IconButton>
+          <span className="font-body italic text-[12px] text-cream-faint">
+            Your last hour was kept where you left it.
+          </span>
+        </div>
+      )}
       <div className="mt-10 flex items-center gap-4 flex-wrap justify-center">
         <select
           value={language}
