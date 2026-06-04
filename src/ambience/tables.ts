@@ -55,14 +55,14 @@ export const AMBIENCE_PALETTE_DEFAULT    = "piano";
 // weights are multipliers (≤1) against the mood base for each lane;
 // allow gates which instrument types may actually fire this turn.
 export const AMBIENCE_PALETTE = {
-  piano:   { cutoff: 3200, melodyOsc: "triangle",  weights: { chord: 1.0, melody: 1.0, pulse: 1.0, piano: 1.0, pluck: 0.6, strings: 0.7, drums: 0.8 }, allow: { piano: true,  pluck: true,  pizz: true,  bow: true  } },
-  synth:   { cutoff: 3600, melodyOsc: "sawtooth",  weights: { chord: 0.9, melody: 1.0, pulse: 1.0, piano: 0.3, pluck: 0.4, strings: 0.5, drums: 1.0 }, allow: { piano: false, pluck: true,  pizz: true,  bow: false } },
-  glass:   { cutoff: 3800, melodyOsc: "triangle",  weights: { chord: 0.8, melody: 1.0, pulse: 0.5, piano: 0.5, pluck: 1.0, strings: 0.4, drums: 0.3 }, allow: { piano: true,  pluck: true,  pizz: false, bow: false } },
-  choir:   { cutoff: 2800, melodyOsc: "sine",      weights: { chord: 1.0, melody: 0.7, pulse: 0.6, piano: 0.4, pluck: 0.3, strings: 0.8, drums: 0.4 }, allow: { piano: false, pluck: false, pizz: false, bow: true  } },
-  strings: { cutoff: 3000, melodyOsc: "triangle",  weights: { chord: 0.9, melody: 0.9, pulse: 0.8, piano: 0.5, pluck: 0.7, strings: 1.0, drums: 0.6 }, allow: { piano: true,  pluck: true,  pizz: true,  bow: true  } },
-  reed:    { cutoff: 2400, melodyOsc: "sine",      weights: { chord: 0.8, melody: 0.8, pulse: 0.7, piano: 0.4, pluck: 1.0, strings: 0.6, drums: 0.5 }, allow: { piano: false, pluck: true,  pizz: true,  bow: false } },
-  brass:   { cutoff: 2200, melodyOsc: "sine",      weights: { chord: 0.7, melody: 0.6, pulse: 0.5, piano: 0.3, pluck: 0.2, strings: 0.5, drums: 0.0 }, allow: { piano: false, pluck: false, pizz: false, bow: false } },
-  guitar:  { cutoff: 3200, melodyOsc: "triangle",  weights: { chord: 0.9, melody: 1.0, pulse: 0.8, piano: 0.6, pluck: 1.0, strings: 0.7, drums: 0.7 }, allow: { piano: true,  pluck: true,  pizz: true,  bow: false } }
+  piano:   { cutoff: 3200, melodyOsc: "triangle",  weights: { chord: 1.0, melody: 1.0, pulse: 1.0, piano: 1.0, pluck: 0.6, strings: 0.7, drums: 0.8, celeste: 0.8, choir_voice: 0.0, marimba: 0.7, glock: 0.0 }, allow: { piano: true,  pluck: true,  pizz: true,  bow: true,  celeste: true,  choir_voice: false, marimba: true,  glock: false } },
+  synth:   { cutoff: 3600, melodyOsc: "sawtooth",  weights: { chord: 0.9, melody: 1.0, pulse: 1.0, piano: 0.3, pluck: 0.4, strings: 0.5, drums: 1.0, celeste: 0.7, choir_voice: 0.0, marimba: 0.8, glock: 0.6 }, allow: { piano: false, pluck: true,  pizz: true,  bow: false, celeste: true,  choir_voice: false, marimba: true,  glock: true  } },
+  glass:   { cutoff: 3800, melodyOsc: "triangle",  weights: { chord: 0.8, melody: 1.0, pulse: 0.5, piano: 0.5, pluck: 1.0, strings: 0.4, drums: 0.3, celeste: 1.0, choir_voice: 0.0, marimba: 0.0, glock: 0.9 }, allow: { piano: true,  pluck: true,  pizz: false, bow: false, celeste: true,  choir_voice: false, marimba: false, glock: true  } },
+  choir:   { cutoff: 2800, melodyOsc: "sine",      weights: { chord: 1.0, melody: 0.7, pulse: 0.6, piano: 0.4, pluck: 0.3, strings: 0.8, drums: 0.4, celeste: 0.0, choir_voice: 1.0, marimba: 0.0, glock: 0.0 }, allow: { piano: false, pluck: false, pizz: false, bow: true,  celeste: false, choir_voice: true,  marimba: false, glock: false } },
+  strings: { cutoff: 3000, melodyOsc: "triangle",  weights: { chord: 0.9, melody: 0.9, pulse: 0.8, piano: 0.5, pluck: 0.7, strings: 1.0, drums: 0.6, celeste: 0.6, choir_voice: 0.7, marimba: 0.0, glock: 0.0 }, allow: { piano: true,  pluck: true,  pizz: true,  bow: true,  celeste: true,  choir_voice: true,  marimba: false, glock: false } },
+  reed:    { cutoff: 2400, melodyOsc: "sine",      weights: { chord: 0.8, melody: 0.8, pulse: 0.7, piano: 0.4, pluck: 1.0, strings: 0.6, drums: 0.5, celeste: 0.0, choir_voice: 0.0, marimba: 0.7, glock: 0.0 }, allow: { piano: false, pluck: true,  pizz: true,  bow: false, celeste: false, choir_voice: false, marimba: true,  glock: false } },
+  brass:   { cutoff: 2200, melodyOsc: "sine",      weights: { chord: 0.7, melody: 0.6, pulse: 0.5, piano: 0.3, pluck: 0.2, strings: 0.5, drums: 0.0, celeste: 0.0, choir_voice: 0.6, marimba: 0.0, glock: 0.0 }, allow: { piano: false, pluck: false, pizz: false, bow: false, celeste: false, choir_voice: true,  marimba: false, glock: false } },
+  guitar:  { cutoff: 3200, melodyOsc: "triangle",  weights: { chord: 0.9, melody: 1.0, pulse: 0.8, piano: 0.6, pluck: 1.0, strings: 0.7, drums: 0.7, celeste: 0.0, choir_voice: 0.0, marimba: 0.7, glock: 0.0 }, allow: { piano: true,  pluck: true,  pizz: true,  bow: false, celeste: false, choir_voice: false, marimba: true,  glock: false } }
 };
 
 // Per-scene loudness trims — relative voice gains feeding the master.
@@ -70,11 +70,13 @@ export const AMBIENCE_PALETTE = {
 export const AMBIENCE_SPACE_TRIM = {
   intimate: 0.45, chamber: 0.50, hall: 0.55, cavern: 0.65,
   street:   0.60, field:   0.55, forest:   0.55,
-  vehicle:  0.65, void:    0.55
+  vehicle:  0.65, void:    0.55,
+  underwater: 0.60, tavern: 0.55
 };
 export const AMBIENCE_POPULATION_TRIM = {
   solitary: 0.30, sparse_voices: 0.40, crowd:    0.50, machinery: 0.55,
-  nature:   0.45, ceremony:      0.45, creature: 0.50, wild:      0.60
+  nature:   0.45, ceremony:      0.45, creature: 0.50, wild:      0.60,
+  spirits: 0.45, rain: 0.50
 };
 
 // Mood → musical voicing tables.
@@ -128,14 +130,14 @@ export const AMBIENCE_MOOD_MUSIC_GAIN = {
 // intentionally modest so the music ceiling holds with TTS narration.
 // Entries omitted (or 0) mean that instrument is silent for that mood.
 export const AMBIENCE_MOOD_INSTRUMENTATION = {
-  calm:       { piano: 0.22 },
-  tender:     { piano: 0.20, pluck: 0.12 },
-  melancholy: { piano: 0.24, pizz:  0.14 },
-  ominous:    { piano: 0.18, bow:   0.22 },
-  joyous:     { piano: 0.16, pluck: 0.18 },
-  tense:      { pizz:  0.16, bow:   0.14 },
-  urgent:     { pizz:  0.18 },
-  mysterious: { piano: 0.20, pluck: 0.14 }
+  calm:       { piano: 0.22, celeste: 0.14 },
+  tender:     { piano: 0.20, pluck: 0.12, choir_voice: 0.16, celeste: 0.10 },
+  melancholy: { piano: 0.24, pizz:  0.14, choir_voice: 0.18 },
+  ominous:    { piano: 0.18, bow:   0.22, choir_voice: 0.22 },
+  joyous:     { piano: 0.16, pluck: 0.18, celeste: 0.16, marimba: 0.14, glock: 0.10 },
+  tense:      { pizz:  0.16, bow:   0.14, marimba: 0.12 },
+  urgent:     { pizz:  0.18, marimba: 0.16 },
+  mysterious: { piano: 0.20, pluck: 0.14, celeste: 0.12, glock: 0.08, choir_voice: 0.14 }
 };
 
 // 16th-note drum patterns; 16 slots per bar at AMBIENCE_MOOD_PULSE_BPM[mood].
@@ -210,6 +212,29 @@ export const AMBIENCE_MOOD_DRUM_GAIN = {
   urgent:     { kick: 0.14, snare: 0.08, hat: 0.10, rim: 0.06, shaker: 0.05, tom: 0.08 },
   joyous:     { shaker: 0.06, rim: 0.05 },
   mysterious: { shaker: 0.03 }
+};
+
+// Alternate 4-chord progressions per mood — selected 50/50 on mood change.
+export const AMBIENCE_MOOD_PROGRESSION_ALT = {
+  calm:       [[0,"maj"],[4,"min"],[7,"maj"],[2,"min"]],
+  tender:     [[0,"maj"],[9,"min"],[5,"maj"],[0,"maj"]],
+  joyous:     [[0,"maj"],[5,"maj"],[9,"min"],[7,"maj"]],
+  melancholy: [[0,"min"],[5,"min"],[8,"maj"],[3,"maj"]],
+  ominous:    [[0,"min"],[3,"min"],[8,"maj"],[5,"maj"]],
+  tense:      [[0,"min"],[5,"min"],[1,"maj"],[7,"min"]],
+  urgent:     [[0,"min"],[7,"min"],[5,"min"],[3,"min"]],
+  mysterious: [[0,"min"],[5,"min"],[2,"min"],[7,"maj"]]
+};
+
+// Micro-event categories per mood group — used by the ambient micro-layer.
+export const AMBIENCE_MICRO_EVENTS: Record<string, string[]> = {
+  calm:       ["breath_held", "paper_rustle", "water_drip"],
+  tender:     ["breath_held", "paper_rustle", "water_drip"],
+  tense:      ["metal_clang", "footsteps_recede", "lock_click"],
+  urgent:     ["metal_clang", "footsteps_recede", "lock_click"],
+  ominous:    ["whisper_close", "door_creak", "owl_hoot"],
+  mysterious: ["whisper_close", "door_creak", "owl_hoot"],
+  joyous:     ["glass_set_down", "coin_drop", "keys_jingle"]
 };
 
 // Realm-derived opening ambience. Used to guarantee the world has sound from
@@ -291,13 +316,13 @@ function _layerCrickets(eng: AmbienceEngine, dest: AudioNode, density?: number):
     if (Math.random() > 0.7) return;
     const now = ctx.currentTime;
     const chirp = ctx.createOscillator(); chirp.type = "sine";
-    chirp.frequency.value = 4200 + Math.random() * 800;
+    chirp.frequency.value = 4200 + Math.random() * 300;
     const cg = ctx.createGain();
     cg.gain.setValueAtTime(0, now);
     const pulses = 2 + Math.floor(Math.random() * 3);
     let t = now;
     for (let p = 0; p < pulses; p++) {
-      cg.gain.linearRampToValueAtTime(0.025 + Math.random() * 0.02, t + 0.01);
+      cg.gain.linearRampToValueAtTime(0.015 + Math.random() * 0.015, t + 0.01);
       cg.gain.linearRampToValueAtTime(0, t + 0.03);
       t += 0.05 + Math.random() * 0.04;
     }
@@ -478,7 +503,7 @@ export const AMBIENCE_SPACE_RECIPES: Record<string, (eng: AmbienceEngine, dest: 
       if (ctx.state !== "running") return;
       if (Math.random() > 0.55) return;
       const now = ctx.currentTime;
-      const freq = 3000 + Math.random()*4000;
+      const freq = 3000 + Math.random()*1500;
       const o = ctx.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(freq, now);
       o.frequency.exponentialRampToValueAtTime(freq * (0.7 + Math.random()*0.5), now + 0.08);
       const og = ctx.createGain();
@@ -526,6 +551,65 @@ export const AMBIENCE_SPACE_RECIPES: Record<string, (eng: AmbienceEngine, dest: 
       lpf.frequency.setTargetAtTime(400 + Math.random()*500, ctx.currentTime, 4);
     }, 6000);
     return { nodes: [out, lpf, ...oscs], timers: [iv] };
+  },
+  underwater: (eng, dest) => {
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "brown"); src.loop = true;
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 300;
+    const g = ctx.createGain(); g.gain.value = 0.55;
+    src.connect(lp).connect(g).connect(dest); src.start();
+    const freqs = [55, 58, 62];
+    const oscs: AudioNode[] = [];
+    freqs.forEach((f) => {
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f;
+      const og = ctx.createGain(); og.gain.value = 0.10;
+      o.connect(og).connect(dest); o.start();
+      oscs.push(o, og);
+    });
+    const ivBubble = setInterval(() => {
+      if (ctx.state !== "running") return;
+      if (Math.random() > 0.5) return;
+      const now = ctx.currentTime;
+      const o = ctx.createOscillator(); o.type = "sine";
+      o.frequency.setValueAtTime(800 + Math.random() * 600, now);
+      o.frequency.exponentialRampToValueAtTime(400 + Math.random() * 300, now + 0.15);
+      const bg = ctx.createGain();
+      bg.gain.setValueAtTime(0, now);
+      bg.gain.linearRampToValueAtTime(0.06, now + 0.02);
+      bg.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      o.connect(bg).connect(dest);
+      o.start(now); o.stop(now + 0.25);
+    }, 2000);
+    const ivSweep = setInterval(() => {
+      if (ctx.state !== "running") return;
+      lp.frequency.setTargetAtTime(200 + Math.random() * 200, ctx.currentTime, 3);
+    }, 5000);
+    return { nodes: [src, lp, g, ...oscs], timers: [ivBubble, ivSweep] };
+  },
+  tavern: (eng, dest) => {
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "brown"); src.loop = true;
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 500;
+    const g = ctx.createGain(); g.gain.value = 0.45;
+    src.connect(lp).connect(g).connect(dest); src.start();
+    const ivCrackle = setInterval(() => {
+      if (ctx.state !== "running") return;
+      if (Math.random() > 0.6) return;
+      const now = ctx.currentTime;
+      for (let i = 0; i < 3; i++) {
+        const t = now + Math.random() * 0.3;
+        const pop = ctx.createBufferSource(); pop.buffer = eng._noiseBuffer(0.04, "brown");
+        const plp = ctx.createBiquadFilter(); plp.type = "lowpass"; plp.frequency.value = 800;
+        const pg = ctx.createGain();
+        pg.gain.setValueAtTime(0, t);
+        pg.gain.linearRampToValueAtTime(0.08, t + 0.008);
+        pg.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+        pop.connect(plp).connect(pg).connect(dest);
+        pop.start(t); pop.stop(t + 0.05);
+      }
+    }, 1800);
+    const murmur = _layerCafeMurmur(eng, dest, 0.22);
+    return _mergeLayers({ nodes: [src, lp, g], timers: [ivCrackle] }, murmur);
   }
 };
 
@@ -607,13 +691,13 @@ export const AMBIENCE_POPULATION_RECIPES: Record<string, (eng: AmbienceEngine, d
     const ivCrickets = setInterval(() => {
       if (ctx.state !== "running") return;
       const now = ctx.currentTime;
-      const chirp = ctx.createOscillator(); chirp.type = "sine"; chirp.frequency.value = 4200 + Math.random()*800;
+      const chirp = ctx.createOscillator(); chirp.type = "sine"; chirp.frequency.value = 4200 + Math.random()*300;
       const cg = ctx.createGain();
       cg.gain.setValueAtTime(0, now);
       const pulses = 3 + Math.floor(Math.random()*3);
       let t = now;
       for (let p = 0; p < pulses; p++) {
-        cg.gain.linearRampToValueAtTime(0.04 + Math.random()*0.02, t + 0.01);
+        cg.gain.linearRampToValueAtTime(0.015 + Math.random()*0.015, t + 0.01);
         cg.gain.linearRampToValueAtTime(0, t + 0.03);
         t += 0.05 + Math.random()*0.04;
       }
@@ -624,7 +708,7 @@ export const AMBIENCE_POPULATION_RECIPES: Record<string, (eng: AmbienceEngine, d
       if (ctx.state !== "running") return;
       if (Math.random() > 0.5) return;
       const now = ctx.currentTime;
-      const freq = 3000 + Math.random()*4000;
+      const freq = 3000 + Math.random()*1500;
       const o = ctx.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(freq, now);
       o.frequency.exponentialRampToValueAtTime(freq * (0.7 + Math.random()*0.5), now + 0.08);
       const og = ctx.createGain();
@@ -708,6 +792,53 @@ export const AMBIENCE_POPULATION_RECIPES: Record<string, (eng: AmbienceEngine, d
     }, 9000);
     const gusts = _layerWindGust(eng, dest);
     return _mergeLayers({ nodes: [src, f, g], timers: [ivOcean, ivThunder] }, gusts);
+  },
+  spirits: (eng, dest) => {
+    const ctx = eng.ctx;
+    const out = ctx.createGain(); out.gain.value = 0.5; out.connect(dest);
+    const lpf = ctx.createBiquadFilter(); lpf.type = "lowpass"; lpf.frequency.value = 500;
+    lpf.connect(out);
+    const freqs = [180, 220, 280, 380];
+    const oscs: AudioNode[] = [];
+    freqs.forEach((f, i) => {
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f;
+      o.detune.value = (i % 2 ? 5 : -5);
+      const og = ctx.createGain(); og.gain.value = 0.08;
+      o.connect(og).connect(lpf); o.start();
+      oscs.push(o, og);
+    });
+    const lfo = ctx.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 0.15;
+    const lfoG = ctx.createGain(); lfoG.gain.value = 80;
+    lfo.connect(lfoG);
+    oscs.forEach((n, i) => { if (i % 2 === 0) lfoG.connect((n as OscillatorNode).frequency); });
+    lfo.start();
+    const ivPuff = setInterval(() => {
+      if (ctx.state !== "running") return;
+      if (Math.random() > 0.4) return;
+      const now = ctx.currentTime;
+      const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(0.6, "pink");
+      const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 600; bp.Q.value = 2;
+      const pg = ctx.createGain();
+      pg.gain.setValueAtTime(0, now);
+      pg.gain.linearRampToValueAtTime(0.05, now + 0.1);
+      pg.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      src.connect(bp).connect(pg).connect(dest);
+      src.start(now); src.stop(now + 0.6);
+    }, 4000);
+    return { nodes: [out, lpf, lfo, lfoG, ...oscs], timers: [ivPuff] };
+  },
+  rain: (eng, dest) => {
+    const ctx = eng.ctx;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(3, "pink"); src.loop = true;
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 3000; bp.Q.value = 0.8;
+    const g = ctx.createGain(); g.gain.value = 0.45;
+    src.connect(bp).connect(g).connect(dest); src.start();
+    const ivDensity = setInterval(() => {
+      if (ctx.state !== "running") return;
+      g.gain.setTargetAtTime(0.30 + Math.random() * 0.30, ctx.currentTime, 2.5);
+      bp.frequency.setTargetAtTime(2000 + Math.random() * 2000, ctx.currentTime, 2.5);
+    }, 5000);
+    return { nodes: [src, bp, g], timers: [ivDensity] };
   }
 };
 
@@ -756,13 +887,15 @@ export const AMBIENCE_EVENT_RECIPES: Record<string, (eng: AmbienceEngine, startA
     const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(0.4, "brown");
     const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 200;
     const g = ctx.createGain();
-    g.gain.setValueAtTime(0.65, startAt);
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.65, startAt + 0.008);
     g.gain.exponentialRampToValueAtTime(0.001, startAt + 0.4);
     src.connect(f).connect(g).connect(dest);
     src.start(startAt); src.stop(startAt + 0.45);
     const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = 70;
     const og = ctx.createGain();
-    og.gain.setValueAtTime(0.45, startAt);
+    og.gain.setValueAtTime(0, startAt);
+    og.gain.linearRampToValueAtTime(0.45, startAt + 0.008);
     og.gain.exponentialRampToValueAtTime(0.001, startAt + 0.3);
     o.connect(og).connect(dest);
     o.start(startAt); o.stop(startAt + 0.35);
@@ -786,7 +919,8 @@ export const AMBIENCE_EVENT_RECIPES: Record<string, (eng: AmbienceEngine, startA
       const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(0.18, "brown");
       const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 260;
       const g = ctx.createGain();
-      g.gain.setValueAtTime(0.55, startAt + offset);
+      g.gain.setValueAtTime(0, startAt + offset);
+      g.gain.linearRampToValueAtTime(0.55, startAt + offset + 0.008);
       g.gain.exponentialRampToValueAtTime(0.001, startAt + offset + 0.16);
       src.connect(f).connect(g).connect(dest);
       src.start(startAt + offset); src.stop(startAt + offset + 0.2);
@@ -824,7 +958,7 @@ export const AMBIENCE_EVENT_RECIPES: Record<string, (eng: AmbienceEngine, startA
     const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 180;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, startAt);
-    g.gain.linearRampToValueAtTime(0.6, startAt + 0.3);
+    g.gain.linearRampToValueAtTime(0.45, startAt + 0.3);
     g.gain.exponentialRampToValueAtTime(0.001, startAt + dur);
     src.connect(f).connect(g).connect(dest);
     src.start(startAt); src.stop(startAt + dur + 0.1);
@@ -854,7 +988,7 @@ export const AMBIENCE_EVENT_RECIPES: Record<string, (eng: AmbienceEngine, startA
     const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 350; f.Q.value = 3;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, startAt);
-    g.gain.linearRampToValueAtTime(0.50, startAt + 0.02);
+    g.gain.linearRampToValueAtTime(0.35, startAt + 0.02);
     g.gain.linearRampToValueAtTime(0, startAt + 0.7);
     src.connect(f).connect(g).connect(dest);
     src.start(startAt); src.stop(startAt + 0.75);
@@ -884,7 +1018,7 @@ export const AMBIENCE_EVENT_RECIPES: Record<string, (eng: AmbienceEngine, startA
       const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f;
       const og = ctx.createGain();
       og.gain.setValueAtTime(0, startAt);
-      og.gain.linearRampToValueAtTime(peak, startAt + 0.002);
+      og.gain.linearRampToValueAtTime(peak, startAt + 0.008);
       og.gain.exponentialRampToValueAtTime(0.0005, startAt + 0.55);
       o.connect(og).connect(bp);
       o.start(startAt); o.stop(startAt + 0.6);
@@ -896,7 +1030,8 @@ export const AMBIENCE_EVENT_RECIPES: Record<string, (eng: AmbienceEngine, startA
     const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(1.2, "pink");
     const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 600; f.Q.value = 1.2;
     const g = ctx.createGain();
-    g.gain.setValueAtTime(0.45, startAt);
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.45, startAt + 0.008);
     g.gain.setValueAtTime(0.45, startAt + 0.4);
     g.gain.exponentialRampToValueAtTime(0.001, startAt + 1.1);
     src.connect(f).connect(g).connect(dest);
@@ -931,7 +1066,7 @@ export const AMBIENCE_EVENT_RECIPES: Record<string, (eng: AmbienceEngine, startA
       const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f;
       const og = ctx.createGain();
       og.gain.setValueAtTime(0, startAt);
-      og.gain.linearRampToValueAtTime(peak, startAt + 0.003);
+      og.gain.linearRampToValueAtTime(peak, startAt + 0.008);
       og.gain.exponentialRampToValueAtTime(0.0005, startAt + 1.2);
       o.connect(og).connect(dest);
       o.start(startAt); o.stop(startAt + 1.3);
@@ -943,9 +1078,166 @@ export const AMBIENCE_EVENT_RECIPES: Record<string, (eng: AmbienceEngine, startA
     const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2500; bp.Q.value = 1.5;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, startAt);
-    g.gain.linearRampToValueAtTime(0.32, startAt + 0.05);
-    g.gain.setValueAtTime(0.32, startAt + 0.7);
+    g.gain.linearRampToValueAtTime(0.22, startAt + 0.05);
+    g.gain.setValueAtTime(0.22, startAt + 0.7);
     g.gain.linearRampToValueAtTime(0, startAt + 1.0);
+    src.connect(bp).connect(g).connect(dest);
+    src.start(startAt); src.stop(startAt + 1.0);
+  },
+  rain_patter: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(1.8, "pink");
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2500; bp.Q.value = 1.0;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.30, startAt + 0.5);
+    g.gain.setValueAtTime(0.30, startAt + 1.0);
+    g.gain.linearRampToValueAtTime(0, startAt + 1.5);
+    src.connect(bp).connect(g).connect(dest);
+    src.start(startAt); src.stop(startAt + 1.8);
+  },
+  fire_crackle: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    for (let i = 0; i < 4; i++) {
+      const t = startAt + Math.random() * 0.3;
+      const pop = ctx.createBufferSource(); pop.buffer = eng._noiseBuffer(0.06, "brown");
+      const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 800;
+      const pg = ctx.createGain();
+      pg.gain.setValueAtTime(0, t);
+      pg.gain.linearRampToValueAtTime(0.15, t + 0.008);
+      pg.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+      pop.connect(lp).connect(pg).connect(dest);
+      pop.start(t); pop.stop(t + 0.07);
+    }
+  },
+  water_drip: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const o = ctx.createOscillator(); o.type = "sine";
+    o.frequency.setValueAtTime(1200, startAt);
+    o.frequency.exponentialRampToValueAtTime(800, startAt + 0.15);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.20, startAt + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, startAt + 0.3);
+    o.connect(g).connect(dest);
+    o.start(startAt); o.stop(startAt + 0.35);
+  },
+  heartbeat: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    [0, 0.18].forEach((offset) => {
+      const o = ctx.createOscillator(); o.type = "sine";
+      o.frequency.setValueAtTime(80, startAt + offset);
+      o.frequency.exponentialRampToValueAtTime(40, startAt + offset + 0.12);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, startAt + offset);
+      g.gain.linearRampToValueAtTime(0.25, startAt + offset + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, startAt + offset + 0.2);
+      o.connect(g).connect(dest);
+      o.start(startAt + offset); o.stop(startAt + offset + 0.25);
+    });
+  },
+  keys_jingle: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const freqs = [2200, 2700, 3200];
+    freqs.forEach((f, i) => {
+      const t = startAt + i * 0.06;
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.12, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      o.connect(g).connect(dest);
+      o.start(t); o.stop(t + 0.3);
+    });
+  },
+  horse_hooves: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const peaks = [0.30, 0.25, 0.20, 0.15];
+    peaks.forEach((p, i) => {
+      const t = startAt + i * 0.22;
+      const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(0.08, "brown");
+      const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 400;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(p, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      src.connect(lp).connect(g).connect(dest);
+      src.start(t); src.stop(t + 0.1);
+    });
+  },
+  owl_hoot: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const o = ctx.createOscillator(); o.type = "sine";
+    o.frequency.setValueAtTime(480, startAt);
+    o.frequency.exponentialRampToValueAtTime(340, startAt + 1.0);
+    const lfo = ctx.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 5;
+    const lfoG = ctx.createGain(); lfoG.gain.value = 15;
+    lfo.connect(lfoG); lfoG.connect(o.frequency);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.15, startAt + 0.08);
+    g.gain.setValueAtTime(0.15, startAt + 0.8);
+    g.gain.exponentialRampToValueAtTime(0.001, startAt + 1.2);
+    o.connect(g).connect(dest);
+    o.start(startAt); o.stop(startAt + 1.3);
+    lfo.start(startAt); lfo.stop(startAt + 1.3);
+  },
+  sword_draw: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(0.6, "white");
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.5;
+    bp.frequency.setValueAtTime(1000, startAt);
+    bp.frequency.exponentialRampToValueAtTime(4000, startAt + 0.5);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.30, startAt + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, startAt + 0.5);
+    src.connect(bp).connect(g).connect(dest);
+    src.start(startAt); src.stop(startAt + 0.6);
+  },
+  book_page_turn: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(0.4, "pink");
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 2500;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.12, startAt + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, startAt + 0.3);
+    src.connect(hp).connect(g).connect(dest);
+    src.start(startAt); src.stop(startAt + 0.4);
+  },
+  lock_click: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const o = ctx.createOscillator(); o.type = "triangle"; o.frequency.value = 600;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.25, startAt + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.001, startAt + 0.04);
+    o.connect(g).connect(dest);
+    o.start(startAt); o.stop(startAt + 0.06);
+  },
+  crowd_cheer: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(1.8, "pink");
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 800; bp.Q.value = 0.8;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.35, startAt + 0.6);
+    g.gain.setValueAtTime(0.35, startAt + 1.0);
+    g.gain.linearRampToValueAtTime(0, startAt + 1.5);
+    src.connect(bp).connect(g).connect(dest);
+    src.start(startAt); src.stop(startAt + 1.8);
+  },
+  sigh_close: (eng, startAt) => {
+    const ctx = eng.ctx, dest = eng.master;
+    const src = ctx.createBufferSource(); src.buffer = eng._noiseBuffer(1.0, "pink");
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.5;
+    bp.frequency.setValueAtTime(800, startAt);
+    bp.frequency.exponentialRampToValueAtTime(500, startAt + 0.6);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, startAt);
+    g.gain.linearRampToValueAtTime(0.18, startAt + 0.08);
+    g.gain.exponentialRampToValueAtTime(0.001, startAt + 0.8);
     src.connect(bp).connect(g).connect(dest);
     src.start(startAt); src.stop(startAt + 1.0);
   }

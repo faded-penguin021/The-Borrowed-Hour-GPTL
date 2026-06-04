@@ -6,12 +6,14 @@ import type { AmbienceEvent, AmbienceMood, AmbiencePalette, AmbiencePopulation, 
 
 export const AMBIENCE_SPACE_VALUES: AmbienceSpace[] = [
   "intimate", "chamber", "hall", "cavern",
-  "street", "field", "forest", "vehicle", "void"
+  "street", "field", "forest", "vehicle", "void",
+  "underwater", "tavern"
 ];
 
 export const AMBIENCE_POPULATION_VALUES: AmbiencePopulation[] = [
   "solitary", "sparse_voices", "crowd", "machinery",
-  "nature", "ceremony", "creature", "wild"
+  "nature", "ceremony", "creature", "wild",
+  "spirits", "rain"
 ];
 
 export const AMBIENCE_MOOD_VALUES: AmbienceMood[] = [
@@ -37,5 +39,8 @@ export const AMBIENCE_EVENT_VALUES: AmbienceEvent[] = [
   "wind_gust", "distant_thunder",
   "paper_rustle", "chair_scrape", "glass_set_down", "coin_drop",
   "crowd_hush", "cough_distant", "breath_held",
-  "metal_clang", "whisper_close"
+  "metal_clang", "whisper_close",
+  "rain_patter", "fire_crackle", "water_drip", "heartbeat",
+  "keys_jingle", "horse_hooves", "owl_hoot", "sword_draw",
+  "book_page_turn", "lock_click", "crowd_cheer", "sigh_close"
 ];

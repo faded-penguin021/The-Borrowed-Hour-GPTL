@@ -16,6 +16,7 @@ import {
   AMBIENCE_MOOD_SCALE,
   AMBIENCE_MOOD_MELODY_TEMPO,
   AMBIENCE_MOOD_PROGRESSION,
+  AMBIENCE_MOOD_PROGRESSION_ALT,
   AMBIENCE_MOOD_PULSE_BPM,
   AMBIENCE_MOOD_MUSIC_GAIN,
   AMBIENCE_MOOD_INSTRUMENTATION,
@@ -31,18 +32,19 @@ import {
   AMBIENCE_MASTER_LPF_CAP,
   AMBIENCE_ATTACK_FLOOR,
   AMBIENCE_LANE_GAIN_CEILING,
+  AMBIENCE_MICRO_EVENTS,
   sanitizeAmbience
 } from "./tables";
 
 type PaletteConfig = {
   cutoff: number;
   melodyOsc: string;
-  weights: { chord: number, melody: number, pulse: number, piano: number, pluck: number, strings: number, drums: number };
-  allow: { piano: boolean, pluck: boolean, pizz: boolean, bow: boolean };
+  weights: { chord: number, melody: number, pulse: number, piano: number, pluck: number, strings: number, drums: number, celeste?: number, choir_voice?: number, marimba?: number, glock?: number };
+  allow: { piano: boolean, pluck: boolean, pizz: boolean, bow: boolean, celeste?: boolean, choir_voice?: boolean, marimba?: boolean, glock?: boolean };
 };
 
 // Per-mood instrument peak-gain map (entries omit instruments that stay silent).
-type MoodInstrumentation = { piano?: number; pluck?: number; pizz?: number; bow?: number };
+type MoodInstrumentation = { piano?: number; pluck?: number; pizz?: number; bow?: number; celeste?: number; choir_voice?: number; marimba?: number; glock?: number };
 // One 16th-note drum slot; presence of a key triggers that voice.
 type DrumSlot = { k?: number; s?: number; h?: number; t?: number; r?: number; sh?: number; br?: number };
 // Per-mood drum-voice gain overrides.
@@ -63,11 +65,13 @@ const MOOD_DRUM_GAIN = AMBIENCE_MOOD_DRUM_GAIN as Record<string, DrumGainOverrid
 const MOOD_DRUM_BPM = AMBIENCE_MOOD_DRUM_BPM as Record<string, number>;
 const MOOD_MUSIC_GAIN = AMBIENCE_MOOD_MUSIC_GAIN as Record<string, MoodMusicGain>;
 const MOOD_PROGRESSION = AMBIENCE_MOOD_PROGRESSION as unknown as Record<string, ChordStep[]>;
+const MOOD_PROGRESSION_ALT = AMBIENCE_MOOD_PROGRESSION_ALT as unknown as Record<string, ChordStep[]>;
 const MOOD_SCALE = AMBIENCE_MOOD_SCALE as Record<string, number[]>;
 const INTENSITY_GAIN = AMBIENCE_INTENSITY_GAIN as Record<string, number>;
 
 type SceneLane = {
   gain: GainNode;
+  panner: StereoPannerNode;
   voice: { nodes?: AudioNode[], timers?: ReturnType<typeof setInterval>[] } | null;
   name: string | null;
   targetGain: number;
@@ -77,10 +81,11 @@ type SceneLane = {
 type SceneVoice = { nodes?: AudioNode[], timers?: ReturnType<typeof setInterval>[] } | null;
 
 // Music-lane voice groups built by the _build* helpers.
-type InstrumentLane = { out: GainNode; dry: GainNode; wet: GainNode; wetAmount: number };
+type InstrumentLane = { out: GainNode; dry: GainNode; wet: GainNode; wetAmount: number; panner: StereoPannerNode };
 type ChordPad = {
   out: GainNode;
   lpf: BiquadFilterNode;
+  panner: StereoPannerNode;
   voices: { sine: OscillatorNode; tri: OscillatorNode; gain: GainNode }[];
   baseHz: number;
   progressionIdx: number;
@@ -89,10 +94,11 @@ type ChordPad = {
 type MelodyVoice = {
   out: GainNode;
   lpf: BiquadFilterNode;
+  panner: StereoPannerNode;
   scaleDegree: number;
   scheduled: ReturnType<typeof setTimeout> | 0;
 };
-type PulseLane = { out: GainNode; scheduled: ReturnType<typeof setTimeout> | 0 };
+type PulseLane = { out: GainNode; panner: StereoPannerNode; scheduled: ReturnType<typeof setTimeout> | 0 };
 
 export class AmbienceEngine {
   ctx: AudioContext;
@@ -117,9 +123,18 @@ export class AmbienceEngine {
   pluck: InstrumentLane;
   strings: InstrumentLane;
   drums: InstrumentLane;
+  celeste: InstrumentLane;
+  choir: InstrumentLane;
+  marimba: InstrumentLane;
+  glockenspiel: InstrumentLane;
+  softLimiter: DynamicsCompressorNode;
+  highShelf: BiquadFilterNode;
+  reverbPanner: StereoPannerNode;
+  _reverbLfoTimer: ReturnType<typeof setTimeout> | 0;
   musicLevel: "off" | "sparse" | "full";
   current: { space: AmbienceSpace | null, population: AmbiencePopulation | null, mood: AmbienceMood | null, palette: AmbiencePalette | null };
   _paletteWeights: PaletteConfig;
+  _activeProgression: Record<string, ChordStep[]>;
   comfortInterval: ReturnType<typeof setInterval>;
   _lastVisibleAt: number;
   _onVisibility: () => void;
@@ -135,6 +150,11 @@ export class AmbienceEngine {
   speechGate: boolean;
   speechActive: boolean;
   boosted: boolean;
+  _activeEvents: number;
+  _melodyHistory: number[];
+  _roomTone: { src: AudioBufferSourceNode; gain: GainNode } | null;
+  _microTimer: ReturnType<typeof setTimeout> | 0;
+  _sceneBreathTimers: ReturnType<typeof setTimeout>[];
 
   constructor() {
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -157,6 +177,18 @@ export class AmbienceEngine {
     this.master = this.ctx.createGain();
     this.master.gain.value = 0;
 
+    this.softLimiter = this.ctx.createDynamicsCompressor();
+    this.softLimiter.threshold.value = -12;
+    this.softLimiter.knee.value = 6;
+    this.softLimiter.ratio.value = 2;
+    this.softLimiter.attack.value = 0.003;
+    this.softLimiter.release.value = 0.1;
+
+    this.highShelf = this.ctx.createBiquadFilter();
+    this.highShelf.type = "highshelf";
+    this.highShelf.frequency.value = 6000;
+    this.highShelf.gain.value = -3;
+
     this.masterLPF = this.ctx.createBiquadFilter();
     this.masterLPF.type = "lowpass";
     this.masterLPF.frequency.value = AMBIENCE_MASTER_LPF_DEFAULT;
@@ -169,7 +201,9 @@ export class AmbienceEngine {
     this.masterComp.attack.value = 0.012;
     this.masterComp.release.value = 0.25;
 
-    this.master.connect(this.masterLPF);
+    this.master.connect(this.softLimiter);
+    this.softLimiter.connect(this.highShelf);
+    this.highShelf.connect(this.masterLPF);
     this.masterLPF.connect(this.masterComp);
     this.masterComp.connect(this.ctx.destination);
 
@@ -181,33 +215,48 @@ export class AmbienceEngine {
     this.convolver.buffer = this._impulseResponse(2.4, 2.0);
     this.reverbReturn = this.ctx.createGain();
     this.reverbReturn.gain.value = 0.55;
+    this.reverbPanner = this.ctx.createStereoPanner();
+    this.reverbPanner.pan.value = 0;
     this.reverbSend.connect(this.convolver);
     this.convolver.connect(this.reverbReturn);
-    this.reverbReturn.connect(this.master);
+    this.reverbReturn.connect(this.reverbPanner);
+    this.reverbPanner.connect(this.master);
+    this._reverbLfoTimer = 0;
+    this._startReverbLfo();
 
     // Diegetic synth lanes — each holds a scene voice built from one of
     // the recipes in AMBIENCE_SPACE_RECIPES / AMBIENCE_POPULATION_RECIPES.
     /** @type {{ space: SceneLane, population: SceneLane }} */
     this.scene = {
-      space:      { gain: this._makeGain(0), voice: null, name: null, targetGain: 0 },
-      population: { gain: this._makeGain(0), voice: null, name: null, targetGain: 0 }
+      space:      { ...this._makePannedGain(0, -0.20), voice: null, name: null, targetGain: 0 },
+      population: { ...this._makePannedGain(0, 0.20), voice: null, name: null, targetGain: 0 }
     };
 
     // Music lanes (synth).
     this.chordPad = this._buildChordPad();
     this.melodyVoice = this._buildMelody();
     this.pulse = this._buildPulse();
-    // New instrument lanes — additive over chord/melody/pulse.
-    this.piano   = this._buildInstrumentLane(0.45);
-    this.pluck   = this._buildInstrumentLane(0.30);
-    this.strings = this._buildInstrumentLane(0.40);
-    this.drums   = this._buildInstrumentLane(0.12);
+    // Instrument lanes — additive over chord/melody/pulse.
+    this.piano       = this._buildInstrumentLane(0.45, -0.18);
+    this.pluck       = this._buildInstrumentLane(0.30, 0.25);
+    this.strings     = this._buildInstrumentLane(0.40, -0.12);
+    this.drums       = this._buildInstrumentLane(0.12, 0.0);
+    this.celeste     = this._buildInstrumentLane(0.50, 0.30);
+    this.choir       = this._buildInstrumentLane(0.55, 0.0);
+    this.marimba     = this._buildInstrumentLane(0.25, -0.25);
+    this.glockenspiel = this._buildInstrumentLane(0.45, 0.20);
     this.musicLevel = "full"; // off | sparse | full
 
     // Currently held GM input — fields stay until re-emitted.
     /** @type {{ space: AmbienceSpace | null, population: AmbiencePopulation | null, mood: AmbienceMood | null, palette: AmbiencePalette | null }} */
     this.current = { space: null, population: null, mood: null, palette: null };
     this._paletteWeights = PALETTE_TABLE[PALETTE_DEFAULT_KEY];
+    this._activeProgression = MOOD_PROGRESSION;
+    this._activeEvents = 0;
+    this._melodyHistory = [];
+    this._roomTone = null;
+    this._microTimer = 0;
+    this._sceneBreathTimers = [];
 
     this.comfortInterval = setInterval(() => this._updateComfort(), 30000);
     // Page Visibility coupling. When the tab is hidden, browsers throttle JS
@@ -268,6 +317,28 @@ export class AmbienceEngine {
     g.connect(this.master);
     return g;
   }
+  _makePannedGain(initial: number, pan: number): { gain: GainNode; panner: StereoPannerNode } {
+    const g = this.ctx.createGain();
+    g.gain.value = initial;
+    const p = this.ctx.createStereoPanner();
+    p.pan.value = pan;
+    g.connect(p);
+    p.connect(this.master);
+    return { gain: g, panner: p };
+  }
+  _startReverbLfo() {
+    const drift = () => {
+      if (this.destroyed) return;
+      const target = (Math.random() - 0.5) * 0.24;
+      this.reverbPanner.pan.setTargetAtTime(target, this.ctx.currentTime, 5);
+      this._reverbLfoTimer = setTimeout(drift, 15000);
+    };
+    drift();
+  }
+  _jitteredTimeout(callback: () => void, baseMs: number, jitter = 0.25): ReturnType<typeof setTimeout> {
+    const actual = baseMs * (1 + (Math.random() * 2 - 1) * jitter);
+    return setTimeout(callback, actual);
+  }
   // ── Noise buffer helper (lifted from Hermes Agent Music, MIT) ─────
   _noiseBuffer(sec: number, type: "pink" | "brown" | "white") {
     const ctx = this.ctx;
@@ -318,14 +389,15 @@ export class AmbienceEngine {
   // `out → dry → master` is the dry signal; `out → wet → reverbSend`
   // is the wet send at `wetAmount`. Both branches share the lane gain
   // (mood-controlled) so volume scales together.
-  _buildInstrumentLane(wetAmount: number): InstrumentLane {
+  _buildInstrumentLane(wetAmount: number, pan = 0): InstrumentLane {
     const ctx = this.ctx;
     const out = ctx.createGain(); out.gain.value = 0;
     const dry = ctx.createGain(); dry.gain.value = 1.0;
     const wet = ctx.createGain(); wet.gain.value = wetAmount;
-    out.connect(dry); dry.connect(this.master);
+    const panner = ctx.createStereoPanner(); panner.pan.value = pan;
+    out.connect(dry); dry.connect(panner); panner.connect(this.master);
     out.connect(wet); wet.connect(this.reverbSend);
-    return { out, dry, wet, wetAmount };
+    return { out, dry, wet, wetAmount, panner };
   }
   // ── Piano: detuned triangles, soft attack, long release ───────────
   _firePiano(freq: number, peak?: number, release?: number) {
@@ -456,7 +528,7 @@ export class AmbienceEngine {
     const g = ctx.createGain();
     const p = peak || 0.9;
     g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(p, now + 0.005);
+    g.gain.linearRampToValueAtTime(p, now + 0.008);
     g.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
     o.connect(g); g.connect(this.drums.dry);
     o.onended = () => { try { g.disconnect(); } catch (_) {} };
@@ -490,7 +562,7 @@ export class AmbienceEngine {
     const g = ctx.createGain();
     const p = peak || 0.15;
     g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(p, now + 0.002);
+    g.gain.linearRampToValueAtTime(p, now + 0.008);
     g.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
     src.connect(hp); hp.connect(g); g.connect(this.drums.out);
     src.onended = () => { try { hp.disconnect(); } catch (_) {} try { g.disconnect(); } catch (_) {} };
@@ -523,7 +595,7 @@ export class AmbienceEngine {
     const g = ctx.createGain();
     const p = peak || 0.3;
     g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(p, now + 0.002);
+    g.gain.linearRampToValueAtTime(p, now + 0.008);
     g.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
     o.connect(bp); bp.connect(g); g.connect(this.drums.out);
     o.onended = () => { try { bp.disconnect(); } catch (_) {} try { g.disconnect(); } catch (_) {} };
@@ -566,6 +638,85 @@ export class AmbienceEngine {
     src.onended = () => { try { lp.disconnect(); } catch (_) {} try { g.disconnect(); } catch (_) {} };
     src.start(now); src.stop(now + 0.25);
   }
+  // ── Celeste: music-box / xylophone-like ────────────────────────────
+  _fireCeleste(freq: number, peak?: number) {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const p = peak || 0.08;
+    const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = freq;
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = freq * 2; bp.Q.value = 2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(p, now + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0005, now + 1.2);
+    o.connect(bp); bp.connect(g); g.connect(this.celeste.out);
+    o.onended = () => { try { bp.disconnect(); } catch (_) {} try { g.disconnect(); } catch (_) {} };
+    o.start(now); o.stop(now + 1.3);
+  }
+  // ── Choir: breathy vocal pad ──────────────────────────────────────
+  _fireChoir(freq: number, peak?: number) {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const p = peak || 0.06;
+    const dur = 4.0;
+    const bp1 = ctx.createBiquadFilter(); bp1.type = "bandpass"; bp1.frequency.value = 500; bp1.Q.value = 2;
+    const bp2 = ctx.createBiquadFilter(); bp2.type = "bandpass"; bp2.frequency.value = 1500; bp2.Q.value = 2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(p, now + 1.5);
+    g.gain.setValueAtTime(p, now + dur - 1.5);
+    g.gain.linearRampToValueAtTime(0.0005, now + dur);
+    bp1.connect(bp2); bp2.connect(g); g.connect(this.choir.out);
+    const detunes = [0, 3, -3];
+    let ended = 0;
+    detunes.forEach((d) => {
+      const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = freq; o.detune.value = d;
+      o.connect(bp1);
+      o.onended = () => { if (++ended >= 3) { try { bp1.disconnect(); } catch (_) {} try { bp2.disconnect(); } catch (_) {} try { g.disconnect(); } catch (_) {} } };
+      o.start(now); o.stop(now + dur + 0.1);
+    });
+  }
+  // ── Marimba: warm mallet percussion ───────────────────────────────
+  _fireMarimba(freq: number, peak?: number) {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const p = peak || 0.10;
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3000; lp.Q.value = 0.5;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(p, now + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0005, now + 0.8);
+    lp.connect(g); g.connect(this.marimba.out);
+    const o1 = ctx.createOscillator(); o1.type = "sine"; o1.frequency.value = freq;
+    const o2 = ctx.createOscillator(); o2.type = "sine"; o2.frequency.value = freq * 4;
+    const o2g = ctx.createGain(); o2g.gain.value = 0.3;
+    o1.connect(lp); o2.connect(o2g); o2g.connect(lp);
+    o1.onended = () => { try { lp.disconnect(); } catch (_) {} try { g.disconnect(); } catch (_) {} try { o2g.disconnect(); } catch (_) {} };
+    o1.start(now); o1.stop(now + 0.9);
+    o2.start(now); o2.stop(now + 0.9);
+  }
+  // ── Glockenspiel: metallic bell-like tones ────────────────────────
+  _fireGlockenspiel(freq: number, peak?: number) {
+    if (this.destroyed || !this.ctx || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const p = peak || 0.06;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(p, now + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0005, now + 2.5);
+    g.connect(this.glockenspiel.out);
+    const o1 = ctx.createOscillator(); o1.type = "sine"; o1.frequency.value = freq;
+    const o2 = ctx.createOscillator(); o2.type = "sine"; o2.frequency.value = freq * 2.76;
+    const o2g = ctx.createGain(); o2g.gain.value = 0.25;
+    o1.connect(g); o2.connect(o2g); o2g.connect(g);
+    o1.onended = () => { try { g.disconnect(); } catch (_) {} try { o2g.disconnect(); } catch (_) {} };
+    o1.start(now); o1.stop(now + 2.6);
+    o2.start(now); o2.stop(now + 2.6);
+  }
   _scheduleDrums(gen: number) {
     if (this.destroyed || gen !== this._gen) return;
     const mood = this.current.mood;
@@ -587,7 +738,8 @@ export class AmbienceEngine {
     if (slot.sh) this._fireShaker(gainOv.shaker != null ? gainOv.shaker * 6 : 0.2);
     if (slot.br) this._fireBrush(gainOv.brush != null ? gainOv.brush * 6 : 0.18);
     this.drumStep = (this.drumStep + 1) % pattern.length;
-    this.drumScheduled = setTimeout(() => this._scheduleDrums(gen), sixteenthMs);
+    const humanize = (Math.random() - 0.5) * 24;
+    this.drumScheduled = setTimeout(() => this._scheduleDrums(gen), sixteenthMs + humanize);
   }
   // ── Scene lanes (space, population) ───────────────────────────────
   _setSceneLane(lane: SceneLane, category: "space" | "population", name: string | null, trimTable: Record<string, number>) {
@@ -632,40 +784,45 @@ export class AmbienceEngine {
   _fireEvent(name: AmbienceEvent) {
     if (this.destroyed) return;
     if (this.muted || this.intensity === "off") return;
+    if (this._activeEvents >= 4) return;
     const recipe = AMBIENCE_EVENT_RECIPES[name];
     if (!recipe) return;
+    this._activeEvents++;
     const startAt = this.ctx.currentTime + 0.05 + Math.random() * 0.25;
     try { recipe(this, startAt); } catch (e) {
       if (typeof console !== "undefined" && console.warn) {
         console.warn(`[ambience] event "${name}" failed:`, e);
       }
     }
+    setTimeout(() => { this._activeEvents = Math.max(0, this._activeEvents - 1); }, 1500);
   }
   // ── ChordPad ──────────────────────────────────────────────────────
   _buildChordPad() {
     const ctx = this.ctx;
     const out = ctx.createGain();
     out.gain.value = 0;
+    const panner = ctx.createStereoPanner();
+    panner.pan.value = 0;
     const lpf = ctx.createBiquadFilter();
     lpf.type = "lowpass";
     lpf.frequency.value = 1200;
     lpf.Q.value = 0.5;
     lpf.connect(out);
-    out.connect(this.master);
-    // Three voice slots; each holds a {sine, tri, gain} group whose
-    // frequency glides to the target chord tone on mood change.
-    const baseHz = 110; // A2 — fixed root; pad lives near here.
+    out.connect(panner);
+    panner.connect(this.master);
+    // Four voice slots — 3 triad voices + 1 optional 9th.
+    const baseHz = 110;
     const voices = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 4; i++) {
       const sine = ctx.createOscillator(); sine.type = "sine"; sine.frequency.value = baseHz;
       const tri  = ctx.createOscillator(); tri.type  = "triangle"; tri.frequency.value = baseHz;
       tri.detune.value = 4;
-      const g = ctx.createGain(); g.gain.value = 0.16;
+      const g = ctx.createGain(); g.gain.value = i < 3 ? 0.16 : 0;
       sine.connect(g); tri.connect(g); g.connect(lpf);
       sine.start(); tri.start();
       voices.push({ sine, tri, gain: g });
     }
-    return { out, lpf, voices, baseHz, progressionIdx: 0, scheduled: 0 };
+    return { out, lpf, panner, voices, baseHz, progressionIdx: 0, scheduled: 0 };
   }
   _setChord(triadOffsets: number[], glideSeconds?: number) {
     if (this.destroyed) return;
@@ -679,6 +836,18 @@ export class AmbienceEngine {
       voice.sine.frequency.setTargetAtTime(freq, t, TC);
       voice.tri.frequency.setTargetAtTime(freq, t, TC);
     });
+    const v4 = this.chordPad.voices[3];
+    if (v4) {
+      if (Math.random() < 0.20) {
+        const ninthSemitones = triadOffsets[0] + 14;
+        const freq9 = this.chordPad.baseHz * Math.pow(2, ninthSemitones / 12);
+        v4.sine.frequency.setTargetAtTime(freq9, t, TC);
+        v4.tri.frequency.setTargetAtTime(freq9, t, TC);
+        v4.gain.gain.setTargetAtTime(0.10, t, TC);
+      } else {
+        v4.gain.gain.setTargetAtTime(0, t, TC);
+      }
+    }
   }
   _scheduleNextChord(gen: number) {
     if (this.destroyed || gen !== this._gen) return;
@@ -687,7 +856,7 @@ export class AmbienceEngine {
       this.chordPad.scheduled = setTimeout(() => this._scheduleNextChord(gen), 5000);
       return;
     }
-    const prog = MOOD_PROGRESSION[mood];
+    const prog = (this._activeProgression[mood]) || MOOD_PROGRESSION[mood];
     if (!prog) {
       this.chordPad.scheduled = setTimeout(() => this._scheduleNextChord(gen), 5000);
       return;
@@ -696,28 +865,40 @@ export class AmbienceEngine {
     const third = quality === "min" ? root + 3 : root + 4;
     this._setChord([root, third, root + 7], 4);
     this.chordPad.progressionIdx = (this.chordPad.progressionIdx + 1) % prog.length;
-    const wait = 16000 + Math.random() * 8000;
-    this.chordPad.scheduled = setTimeout(() => this._scheduleNextChord(gen), wait);
+    this.chordPad.scheduled = this._jitteredTimeout(() => this._scheduleNextChord(gen), 20000);
   }
   // ── MelodyVoice ───────────────────────────────────────────────────
   _buildMelody() {
     const ctx = this.ctx;
     const out = ctx.createGain();
     out.gain.value = 0;
+    const panner = ctx.createStereoPanner();
+    panner.pan.value = 0.12;
     const lpf = ctx.createBiquadFilter();
     lpf.type = "lowpass";
     lpf.frequency.value = 1900;
     lpf.Q.value = 0.5;
     lpf.connect(out);
-    out.connect(this.master);
-    return { out, lpf, scaleDegree: 3, scheduled: 0 };
+    out.connect(panner);
+    panner.connect(this.master);
+    return { out, lpf, panner, scaleDegree: 3, scheduled: 0 };
   }
   _melodyStep() {
+    let step: number;
     const r = Math.random();
-    if (r < 0.10) return 0;
-    if (r < 0.55) return Math.random() < 0.5 ? -1 : 1;
-    if (r < 0.85) return Math.random() < 0.5 ? -2 : 2;
-    return Math.random() < 0.5 ? -3 : 3;
+    if (r < 0.10) step = 0;
+    else if (r < 0.55) step = Math.random() < 0.5 ? -1 : 1;
+    else if (r < 0.85) step = Math.random() < 0.5 ? -2 : 2;
+    else step = Math.random() < 0.5 ? -3 : 3;
+    if (this._melodyHistory.length >= 3) {
+      const allAsc = this._melodyHistory.every(s => s > 0);
+      const allDesc = this._melodyHistory.every(s => s < 0);
+      if (allAsc && step > 0) step = -step;
+      else if (allDesc && step < 0) step = -step;
+    }
+    this._melodyHistory.push(step);
+    if (this._melodyHistory.length > 3) this._melodyHistory.shift();
+    return step;
   }
   _scheduleNextMelodyNote(gen: number) {
     if (this.destroyed || gen !== this._gen) return;
@@ -763,11 +944,25 @@ export class AmbienceEngine {
       this._firePizz(freq);
     }
     if (instr.bow && allow.bow && Math.random() < 0.25) {
-      // Bowed line uses the chord root for a sustained drone above the pad.
-      const prog = MOOD_PROGRESSION[mood];
+      const prog = (this._activeProgression[mood]) || MOOD_PROGRESSION[mood];
       const [chordRoot] = prog[(this.chordPad.progressionIdx + prog.length - 1) % prog.length];
       const bowFreq = 110 * Math.pow(2, chordRoot / 12) * 2;
       this._fireBow(bowFreq, 3.5 + Math.random() * 2);
+    }
+    if (instr.celeste && allow.celeste && Math.random() < 0.35) {
+      this._fireCeleste(freq * 2, 0.08);
+    }
+    if (instr.choir_voice && allow.choir_voice && Math.random() < 0.20) {
+      const prog = (this._activeProgression[mood]) || MOOD_PROGRESSION[mood];
+      const [chordRoot] = prog[(this.chordPad.progressionIdx + prog.length - 1) % prog.length];
+      const choirFreq = 110 * Math.pow(2, chordRoot / 12);
+      this._fireChoir(choirFreq, 0.06);
+    }
+    if (instr.marimba && allow.marimba && Math.random() < 0.40) {
+      this._fireMarimba(freq, 0.10);
+    }
+    if (instr.glock && allow.glock && Math.random() < 0.25) {
+      this._fireGlockenspiel(freq * 2, 0.06);
     }
   }
   _fireMelodyNote() {
@@ -805,8 +1000,11 @@ export class AmbienceEngine {
     const ctx = this.ctx;
     const out = ctx.createGain();
     out.gain.value = 0;
-    out.connect(this.master);
-    return { out, scheduled: 0 };
+    const panner = ctx.createStereoPanner();
+    panner.pan.value = -0.08;
+    out.connect(panner);
+    panner.connect(this.master);
+    return { out, panner, scheduled: 0 };
   }
   _schedulePulse(gen: number) {
     if (this.destroyed || gen !== this._gen) return;
@@ -865,6 +1063,10 @@ export class AmbienceEngine {
     const stringPeak = Math.max(instr.pizz || 0, instr.bow || 0);
     this.strings.out.gain.setTargetAtTime(clamp(stringPeak * melodicScale * (pw.weights.strings ?? 1)), t, TC);
     this.drums.out.gain.setTargetAtTime(clamp((MOOD_DRUM_PATTERN[mood] ? 1.0 : 0) * drumScale * (pw.weights.drums ?? 1)), t, TC);
+    this.celeste.out.gain.setTargetAtTime(clamp((instr.celeste || 0) * melodicScale * (pw.weights.celeste ?? 0)), t, TC);
+    this.choir.out.gain.setTargetAtTime(clamp((instr.choir_voice || 0) * melodicScale * (pw.weights.choir_voice ?? 0)), t, TC);
+    this.marimba.out.gain.setTargetAtTime(clamp((instr.marimba || 0) * melodicScale * (pw.weights.marimba ?? 0)), t, TC);
+    this.glockenspiel.out.gain.setTargetAtTime(clamp((instr.glock || 0) * melodicScale * (pw.weights.glock ?? 0)), t, TC);
   }
   _applyMood(mood: AmbienceMood | null) {
     if (this.destroyed) return;

@@ -10,11 +10,13 @@
 
 export type AmbienceSpace =
   | "intimate" | "chamber" | "hall" | "cavern"
-  | "street" | "field" | "forest" | "vehicle" | "void";
+  | "street" | "field" | "forest" | "vehicle" | "void"
+  | "underwater" | "tavern";
 
 export type AmbiencePopulation =
   | "solitary" | "sparse_voices" | "crowd" | "machinery"
-  | "nature" | "ceremony" | "creature" | "wild";
+  | "nature" | "ceremony" | "creature" | "wild"
+  | "spirits" | "rain";
 
 export type AmbienceMood =
   | "calm" | "tender" | "tense" | "ominous"
@@ -31,7 +33,10 @@ export type AmbienceEvent =
   | "wind_gust" | "distant_thunder"
   | "paper_rustle" | "chair_scrape" | "glass_set_down" | "coin_drop"
   | "crowd_hush" | "cough_distant" | "breath_held"
-  | "metal_clang" | "whisper_close";
+  | "metal_clang" | "whisper_close"
+  | "rain_patter" | "fire_crackle" | "water_drip" | "heartbeat"
+  | "keys_jingle" | "horse_hooves" | "owl_hoot" | "sword_draw"
+  | "book_page_turn" | "lock_click" | "crowd_cheer" | "sigh_close";
 
 export interface AmbienceInput {
   // A lane may be set to `null` to fade it to silence (the GM emits literal
