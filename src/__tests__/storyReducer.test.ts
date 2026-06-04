@@ -102,6 +102,19 @@ describe("UNDO", () => {
     });
     expect(result.frozenPrefixLength).toBe(1);
   });
+
+  it("clamps prunedPrefixLength to the droppable span of the new history", () => {
+    const before = playing({
+      prunedPrefixLength: 6,
+      history: [msg("assistant", "a"), msg("user", "b"), msg("assistant", "c"), msg("user", "d"), msg("assistant", "e")],
+    });
+    // After undo, history has 3 messages; with a 2-message head only 1 is droppable.
+    const undoneHistory = [msg("assistant", "a"), msg("user", "b"), msg("assistant", "c")];
+    const result = storyReducer(before, {
+      type: "UNDO", entries: [], history: undoneHistory, gameState: EMPTY_STATE,
+    });
+    expect(result.prunedPrefixLength).toBe(1);
+  });
 });
 
 // ── APPEND_TURN ───────────────────────────────────────────────────────────────
@@ -242,6 +255,12 @@ describe("LOAD_SAVE", () => {
     expect(result.recovery).toBeNull();
     expect(result.frozenPrefixLength).toBe(0);
   });
+
+  it("resets prunedPrefixLength", () => {
+    const dirty = playing({ prunedPrefixLength: 20 });
+    const result = storyReducer(dirty, { type: "LOAD_SAVE", payload });
+    expect(result.prunedPrefixLength).toBe(0);
+  });
 });
 
 // ── RESET ─────────────────────────────────────────────────────────────────────
@@ -279,5 +298,15 @@ describe("SET_FROZEN_PREFIX", () => {
     const before = playing({ frozenPrefixLength: 0 });
     const result = storyReducer(before, { type: "SET_FROZEN_PREFIX", length: 4 });
     expect(result.frozenPrefixLength).toBe(4);
+  });
+});
+
+// ── SET_PRUNED_PREFIX ─────────────────────────────────────────────────────────
+
+describe("SET_PRUNED_PREFIX", () => {
+  it("updates prunedPrefixLength", () => {
+    const before = playing({ prunedPrefixLength: 0 });
+    const result = storyReducer(before, { type: "SET_PRUNED_PREFIX", length: 20 });
+    expect(result.prunedPrefixLength).toBe(20);
   });
 });

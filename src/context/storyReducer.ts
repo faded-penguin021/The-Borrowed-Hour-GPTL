@@ -34,6 +34,7 @@ export interface StoryState {
   skipNonce: number;
   recovery: Recovery | null;
   frozenPrefixLength: number;
+  prunedPrefixLength: number;
 }
 
 // ── Streaming store ────────────────────────────────────────────────────────
@@ -79,6 +80,7 @@ export const INITIAL_STATE: StoryState = {
   skipNonce: 0,
   recovery: null,
   frozenPrefixLength: 0,
+  prunedPrefixLength: 0,
 };
 
 export type StoryAction =
@@ -96,6 +98,7 @@ export type StoryAction =
   | { type: "SET_META_MODE"; metaMode: boolean }
   | { type: "SET_META_MESSAGES"; metaMessages: MetaMessage[] }
   | { type: "SET_FROZEN_PREFIX"; length: number }
+  | { type: "SET_PRUNED_PREFIX"; length: number }
   | { type: "SKIP_REVEAL" }
   | { type: "ENTER_META" }
   | { type: "EXIT_META" }
@@ -184,6 +187,9 @@ export function storyReducer(state: StoryState, action: StoryAction): StoryState
     case "SET_FROZEN_PREFIX":
       return { ...state, frozenPrefixLength: action.length };
 
+    case "SET_PRUNED_PREFIX":
+      return { ...state, prunedPrefixLength: action.length };
+
     case "SKIP_REVEAL":
       return { ...state, skipNonce: state.skipNonce + 1 };
 
@@ -237,6 +243,7 @@ export function storyReducer(state: StoryState, action: StoryAction): StoryState
         error: null,
         recovery: null,
         frozenPrefixLength: Math.min(state.frozenPrefixLength, action.history.length),
+        prunedPrefixLength: Math.min(state.prunedPrefixLength, Math.max(0, action.history.length - 2)),
       };
 
     case "LOAD_SAVE":
@@ -254,6 +261,7 @@ export function storyReducer(state: StoryState, action: StoryAction): StoryState
         metaMessages: action.payload.metaMessages,
         metaMode: action.payload.metaMode,
         frozenPrefixLength: 0,
+        prunedPrefixLength: 0,
       };
 
     case "RESET":

@@ -199,7 +199,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   // ── Core story state (reducer) ────────────────────────────────────
   const [s, dispatch] = useReducer(storyReducer, INITIAL_STATE);
   const { phase, premise, entries, history, ended, gameState, language,
-          metaMode, metaMessages, skipNonce, recovery, frozenPrefixLength } = s;
+          metaMode, metaMessages, skipNonce, recovery, frozenPrefixLength,
+          prunedPrefixLength } = s;
   const error = s.error;
 
   // Transient runtime state stays outside the reducer — loading, phrase, and
@@ -572,16 +573,34 @@ The narration above was interrupted and cut off before it finished. Continue it 
     }
     const CHAR_CAP = settings.engineGM?.provider === "groq" ? 60000 : 80000;
     const charsOf = (msgs: ChatMessage[]) => msgs.reduce((sum: number, m: ChatMessage) => sum + (typeof m.content === "string" ? m.content.length : 0), 0);
-    if (charsOf(apiHistory) > CHAR_CAP) {
-      const beforeLen = apiHistory.length;
-      const head = apiHistory.slice(0, 2);
-      let tail = apiHistory.slice(2);
-      while (tail.length > 4 && charsOf([...head, ...tail]) > CHAR_CAP) {
-        tail = tail.slice(2);
-      }
-      apiHistory = [...head, ...tail];
-      const removed = beforeLen - apiHistory.length;
-      currentFrozen = Math.max(0, currentFrozen - removed);
+    // Sticky context window. Dropping leading turns to fit CHAR_CAP rewrites
+    // every byte after the 2-message head, which invalidates the prompt cache
+    // for the whole prefix past it. The old code re-sliced the window down to
+    // just under the cap on *every* turn, so a long rolling game shifted the
+    // drop boundary by a couple messages each turn — leaving only the system
+    // prompt and the first two turns cacheable. Instead we hold the number of
+    // dropped messages steady across turns and only grow it when we actually
+    // exceed the cap; when it grows it jumps by a whole PRUNE_BATCH (~10 turns)
+    // so the prefix then stays byte-identical for the next ~10 turns. That
+    // turns a per-turn cache miss into roughly one miss per batch.
+    const HEAD_KEEP = 2;     // opening user + opening assistant, never dropped
+    const MIN_TAIL = 4;      // always retain at least this many recent messages
+    const PRUNE_BATCH = 20;  // ~10 turns (user+assistant) dropped per prune step
+    const maxDroppable = Math.max(0, apiHistory.length - HEAD_KEEP - MIN_TAIL);
+    const applyDrop = (n: number): ChatMessage[] =>
+      n > 0 ? [...apiHistory.slice(0, HEAD_KEEP), ...apiHistory.slice(HEAD_KEEP + n)] : apiHistory;
+    // Start from the previously-chosen drop count (clamped to what the current
+    // history can support after an undo) so the window only moves when forced.
+    let dropped = Math.min(prunedPrefixLength, maxDroppable);
+    while (dropped < maxDroppable && charsOf(applyDrop(dropped)) > CHAR_CAP) {
+      dropped = Math.min(dropped + PRUNE_BATCH, maxDroppable);
+    }
+    if (dropped !== prunedPrefixLength) {
+      dispatch({ type: "SET_PRUNED_PREFIX", length: dropped });
+    }
+    if (dropped > 0) {
+      apiHistory = applyDrop(dropped);
+      currentFrozen = Math.max(0, currentFrozen - dropped);
     }
     const cacheBreakpoint = currentFrozen > 0 ? currentFrozen : undefined;
     if (typeof console !== "undefined" && console.debug) {
@@ -589,7 +608,8 @@ The narration above was interrupted and cut off before it finished. Continue it 
         msgs: apiHistory.length,
         chars: charsOf(apiHistory),
         estTokens: Math.round(charsOf(apiHistory) / 4),
-        frozenPrefix: currentFrozen
+        frozenPrefix: currentFrozen,
+        prunedPrefix: dropped
       });
     }
     dispatch({ type: "SET_HISTORY", history: newHistory });
