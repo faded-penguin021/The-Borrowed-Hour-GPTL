@@ -1,6 +1,6 @@
 import type { ProviderId } from "../types";
 import React from "react";
-import { encryptSecret } from "../storage/encryption";
+import { encryptWithKey } from "../storage/encryption";
 import { PROVIDER_META, resetProviderKey, checkProviderHealth } from "../llm/providers";
 import { usePassphrase } from "../context/PassphraseContext";
 import { BTN_SETTINGS, FIELD_SETTINGS } from "../components/ui/styleClasses";
@@ -11,7 +11,7 @@ interface ApiKeyRowProps {
 
 export function ApiKeyRow({ providerId }: ApiKeyRowProps) {
   const meta = PROVIDER_META[providerId];
-  const { requestPassphrase, getSessionPassphrase, setSessionPassphrase } = usePassphrase();
+  const { requestPassphrase, getSessionKey, setSessionKeyFromPassphrase, isUnlocked } = usePassphrase();
   const [stored, setStored] = React.useState(() => !!localStorage.getItem(meta.keyStorage));
   const [editing, setEditing] = React.useState(false);
   const [value, setValue] = React.useState("");
@@ -20,13 +20,14 @@ export function ApiKeyRow({ providerId }: ApiKeyRowProps) {
   const saveKey = async () => {
     const trimmed = value.trim();
     if (!trimmed) return;
-    let passphrase = getSessionPassphrase();
-    if (!passphrase) {
-      passphrase = await requestPassphrase("Set a session passphrase to encrypt your API keys:");
-      if (!passphrase) return;
-      setSessionPassphrase(passphrase);
+    if (!isUnlocked()) {
+      const pass = await requestPassphrase("Set a session passphrase to encrypt your API keys:");
+      if (!pass) return;
+      await setSessionKeyFromPassphrase(pass);
     }
-    localStorage.setItem(meta.keyStorage, await encryptSecret(trimmed, passphrase));
+    const key = getSessionKey();
+    if (!key) return;
+    localStorage.setItem(meta.keyStorage, await encryptWithKey(key, trimmed));
     setValue("");
     setEditing(false);
     setStored(true);

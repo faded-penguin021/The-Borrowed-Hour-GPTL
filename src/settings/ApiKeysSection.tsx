@@ -12,7 +12,7 @@ export function ApiKeysSection() {
         API keys
       </div>
       <div className="font-body italic text-cream-dim text-xs mt-1 leading-[1.6]">
-        Keys are stored only in this browser's localStorage and are never sent anywhere except the provider's own API.
+        Keys are stored only in this browser's localStorage and are never sent anywhere except the provider's own API. A passphrase encrypts them at rest — that protects against a casual peek at storage, not against code running on the page.
       </div>
       {PROVIDER_ORDER.filter((id) => id !== "local").map((id) => (
         <ApiKeyRow key={id} providerId={id as ProviderId} />

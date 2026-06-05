@@ -1,17 +1,27 @@
 /* eslint-disable react-refresh/only-export-components -- provider co-located with its context hook(s); splitting churns every import site for a dev-only Fast Refresh gain */
 import React, { createContext, useContext, useRef, useState, useCallback, useEffect, useMemo } from "react";
-import { setPassphraseService } from "../passphrase";
+import { setPassphraseService, KeysUnrecoverableError } from "../passphrase";
+import {
+  deriveSessionKey,
+  migrateV1Blobs,
+  hasKdfSalt,
+  hasEncryptedV2Blobs,
+} from "../storage/encryption";
+import { createAutoLock } from "../security/autoLock";
 
 interface PassphraseContextValue {
   /** The prompt for the currently pending request, or null when idle. */
   prompt: string | null;
   /** True while a passphrase request is awaiting the user. */
   pending: boolean;
+  /** True while a session key is cached (reactive — drives the lock-status UI). */
+  unlocked: boolean;
   requestPassphrase(prompt: string): Promise<string | null>;
   resolvePassphrase(value: string | null): void;
-  getSessionPassphrase(): string | null;
-  setSessionPassphrase(value: string | null): void;
-  clearSessionPassphrase(): void;
+  getSessionKey(): CryptoKey | null;
+  setSessionKeyFromPassphrase(passphrase: string): Promise<CryptoKey>;
+  clearSessionKey(): void;
+  isUnlocked(): boolean;
 }
 
 const PassphraseContext = createContext<PassphraseContextValue | null>(null);
@@ -26,29 +36,47 @@ export function usePassphrase(): PassphraseContextValue {
 }
 
 /**
- * Owns the session passphrase and the single in-flight passphrase request.
+ * Owns the session key and the single in-flight passphrase request.
  *
- * The secret and the pending resolver live in refs (React-owned, not on
- * `window` and not in module globals); the prompt text and a pending flag live
- * in state so the modal can render reactively. On mount the provider registers
- * its operations with the passphrase service boundary so non-React key
- * resolvers (LLM/TTS) can reach them; it clears the registration on unmount.
+ * What lives where: the non-extractable session `CryptoKey` and the pending
+ * resolver live in refs (React-owned, not on `window`); the prompt text, a
+ * pending flag, and a reactive `unlocked` boolean live in state so the modal and
+ * the lock-status row render reactively. On mount the provider registers its
+ * operations with the passphrase service boundary so non-React key resolvers
+ * (LLM/TTS/image) can reach them, and starts the auto-lock controller.
  *
- * This is a lifecycle/testability cleanup, not a security change — the secret
- * remains in ordinary browser memory with the same exposure as before.
+ * Security: only a non-extractable `CryptoKey` is retained for the session — the
+ * raw passphrase is consumed at unlock and dropped. That key can't be exported as
+ * bytes even by in-page script, though such script can still use it to decrypt
+ * while unlocked. See THREAT_MODEL.md.
  */
 export function PassphraseProvider({ children }: { children: React.ReactNode }) {
-  const passphraseRef = useRef<string | null>(null);
+  const sessionKeyRef = useRef<CryptoKey | null>(null);
   const pendingResolveRef = useRef<((value: string | null) => void) | null>(null);
   const [prompt, setPrompt] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
 
-  const getSessionPassphrase = useCallback(() => passphraseRef.current, []);
-  const setSessionPassphrase = useCallback((value: string | null) => {
-    passphraseRef.current = value || null;
+  const getSessionKey = useCallback(() => sessionKeyRef.current, []);
+  const isUnlocked = useCallback(() => sessionKeyRef.current !== null, []);
+
+  const clearSessionKey = useCallback(() => {
+    sessionKeyRef.current = null;
+    setUnlocked(false);
   }, []);
-  const clearSessionPassphrase = useCallback(() => {
-    passphraseRef.current = null;
+
+  const setSessionKeyFromPassphrase = useCallback(async (passphrase: string): Promise<CryptoKey> => {
+    // Guard the data-loss case before touching the salt: if v2 ciphertext exists
+    // but its salt is gone, deriving any key (which would mint a *fresh* salt)
+    // can never decrypt those blobs. Fail loud instead of looping the prompt.
+    if (!hasKdfSalt() && hasEncryptedV2Blobs())
+      throw new KeysUnrecoverableError();
+    const key = await deriveSessionKey(passphrase); // creates+persists the salt on first set
+    // Migrate while the passphrase is still on the stack; afterwards only the key is held.
+    await migrateV1Blobs(passphrase, key);
+    sessionKeyRef.current = key;
+    setUnlocked(true);
+    return key;
   }, []);
 
   const requestPassphrase = useCallback((p: string): Promise<string | null> => {
@@ -74,22 +102,34 @@ export function PassphraseProvider({ children }: { children: React.ReactNode }) 
     setPassphraseService({
       requestPassphrase,
       resolvePassphrase,
-      getSessionPassphrase,
-      setSessionPassphrase,
-      clearSessionPassphrase,
+      getSessionKey,
+      setSessionKeyFromPassphrase,
+      clearSessionKey,
+      isUnlocked,
     });
     return () => setPassphraseService(null);
-  }, [requestPassphrase, resolvePassphrase, getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase]);
+  }, [requestPassphrase, resolvePassphrase, getSessionKey, setSessionKeyFromPassphrase, clearSessionKey, isUnlocked]);
+
+  // Auto-lock: drop the cached key when the tab is backgrounded past a short
+  // grace, never on an in-tab idle timer (a reader can dwell on a passage for
+  // minutes). See src/security/autoLock.ts.
+  useEffect(() => {
+    const controller = createAutoLock({ lock: clearSessionKey, isUnlocked });
+    controller.start();
+    return () => controller.stop();
+  }, [clearSessionKey, isUnlocked]);
 
   const value = useMemo<PassphraseContextValue>(() => ({
     prompt,
     pending,
+    unlocked,
     requestPassphrase,
     resolvePassphrase,
-    getSessionPassphrase,
-    setSessionPassphrase,
-    clearSessionPassphrase,
-  }), [prompt, pending, requestPassphrase, resolvePassphrase, getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase]);
+    getSessionKey,
+    setSessionKeyFromPassphrase,
+    clearSessionKey,
+    isUnlocked,
+  }), [prompt, pending, unlocked, requestPassphrase, resolvePassphrase, getSessionKey, setSessionKeyFromPassphrase, clearSessionKey, isUnlocked]);
 
   return <PassphraseContext.Provider value={value}>{children}</PassphraseContext.Provider>;
 }

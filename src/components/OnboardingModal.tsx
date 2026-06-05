@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { encryptSecret } from "../storage/encryption";
+import { encryptWithKey } from "../storage/encryption";
 import { ONBOARDING_KEY } from "../data/constants";
 import { PROVIDER_META } from "../llm/providers";
 import { usePassphrase } from "../context/PassphraseContext";
@@ -18,17 +18,19 @@ const ONBOARD_PROVIDER = "mistral";
  *
  * Three slides: a welcome, an explanation of the bring-your-own-key model, and
  * a setup step where the reader picks a session passphrase and (optionally)
- * pastes a first key. The key is encrypted with `encryptSecret` — the same
- * primitive the settings rows use — and the chosen passphrase is held in
- * React-owned memory (via the passphrase context, not on `window`) so nothing
- * has to be re-entered this session.
+ * pastes a first key. The passphrase derives a non-extractable session key
+ * (creating the per-install KDF salt on first run); the key is encrypted with
+ * `encryptWithKey` — the same primitive the settings rows use — and only the
+ * derived CryptoKey is held in React-owned memory (via the passphrase context,
+ * not on `window`), so the raw passphrase isn't retained and nothing has to be
+ * re-entered this session.
  */
 interface OnboardingModalProps {
   onComplete: () => void;
 }
 
 export function OnboardingModal({ onComplete }: OnboardingModalProps) {
-  const { setSessionPassphrase } = usePassphrase();
+  const { setSessionKeyFromPassphrase, getSessionKey } = usePassphrase();
   const [slide, setSlide] = useState(0);
   const [passphrase, setPassphrase] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -48,9 +50,11 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
     }
     setSaving(true);
     try {
-      if (pass) setSessionPassphrase(pass);
+      if (pass) await setSessionKeyFromPassphrase(pass);
       if (key && pass) {
-        localStorage.setItem(meta.keyStorage, await encryptSecret(key, pass));
+        const sessionKey = getSessionKey();
+        if (sessionKey)
+          localStorage.setItem(meta.keyStorage, await encryptWithKey(sessionKey, key));
       }
       localStorage.setItem(ONBOARDING_KEY, JSON.stringify({ at: Date.now() }));
       onComplete();
@@ -87,10 +91,10 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
       body: (
         <>
           <p className="font-body italic text-sm text-cream-dim leading-[1.7]">
-            The story is told by a model you bring. Your API keys are encrypted with a passphrase you choose and kept only in this browser's storage — they're never sent anywhere except the provider's own API.
+            The story is told by a model you bring. Your API keys live only in this browser and go nowhere but the provider's own API. A passphrase encrypts them <span className="not-italic font-medium">at rest</span>, so a casual peek at storage finds only ciphertext — but encryption can't protect against malicious code running on the page. That's why this app ships a strict content-security policy and never renders untrusted HTML.
           </p>
           <p className="font-body italic text-sm text-cream-faint leading-[1.7] mt-3">
-            The passphrase is asked for once a session and held in memory. Forget it and your stored keys simply stay locked — nothing is lost, you just re-enter them.
+            The passphrase is asked for once a session and never stored as text — only the derived key is held, and only until you lock or leave. Forget it and your stored keys simply stay locked — nothing is lost, you just re-enter them.
           </p>
         </>
       ),

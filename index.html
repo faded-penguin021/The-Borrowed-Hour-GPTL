@@ -12,8 +12,28 @@
     React Fast Refresh injects an inline preamble; production stays strict.
     https://js.puter.com is loaded lazily, and only when the (opt-in) Puter TTS
     provider is selected — a documented third-party trust surface.
+
+    style-src is split so injected inline <style> elements (an XSS sink) are
+    blocked while same-origin stylesheets and the Google Fonts @import in
+    theme.css still load: granular-aware browsers (Chrome) honor style-src-elem
+    (no 'unsafe-inline') for <style>/<link> and style-src-attr ('unsafe-inline')
+    for the handful of React style={{}} usages; older browsers (Safari) ignore
+    the granular directives and fall back to the permissive style-src, so
+    nothing breaks. The dev server relaxes style-src-elem for HMR (vite.config.js).
+
+    object-src/frame-ancestors are cheap hardening. upgrade-insecure-requests is
+    deliberately omitted — it would rewrite the http://localhost:* /
+    http://127.0.0.1:* local-LLM connect-src entries to https and break Ollama /
+    LM Studio. Trusted Types is staged, not enforced (see commented directive
+    below and THREAT_MODEL.md): the app has no innerHTML/eval, but React DOM,
+    Vite, and js.puter.com may touch script sinks and there is no report endpoint.
   -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://js.puter.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.openai.com https://generativelanguage.googleapis.com https://api.anthropic.com https://api.deepseek.com https://dashscope.aliyuncs.com https://api.moonshot.cn https://qianfan.baidubce.com https://api.mistral.ai https://api.groq.com https://openrouter.ai https://api.cerebras.ai https://api.elevenlabs.io https://*.puter.com https://image.pollinations.ai https://api.replicate.com https://replicate.delivery https://*.replicate.delivery https://oaidalleapiprodscus.blob.core.windows.net http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:*; img-src 'self' data: blob:; media-src 'self' blob: data: https://*.puter.com; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'none'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://js.puter.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src https://fonts.gstatic.com; connect-src https://api.openai.com https://generativelanguage.googleapis.com https://api.anthropic.com https://api.deepseek.com https://dashscope.aliyuncs.com https://api.moonshot.cn https://qianfan.baidubce.com https://api.mistral.ai https://api.groq.com https://openrouter.ai https://api.cerebras.ai https://api.elevenlabs.io https://*.puter.com https://image.pollinations.ai https://api.replicate.com https://replicate.delivery https://*.replicate.delivery https://oaidalleapiprodscus.blob.core.windows.net http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:*; img-src 'self' data: blob:; media-src 'self' blob: data: https://*.puter.com; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'; frame-ancestors 'none'" />
+  <!--
+    Trusted Types — staged follow-up, do NOT enable without a manual click-through
+    (including Puter TTS) on Chrome since there is no report endpoint:
+    <meta http-equiv="Content-Security-Policy" content="require-trusted-types-for 'script'" />
+  -->
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
