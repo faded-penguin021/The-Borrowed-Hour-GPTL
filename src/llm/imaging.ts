@@ -8,9 +8,9 @@ import type { GeneratedImage, ImageProviderId, ImageProviderMeta } from "../type
 // data: URL). Errors throw BorrowedError. Caller is responsible for catching
 // — image failures never break a turn; they become a "Missing Plate".
 import { BorrowedError, scrubSecrets } from "./errors";
-import { ENC_PREFIX, decryptSecret } from "../storage/encryption";
+import { isEncrypted } from "../storage/encryption";
 import { getProviderKey } from "./providers";
-import { getSessionPassphrase } from "../passphrase";
+import { decryptStored, KeysUnrecoverableError } from "../passphrase";
 import { ReplicatePredictionSchema } from "./responseSchemas";
 
 export const POLLINATIONS_DEFAULT_MODEL = "flux";
@@ -101,11 +101,17 @@ const getReplicateKey = async (): Promise<string> => {
   if (injected) return injected.trim();
   const stored = localStorage.getItem(keyStorage);
   if (!stored) throw new BorrowedError("The plate cannot be drawn.", "No Replicate API key is saved. Open Settings → Codex → Replicate to paste your key.");
-  if (!stored.startsWith(ENC_PREFIX)) return stored.trim();
-  const passphrase = getSessionPassphrase();
-  if (!passphrase) throw new BorrowedError("The plate cannot be drawn.", "Session passphrase missing for encrypted Replicate key.");
-  try { return (await decryptSecret(stored, passphrase)).trim(); }
-  catch { throw new BorrowedError("The plate cannot be drawn.", "Could not unlock the Replicate API key."); }
+  if (!isEncrypted(stored)) return stored.trim();
+  let plain: string | null;
+  try {
+    plain = await decryptStored(keyStorage, stored);
+  } catch (e) {
+    if (e instanceof KeysUnrecoverableError)
+      throw new BorrowedError("The plate cannot be drawn.", "Your stored keys can't be unlocked — the saved encryption salt is missing. Clear and re-enter the key in Settings.");
+    throw new BorrowedError("The plate cannot be drawn.", "Could not unlock the Replicate API key — wrong passphrase.");
+  }
+  if (plain == null) throw new BorrowedError("The plate cannot be drawn.", "A session passphrase is required to unlock the Replicate key.");
+  return plain;
 };
 
 export const getLocalImageUrl = (): string => {
@@ -304,7 +310,7 @@ export const setReplicateKey = (raw: string): void => {
 };
 export const getReplicateKeyPlaintext = (): string => {
   const v = localStorage.getItem(IMAGE_PROVIDER_META.replicate.keyStorage as string);
-  if (!v || v.startsWith(ENC_PREFIX)) return "";
+  if (!v || isEncrypted(v)) return "";
   return v;
 };
 export const setLocalImageUrl = (raw: string): void => {

@@ -11,8 +11,8 @@ import type {
 import { BorrowedError } from "./errors";
 import { httpStatusHint, extractApiErrorMessage, scrubSecrets } from "./errors";
 import { LOCAL_DEFAULT_URL } from "../data/constants";
-import { ENC_PREFIX, decryptSecret } from "../storage/encryption";
-import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase, requestPassphrase } from "../passphrase";
+import { isEncrypted } from "../storage/encryption";
+import { decryptStored, KeysUnrecoverableError } from "../passphrase";
 import { GM_TOOL } from "./definitions";
 import {
   OpenAIResponseDataSchema,
@@ -213,20 +213,20 @@ export const getProviderKey = async (id: ProviderId): Promise<string> => {
     return injected.trim();
   const stored = localStorage.getItem(m.keyStorage);
   if (stored) {
-    if (!stored.startsWith(ENC_PREFIX))
+    if (!isEncrypted(stored))
       return stored.trim();
-    if (!getSessionPassphrase()) {
-      setSessionPassphrase(await requestPassphrase("Enter your session passphrase to unlock API keys:"));
-    }
-    const passphrase = getSessionPassphrase();
-    if (!passphrase)
-      throw new BorrowedError("The hour cannot open yet.", "A session passphrase is required to unlock your API key.");
+    let plain: string | null;
     try {
-      return (await decryptSecret(stored, passphrase)).trim();
-    } catch {
-      clearSessionPassphrase();
+      plain = await decryptStored(m.keyStorage, stored);
+    } catch (e) {
+      if (e instanceof KeysUnrecoverableError)
+        throw new BorrowedError("The hour cannot open yet.", "Your stored keys can't be unlocked — the saved encryption salt is missing. Open Settings → System to clear and re-enter them.");
+      // Wrong passphrase (decryptStored has already cleared the cached key).
       throw new BorrowedError("The hour cannot open yet.", "Could not unlock the API key — wrong passphrase. Try again.");
     }
+    if (plain == null)
+      throw new BorrowedError("The hour cannot open yet.", "A session passphrase is required to unlock your API key.");
+    return plain;
   }
   if (m.keyOptional)
     return "";

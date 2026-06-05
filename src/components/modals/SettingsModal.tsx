@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { ApiKeysSection } from "../../settings/ApiKeysSection";
+import { KeyLockRow } from "../../settings/KeyLockRow";
 import { EngineSection } from "../../settings/EngineSection";
 import { AmbienceRow } from "../../settings/AmbienceRow";
 import { TTSRow } from "../../settings/TTSRow";
@@ -279,6 +280,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
           >
             <EngineSection settings={settings} onChange={onChange} />
             <ApiKeysSection />
+            <KeyLockRow />
           </div>
 
           <div

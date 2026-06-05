@@ -1,25 +1,21 @@
-import { ENC_PREFIX, decryptSecret, encryptSecret } from "../storage/encryption";
-import { getSessionPassphrase, setSessionPassphrase, clearSessionPassphrase, requestPassphrase } from "../passphrase";
+import { encryptWithKey } from "../storage/encryption";
+import { decryptStored, getSessionKey, isUnlocked } from "../passphrase";
+
+const KEY = "borrowed:tts_azure_key:v1";
 
 export async function getTtsAzureKey(): Promise<string | null> {
-  const stored = localStorage.getItem("borrowed:tts_azure_key:v1");
+  const stored = localStorage.getItem(KEY);
   if (!stored) return null;
-  if (!stored.startsWith(ENC_PREFIX)) return stored.trim();
-  if (!getSessionPassphrase()) {
-    setSessionPassphrase(await requestPassphrase("Enter your session passphrase to unlock API keys:"));
-  }
-  const passphrase = getSessionPassphrase();
-  if (!passphrase) return null;
-  try { return (await decryptSecret(stored, passphrase)).trim(); }
-  catch { clearSessionPassphrase(); return null; }
+  try { return await decryptStored(KEY, stored); }
+  catch { return null; }
 }
 export async function saveTtsAzureKey(plain: string | null): Promise<void> {
-  if (!plain) { localStorage.removeItem("borrowed:tts_azure_key:v1"); return; }
-  const passphrase = getSessionPassphrase();
-  if (passphrase) {
-    localStorage.setItem("borrowed:tts_azure_key:v1", await encryptSecret(plain.trim(), passphrase));
+  if (!plain) { localStorage.removeItem(KEY); return; }
+  const key = getSessionKey();
+  if (isUnlocked() && key) {
+    localStorage.setItem(KEY, await encryptWithKey(key, plain.trim()));
   } else {
-    localStorage.setItem("borrowed:tts_azure_key:v1", plain.trim());
+    localStorage.setItem(KEY, plain.trim());
   }
 }
 export function getTtsAzureRegion(): string {
