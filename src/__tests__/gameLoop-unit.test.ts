@@ -1,14 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createGameLoop, type GameLoopDeps, type AbortRef } from "../context/gameLoop";
+import { createGameLoop, type GameLoopDeps } from "../context/gameLoop";
 import { INITIAL_STATE, createStreamingStore, type StoryState } from "../context/storyReducer";
-import type { AppSettings, Premise } from "../types";
-import { DEFAULT_SETTINGS, EMPTY_STATE } from "../data/constants";
-
-const PREMISE: Premise = {
-  id: "test-realm", realm: "wild", realmLabel: "Test",
-  title: "Test Hour", teaser: "A teaser.",
-  seed: "A quiet room.", gmNote: "Keep it grounded.",
-};
+import type { AppSettings } from "../types";
+import { DEFAULT_SETTINGS } from "../data/constants";
 
 const OPENING = JSON.stringify({
   gm_scratchpad: "", narration: "You wake in a pale room.",

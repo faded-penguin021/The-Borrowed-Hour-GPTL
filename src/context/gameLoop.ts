@@ -1,6 +1,6 @@
-import type { ChatMessage, Entry, GameState, MetaMessage, NarrationEntry, Premise, SaveRecord, ThrownError, AppSettings, SaveBanner } from "../types";
+import type { ChatMessage, Entry, MetaMessage, NarrationEntry, Premise, SaveRecord, ThrownError, AppSettings, SaveBanner } from "../types";
 import type { CallAPI, StreamAPI } from "../llm/client";
-import type { StoryAction, StoryState, Recovery, RecoveryGMParsed, StreamingStore } from "./storyReducer";
+import type { StoryAction, StoryState, RecoveryGMParsed, StreamingStore } from "./storyReducer";
 import type { CodexSnapshot } from "../types";
 import { EMPTY_STATE } from "../data/constants";
 import { PREMISES, NARRATION_LOADING_PHRASES, META_LOADING_PHRASES, OPENING_LOADING_PHRASES, pickPhrase } from "../data/premises";
