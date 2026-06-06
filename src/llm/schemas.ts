@@ -61,23 +61,27 @@ export const GameStateSchema = z.preprocess((val) => {
   return val;
 }, FlatGameStateSchema);
 
-/** The canonical set of ending tags, lower-cased. */
+/** The canonical set of terminal ending tags, lower-cased. */
 export const ENDING_VALUES = ["good", "bittersweet", "pyrrhic", "ambiguous", "bad"] as const;
 
 /**
- * Ending tag. Anything outside the known set (or absent) collapses to `null`
- * via `.catch`, matching the old `VALID_ENDINGS.has(...)` guard — an invalid
- * value must never fail the whole parse.
+ * Ending tag. "ongoing" is the active-game default (resolves to `null` so the
+ * chronicle continues). Terminal types resolve to their string value and close
+ * the chronicle. Anything else outside the known set collapses to `null` via
+ * `.catch`, matching the old `VALID_ENDINGS.has(...)` guard — an invalid value
+ * must never fail the whole parse.
  *
- * The `preprocess` step normalizes case and surrounding whitespace BEFORE the
- * enum check, because the model is primed by the tool description (which spells
- * the types in caps: "GOOD", "BAD", …) to emit values like `"BAD"` or `" Bad "`.
- * Without this, a case-sensitive `z.enum` would `.catch(null)` a genuine ending
- * silently, and the chronicle would never close.
+ * The `preprocess` step normalizes case, trims whitespace, and converts
+ * "ongoing" to `null` BEFORE the enum check. The model is primed by the tool
+ * description to emit values like `"GOOD"` or `"ONGOING"` in various cases.
  */
 export const EndingSchema = z
   .preprocess(
-    (v) => (typeof v === "string" ? v.trim().toLowerCase() : v),
+    (v) => {
+      if (typeof v !== "string") return v;
+      const norm = v.trim().toLowerCase();
+      return norm === "ongoing" ? null : norm;
+    },
     z.enum(ENDING_VALUES).nullable().optional().catch(null)
   );
 

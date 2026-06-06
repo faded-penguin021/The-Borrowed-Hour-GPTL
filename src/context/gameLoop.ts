@@ -135,7 +135,7 @@ export function createGameLoop(deps: GameLoopDeps) {
       const msgs: ChatMessage[] = [{ role: "user", content: "Begin." }];
       const bootstrapPromise = deps.codex.runArtDirectorBootstrap(chosen, controller.signal);
       const firstRaw = await callAPI(sys, msgs, true, settings.engineOpening, 4500, 0.7, controller.signal);
-      bootstrapPromise.catch(() => {});
+      bootstrapPromise.catch((e) => { dlog("codex:bootstrap:swallowed", e); });
       if (controller.signal.aborted) return;
       let openingRaw = firstRaw;
       let parsed = parseGMResponse(openingRaw);
@@ -185,7 +185,7 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
             signal: controller.signal,
             opener: true
           });
-        }).catch(() => {});
+        }).catch((e) => { dlog("codex:opener-turn:swallowed", e); });
       }
     } catch (e) {
       if (controller.signal.aborted) return;
@@ -275,8 +275,15 @@ The narration above was interrupted and cut off before it finished. Continue it 
       };
       abortRef.current = { controller: controller2, rollback: rollback2, startedAt: Date.now() };
       try {
-        const sys = buildMetaSystem(s.premise, s.language);
-        dlog("prompt:meta:system", sys.length, "chars");
+        let resolvedEnding: string | null = null;
+        for (let i = s.history.length - 1; i >= 0; i--) {
+          if (s.history[i].role === "assistant") {
+            const ep = parseGMResponse(s.history[i].content);
+            if (ep.ending) { resolvedEnding = ep.ending; break; }
+          }
+        }
+        const sys = buildMetaSystem(s.premise, s.language, resolvedEnding);
+        dlog("prompt:meta:system", sys.length, "chars", "ending:", resolvedEnding);
         const chronicleParts = [];
         for (const h of s.history) {
           if (h.role === "user") {
@@ -430,7 +437,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
         gmParsed,
         signal: controller.signal
       });
-      artDirectorPromise.catch(() => {});
+      artDirectorPromise.catch((e) => { dlog("codex:turn:swallowed", e); });
       const narratorSys = buildNarratorSystem(s.premise, s.language);
       dlog("prompt:narrator:system", narratorSys.length, "chars");
       const recentNarration = s.entries.filter((e) => e.type === "narration").slice(-4).map((e) => e.text).join("\n\n");

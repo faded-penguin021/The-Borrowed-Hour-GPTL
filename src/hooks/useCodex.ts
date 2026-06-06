@@ -13,6 +13,7 @@ import {
   composeImagePrompt, mergeLedger, cleanPlateCaption
 } from "../llm/artDirector";
 import { generateImage } from "../llm/imaging";
+import { dlog } from "../debug/debugLog";
 
 /**
  * Runtime-tolerant view of the codex settings block. Fields are all optional
@@ -114,23 +115,26 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }: C
 
   const runArtDirectorBootstrap = async (chosen: Premise, signal: AbortSignal) => {
     const codex: CodexConfig = settings.codex || {};
-    if (codex.mode === "off") return;
+    if (codex.mode === "off") { dlog("codex:bootstrap:skip", "mode=off"); return; }
+    dlog("codex:bootstrap:start", "mode=" + (codex.mode || "default"));
     const engine = codex.artDirectorEngine || { provider: "mistral", model: "mistral-small-latest" };
     try {
       const sys = buildBootstrapSystem(chosen, language);
       const msgs: ChatMessage[] = [{ role: "user", content: "Seed the codex for this chronicle." }];
       const raw = await callAPI(sys, msgs, true, engine, 1400, 0.4, signal, ART_DIRECTOR_BOOTSTRAP_TOOL);
-      if (signal?.aborted) return;
+      if (signal?.aborted) { dlog("codex:bootstrap:aborted"); return; }
       const parsed = parseBootstrapResponse(raw);
-      if (parsed.malformed) return;
+      if (parsed.malformed) { dlog("codex:bootstrap:malformed"); return; }
       const sb = parsed.style_bible || null;
       const vl = parsed.visual_ledger || [];
       styleBibleRef.current = sb;
       visualLedgerRef.current = vl;
       setStyleBible(sb);
       setVisualLedger(vl);
+      dlog("codex:bootstrap:ok", "subjects=" + (vl.length || 0));
     } catch (e) {
       const caught = e as ThrownError;
+      dlog("codex:bootstrap:error", caught?.detail || caught?.message || e);
       if (typeof console !== "undefined" && console.warn) console.warn("[borrowed] Art Director bootstrap failed:", caught?.detail || caught?.message || e);
     }
   };
@@ -139,12 +143,13 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }: C
 
   const runArtDirectorTurn = async ({ entryIndexProvider, gmParsed, signal, opener = false }: RunArtDirectorTurnArgs) => {
     const codex: CodexConfig = settings.codex || {};
-    if (codex.mode === "off") return;
+    if (codex.mode === "off") { dlog("codex:turn:skip", "mode=off"); return; }
     const cap = codex.maxPerSession ?? 12;
-    if (plateCountRef.current >= cap && codex.mode !== "always") return;
+    if (plateCountRef.current >= cap && codex.mode !== "always") { dlog("codex:turn:skip", "cap reached", plateCountRef.current + "/" + cap); return; }
     const sb = styleBibleRef.current;
-    if (!sb) return;
-    if (!premise) return;
+    if (!sb) { dlog("codex:turn:skip", "no style bible"); return; }
+    if (!premise) { dlog("codex:turn:skip", "no premise"); return; }
+    dlog("codex:turn:start", opener ? "opener" : "turn", "plates=" + plateCountRef.current);
 
     const myTurn = ++turnIdRef.current;
     const stale = () => signal?.aborted || myTurn !== turnIdRef.current;
@@ -187,10 +192,10 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }: C
       const looksNegative = !reason || reason.length < 6 || NEG.test(reason);
       wants = ad.warrants_illustration && !looksNegative && sceneClause.length >= 12;
     }
-    if (!wants) return;
+    if (!wants) { dlog("codex:turn:skip", "art director declined"); return; }
     lastSceneClauseRef.current = sceneClause;
 
-    if (inflightRef.current >= MAX_INFLIGHT) return;
+    if (inflightRef.current >= MAX_INFLIGHT) { dlog("codex:turn:skip", "max inflight"); return; }
 
     const idx = entryIndexProvider();
     if (idx == null || idx < 0) return;
