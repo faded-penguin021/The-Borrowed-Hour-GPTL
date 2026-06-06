@@ -214,6 +214,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   );
 
   // ── Game loop ───────────────────────────────────────────────────
+  // Domain hooks are recreated every render. Wrap them in useLatest refs
+  // so the long-lived game loop always reads the current closures.
+  const codexRef = useLatest(codex);
+  const savesRef = useLatest(saves);
+  const progressRef = useLatest(progress);
+  const ttsRef = useLatest(tts);
+  const ambienceHookRef = useLatest({ ensureAmbienceEngine, ambienceRef });
+  const revealRef = useLatest(reveal);
+  const keepsakeRef = useLatest(keepsake);
+
   const loopRef = useRef<ReturnType<typeof createGameLoop> | null>(null);
   if (!loopRef.current) {
     loopRef.current = createGameLoop({
@@ -231,18 +241,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       streamingStore,
       callAPI,
       streamAPI,
-      codex,
-      saves: {
-        setSaveBanner: saves.setSaveBanner,
-        clearAutosave: saves.clearAutosave,
-        setShowSaves: saves.setShowSaves,
-        readAutosave: saves.readAutosave,
+      get codex() { return codexRef.current; },
+      get saves() {
+        const s = savesRef.current;
+        return { setSaveBanner: s.setSaveBanner, clearAutosave: s.clearAutosave, setShowSaves: s.setShowSaves, readAutosave: s.readAutosave };
       },
-      progress: { recordEnding: progress.recordEnding },
-      tts: { ttsRef: tts.ttsRef, stopTTS: tts.stopTTS, resetTTSCursor: tts.resetTTSCursor },
-      ambience: { ensureAmbienceEngine, ambienceRef },
-      reveal: { resetReveal: reveal.resetReveal },
-      keepsake: { resetKeepsake: keepsake.resetKeepsake },
+      get progress() { return { recordEnding: progressRef.current.recordEnding }; },
+      get tts() { const t = ttsRef.current; return { ttsRef: t.ttsRef, stopTTS: t.stopTTS, resetTTSCursor: t.resetTTSCursor }; },
+      get ambience() { return ambienceHookRef.current; },
+      get reveal() { return { resetReveal: revealRef.current.resetReveal }; },
+      get keepsake() { return { resetKeepsake: keepsakeRef.current.resetKeepsake }; },
     });
   }
   const loop = loopRef.current;

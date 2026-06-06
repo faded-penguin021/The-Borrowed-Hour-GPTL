@@ -85,7 +85,6 @@ export function createGameLoop(deps: GameLoopDeps) {
     dispatch, setLoading, setLoadingPhrase,
     abortRef, streamingStore,
     callAPI, streamAPI,
-    codex, saves, progress, tts, ambience, reveal, keepsake,
   } = deps;
 
   function finalizeNarration(
@@ -109,21 +108,21 @@ export function createGameLoop(deps: GameLoopDeps) {
       ended: !!gmParsed.ending,
     });
     if (gmParsed.ending) {
-      progress.recordEnding(s.premise?.id, gmParsed.ending);
+      deps.progress.recordEnding(s.premise?.id, gmParsed.ending);
     }
   }
 
   async function beginAdventure(chosen: Premise): Promise<void> {
     const s = deps.getState();
     const settings = deps.getSettings();
-    codex.revokeAllPlates(s.entries);
+    deps.codex.revokeAllPlates(s.entries);
     deps.resetSessionTokens();
     dispatch({ type: "START_GAME", premise: chosen });
-    saves.clearAutosave();
-    codex.resetCodex();
+    deps.saves.clearAutosave();
+    deps.codex.resetCodex();
     setLoadingPhrase(pickPhrase(OPENING_LOADING_PHRASES));
     setLoading(true);
-    await ambience.ensureAmbienceEngine();
+    await deps.ambience.ensureAmbienceEngine();
     const controller = new AbortController;
     const rollback = () => {
       dispatch({ type: "SET_PHASE", phase: "title" });
@@ -134,7 +133,7 @@ export function createGameLoop(deps: GameLoopDeps) {
       const sys = buildSystem(chosen, s.language);
       dlog("prompt:opening:system", sys.length, "chars");
       const msgs: ChatMessage[] = [{ role: "user", content: "Begin." }];
-      const bootstrapPromise = codex.runArtDirectorBootstrap(chosen, controller.signal);
+      const bootstrapPromise = deps.codex.runArtDirectorBootstrap(chosen, controller.signal);
       const firstRaw = await callAPI(sys, msgs, true, settings.engineOpening, 4500, 0.7, controller.signal);
       bootstrapPromise.catch(() => {});
       if (controller.signal.aborted) return;
@@ -167,20 +166,20 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
         ended: !!parsed.ending,
       });
       if (parsed.ending) {
-        progress.recordEnding(chosen.id, parsed.ending);
+        deps.progress.recordEnding(chosen.id, parsed.ending);
       }
-      if (ambience.ambienceRef.current) {
+      if (deps.ambience.ambienceRef.current) {
         const bed = (chosen.realm === "wild" && chosen.seed)
           ? deriveAmbienceFromSeed(chosen.seed)
           : defaultAmbienceForRealm(chosen.realm);
-        ambience.ambienceRef.current.applyAmbience(bed);
+        deps.ambience.ambienceRef.current.applyAmbience(bed);
         if (parsed.ambience !== undefined)
-          ambience.ambienceRef.current.applyAmbience(parsed.ambience);
+          deps.ambience.ambienceRef.current.applyAmbience(parsed.ambience);
       }
       if ((settings.codex?.mode || "off") !== "off") {
         bootstrapPromise.then(() => {
           if (controller.signal.aborted) return;
-          return codex.runArtDirectorTurn({
+          return deps.codex.runArtDirectorTurn({
             entryIndexProvider: () => 0,
             gmParsed: { state: parsed.state, narrator_brief: parsed.narration },
             signal: controller.signal,
@@ -258,7 +257,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     if (!s.premise) return true;
     dispatch({ type: "SKIP_REVEAL" });
     dispatch({ type: "SET_RECOVERY", recovery: null });
-    if (!s.metaMode) await ambience.ensureAmbienceEngine();
+    if (!s.metaMode) await deps.ambience.ensureAmbienceEngine();
 
     if (s.metaMode) {
       const previousMeta = s.metaMessages;
@@ -338,7 +337,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     const previousHistory = s.history;
     const newEntries: Entry[] = [...s.entries, { type: "action", text, fullyRevealed: true }];
     dispatch({ type: "SET_ENTRIES", entries: newEntries });
-    if (tts.ttsRef.current) tts.ttsRef.current.stop();
+    if (deps.tts.ttsRef.current) deps.tts.ttsRef.current.stop();
     const { publicBlock, privateBlock } = formatStateForPrompt(s.gameState);
     const parts: string[] = [];
     if (publicBlock) parts.push(publicBlock);
@@ -424,9 +423,9 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
         if (gmParsed.raw) err.raw = gmParsed.raw;
         throw err;
       }
-      if (ambience.ambienceRef.current && gmParsed.ambience !== undefined)
-        ambience.ambienceRef.current.applyAmbience(gmParsed.ambience);
-      const artDirectorPromise = codex.runArtDirectorTurn({
+      if (deps.ambience.ambienceRef.current && gmParsed.ambience !== undefined)
+        deps.ambience.ambienceRef.current.applyAmbience(gmParsed.ambience);
+      const artDirectorPromise = deps.codex.runArtDirectorTurn({
         entryIndexProvider: () => newEntries.length,
         gmParsed,
         signal: controller.signal
@@ -519,20 +518,20 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       if (parsed.state) newState = parsed.state;
     }
     dispatch({ type: "UNDO", entries: newEntries, history: newHistory, gameState: newState });
-    saves.setSaveBanner({ kind: "ok", text: "The last turn is unmade." });
+    deps.saves.setSaveBanner({ kind: "ok", text: "The last turn is unmade." });
   }
 
   function restart() {
     const s = deps.getState();
-    codex.revokeAllPlates(s.entries);
+    deps.codex.revokeAllPlates(s.entries);
     deps.resetSessionTokens();
     dispatch({ type: "RESET" });
-    reveal.resetReveal();
-    keepsake.resetKeepsake();
-    if (ambience.ambienceRef.current) ambience.ambienceRef.current.applyAmbience(null);
-    tts.stopTTS();
-    tts.resetTTSCursor(0);
-    codex.resetCodex();
+    deps.reveal.resetReveal();
+    deps.keepsake.resetKeepsake();
+    if (deps.ambience.ambienceRef.current) deps.ambience.ambienceRef.current.applyAmbience(null);
+    deps.tts.stopTTS();
+    deps.tts.resetTTSCursor(0);
+    deps.codex.resetCodex();
   }
 
   async function loadSave(rawSave: SaveRecord): Promise<void> {
@@ -545,12 +544,12 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       found = PREMISES.find((p) => p.id === save.premiseId) || save.premise || null;
     }
     if (!found) {
-      saves.setSaveBanner({ kind: "err", text: "This hour is no longer here." });
+      deps.saves.setSaveBanner({ kind: "err", text: "This hour is no longer here." });
       return;
     }
-    codex.revokeAllPlates(s.entries);
-    tts.stopTTS();
-    tts.resetTTSCursor((save.entries || []).length);
+    deps.codex.revokeAllPlates(s.entries);
+    deps.tts.stopTTS();
+    deps.tts.resetTTSCursor((save.entries || []).length);
     const rawEntries: Entry[] = (save.entries || []).map((e) => ({ ...e, fullyRevealed: true }));
     dispatch({
       type: "LOAD_SAVE",
@@ -576,24 +575,24 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       }));
       dispatch({ type: "SET_ENTRIES", entries: rehydrated });
     })();
-    codex.restoreCodex(save.codex);
-    reveal.resetReveal();
-    keepsake.resetKeepsake();
-    saves.setShowSaves(false);
-    saves.setSaveBanner({ kind: "ok", text: "The hour resumes." });
-    await ambience.ensureAmbienceEngine();
-    if (ambience.ambienceRef.current) {
+    deps.codex.restoreCodex(save.codex);
+    deps.reveal.resetReveal();
+    deps.keepsake.resetKeepsake();
+    deps.saves.setShowSaves(false);
+    deps.saves.setSaveBanner({ kind: "ok", text: "The hour resumes." });
+    await deps.ambience.ensureAmbienceEngine();
+    if (deps.ambience.ambienceRef.current) {
       const bed = (found.realm === "wild" && found.seed)
         ? deriveAmbienceFromSeed(found.seed)
         : defaultAmbienceForRealm(found.realm);
-      ambience.ambienceRef.current.applyAmbience(bed);
+      deps.ambience.ambienceRef.current.applyAmbience(bed);
     }
   }
 
   async function resumeAutosave(): Promise<void> {
-    const rec = await saves.readAutosave();
+    const rec = await deps.saves.readAutosave();
     if (!rec) {
-      saves.setSaveBanner({ kind: "err", text: "There is no unfinished hour to resume." });
+      deps.saves.setSaveBanner({ kind: "err", text: "There is no unfinished hour to resume." });
       return;
     }
     await loadSave(rec);
