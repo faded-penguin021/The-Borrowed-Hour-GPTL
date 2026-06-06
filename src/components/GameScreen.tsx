@@ -419,6 +419,46 @@ export function GameScreen({
                   </ul>
                 </div>
               )}
+              <div className="text-center mt-3 mb-2 flex justify-center gap-3 flex-wrap">
+                <IconButton onClick={saveCurrent} size="lg">
+                  <Bookmark size={14} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />KEEP THIS HOUR
+                </IconButton>
+                {!keepsakeBlob && !keepsakeLoading && (
+                  <IconButton
+                    onClick={(e) => { e.stopPropagation(); startKeepsake(); }}
+                    size="lg"
+                    title="Generate a self-contained HTML keepsake of this chronicle"
+                  >
+                    <BookMarked size={14} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />GENERATE BOOK
+                  </IconButton>
+                )}
+                {keepsakeLoading && (
+                  <IconButton disabled size="lg" className="opacity-60">
+                    binding the hour
+                    <span className="typing-dots ml-1.5">
+                      <span>.</span><span>.</span><span>.</span>
+                    </span>
+                  </IconButton>
+                )}
+                {keepsakeBlob && !keepsakeLoading && (
+                  <IconButton
+                    onClick={(e) => { e.stopPropagation(); downloadKeepsake(keepsakeFilename); }}
+                    size="lg"
+                    accent={premise.realm}
+                    title="Download the HTML keepsake file"
+                  >
+                    <Download size={14} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />TAP TO SAVE FILE
+                  </IconButton>
+                )}
+                <IconButton onClick={restart} size="lg">
+                  <RotateCcw size={14} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />BEGIN A NEW HOUR
+                </IconButton>
+                {keepsakeError && (
+                  <div className="font-body italic text-[12px] text-rose-ember w-full text-center mt-1">
+                    {keepsakeError}
+                  </div>
+                )}
+              </div>
               <div className="space-y-6 mt-6">
                 {metaMessages.map((m, i: number) => {
                   if (m.role === "user") {

@@ -5,17 +5,17 @@ import { dlog } from "../debug/debugLog";
 
 /**
  * Per-turn breadcrumb for the `ending` field, so the debug console can tell the
- * three cases apart:
+ * four cases apart:
  *   - model never committed an ending     → rawPresent:false, resolved:null
+ *   - model committed "ongoing"           → rawPresent:true,  resolved:null, ongoing:true
  *   - model committed a valid ending      → rawPresent:true,  resolved:"bad"
  *   - model committed an unrecognized tag → rawPresent:true,  resolved:null  (DROPPED)
- * The third case is the silent-failure mode the normalization fix targets; the
- * first is GM discretion (it wrote a coda but didn't set the field).
  */
 function logEnding(rawEnding: unknown, resolved: string | null): void {
   const rawPresent = rawEnding != null;
-  const dropped = rawPresent && resolved == null;
-  dlog("parse: ending", { rawEnding, resolved, rawPresent, dropped });
+  const ongoing = typeof rawEnding === "string" && rawEnding.trim().toLowerCase() === "ongoing";
+  const dropped = rawPresent && resolved == null && !ongoing;
+  dlog("parse: ending", { rawEnding, resolved, rawPresent, ongoing, dropped });
 }
 
 export function firstString(...candidates: unknown[]): string {

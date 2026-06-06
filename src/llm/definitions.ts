@@ -115,12 +115,12 @@ export const GM_LOGIC_TOOL: ToolDefinition = {
       state: STATE_SCHEMA,
       ending: {
         type: "string",
-        enum: ["good", "bittersweet", "pyrrhic", "ambiguous", "bad"],
-        description: "Set only when the chronicle has reached a true ending per the genre-specific guidance. Otherwise omit."
+        enum: ["ongoing", "good", "bittersweet", "pyrrhic", "ambiguous", "bad"],
+        description: "REQUIRED every turn. Set to 'ongoing' while the chronicle is still active and the genre-specific ending condition has NOT been met. Set to one of the five terminal types when the ending condition IS met — this closes the chronicle. See the system prompt's ENDING THE CHRONICLE section."
       },
       ambience: AMBIENCE_SCHEMA
     },
-    required: ["gm_scratchpad", "narrator_brief", "state"]
+    required: ["gm_scratchpad", "narrator_brief", "state", "ending"]
   }
 };
 
@@ -138,11 +138,11 @@ export const GM_TOOL: ToolDefinition = {
       state: STATE_SCHEMA,
       ending: {
         type: "string",
-        enum: ["good", "bittersweet", "pyrrhic", "ambiguous", "bad"],
-        description: "Set only when the chronicle has reached a true ending per the genre-specific guidance. Otherwise omit. The five types are NOT a softer middle — each is a definite commitment. GOOD: the objective is achieved cleanly. BITTERSWEET: achieved at a cost the player will carry. PYRRHIC: achieved in a way that hollowed out the achievement or the achiever. AMBIGUOUS: the resolution genuinely refuses closure (reserve for stories that earned this; do NOT use to dodge a clean ending). BAD: the player dies, fails irrevocably, or severs the way back. If the genre's named ending condition is met, you must commit — set this field. See the system prompt's ENDING THE CHRONICLE section."
+        enum: ["ongoing", "good", "bittersweet", "pyrrhic", "ambiguous", "bad"],
+        description: "REQUIRED every turn. Set to 'ongoing' while the chronicle is still active. Set to a terminal type when the genre-specific ending condition IS met — this closes the chronicle. GOOD: objective achieved cleanly. BITTERSWEET: achieved at a cost. PYRRHIC: hollowed out the achievement or the achiever. AMBIGUOUS: genuinely refuses closure (reserve for stories that earned this). BAD: death, irrevocable failure. See the system prompt's ENDING THE CHRONICLE section."
       },
       ambience: AMBIENCE_SCHEMA
     },
-    required: ["gm_scratchpad", "narration", "state"]
+    required: ["gm_scratchpad", "narration", "state", "ending"]
   }
 };
