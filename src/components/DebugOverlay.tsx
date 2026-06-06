@@ -25,6 +25,7 @@ export function DebugOverlay({ enabled = false }: { enabled?: boolean }) {
   const entries = useEntries();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
 
   const errorCount = entries.filter((e) => e.level === "error").length;
 
@@ -75,6 +76,12 @@ export function DebugOverlay({ enabled = false }: { enabled?: boolean }) {
       <div className="flex gap-2 items-center py-2 px-2.5 border-b border-white/15">
         <strong className="flex-1">Debug log ({entries.length})</strong>
         <button onClick={copy} className={miniBtn}>{copied ? "Copied!" : "Copy"}</button>
+        <button onClick={async () => {
+          const promptEntries = entries.filter((e) => e.level === "dbg" && e.msg.startsWith("prompt:"));
+          if (promptEntries.length === 0) return;
+          const text = promptEntries.map((e) => `${new Date(e.t).toISOString().slice(11, 23)} ${e.msg}`).join("\n");
+          try { await navigator.clipboard.writeText(text); setPromptCopied(true); setTimeout(() => setPromptCopied(false), 1500); } catch {}
+        }} className={miniBtn}>{promptCopied ? "Copied!" : "Prompts"}</button>
         <button onClick={() => clearDebug()} className={miniBtn}>Clear</button>
         <button onClick={() => setOpen(false)} className={miniBtn}>Close</button>
       </div>
