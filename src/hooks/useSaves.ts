@@ -5,8 +5,10 @@ import type {
   SaveBanner, SaveListEntry, SaveRecord, ThrownError
 } from "../types";
 import { SAVE_PREFIX, AUTOSAVE_KEY, SAVE_CAP, estimateSize, formatKB, formatTokens } from "../data/constants";
-import { putImage, deleteImagesForSave } from "../storage/imageStore";
+import { putImage, deleteImagesForSave, putDoc, getDoc } from "../storage/imageStore";
 import { migrateSave, CURRENT_SAVE_VERSION } from "../saves/migrate";
+import { compressSave, decompressSave } from "../saves/compression";
+import { dlog } from "../debug/debugLog";
 
 export interface SaveCurrentArgs {
   premise: Premise | null;
@@ -116,12 +118,13 @@ export function useSaves() {
             const parsed = migrateSave(JSON.parse(r.value));
             saves.push({ key, size, ...parsed });
           }
-        } catch {}
+        } catch (e) { dlog("saves:load-entry-error", key, e); }
       }
       saves.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
       setSaveList(saves);
       setSavesTotalBytes(totalBytes);
-    } catch {
+    } catch (e) {
+      dlog("saves:load-list-error", e);
       setSaveList([]);
       setSavesTotalBytes(0);
     } finally {
@@ -212,6 +215,11 @@ export function useSaves() {
   /** Read and migrate the autosave slot, or null when none is present. */
   const readAutosave = async (): Promise<SaveRecord | null> => {
     try {
+      const compressed = await getDoc(AUTOSAVE_KEY);
+      if (compressed) {
+        const json = await decompressSave(compressed);
+        return migrateSave(JSON.parse(json));
+      }
       const r = await window.storage.get(AUTOSAVE_KEY);
       if (!r?.value) return null;
       return migrateSave(JSON.parse(r.value));
@@ -229,8 +237,14 @@ export function useSaves() {
     const { premise, entries } = args;
     if (!premise || entries.length === 0) return;
     const payload = buildSavePayload(premise, args, AUTOSAVE_ID, slimEntriesForAutosave(entries));
+    const json = JSON.stringify(payload);
     try {
-      await window.storage.set(AUTOSAVE_KEY, JSON.stringify(payload));
+      const compressed = await compressSave(json);
+      if (typeof compressed === "string") {
+        await window.storage.set(AUTOSAVE_KEY, compressed);
+      } else {
+        await putDoc(AUTOSAVE_KEY, json);
+      }
       setHasAutosave(true);
     } catch {
       // Autosave is silent by design — keep playing.

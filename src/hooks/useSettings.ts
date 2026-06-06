@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import type { AppSettings } from "../types";
 import { DEFAULT_SETTINGS, SETTINGS_KEY } from "../data/constants";
 import { providerSupportsToolUse, FREE_MODELS_BY_PROVIDER } from "../llm/providers";
+import { dlog } from "../debug/debugLog";
 
 export function useSettings() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -46,7 +47,7 @@ export function useSettings() {
             merged.engineGM = DEFAULT_SETTINGS.engineGM;
           setSettings(merged);
         }
-      } catch {} finally {
+      } catch (e) { dlog("settings:load-error", e); } finally {
         loadedRef.current = true;
       }
     })();
@@ -57,7 +58,7 @@ export function useSettings() {
     (async () => {
       try {
         await window.storage.set(SETTINGS_KEY, JSON.stringify(settings));
-      } catch {}
+      } catch (e) { dlog("settings:save-error", e); }
     })();
   }, [settings]);
 

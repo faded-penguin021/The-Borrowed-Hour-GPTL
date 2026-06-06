@@ -2,6 +2,8 @@ import type { ChatMessage, EngineConfig, ProviderId, ThrownError, ToolDefinition
 import { PROVIDERS, PROVIDER_META, getProviderKey } from "./providers";
 import { GM_TOOL } from "./tools";
 import { scrubSecrets, extractApiErrorMessage, BorrowedError, httpStatusHint } from "./errors";
+import { createRateLimiter } from "./rateLimiter";
+import { dlog } from "../debug/debugLog";
 
 interface UsageData {
   usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
@@ -64,7 +66,10 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
     return request;
   };
 
+  const limiter = createRateLimiter();
+
   const callAPI = async (sys: string, msgs: ChatMessage[], useTool = false, engine: EngineConfig = getDefaultEngine(), maxTokens = 3000, temperature = 0.6, signal: AbortSignal | null = null, tool: ToolDefinition = GM_TOOL, cacheBreakpoint?: number, cacheKey?: string): Promise<string> => {
+    await limiter.acquire(signal ?? undefined);
     const providerId = engine?.provider;
     const model = engine?.model;
     const provider = PROVIDERS[providerId];
@@ -110,7 +115,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
         try {
           const bodyText = await res.text();
           lastBodySnippet = scrubSecrets(bodyText.slice(0, 500), apiKey);
-        } catch {}
+        } catch (e) { dlog("llm:body-read-error", e); }
         if (res.status === 400 && temp !== undefined && /temperature/i.test(lastBodySnippet || "")) {
           temp = undefined;
           lastErr = new BorrowedError("The hour falters.", `${meta.name} rejected temperature for this model; retrying with the model default.`);
@@ -166,11 +171,12 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
         out = u?.completion_tokens || u?.output_tokens || 0;
       }
       onUsage(inp, out);
-    } catch {}
+    } catch (e) { dlog("llm:usage-extract-error", e); }
     return provider.extract(data, useTool, tool, maxTokens);
   };
 
   const streamAPI = async (sys: string, msgs: ChatMessage[], engine: EngineConfig, maxTokens: number, temperature: number, signal: AbortSignal, onDelta: (delta: string) => void): Promise<string> => {
+    await limiter.acquire(signal);
     const providerId = engine?.provider;
     const model = engine?.model;
     const provider = PROVIDERS[providerId];

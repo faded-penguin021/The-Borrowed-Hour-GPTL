@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import type { AmbienceEngine } from "../ambience/engine";
+import { dlog } from "../debug/debugLog";
 
 export function useAmbience() {
   const [ambienceLevel, setAmbienceLevel] = useState("off");
@@ -31,7 +32,7 @@ export function useAmbience() {
               setAmbienceMusicLevel(parsed.musicLevel);
           }
         }
-      } catch {} finally {
+      } catch (e) { dlog("ambience:prefs:load-error", e); } finally {
         loadedRef.current = true;
       }
     })();
@@ -48,7 +49,7 @@ export function useAmbience() {
           boostWithTTS: ambienceBoostWithTTS,
           musicLevel: ambienceMusicLevel
         }));
-      } catch {}
+      } catch (e) { dlog("ambience:prefs:save-error", e); }
     })();
   }, [ambienceLevel, ambienceMuted, ambienceDuringNarrationOnly, ambienceBoostWithTTS, ambienceMusicLevel]);
 
