@@ -82,10 +82,9 @@ export function stripHistoricalAssistant(content: string): string {
   try {
     const obj = JSON.parse(content);
     const stripped: Record<string, unknown> = {
-      narration: obj.narration
+      narration: obj.narration,
+      ending: obj.ending || "ongoing"
     };
-    if (obj.ending)
-      stripped.ending = obj.ending;
     return JSON.stringify(stripped);
   } catch {
     return content;
