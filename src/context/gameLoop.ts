@@ -132,7 +132,12 @@ export function createGameLoop(deps: GameLoopDeps) {
     try {
       const sys = buildSystem(chosen, s.language);
       dlog("prompt:opening:system", sys.length, "chars");
-      const msgs: ChatMessage[] = [{ role: "user", content: "Begin." }];
+      const beginParts: string[] = [];
+      if (chosen.briefing) {
+        beginParts.push(`[Character knowledge]\n${chosen.briefing}`);
+      }
+      beginParts.push("Begin.");
+      const msgs: ChatMessage[] = [{ role: "user", content: beginParts.join("\n\n") }];
       const codexOn = (settings.codex?.mode || "off") !== "off";
       const bootstrapPromise = codexOn
         ? deps.codex.runArtDirectorBootstrap(chosen, controller.signal)
