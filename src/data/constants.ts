@@ -35,10 +35,11 @@ export const formatKB = (kb: number): string => {
   return `${Math.round(kb)} KB`;
 };
 
-export const formatTokens = (t: number): string => {
+export const formatTokens = (t: number, approximate = false): string => {
+  const prefix = approximate ? "~" : "";
   if (t < 1000)
-    return `~${t} tokens`;
-  return `~${(t / 1000).toFixed(t < 1e4 ? 1 : 0)}K tokens`;
+    return `${prefix}${t} tokens`;
+  return `${prefix}${(t / 1000).toFixed(t < 1e4 ? 1 : 0)}K tokens`;
 };
 
 export const DEFAULT_ENGINE_OPENING: EngineConfig = { provider: "mistral", model: "mistral-large-latest" };
