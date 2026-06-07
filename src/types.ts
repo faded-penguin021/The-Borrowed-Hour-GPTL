@@ -136,6 +136,9 @@ export interface Premise {
   teaser: string;
   seed: string;
   gmNote: string;
+  /** Facts the player-character already knows before the story begins.
+   *  Surfaced in the opening narration and initial ledger. */
+  briefing?: string;
   isCustom?: boolean;
 }
 
