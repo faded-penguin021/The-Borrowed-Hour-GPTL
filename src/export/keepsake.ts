@@ -10,6 +10,15 @@ export function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
+function renderInlineMarkdown(escaped: string): string {
+  return escaped
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/`(.+?)`/g, "<code>$1</code>")
+    .replace(/^- (.+)$/gm, "• $1")
+    .replace(/^\* (.+)$/gm, "• $1");
+}
+
 const MAX_INLINE_PX = 1200;
 
 /**
@@ -262,14 +271,14 @@ footer {
     : "";
 
   const revealBlock = revealText
-    ? `<hr><section><h2 class="section-title">✦ The Hidden Hour ✦</h2><p class="reveal-text">${escapeHtml(revealText)}</p></section>`
+    ? `<hr><section><h2 class="section-title">✦ The Hidden Hour ✦</h2><p class="reveal-text">${renderInlineMarkdown(escapeHtml(revealText))}</p></section>`
     : "";
 
   const metaBlocks = (metaMessages || []).map((m) => {
     if (m.role === "user") {
-      return `<p class="meta-question">${escapeHtml(m.text)}</p>`;
+      return `<p class="meta-question">${renderInlineMarkdown(escapeHtml(m.text))}</p>`;
     }
-    return `<p class="meta-answer">${escapeHtml(m.text)}</p>`;
+    return `<p class="meta-answer">${renderInlineMarkdown(escapeHtml(m.text))}</p>`;
   });
 
   const metaBlock = metaBlocks.length > 0
