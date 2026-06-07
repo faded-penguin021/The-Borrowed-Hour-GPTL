@@ -133,7 +133,10 @@ export function createGameLoop(deps: GameLoopDeps) {
       const sys = buildSystem(chosen, s.language);
       dlog("prompt:opening:system", sys.length, "chars");
       const msgs: ChatMessage[] = [{ role: "user", content: "Begin." }];
-      const bootstrapPromise = deps.codex.runArtDirectorBootstrap(chosen, controller.signal);
+      const codexOn = (settings.codex?.mode || "off") !== "off";
+      const bootstrapPromise = codexOn
+        ? deps.codex.runArtDirectorBootstrap(chosen, controller.signal)
+        : Promise.resolve();
       const firstRaw = await callAPI(sys, msgs, true, settings.engineOpening, 4500, 0.7, controller.signal);
       bootstrapPromise.catch((e) => { dlog("codex:bootstrap:swallowed", e); });
       if (controller.signal.aborted) return;
@@ -176,7 +179,7 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
         if (parsed.ambience !== undefined)
           deps.ambience.ambienceRef.current.applyAmbience(parsed.ambience);
       }
-      if ((settings.codex?.mode || "off") !== "off") {
+      if (codexOn) {
         bootstrapPromise.then(() => {
           if (controller.signal.aborted) return;
           return deps.codex.runArtDirectorTurn({
@@ -432,12 +435,14 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       }
       if (deps.ambience.ambienceRef.current && gmParsed.ambience !== undefined)
         deps.ambience.ambienceRef.current.applyAmbience(gmParsed.ambience);
-      const artDirectorPromise = deps.codex.runArtDirectorTurn({
-        entryIndexProvider: () => newEntries.length,
-        gmParsed,
-        signal: controller.signal
-      });
-      artDirectorPromise.catch((e) => { dlog("codex:turn:swallowed", e); });
+      if ((settings.codex?.mode || "off") !== "off") {
+        const artDirectorPromise = deps.codex.runArtDirectorTurn({
+          entryIndexProvider: () => newEntries.length,
+          gmParsed,
+          signal: controller.signal
+        });
+        artDirectorPromise.catch((e) => { dlog("codex:turn:swallowed", e); });
+      }
       const narratorSys = buildNarratorSystem(s.premise, s.language);
       dlog("prompt:narrator:system", narratorSys.length, "chars");
       const recentNarration = s.entries.filter((e) => e.type === "narration").slice(-4).map((e) => e.text).join("\n\n");

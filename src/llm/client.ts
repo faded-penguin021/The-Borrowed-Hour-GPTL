@@ -10,6 +10,22 @@ interface UsageData {
   usage?: { input_tokens?: number; output_tokens?: number; prompt_tokens?: number; completion_tokens?: number };
 }
 
+function extractUsage(d: UsageData, providerId: string): [number, number] {
+  if (providerId === "gemini") {
+    const u = d.usageMetadata;
+    return [u?.promptTokenCount || 0, u?.candidatesTokenCount || 0];
+  }
+  if (providerId === "openai") {
+    const u = d.usage;
+    return [u?.input_tokens || 0, u?.output_tokens || 0];
+  }
+  const u = d.usage;
+  return [
+    u?.prompt_tokens || u?.input_tokens || 0,
+    u?.completion_tokens || u?.output_tokens || 0,
+  ];
+}
+
 /** Signature of the non-streaming `callAPI` returned by {@link createLLMClient}. */
 export type CallAPI = (
   sys: string,
@@ -155,21 +171,9 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
       try { provider.logUsage(data, model); } catch {}
     }
     try {
-      let inp = 0, out = 0;
       const d = data as UsageData;
-      if (providerId === "gemini") {
-        const u = d.usageMetadata;
-        inp = u?.promptTokenCount || 0;
-        out = u?.candidatesTokenCount || 0;
-      } else if (providerId === "openai") {
-        const u = d.usage;
-        inp = u?.input_tokens || 0;
-        out = u?.output_tokens || 0;
-      } else {
-        const u = d.usage;
-        inp = u?.prompt_tokens || u?.input_tokens || 0;
-        out = u?.completion_tokens || u?.output_tokens || 0;
-      }
+      const [inp, out] = extractUsage(d, providerId);
+      if (!inp && !out) dlog("llm:usage-zero", providerId, model);
       onUsage(inp, out);
     } catch (e) { dlog("llm:usage-extract-error", e); }
     return provider.extract(data, useTool, tool, maxTokens);
@@ -321,8 +325,8 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
         throw err;
       } finally {
         clearStall();
+        if (usage) onUsage((usage as { input?: number; output?: number }).input || 0, (usage as { input?: number; output?: number }).output || 0);
       }
-      if (usage) onUsage((usage as { input?: number; output?: number }).input || 0, (usage as { input?: number; output?: number }).output || 0);
       if (!full.trim())
         throw new BorrowedError("The page came back blank.", `${meta.name} returned an empty narration stream.`);
       return full;

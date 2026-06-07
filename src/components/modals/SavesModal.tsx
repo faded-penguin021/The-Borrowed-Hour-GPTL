@@ -63,7 +63,7 @@ export function SavesModal({ saves, totalBytes = 0, cap = SAVE_CAP, loading, onC
                 <span>·</span>
                 <span>{formatKB(totalKB)} in total</span>
                 <span>·</span>
-                <span>{formatTokens(Math.round(totalBytes / APPROX_CHARS_PER_TOKEN))}</span>
+                <span>{formatTokens(Math.round(totalBytes / APPROX_CHARS_PER_TOKEN), true)}</span>
               </div>
             )}
           </div>
