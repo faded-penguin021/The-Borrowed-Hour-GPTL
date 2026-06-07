@@ -22,7 +22,7 @@ export const GM_SCRATCHPAD_DESC: string = `Private GM working space — never sh
 (2) STYLE CHECK. Glance at the narration that will go out this turn AND at your recent turns. Run four sub-audits, each in writing:
 - Character introduction: have you introduced people the same way recently? If so, drastically change focus this turn — a micro-action (cleaning a fingernail), a sensory detail (the smell of old copper), an absence (what their face is specifically NOT doing).
 - Metaphor stacking: count the figurative constructions (simile, metaphor, personification, synesthesia) in each paragraph of the new narration. More than one in any paragraph? Cut to one. Most paragraphs should have zero.
-- Atmospheric padding: is any sentence describing the quality of silence, tension, or air without advancing action or revealing character? Cut it, or replace it with a concrete action.
+- Advancement: does this turn move the story forward? If the player asked a question, does someone answer (even partially, even evasively — but with WORDS, not silence)? If the player took action, does the world respond with consequence, not just atmosphere? A turn where nothing changes — no new information, no NPC dialogue, no shift in situation — is a failed turn. Rewrite it with plot movement before proceeding.
 - Sensory repetition: have the last few turns leaned on the same sensory anchor (the ozone, the scar, the blade weight, the cold)? If so, reach for a different sense this turn.
 For each sub-audit, write a one-line verdict — kept / cut / changed — before moving on. Force syntactic variety.
 
