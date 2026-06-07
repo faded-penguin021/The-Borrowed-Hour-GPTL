@@ -15,7 +15,7 @@ import {
 // with no field-level discipline at all, which let GM knowledge leak into the
 // player's diary (e.g. a `scene` that editorialised which question "mattered").
 
-export const GM_SCRATCHPAD_DESC: string = `Private GM working space — never shown to the player. Four to seven tight sentences total: assess the action, consult the rules, decide consequences, note anything to carry forward. Keep this brisk; verbose scratchpads eat the budget for narration. The scratchpad conditions everything that follows; use it but do not over-write. BEFORE you stop writing this field, do TWO checks in writing.
+export const GM_SCRATCHPAD_DESC: string = `Private GM working space — never shown to the player. Four to seven tight sentences total: assess the action, consult the rules, decide consequences, note anything to carry forward. Keep this brisk; verbose scratchpads eat the budget for narration. The scratchpad conditions everything that follows; use it but do not over-write. BEFORE you stop writing this field, do THREE checks in writing.
 
 (1) BOUNDARY CHECK. Name explicitly which facts the narration THIS TURN will actually show or tell the player, versus which facts remain GM-only (clocks, twists, offstage moves, identities not yet voiced aloud, NPC private motives). The state object you write next must respect that line: anything that does not appear in narration this turn — or in some prior turn — does not enter clues, npcs, or summary.
 
@@ -26,7 +26,9 @@ export const GM_SCRATCHPAD_DESC: string = `Private GM working space — never sh
 - Sensory repetition: have the last few turns leaned on the same sensory anchor (the ozone, the scar, the blade weight, the cold)? If so, reach for a different sense this turn.
 For each sub-audit, write a one-line verdict — kept / cut / changed — before moving on. Force syntactic variety.
 
-These two checks are the scratchpad's job; do them here, in writing, every turn.`;
+(3) ENDING CHECK. State the genre's ending condition from the seed in one sentence. Then assess: has THIS turn's action satisfied it? If you are setting "ongoing", write one concrete sentence explaining what remains unresolved. If you cannot name a specific unresolved condition — if the core objective has been achieved, the threat neutralized, the question answered — you must commit a terminal ending type instead. "Ongoing" is not the default; it is a claim that the central arc is genuinely incomplete.
+
+These three checks are the scratchpad's job; do them here, in writing, every turn.`;
 
 // The player-facing ledger — its own sub-object, structurally separated from
 // hidden_state. This object is rendered verbatim to the player as their diary;
