@@ -14,7 +14,8 @@
     "lint:fix": "eslint . --fix",
     "check": "tsc --noEmit && eslint .",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:prod": "playwright test --config=playwright.prod.config.ts"
   },
   "dependencies": {
     "lucide-react": "^1.17.0",

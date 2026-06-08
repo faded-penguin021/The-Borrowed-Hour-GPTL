@@ -9,6 +9,12 @@ import react from "@vitejs/plugin-react";
  * <style> elements that a strict policy would block. This re-adds
  * `'unsafe-inline'` to both directives for the dev server only; the built output
  * keeps the strict policy untouched.
+ *
+ * It also strips `require-trusted-types-for 'script'` / `trusted-types`: the
+ * production build's only script-injection sink (the Puter loader) is routed
+ * through a Trusted Types policy, but Vite's HMR client and error overlay assign
+ * strings to script sinks (notably overlay innerHTML), which Trusted Types
+ * enforcement would block in dev only. The shipped build keeps the directive.
  */
 function devCspRelax() {
   return {
@@ -23,6 +29,10 @@ function devCspRelax() {
         .replace(
           "style-src-elem 'self' https://fonts.googleapis.com",
           "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com"
+        )
+        .replace(
+          "; require-trusted-types-for 'script'; trusted-types puter-loader",
+          ""
         );
     },
   };
