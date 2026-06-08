@@ -220,7 +220,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const savesRef = useLatest(saves);
   const progressRef = useLatest(progress);
   const ttsRef = useLatest(tts);
-  const ambienceHookRef = useLatest({ ensureAmbienceEngine, ambienceRef });
+  const ambienceHookRef = useLatest({
+    ensureAmbienceEngine,
+    ambienceRef,
+    ambienceEnabled: ambience.ambienceLevel !== "off",
+  });
   const revealRef = useLatest(reveal);
   const keepsakeRef = useLatest(keepsake);
 
