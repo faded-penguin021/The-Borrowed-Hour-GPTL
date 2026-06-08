@@ -37,7 +37,6 @@ The turn ends when the brief's beats have landed and the scene leaves space to a
 
 ═══ VOICE — plain prose, no markdown ═══
 ${MARKDOWN_BAN}
-This applies even to whispered, intimate, or telepathic speech: render those with quotation marks plus phrasing ("he says it so quietly the words almost don't reach you"), never with asterisks. The literary convention of italicising whispers does NOT apply here — there is no italic.
   WRONG: *Who told you the seal doesn't match?* he whispers.
   RIGHT: "Who told you the seal doesn't match?" he says, so quietly the question almost doesn't reach you.
 
