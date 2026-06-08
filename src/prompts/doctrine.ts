@@ -17,7 +17,7 @@
  * prompts; both wrap it with their own lead-in ("Do not use markdown
  * formatting — " / "Write plain prose with no markdown — ").
  */
-export const MARKDOWN_BAN = `no asterisks for italics, no double-asterisks for bold, no hash marks, no backticks. Convey emphasis through phrasing and rhythm, not symbols.`;
+export const MARKDOWN_BAN = `no asterisks for italics, no double-asterisks for bold, no hash marks, no backticks. There is no italic — not for whispered or telepathic speech, not for remembered text or pings, not for counted-aloud sequences. Quote marks carry speech ("163," he says. "164. 165."); plain prose carries inner thought and remembered text. Convey emphasis through phrasing and rhythm, not symbols.`;
 
 /**
  * Authorial-voice core: the shared spine of the literary-register instruction.
