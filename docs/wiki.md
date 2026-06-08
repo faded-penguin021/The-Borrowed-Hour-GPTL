@@ -4,14 +4,14 @@ These notes preserve the longer operational and architecture reference material 
 
 A literary interactive text adventure with built-in scenarios and a custom "Wild" mode. The API provider and models are chosen at runtime from the Settings panel — twelve providers are supported, from major cloud APIs to a local LLM endpoint.
 
-Originally a single-file HTML artifact; now a small Vite + React + Tailwind project. The `App` component still lives as one file (`src/App.jsx`); peripheral components, data, LLM adapters, TTS adapters, and the ambience engine are split into their own modules under `src/`.
+Originally a single-file HTML artifact; now a small Vite + React + Tailwind project. The `App` component still lives as one file (`src/App.tsx`); peripheral components, data, LLM adapters, TTS adapters, and the ambience engine are split into their own modules under `src/`.
 
 ## Run
 
 ### Development
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -179,9 +179,9 @@ The Local LLM endpoint URL is configurable per-session in Settings; no API key i
 
 ## Files
 
-- `index.html` — the Vite shell. The mounted React app is loaded from `src/main.jsx`.
-- `src/main.jsx` — boot entry. Installs the `window.storage` shim, imports CSS, mounts `<App/>` inside `<ErrorBoundary/>`.
-- `src/App.jsx` — the main App component (kept as one file).
+- `index.html` — the Vite shell. The mounted React app is loaded from `src/main.tsx`.
+- `src/main.tsx` — boot entry. Installs the `window.storage` shim, imports CSS, mounts `<App/>` inside `<ErrorBoundary/>`.
+- `src/App.tsx` — the main App component (kept as one file).
 - `src/components/` — `TitleScreen`, `GameScreen`, `ErrorBoundary`, `ErrorRawDetail`, `TypewriterText`, modals.
 - `src/settings/` — Settings modal sub-components (engine selectors, TTS row, ambience row, API key rows, etc.).
 - `src/llm/` — provider registry, GM tool schemas, system-prompt builders, parse/repair helpers.
@@ -194,3 +194,40 @@ The Local LLM endpoint URL is configurable per-session in Settings; no API key i
 - `scripts/gen-icons.mjs` — dependency-free PNG app-icon generator (run via `npm run gen:icons`).
 - `dist/` — `npm run build` output (deployed to Pages).
 - `.github/workflows/pages.yml` — GitHub Pages deployment workflow (builds with Node 24 and deploys `dist/` on push to `main`).
+
+## Release / update maintenance
+
+Routine upkeep touches three things: the model menus, provider endpoints, and the
+locked dependencies. Each has a safe path.
+
+### Bumping models
+
+Per-provider model lists live in `PROVIDER_META` in `src/llm/providers.ts`, one
+`models: [...]` array per provider, each entry `{ id, tier }`. To add, remove, or
+re-order what the Settings menu offers, edit those arrays — `id` is the exact
+string sent to the provider, `tier` (`free` / `paid`) is the menu label only.
+There is a `// checked: <date>` marker above `PROVIDER_META`; update it when you
+sweep the lists so the next maintainer knows how current they are. No CSP change
+is needed for a new model on an already-allowed provider.
+
+### Provider endpoints
+
+Request shaping for every provider is centralized in `src/llm/providers.ts` (new
+providers go here, not as siblings). Whenever a provider's requests reach a **new
+outbound origin**, you must also add that origin to the `connect-src` allowlist in
+the Content-Security-Policy `<meta>` tag in `index.html`. (Note: the CSP lives in
+`index.html`, not `vite.config.js`.) Keep the local-LLM `http://localhost:*` /
+`http://127.0.0.1:*` entries as-is — forcing them to `https` breaks Ollama and
+LM Studio. After any endpoint change, smoke-test the affected provider before
+shipping.
+
+### Locked dependencies
+
+Dependency changes are a reviewable event — read the supply-chain section of
+`CLAUDE.md` first. The short version:
+
+- Use `npm ci` for everything except a deliberate dependency change; only then use
+  `npm install`, and commit `package.json` and `package-lock.json` together.
+- After an install, confirm the only packages with `hasInstallScript: true` are
+  `esbuild` and `fsevents`, and that no unexpected `binding.gyp` appeared.
+- CI runs `npm ci` against the committed lockfile on Node 24; don't change that.

@@ -5,7 +5,7 @@ Thanks for your interest in improving The Borrowed Hour.
 ## Getting started
 
 1. Fork or branch from the current default branch.
-2. Install dependencies with `npm install`.
+2. Install dependencies with `npm ci`. This honors the committed lockfile, matching CI. Use `npm install` only when your change deliberately updates dependencies (see the dependency note in `CLAUDE.md`).
 3. Run the app with `npm run dev` and open the local Vite URL.
 4. Keep changes focused and describe the player or maintainer impact in your pull request.
 
