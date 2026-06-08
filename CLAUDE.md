@@ -52,7 +52,8 @@ LLM / image / TTS providers. Deployed to GitHub Pages from `main`.
   `THREAT_MODEL.md`.
 - **CSP is strict.** No `innerHTML`, no `dangerouslySetInnerHTML`, no `eval`, no
   inline `<script>`/`<style>` in production. New outbound origins require a
-  `connect-src` allowlist entry in `vite.config.js`.
+  `connect-src` allowlist entry in the Content-Security-Policy `<meta>` tag in
+  `index.html`.
 - **Secrets are user-owned.** Never log API keys, never persist them outside the
   encrypted storage path, never add a "telemetry" or "diagnostic upload" path.
 
