@@ -1,4 +1,5 @@
 import type { TTSAdapter, TTSAdapterOptions, TTSHandle, ThrownError } from "../../types";
+import { puterSdkScriptUrl } from "../../security/trustedTypes";
 
 // Minimal shape of the Puter.js v2 SDK surface this adapter touches. The SDK
 // ships no published types; we describe only the `ai.txt2speech` entry point
@@ -23,7 +24,11 @@ export function _loadPuter(): Promise<PuterSDK> {
     const win = window as unknown as { puter?: PuterSDK };
     if (typeof window !== "undefined" && win.puter) return resolve(win.puter);
     const s = document.createElement("script");
-    s.src = "https://js.puter.com/v2/";
+    // The production CSP enforces require-trusted-types-for 'script', so a raw
+    // string here would be rejected; puterSdkScriptUrl() returns a TrustedScriptURL
+    // (or the plain string where Trusted Types is unavailable). The `src` setter
+    // accepts a TrustedScriptURL at runtime; its DOM type is `string`.
+    s.src = puterSdkScriptUrl() as string;
     s.async = true;
     s.onload = () => { if (win.puter) resolve(win.puter); else reject(new Error("Puter SDK loaded but window.puter missing")); };
     s.onerror = () => reject(new Error("Puter SDK failed to load"));

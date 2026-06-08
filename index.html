@@ -24,16 +24,21 @@
     object-src/frame-ancestors are cheap hardening. upgrade-insecure-requests is
     deliberately omitted — it would rewrite the http://localhost:* /
     http://127.0.0.1:* local-LLM connect-src entries to https and break Ollama /
-    LM Studio. Trusted Types is staged, not enforced (see commented directive
-    below and THREAT_MODEL.md): the app has no innerHTML/eval, but React DOM,
-    Vite, and js.puter.com may touch script sinks and there is no report endpoint.
+    LM Studio.
+
+    require-trusted-types-for 'script' is ENFORCED: the browser rejects a raw
+    string assigned to a script-injection sink (innerHTML, eval/Function,
+    HTMLScriptElement.src). The app's only such sink — the lazy <script> that
+    loads the opt-in Puter TTS SDK — routes through the `puter-loader` Trusted
+    Types policy (src/security/trustedTypes.ts), which is the one name the
+    trusted-types allowlist permits. A report endpoint is neither needed
+    (enforcement does not depend on reporting) nor possible (this app has no
+    backend, and adding a telemetry upload would violate the threat model — see
+    THREAT_MODEL.md). The dev server strips this directive (vite.config.js)
+    because Vite's HMR client and error overlay touch script sinks that exist
+    only in tooling, never in the shipped build.
   -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://js.puter.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src https://fonts.gstatic.com; connect-src https://api.openai.com https://generativelanguage.googleapis.com https://api.anthropic.com https://api.deepseek.com https://dashscope.aliyuncs.com https://api.moonshot.cn https://qianfan.baidubce.com https://api.mistral.ai https://api.groq.com https://openrouter.ai https://api.cerebras.ai https://api.elevenlabs.io https://*.puter.com https://image.pollinations.ai https://api.replicate.com https://replicate.delivery https://*.replicate.delivery https://oaidalleapiprodscus.blob.core.windows.net http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:*; img-src 'self' data: blob:; media-src 'self' blob: data: https://*.puter.com; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'; frame-ancestors 'none'" />
-  <!--
-    Trusted Types — staged follow-up, do NOT enable without a manual click-through
-    (including Puter TTS) on Chrome since there is no report endpoint:
-    <meta http-equiv="Content-Security-Policy" content="require-trusted-types-for 'script'" />
-  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://js.puter.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' https://fonts.googleapis.com; style-src-attr 'unsafe-inline'; font-src https://fonts.gstatic.com; connect-src https://api.openai.com https://generativelanguage.googleapis.com https://api.anthropic.com https://api.deepseek.com https://dashscope.aliyuncs.com https://api.moonshot.cn https://qianfan.baidubce.com https://api.mistral.ai https://api.groq.com https://openrouter.ai https://api.cerebras.ai https://api.elevenlabs.io https://*.puter.com https://image.pollinations.ai https://api.replicate.com https://replicate.delivery https://*.replicate.delivery https://oaidalleapiprodscus.blob.core.windows.net http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:*; img-src 'self' data: blob:; media-src 'self' blob: data: https://*.puter.com; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types puter-loader" />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />

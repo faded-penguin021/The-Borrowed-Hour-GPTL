@@ -56,6 +56,10 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
       - run: npm run test:e2e
+      # Trusted Types is enforced only in the production build (the dev server
+      # strips the directive), so this suite builds the app and runs against
+      # `vite preview` to exercise the real shipped CSP.
+      - run: npm run test:e2e:prod
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
