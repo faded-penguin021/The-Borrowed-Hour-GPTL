@@ -17,7 +17,7 @@
  * prompts; both wrap it with their own lead-in ("Do not use markdown
  * formatting — " / "Write plain prose with no markdown — ").
  */
-export const MARKDOWN_BAN = `no asterisks for italics, no double-asterisks for bold, no hash marks, no backticks. There is no italic — not for whispered or telepathic speech, not for remembered text or pings, not for counted-aloud sequences. Quote marks carry speech ("163," he says. "164. 165."); plain prose carries inner thought and remembered text. Convey emphasis through phrasing and rhythm, not symbols.`;
+export const MARKDOWN_BAN = `these characters NEVER appear in the prose: * (asterisk), _ (underscore), # (hash), \` (backtick), ~ (tilde). No exception, even where literary convention would reach for them. The page has exactly two registers: anything voiced (including whispered, telepathic, counted-aloud, or remembered speech) in quotation marks, and plain prose for everything else (inner thought, sound effects, signage, foreign words). Where italics would otherwise go, the prose carries the distinction through phrasing and rhythm, not symbols. Quote what is said: "163," he says. "164. 165."`;
 
 /**
  * Authorial-voice core: the shared spine of the literary-register instruction.

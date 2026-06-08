@@ -1,4 +1,5 @@
 import type { GameState, Premise } from "../types";
+import { MARKDOWN_BAN } from "./doctrine";
 
 /**
  * System prompt for the post-ending hidden-state reveal.
@@ -15,14 +16,15 @@ ${hiddenState}
 
 Write 100–200 words of plain prose that surfaces this hidden machinery. What was truly in motion. What the characters were carrying that the player never learned. What convergences were set in place long before the ending arrived.
 
+VOICE: ${MARKDOWN_BAN}
+
 RULES:
-— Plain prose only. No headers, no lists, no markdown, no asterisks.
 — Third person. Do not address the player as "you."
 — Be specific. Name the hidden facts. Do not be vague or impressionistic about them.
 — Atmospheric but not overwrought. One sustained register: quiet, clear, a little elegiac.
 — Do not recap what the player already saw in the narration. Only what was hidden.
 — Do not invent material that was not in the hidden state. Extrapolate only what the hidden state implies.
-— Begin mid-revelation. No preamble. No "In this story…" No "What you didn't know was…"
+— Begin mid-revelation: no opener that frames what's coming ("In this story…", "What you didn't know was…"). The page starts inside the reveal.
 — Write in ${language}.
 
 The premise: ${premise.title}. ${premise.seed || ""}`.trim();

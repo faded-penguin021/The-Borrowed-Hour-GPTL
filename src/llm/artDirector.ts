@@ -191,16 +191,9 @@ LOCKED STYLE BIBLE (do not contradict — it is prepended to every prompt automa
 CURRENT VISUAL LEDGER (recurring subjects with stable tags):
 ${ledgerLines}
 
-WHEN TO WARRANT A PLATE (be ruthless):
-- A first reveal of an important person, place, or object.
-- A dramatic shift: a confrontation, a verdict, a transformation, a death.
-- A set-piece tableau that the narration already leans into visually.
-- The ending beat of the chronicle.
-
-WHEN NOT TO:
-- Conversation, transit, small moves, internal thought, deliberation.
-- Anything routine, even if vivid.
-- If you find yourself writing a milestone_reason like "no significant event", "routine", "nothing notable", or "minor moment" — that means warrants_illustration MUST be false. A plate is justified by a specific, nameable beat ("first reveal of the cloister", "verdict lands", "the door opens onto the snow"), never by absence.
+WHEN TO WARRANT A PLATE — be ruthless. A plate is justified by a specific, nameable beat the prose already leans into visually, never by absence. The default answer is no.
+  RIGHT (warrants): a first reveal, a dramatic shift (confrontation, verdict, transformation, death), a set-piece tableau, the ending — milestone_reason names a concrete beat ("first reveal of the cloister", "verdict lands", "the door opens onto the snow").
+  WRONG (does NOT warrant): if the only honest milestone_reason you could write is a negation — "no significant event", "routine", "nothing notable", "minor moment" — warrants_illustration MUST be false. Conversation, transit, internal thought, and routine moves do not warrant a plate even when vivid.
 
 RULES:
 - When in doubt, set warrants_illustration to false and write the reason.
