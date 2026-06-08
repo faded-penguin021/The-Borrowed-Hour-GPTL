@@ -1,3 +1,7 @@
+// Must precede any module that builds a Zod schema: sets `jitless` so Zod's
+// JIT `new Function` probe never runs under the strict (Trusted Types) CSP.
+import "./llm/zodConfig";
+
 import "./storage/shim";
 import "./styles/tailwind.css";
 import "./styles/theme.css";
