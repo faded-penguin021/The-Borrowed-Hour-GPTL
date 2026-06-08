@@ -4,7 +4,7 @@ import type { StoryAction, StoryState, RecoveryGMParsed, StreamingStore } from "
 import type { CodexSnapshot } from "../types";
 import { EMPTY_STATE } from "../data/constants";
 import { PREMISES, NARRATION_LOADING_PHRASES, META_LOADING_PHRASES, OPENING_LOADING_PHRASES, pickPhrase } from "../data/premises";
-import { GM_LOGIC_TOOL, buildSystem, buildNarratorSystem, buildMetaSystem } from "../llm/tools";
+import { buildGMLogicTool, buildGMTool, buildSystem, buildNarratorSystem, buildMetaSystem } from "../llm/tools";
 import { parseGMResponse, parseGMLogicResponse, isStateEmpty } from "../llm/parse";
 import { formatStateForPrompt, stripHistoricalUser, stripHistoricalAssistant, serializeStatePublic } from "../llm/prompt";
 import { formatError, BorrowedError } from "../llm/errors";
@@ -69,6 +69,11 @@ export interface GameLoopDeps {
   ambience: {
     ensureAmbienceEngine: () => Promise<AmbienceHandle | null>;
     ambienceRef: { current: AmbienceHandle | null };
+    // True when the user has ambience enabled in settings (level !== "off").
+    // Drives the conditional ambience block in buildSystem and the matching
+    // schema field on the GM tools — when false, the model is never briefed on
+    // the ambience field and the schema does not advertise it.
+    ambienceEnabled: boolean;
   };
 
   reveal: {
@@ -130,7 +135,9 @@ export function createGameLoop(deps: GameLoopDeps) {
     };
     abortRef.current = { controller, rollback, startedAt: Date.now() };
     try {
-      const sys = buildSystem(chosen, s.language);
+      const ambienceOn = deps.ambience.ambienceEnabled;
+      const sys = buildSystem(chosen, s.language, { ambience: ambienceOn });
+      const openingTool = buildGMTool({ ambience: ambienceOn });
       dlog("prompt:opening:system", sys.length, "chars");
       const beginParts: string[] = [];
       if (chosen.briefing) {
@@ -142,7 +149,7 @@ export function createGameLoop(deps: GameLoopDeps) {
       const bootstrapPromise = codexOn
         ? deps.codex.runArtDirectorBootstrap(chosen, controller.signal)
         : Promise.resolve();
-      const firstRaw = await callAPI(sys, msgs, true, settings.engineOpening, 4500, 0.7, controller.signal);
+      const firstRaw = await callAPI(sys, msgs, true, settings.engineOpening, 4500, 0.7, controller.signal, openingTool);
       bootstrapPromise.catch((e) => { dlog("codex:bootstrap:swallowed", e); });
       if (controller.signal.aborted) return;
       let openingRaw = firstRaw;
@@ -156,7 +163,7 @@ export function createGameLoop(deps: GameLoopDeps) {
 
 Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_scratchpad (string, keep it brief — under 120 words), narration (string, non-empty, the prose the player reads), state (object with: scene, time, inventory, npcs, clues, summary, hidden_state). Output ONLY the tool call / JSON object — no prose, no markdown fences.` }
         ];
-        const retryRaw = await callAPI(sys, correctiveMsgs, true, settings.engineOpening, 7500, 0.4, controller.signal);
+        const retryRaw = await callAPI(sys, correctiveMsgs, true, settings.engineOpening, 7500, 0.4, controller.signal, openingTool);
         if (controller.signal.aborted) return;
         openingRaw = retryRaw;
         parsed = parseGMResponse(openingRaw);
@@ -412,10 +419,12 @@ The narration above was interrupted and cut off before it finished. Continue it 
     };
     abortRef.current = { controller, rollback, startedAt: Date.now() };
     try {
-      const gmSys = buildSystem(s.premise, s.language, { split: true });
+      const ambienceOn = deps.ambience.ambienceEnabled;
+      const gmSys = buildSystem(s.premise, s.language, { split: true, ambience: ambienceOn });
+      const gmLogicTool = buildGMLogicTool({ ambience: ambienceOn });
       dlog("prompt:gm:system", gmSys.length, "chars");
       dlog("prompt:gm:history", apiHistory.length, "msgs");
-      const firstGmReply = await callAPI(gmSys, apiHistory, true, settings.engineGM, 2600, 0.35, controller.signal, GM_LOGIC_TOOL, cacheBreakpoint, s.premise?.id);
+      const firstGmReply = await callAPI(gmSys, apiHistory, true, settings.engineGM, 2600, 0.35, controller.signal, gmLogicTool, cacheBreakpoint, s.premise?.id);
       if (controller.signal.aborted) return false;
       let gmReply = firstGmReply;
       let gmParsed = parseGMLogicResponse(gmReply);
@@ -428,7 +437,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
 
 Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (string, keep it brief — under 120 words), narrator_brief (string, non-empty, the compressed brief for the narrator), state (object with two sub-objects: ledger { scene, time, inventory, npcs, clues, summary } and hidden_state (string)). Optional: ending. Output ONLY the tool call / JSON object — no prose, no markdown fences.` }
         ];
-        const retryGmReply = await callAPI(gmSys, correctiveHistory, true, settings.engineGM, 3600, 0.25, controller.signal, GM_LOGIC_TOOL);
+        const retryGmReply = await callAPI(gmSys, correctiveHistory, true, settings.engineGM, 3600, 0.25, controller.signal, gmLogicTool);
         if (controller.signal.aborted) return false;
         gmReply = retryGmReply;
         gmParsed = parseGMLogicResponse(gmReply);

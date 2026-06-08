@@ -10,5 +10,7 @@ export {
   STATE_SCHEMA,
   AMBIENCE_SCHEMA,
   GM_LOGIC_TOOL,
-  GM_TOOL
+  GM_TOOL,
+  buildGMLogicTool,
+  buildGMTool
 } from "./definitions";

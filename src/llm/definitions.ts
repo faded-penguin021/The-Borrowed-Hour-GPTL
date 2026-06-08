@@ -103,48 +103,78 @@ export const AMBIENCE_SCHEMA: Record<string, unknown> = {
   }
 };
 
-export const GM_LOGIC_TOOL: ToolDefinition = {
-  name: "gm_decide",
-  description: "Decide consequences and update state; produce a public-safe narrator brief.",
-  input_schema: {
-    type: "object",
-    properties: {
-      gm_scratchpad: { type: "string", description: GM_SCRATCHPAD_DESC },
-      narrator_brief: {
-        type: "string",
-        description: "A compressed brief for the SEPARATE Narrator who writes the player-facing prose this turn — NOT the prose itself. Give the Narrator the beats to render, who speaks and how, the sensory anchors to reach for, the tone, and explicitly what is SHOWN versus WITHHELD this turn. The Narrator never sees your gm_scratchpad or hidden_state, so the brief must be public-safe: it may direct HOW something is revealed, but it must not hand over GM-only knowledge (hidden identities, offstage moves, twist mechanics, clocks, faction names not yet spoken) the player has not earned — anything you put here can reach the prose. Keep it tight: a short paragraph or two of direction."
-      },
-      state: STATE_SCHEMA,
-      ending: {
-        type: "string",
-        enum: ["ongoing", "good", "bittersweet", "pyrrhic", "ambiguous", "bad"],
-        description: "REQUIRED every turn. Set to 'ongoing' while the chronicle is still active and the genre-specific ending condition has NOT been met. Set to one of the five terminal types when the ending condition IS met — this closes the chronicle. See the system prompt's ENDING THE CHRONICLE section."
-      },
-      ambience: AMBIENCE_SCHEMA
-    },
-    required: ["gm_scratchpad", "narrator_brief", "state", "ending"]
-  }
-};
+// The two GM tool schemas come in ambience-on and ambience-off variants. When
+// the user has disabled ambience in settings, the system prompt drops the
+// AMBIENCE block, and the tool schema drops the matching field so the model
+// isn't advertised a slot it was never briefed on. Variants are pre-built and
+// memoised so call sites get stable object identity (the per-turn dispatch in
+// gameLoop relies on identity comparisons in tests, and provider caches key off
+// the request shape).
 
-export const GM_TOOL: ToolDefinition = {
-  name: "narrate_and_update_state",
-  description: "Narrate the next turn of the chronicle and update the running state in lockstep. Always called once per turn.",
-  input_schema: {
-    type: "object",
-    properties: {
-      gm_scratchpad: { type: "string", description: GM_SCRATCHPAD_DESC },
-      narration: {
-        type: "string",
-        description: "The prose the player will read this turn. Second person, present tense, full literary atmosphere. Length per the system prompt's per-turn rules. Plain prose — no markdown."
-      },
-      state: STATE_SCHEMA,
-      ending: {
-        type: "string",
-        enum: ["ongoing", "good", "bittersweet", "pyrrhic", "ambiguous", "bad"],
-        description: "REQUIRED every turn. Set to 'ongoing' while the chronicle is still active. Set to a terminal type when the genre-specific ending condition IS met — this closes the chronicle. GOOD: objective achieved cleanly. BITTERSWEET: achieved at a cost. PYRRHIC: hollowed out the achievement or the achiever. AMBIGUOUS: genuinely refuses closure (reserve for stories that earned this). BAD: death, irrevocable failure. See the system prompt's ENDING THE CHRONICLE section."
-      },
-      ambience: AMBIENCE_SCHEMA
+function makeGMLogicTool(ambience: boolean): ToolDefinition {
+  const properties: Record<string, unknown> = {
+    gm_scratchpad: { type: "string", description: GM_SCRATCHPAD_DESC },
+    narrator_brief: {
+      type: "string",
+      description: "A compressed brief for the SEPARATE Narrator who writes the player-facing prose this turn — NOT the prose itself. Give the Narrator the beats to render, who speaks and how, the sensory anchors to reach for, the tone, and explicitly what is SHOWN versus WITHHELD this turn. The Narrator never sees your gm_scratchpad or hidden_state, so the brief must be public-safe: it may direct HOW something is revealed, but it must not hand over GM-only knowledge (hidden identities, offstage moves, twist mechanics, clocks, faction names not yet spoken) the player has not earned — anything you put here can reach the prose. Keep it tight: a short paragraph or two of direction."
     },
-    required: ["gm_scratchpad", "narration", "state", "ending"]
-  }
-};
+    state: STATE_SCHEMA,
+    ending: {
+      type: "string",
+      enum: ["ongoing", "good", "bittersweet", "pyrrhic", "ambiguous", "bad"],
+      description: "REQUIRED every turn. Set to 'ongoing' while the chronicle is still active and the genre-specific ending condition has NOT been met. Set to one of the five terminal types when the ending condition IS met — this closes the chronicle. See the system prompt's ENDING THE CHRONICLE section."
+    }
+  };
+  if (ambience) properties.ambience = AMBIENCE_SCHEMA;
+  return {
+    name: "gm_decide",
+    description: "Decide consequences and update state; produce a public-safe narrator brief.",
+    input_schema: {
+      type: "object",
+      properties,
+      required: ["gm_scratchpad", "narrator_brief", "state", "ending"]
+    }
+  };
+}
+
+function makeGMTool(ambience: boolean): ToolDefinition {
+  const properties: Record<string, unknown> = {
+    gm_scratchpad: { type: "string", description: GM_SCRATCHPAD_DESC },
+    narration: {
+      type: "string",
+      description: "The prose the player will read this turn. Second person, present tense, full literary atmosphere. Length per the system prompt's per-turn rules. Plain prose — no markdown."
+    },
+    state: STATE_SCHEMA,
+    ending: {
+      type: "string",
+      enum: ["ongoing", "good", "bittersweet", "pyrrhic", "ambiguous", "bad"],
+      description: "REQUIRED every turn. Set to 'ongoing' while the chronicle is still active. Set to a terminal type when the genre-specific ending condition IS met — this closes the chronicle. GOOD: objective achieved cleanly. BITTERSWEET: achieved at a cost. PYRRHIC: hollowed out the achievement or the achiever. AMBIGUOUS: genuinely refuses closure (reserve for stories that earned this). BAD: death, irrevocable failure. See the system prompt's ENDING THE CHRONICLE section."
+    }
+  };
+  if (ambience) properties.ambience = AMBIENCE_SCHEMA;
+  return {
+    name: "narrate_and_update_state",
+    description: "Narrate the next turn of the chronicle and update the running state in lockstep. Always called once per turn.",
+    input_schema: {
+      type: "object",
+      properties,
+      required: ["gm_scratchpad", "narration", "state", "ending"]
+    }
+  };
+}
+
+const GM_LOGIC_TOOL_WITH_AMBIENCE = makeGMLogicTool(true);
+const GM_LOGIC_TOOL_NO_AMBIENCE = makeGMLogicTool(false);
+const GM_TOOL_WITH_AMBIENCE = makeGMTool(true);
+const GM_TOOL_NO_AMBIENCE = makeGMTool(false);
+
+export function buildGMLogicTool({ ambience = true }: { ambience?: boolean } = {}): ToolDefinition {
+  return ambience ? GM_LOGIC_TOOL_WITH_AMBIENCE : GM_LOGIC_TOOL_NO_AMBIENCE;
+}
+
+export function buildGMTool({ ambience = true }: { ambience?: boolean } = {}): ToolDefinition {
+  return ambience ? GM_TOOL_WITH_AMBIENCE : GM_TOOL_NO_AMBIENCE;
+}
+
+export const GM_LOGIC_TOOL: ToolDefinition = GM_LOGIC_TOOL_WITH_AMBIENCE;
+export const GM_TOOL: ToolDefinition = GM_TOOL_WITH_AMBIENCE;

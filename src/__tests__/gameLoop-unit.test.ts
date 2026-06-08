@@ -43,7 +43,7 @@ function makeDeps(overrides: Partial<GameLoopDeps> = {}): GameLoopDeps {
     },
     progress: { recordEnding: vi.fn() },
     tts: { ttsRef: { current: null }, stopTTS: vi.fn(), resetTTSCursor: vi.fn() },
-    ambience: { ensureAmbienceEngine: vi.fn(async () => null), ambienceRef: { current: null } },
+    ambience: { ensureAmbienceEngine: vi.fn(async () => null), ambienceRef: { current: null }, ambienceEnabled: false },
     reveal: { resetReveal: vi.fn() },
     keepsake: { resetKeepsake: vi.fn() },
     ...overrides,

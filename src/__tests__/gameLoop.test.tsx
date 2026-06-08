@@ -55,7 +55,9 @@ vi.mock("../context/AmbienceContext", () => ({
   useAmbienceContext: () => ({
     ensureAmbienceEngine: vi.fn(async () => null),
     ambienceRef: { current: null },
-    ambienceLevel: "off",
+    // Exercise the ambience-on path so the GM tool identity matches the
+    // exported GM_LOGIC_TOOL constant the test compares against.
+    ambienceLevel: "subtle",
   }),
 }));
 vi.mock("../context/TTSContext", () => ({
@@ -206,10 +208,11 @@ function mount() {
 
 const tick = () => new Promise<void>((r) => setTimeout(r, 0));
 
-// Default callAPI routing by call shape (no need to sequence per test):
-//   useTool=false                → Narrator (non-streaming) call → NARRATION
-//   useTool=true,  tool defined   → GM-logic stage             → ctrl.gm
-//   useTool=true,  tool undefined → opening                    → ctrl.opening
+// Default callAPI routing by tool name (the loop now always passes the tool
+// explicitly, so we discriminate by tool.name rather than presence):
+//   useTool=false                       → Narrator (non-streaming) call → NARRATION
+//   useTool=true,  tool=gm_decide        → GM-logic stage              → ctrl.gm
+//   useTool=true,  tool=narrate_and_…    → opening                     → ctrl.opening
 function installDefaultClient() {
   const callAPI = H.callAPI as unknown as ReturnType<typeof vi.fn>;
   callAPI.mockImplementation((async (
@@ -217,7 +220,7 @@ function installDefaultClient() {
     _maxTokens?: number, _temperature?: number, signal?: AbortSignal | null, tool?: ToolDefinition,
   ) => {
     if (!useTool) return H.ctrl.narration;
-    if (tool) {
+    if (tool?.name === "gm_decide") {
       H.ctrl.gmSignal = signal ?? null;
       if (H.ctrl.gmGate) await H.ctrl.gmGate.promise;
       const i = H.ctrl.gmCallCount++;
@@ -284,10 +287,10 @@ describe("beginAdventure", () => {
     expect(current.live.gameState.scene).toBe("A pale room");
 
     // The opening uses the single-stage system prompt + the opening engine.
-    const openCall = H.callAPI.mock.calls.find((c) => c[2] === true && !c[7]);
+    const openCall = H.callAPI.mock.calls.find((c) => c[2] === true && (c[7] as ToolDefinition | undefined)?.name === "narrate_and_update_state");
     expect(openCall).toBeTruthy();
     expect((openCall as unknown[])[0]).toContain("narrate_and_update_state");
-    expect((openCall as unknown[])[0]).not.toContain("TWO-STAGE split");
+    expect((openCall as unknown[])[0]).not.toContain("split in two");
     expect((openCall as unknown[])[3]).toBe(H.ctrl.settings!.engineOpening);
   });
 });
@@ -304,7 +307,7 @@ describe("submit — split GM→Narrator flow", () => {
     // GM-logic stage: split system prompt, the gm tool, the GM engine.
     const gmCall = H.callAPI.mock.calls.find((c) => c[2] === true && c[7] === GM_LOGIC_TOOL);
     expect(gmCall).toBeTruthy();
-    expect((gmCall as unknown[])[0]).toContain("TWO-STAGE split");
+    expect((gmCall as unknown[])[0]).toContain("split in two");
     expect((gmCall as unknown[])[3]).toBe(H.ctrl.settings!.engineGM);
 
     // Narrator stage ran on the narrator engine.
