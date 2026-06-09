@@ -35,21 +35,24 @@ LLM / image / TTS providers. Deployed to GitHub Pages from `main`.
 - `src/saves/`, `src/export/`, `src/hooks/`, `src/settings/`, `src/tts/` —
   named for what they hold.
 
-## Architectural notes and intentional debt
+## Architectural notes
 
-- **`src/context/gameLoop.ts` (~640 lines) is intentionally one file.** The turn
-  pipeline (build context → call LLM → parse → reduce → side-effects) is easier
-  to reason about end-to-end than split across helpers. Don't shatter it into
-  small modules without a concrete reason; do extract a *clearly* independent
-  helper if you add one.
+- **`src/context/gameLoop.ts` (~640 lines) is one cohesive file.** It runs the
+  whole turn pipeline (build context → call LLM → parse → reduce → side-effects),
+  and reading it end-to-end is currently the easiest way to follow a turn. That's
+  the only reason it's big — not a rule. Refactor or split it when there's a real
+  reason to; just keep the pipeline easy to trace.
 - **`src/ambience/engine.ts` (~1400) and `tables.ts` (~1240)** are large by
   design — `tables.ts` is data; `engine.ts` is a single state machine.
 - **`src/llm/providers.ts` (~620)** centralizes per-provider request shaping.
   New providers go here, not as siblings.
 - **`src/types.ts` is the shared type surface.** Add domain types here unless
   they're genuinely local.
-- **No backend, ever.** If a change implies a server, it's the wrong change. See
-  `THREAT_MODEL.md`.
+- **The project ships no backend of its own.** All state lives in the browser;
+  there's no server to deploy and no first-party API to call. Users *can* point
+  the app at their own proxy ("Bring Your Own Backend", `src/settings/ProxyUrlRow.tsx`)
+  to keep keys server-side — that's a user-owned endpoint, not ours. Don't add a
+  backend this project would have to run or host. See `THREAT_MODEL.md`.
 - **CSP is strict.** No `innerHTML`, no `dangerouslySetInnerHTML`, no `eval`, no
   inline `<script>`/`<style>` in production. New outbound origins require a
   `connect-src` allowlist entry in the Content-Security-Policy `<meta>` tag in
