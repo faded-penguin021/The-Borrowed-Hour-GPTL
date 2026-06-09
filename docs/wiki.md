@@ -4,7 +4,7 @@ These notes preserve the longer operational and architecture reference material 
 
 A literary interactive text adventure with built-in scenarios and a custom "Wild" mode. The API provider and models are chosen at runtime from the Settings panel — twelve providers are supported, from major cloud APIs to a local LLM endpoint.
 
-Originally a single-file HTML artifact; now a small Vite + React + Tailwind project. The `App` component still lives as one file (`src/App.tsx`); peripheral components, data, LLM adapters, TTS adapters, and the ambience engine are split into their own modules under `src/`.
+Originally a single-file HTML artifact; now a small Vite + React + Tailwind project. `src/App.tsx` is now a thin top-level shell that wires up the provider tree; the turn pipeline lives in `src/context/` (`gameLoop.ts`, `storyReducer.ts`, `GameContext.tsx`), and peripheral components, data, LLM adapters, TTS adapters, and the ambience engine are split into their own modules under `src/`.
 
 ## Run
 
@@ -80,7 +80,7 @@ Each GM turn sends a large request — system prompt, tool schema, and the rolli
 
 - **Mistral** (default) has generous free API access with no per-minute token limits, making it the most reliable free option. Both medium and large models are available on the free tier.
 - **Gemini** (`gemini-3.5-flash`) has daily request quotas but no per-minute caps; suitable for casual play but capped at ~20 games/day.
-- **Groq** rejects requests larger than the model's per-minute budget. Uses `openai/gpt-oss-120b` by default for higher throughput; very long sessions can still exceed limits.
+- **Groq** rejects requests larger than the model's per-minute budget. The Groq stack uses `llama-3.3-70b-versatile`; `openai/gpt-oss-120b` is also offered for higher throughput. Very long sessions can still exceed per-minute limits.
 - **Cerebras**' free tier caps context at 8,192 tokens — too small for a GM turn — so paid tier is required here.
 - **OpenRouter** free models (`deepseek/deepseek-v4-flash:free`) have tight per-minute caps and are not recommended for repeated calls.
 
@@ -88,7 +88,7 @@ Each GM turn sends a large request — system prompt, tool schema, and the rolli
 
 A narration voice can be enabled from **⚙ Reading → Read aloud (text-to-speech)**. When enabled, a small ♪ Hear button appears under every narration passage and (optionally) each new passage auto-plays as it arrives. A **HUSH** button appears in the header while the narrator is speaking.
 
-Six providers are supported:
+Seven providers are supported:
 
 | Provider | Key required? | Free tier |
 |---|---|---|
@@ -98,12 +98,13 @@ Six providers are supported:
 | **Microsoft Azure** | Yes (API key + region) | 500K chars/mo Neural for the first year |
 | **ElevenLabs** | Yes (API key) | 10K chars/mo (highest quality) |
 | **OpenAI TTS** | Reuses your OpenAI key | Paid only (~$0.015 / 1K chars) |
+| **Voxtral** | Reuses your Mistral key | Free on Mistral's tier (`voxtral-mini-tts-2603`) |
 
-Each cloud provider's API key is stored only in this browser's `localStorage`, encrypted with the same session-passphrase scheme used for LLM keys. Set or replace narration keys under **⚙ Reading → API keys → Narration keys (optional)**.
+Each cloud provider's API key is stored only in this browser's `localStorage`, encrypted with the same session-passphrase scheme used for LLM keys. Enter or replace a narration key inline in the **⚙ Reading → Read aloud (text-to-speech)** control when you pick its provider; providers that reuse an LLM key (OpenAI TTS, Voxtral) take it from **⚙ Settings → System → API keys**.
 
 ## API keys
 
-Each cloud provider prompts for its own API key the first time it is used. The key is stored only in the browser's `localStorage`. Use the small **API KEY** button in the lower-right corner to forget stored keys.
+Each cloud provider prompts for its own API key the first time it is used. The key is stored only in the browser's `localStorage`. Manage saved keys under **⚙ Settings → System → API keys**, where each provider row has **TEST**, **REPLACE**, and **FORGET** buttons; **FORGET** removes that provider's stored key.
 
 For embedded environments that inject secrets, provide the key before the app script runs or via a `<meta>` tag:
 
@@ -126,7 +127,7 @@ For embedded environments that inject secrets, provide the key before the app sc
 
 The **Local LLM** provider connects to any server that exposes an OpenAI-compatible `/chat/completions` endpoint — [Ollama](https://ollama.com), [LM Studio](https://lmstudio.ai), [llama.cpp](https://github.com/ggerganov/llama.cpp), Jan, etc.
 
-In **⚙ Settings → API keys → Local LLM**:
+In **⚙ Settings → System → API keys → Local LLM**:
 1. Paste your endpoint URL (default: `http://localhost:11434/v1/chat/completions`).
 2. Optionally add a bearer token if your server requires authentication.
 3. In the engine selector, pick **Local LLM** and choose a preset model name or type a custom one matching what you have loaded.
@@ -165,7 +166,7 @@ Browsers block cross-origin requests unless the server explicitly allows them. M
 
 ## Provider adapters
 
-`src/llm/providers.js` keeps a small `PROVIDERS` registry. Each provider supplies a request builder, a usage logger, and a response extractor. For the opener and GM-logic roles the app forces the model to return structured output; the mechanism varies by provider:
+`src/llm/providers.ts` keeps a small `PROVIDERS` registry. Each provider supplies a request builder, a usage logger, and a response extractor. For the opener and GM-logic roles the app forces the model to return structured output; the mechanism varies by provider:
 
 - **Claude** — Anthropic Messages API; the GM schema is sent as a tool with `tool_choice` set to force the exact tool call on in-fiction turns.
 - **Gemini** — `generateContent` with `responseMimeType: "application/json"` and `responseJsonSchema` for in-fiction turns.
@@ -181,13 +182,15 @@ The Local LLM endpoint URL is configurable per-session in Settings; no API key i
 
 - `index.html` — the Vite shell. The mounted React app is loaded from `src/main.tsx`.
 - `src/main.tsx` — boot entry. Installs the `window.storage` shim, imports CSS, mounts `<App/>` inside `<ErrorBoundary/>`.
-- `src/App.tsx` — the main App component (kept as one file).
-- `src/components/` — `TitleScreen`, `GameScreen`, `ErrorBoundary`, `ErrorRawDetail`, `TypewriterText`, modals.
+- `src/App.tsx` — the top-level shell: gates onboarding, wires up the provider tree, and tracks modal open/close state.
+- `src/context/` — game state and the turn pipeline (`gameLoop.ts`, `storyReducer.ts`, `GameContext.tsx`), plus the settings, passphrase, ambience, and TTS providers.
+- `src/components/` — `TitleScreen`, `GameScreen`, `StreamingNarration`, `ErrorBoundary`, `ErrorRawDetail`, `TypewriterText`, modals.
 - `src/settings/` — Settings modal sub-components (engine selectors, TTS row, ambience row, API key rows, etc.).
-- `src/llm/` — provider registry, GM tool schemas, system-prompt builders, parse/repair helpers.
-- `src/tts/` — five TTS adapter modules (browser, puter, openai, voxtral, elevenlabs), provider catalogue, controller.
+- `src/llm/` — provider registry, streaming client, GM tool schemas, the art-director image pipeline, parse/repair helpers.
+- `src/prompts/` — the system prompt, doctrine, narrator, reveal, and meta prompts; the active prompt is assembled here (don't inline prompt strings elsewhere).
+- `src/tts/` — seven TTS adapter modules (browser, puter, openai, voxtral, elevenlabs, azure, google), provider catalogue, controller.
 - `src/ambience/` — Web Audio AmbienceEngine and the scene/event recipe tables.
-- `src/data/` — premises, languages, runtime constants.
+- `src/data/` — premises, languages, realm styles, runtime constants.
 - `src/storage/` — `window.storage` localStorage fallback shim and the AES-GCM encryption helpers for stored API keys.
 - `src/styles/theme.css` — the original literary stylesheet (Cinzel/Cormorant fonts, twilight palette, grain/vignette).
 - `public/` — static assets copied verbatim to the site root: `manifest.webmanifest`, the service worker `sw.js`, `favicon.svg`, and the generated PNG app icons.
