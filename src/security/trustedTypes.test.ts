@@ -72,3 +72,44 @@ describe("puterSdkScriptUrl", () => {
     expect(puterSdkScriptUrl()).toBe(PUTER_SDK_URL);
   });
 });
+
+describe("serviceWorkerScriptUrl", () => {
+  // Vitest leaves import.meta.env.BASE_URL at its default "/", so the worker
+  // URL the module builds is "/sw.js".
+  const SW_URL = "/sw.js";
+
+  it("passes the worker URL through the Trusted Types policy when available", async () => {
+    installTrustedTypes();
+    const { serviceWorkerScriptUrl } = await import("./trustedTypes");
+
+    expect(serviceWorkerScriptUrl()).toBe(SW_URL);
+    expect(createPolicy).toHaveBeenCalledWith("sw-loader", expect.anything());
+  });
+
+  it("creates the policy at most once across calls", async () => {
+    installTrustedTypes();
+    const { serviceWorkerScriptUrl } = await import("./trustedTypes");
+
+    serviceWorkerScriptUrl();
+    serviceWorkerScriptUrl();
+
+    expect(createPolicy).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses any script URL other than the worker", async () => {
+    installTrustedTypes();
+    const { serviceWorkerScriptUrl } = await import("./trustedTypes");
+    serviceWorkerScriptUrl(); // register the policy so lastRules is captured
+
+    expect(lastRules).not.toBeNull();
+    expect(() => lastRules!.createScriptURL(SW_URL)).not.toThrow();
+    expect(() => lastRules!.createScriptURL("https://evil.example/sw.js")).toThrow(TypeError);
+  });
+
+  it("falls back to the plain string when Trusted Types is unavailable", async () => {
+    vi.stubGlobal("window", {});
+    const { serviceWorkerScriptUrl } = await import("./trustedTypes");
+
+    expect(serviceWorkerScriptUrl()).toBe(SW_URL);
+  });
+});

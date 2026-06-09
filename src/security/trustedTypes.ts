@@ -60,3 +60,41 @@ function puterPolicy(): TrustedTypesPolicy | null {
 export function puterSdkScriptUrl(): TrustedScriptURLLike | string {
   return puterPolicy()?.createScriptURL(PUTER_SDK_URL) ?? PUTER_SDK_URL;
 }
+
+// navigator.serviceWorker.register() is also a TrustedScriptURL sink, so the
+// same enforcement rejects the raw `sw.js` URL string. The worker lives at our
+// own origin under BASE_URL (resolves correctly under a GitHub Pages subpath),
+// so we build that one known-good URL and refuse anything else. `sw-loader` is
+// the second name the CSP trusted-types allowlist permits.
+const SW_SCRIPT_URL = `${import.meta.env.BASE_URL}sw.js`;
+const SW_POLICY_NAME = "sw-loader";
+
+let swPolicy: TrustedTypesPolicy | null = null;
+
+function serviceWorkerPolicy(): TrustedTypesPolicy | null {
+  const tt =
+    typeof window === "undefined"
+      ? undefined
+      : (window as { trustedTypes?: TrustedTypesFactory }).trustedTypes;
+  if (!tt) return null;
+  if (!swPolicy) {
+    swPolicy = tt.createPolicy(SW_POLICY_NAME, {
+      createScriptURL: (url: string) => {
+        if (url !== SW_SCRIPT_URL) {
+          throw new TypeError(`${SW_POLICY_NAME}: refused script URL "${url}"`);
+        }
+        return url;
+      },
+    });
+  }
+  return swPolicy;
+}
+
+/**
+ * The service-worker URL as a TrustedScriptURL when Trusted Types is active, or
+ * the plain string otherwise. Either return value is safe to pass to
+ * navigator.serviceWorker.register().
+ */
+export function serviceWorkerScriptUrl(): TrustedScriptURLLike | string {
+  return serviceWorkerPolicy()?.createScriptURL(SW_SCRIPT_URL) ?? SW_SCRIPT_URL;
+}

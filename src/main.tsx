@@ -14,6 +14,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { App } from "./App";
+import { serviceWorkerScriptUrl } from "./security/trustedTypes";
 
 createRoot(document.getElementById("root") as HTMLElement).render(
   <ErrorBoundary>
@@ -28,7 +29,10 @@ createRoot(document.getElementById("root") as HTMLElement).render(
 // Pages subpath as well as at a domain root.
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    const swUrl = `${import.meta.env.BASE_URL}sw.js`;
+    // register() is a TrustedScriptURL sink; under the production CSP a raw
+    // string is rejected, so route the URL through the sw-loader policy. Its
+    // DOM type is string, matching the plain-string fallback off-Chromium.
+    const swUrl = serviceWorkerScriptUrl() as string;
     navigator.serviceWorker.register(swUrl).catch((err) => {
       if (typeof console !== "undefined" && console.warn)
         console.warn("[borrowed] service worker registration failed:", err);
