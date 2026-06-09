@@ -10,7 +10,7 @@ import {
   ART_DIRECTOR_BOOTSTRAP_TOOL, ART_DIRECTOR_TURN_TOOL,
   buildBootstrapSystem, buildTurnSystem,
   parseBootstrapResponse, parseTurnResponse,
-  composeImagePrompt, mergeLedger, cleanPlateCaption
+  composeImagePrompt, mergeLedger, cleanPlateCaption, captionFromScene
 } from "../llm/artDirector";
 import { generateImage } from "../llm/imaging";
 import { dlog } from "../debug/debugLog";
@@ -199,7 +199,8 @@ export function useCodex({ callAPI, settings, premise, language, setEntries }: C
 
     const idx = entryIndexProvider();
     if (idx == null || idx < 0) return;
-    setEntryIllustration(idx, { status: "pending", caption: cleanPlateCaption(ad.caption || ""), milestoneReason: ad.milestone_reason || "" });
+    const caption = cleanPlateCaption(ad.caption || "") || captionFromScene(sceneClause);
+    setEntryIllustration(idx, { status: "pending", caption, milestoneReason: ad.milestone_reason || "" });
     plateCountRef.current = plateCountRef.current + 1;
     setPlateCount(plateCountRef.current);
 

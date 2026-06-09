@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cleanPlateCaption } from "../llm/artDirector";
+import { cleanPlateCaption, captionFromScene } from "../llm/artDirector";
 
 describe("cleanPlateCaption — epistemic-leak guard", () => {
   it("keeps clean descriptive captions, trimming quotes/punctuation", () => {
@@ -25,5 +25,20 @@ describe("cleanPlateCaption — epistemic-leak guard", () => {
     expect(cleanPlateCaption("She turns to you and asks a question you did not expect to hear")).toBe("");
     expect(cleanPlateCaption("")).toBe("");
     expect(cleanPlateCaption(undefined as unknown as string)).toBe("");
+  });
+});
+
+describe("captionFromScene — descriptive fallback from the visual scene clause", () => {
+  it("takes the opening visual phrase, capitalized, capped to a caption", () => {
+    expect(captionFromScene("a woman in a green coat on the eastbound platform, lamplight on wet stone"))
+      .toBe("A woman in a green coat on the eastbound");
+    expect(captionFromScene("The reliquary, unopened, on a velvet cloth")).toBe("The reliquary");
+    expect(captionFromScene("Holborn station — the 8:11 nearing")).toBe("Holborn station");
+  });
+
+  it("returns empty for empty/whitespace input", () => {
+    expect(captionFromScene("")).toBe("");
+    expect(captionFromScene("   ")).toBe("");
+    expect(captionFromScene(undefined as unknown as string)).toBe("");
   });
 });
