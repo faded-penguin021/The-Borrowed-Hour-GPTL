@@ -107,14 +107,32 @@ const isFree = (m) =>
   String(m.id).endsWith(":free") ||
   (m.pricing && m.pricing.prompt === "0" && m.pricing.completion === "0");
 
+// OpenRouter normalizes ids into its own slug convention, which differs from a
+// provider's native id: a vendor/ prefix, dot-vs-hyphen versions (sonnet-4.5 vs
+// sonnet-4-6), dropped date suffixes, and :variant routing tags. Fold all that
+// away so candidate de-duping recognizes the same model across both namings and
+// doesn't surface a punctuation variant of something you already track. Genuine
+// version differences (4-5 vs 4-6) still stay distinct — only punctuation,
+// prefix, dates, and routing tags collapse. This only suppresses noise; it never
+// makes an OpenRouter slug authoritative — the native id is still confirmed by hand.
+const normalizeId = (id) =>
+  String(id)
+    .toLowerCase()
+    .replace(/:[a-z0-9]+$/, "")           // :free, :nitro, :thinking …
+    .replace(/^[^/]+\//, "")              // drop the vendor/ prefix
+    .replace(/-\d{4}-\d{2}-\d{2}$/, "")    // drop a YYYY-MM-DD date suffix
+    .replace(/-?\d{8}$/, "")               // drop a YYYYMMDD date suffix
+    .replace(/[-_.\s]/g, "");             // collapse separators (dot === hyphen)
+
 function analyse(catalogue, orModels) {
   const orIds = new Set(orModels.map((m) => m.id));
   const orFree = new Map(orModels.map((m) => [m.id, isFree(m)]));
 
-  // Every id referenced anywhere, for de-duping candidates.
-  const referenced = new Set();
+  // Every id referenced anywhere, normalized, for de-duping candidates across
+  // the native <-> OpenRouter naming gap.
+  const referencedNorm = new Set();
   for (const list of Object.values(catalogue.models))
-    for (const m of list) referenced.add(m.id);
+    for (const m of list) referencedNorm.add(normalizeId(m.id));
 
   // 1. Dead ids — exact, only meaningful for `openrouter` (ids are OR slugs).
   const dead = (catalogue.models.openrouter || [])
@@ -135,9 +153,10 @@ function analyse(catalogue, orModels) {
     for (const m of orModels) {
       const orId = String(m.id);
       if (!orId.startsWith(prefix)) continue;
-      const rest = orId.slice(prefix.length);
-      const bare = rest.replace(/:free$/, "");
-      if (referenced.has(orId) || referenced.has(rest) || referenced.has(bare)) continue;
+      const bare = orId.slice(prefix.length).replace(/:[a-z0-9]+$/, "");
+      // Compare on the normalized form so e.g. anthropic/claude-sonnet-4.5
+      // dedupes against a native claude-sonnet-4-5 you already list.
+      if (referencedNorm.has(normalizeId(orId))) continue;
       const free = !!orFree.get(m.id);
       if (!free && !INCLUDE_PAID) continue;
       found.push({ id: orId, bare, free });
