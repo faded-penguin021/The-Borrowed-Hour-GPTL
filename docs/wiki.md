@@ -31,7 +31,7 @@ Pushes to `main` build and publish the app to GitHub Pages via `.github/workflow
 
 The Borrowed Hour is a Progressive Web App. On a supported browser you can install it to the home screen / dock (Chrome and Edge show an install icon in the address bar; iOS Safari uses **Share → Add to Home Screen**). Installed, it launches in a standalone window with its own hourglass icon and the twilight theme colour.
 
-A service worker (`public/sw.js`) caches the app shell so the page opens offline; the story itself still needs the network, since the LLM, image, and TTS providers are all remote. The worker deliberately leaves every cross-origin request untouched and only caches same-origin shell assets, so it never interferes with provider calls. It registers in production builds only — `npm run dev` is left to Vite's HMR.
+A small service worker (`public/sw.js`) exists solely to satisfy the browser's install criteria; it does **not** add offline support. The game cannot run without the network (the LLM, image, and TTS providers are all remote), so an offline "shell" would be the theme with no gameplay — we deliberately don't ship that. The worker is an inert pass-through: it caches nothing and leaves every request to the network. It registers in production builds only — `npm run dev` is left to Vite's HMR.
 
 App icons are generated, dependency-free, from `scripts/gen-icons.mjs` (`npm run gen:icons`) and committed under `public/`. Re-run that script after editing the icon design.
 
