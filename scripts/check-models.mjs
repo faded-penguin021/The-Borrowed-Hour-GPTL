@@ -1,0 +1,241 @@
+// Dependency-free model-catalogue drift detector.
+//
+// Cross-checks the committed provider catalogue in src/llm/providers.ts against
+// OpenRouter's PUBLIC model listing (no API key) and reports:
+//   1. dead ids   — models your `openrouter` entry lists that OpenRouter no
+//                   longer serves (these 404 at runtime). Exact check.
+//   2. candidates — models OpenRouter now lists for vendors you support but you
+//                   don't reference yet, flagged free/paid. HINTS, not drop-ins:
+//                   a provider's native id may differ from OpenRouter's slug.
+//   3. staleness  — age of the `// checked:` date in providers.ts.
+//
+// This is maintenance tooling — it never runs in the browser bundle. Run by
+// hand or let the scheduled catalogue-refresh session drive it:
+//   npm run check:models            (free candidates only)
+//   npm run check:models -- --all   (include paid candidates)
+//   npm run check:models -- --json  (machine-readable, for the agent)
+// Exit codes: 0 clean · 1 dead ids found · 2 couldn't reach OpenRouter.
+// Procedure for curating + opening the PR: docs/model-catalogue-maintenance.md
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const PROVIDERS_TS = join(HERE, "..", "src", "llm", "providers.ts");
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/models";
+
+const args = new Set(process.argv.slice(2));
+const AS_JSON = args.has("--json");
+const INCLUDE_PAID = args.has("--all");
+
+// Native provider -> OpenRouter vendor prefix that serves the same models.
+//   "*"  — ids ARE OpenRouter slugs (the `openrouter` entry): exact liveness check.
+//   null — OpenRouter doesn't aggregate it; the scheduled session covers these
+//          by web search instead (see docs/model-catalogue-maintenance.md).
+const OPENROUTER_VENDOR = {
+  openrouter: "*",
+  anthropic: "anthropic",
+  openai: "openai",
+  gemini: "google",
+  deepseek: "deepseek",
+  qwen: "qwen",
+  mistral: "mistralai",
+  kimi: "moonshotai",
+  groq: null,
+  ernie: null,
+  cerebras: null,
+  local: null
+};
+
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Parse the catalogue straight from source text — no TS execution, no module
+// graph, no side effects. Fails loudly if the shape drifts so it can never
+// silently miss a provider's models.
+function readCatalogue() {
+  const src = readFileSync(PROVIDERS_TS, "utf8");
+
+  const metaStart = src.indexOf("export const PROVIDER_META");
+  const metaEnd = src.indexOf("export const PROVIDER_ORDER");
+  if (metaStart < 0 || metaEnd < 0)
+    throw new Error("could not locate PROVIDER_META in providers.ts");
+  const metaSrc = src.slice(metaStart, metaEnd);
+
+  const orderMatch = src.match(/PROVIDER_ORDER:\s*ProviderId\[\]\s*=\s*\[([\s\S]*?)\]/);
+  if (!orderMatch) throw new Error("could not parse PROVIDER_ORDER");
+  const order = [...orderMatch[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  if (order.length === 0) throw new Error("PROVIDER_ORDER parsed empty");
+
+  const models = {};
+  for (const id of order) {
+    const at = metaSrc.search(new RegExp(`\\n\\s*${escapeRegExp(id)}:\\s*\\{`));
+    if (at < 0) throw new Error(`provider "${id}" missing from PROVIDER_META`);
+    const modelsKey = metaSrc.indexOf("models:", at);
+    const open = metaSrc.indexOf("[", modelsKey);
+    const close = metaSrc.indexOf("]", open);
+    if (modelsKey < 0 || open < 0 || close < 0)
+      throw new Error(`could not parse models[] for "${id}"`);
+    const block = metaSrc.slice(open, close);
+    const list = [
+      ...block.matchAll(/\{\s*id:\s*"([^"]+)"(?:\s*,\s*tier:\s*"([^"]+)")?\s*\}/g)
+    ].map((m) => ({ id: m[1], tier: m[2] || null }));
+    if (list.length === 0)
+      throw new Error(`no models parsed for "${id}" — has the format changed?`);
+    models[id] = list;
+  }
+
+  const checked = src.match(/\/\/\s*checked:\s*(\d{4}-\d{2}-\d{2})/);
+  return { order, models, checked: checked ? checked[1] : null };
+}
+
+function daysSince(iso) {
+  if (!iso) return null;
+  const then = Date.parse(`${iso}T00:00:00Z`);
+  if (Number.isNaN(then)) return null;
+  return Math.floor((Date.now() - then) / 86_400_000);
+}
+
+async function fetchOpenRouter() {
+  const res = await fetch(OPENROUTER_URL, { headers: { accept: "application/json" } });
+  if (!res.ok) throw new Error(`OpenRouter responded ${res.status}`);
+  const json = await res.json();
+  if (!json || !Array.isArray(json.data)) throw new Error("unexpected OpenRouter payload");
+  return json.data;
+}
+
+const isFree = (m) =>
+  String(m.id).endsWith(":free") ||
+  (m.pricing && m.pricing.prompt === "0" && m.pricing.completion === "0");
+
+function analyse(catalogue, orModels) {
+  const orIds = new Set(orModels.map((m) => m.id));
+  const orFree = new Map(orModels.map((m) => [m.id, isFree(m)]));
+
+  // Every id referenced anywhere, for de-duping candidates.
+  const referenced = new Set();
+  for (const list of Object.values(catalogue.models))
+    for (const m of list) referenced.add(m.id);
+
+  // 1. Dead ids — exact, only meaningful for `openrouter` (ids are OR slugs).
+  const dead = (catalogue.models.openrouter || [])
+    .map((m) => m.id)
+    .filter((id) => !orIds.has(id));
+
+  // 2. Candidates per native vendor.
+  const candidates = {};
+  const unverifiable = [];
+  for (const [provider, vendor] of Object.entries(OPENROUTER_VENDOR)) {
+    if (vendor === "*") continue; // covered by the dead-id check
+    if (vendor === null) {
+      unverifiable.push(provider);
+      continue;
+    }
+    const prefix = `${vendor}/`;
+    const found = [];
+    for (const m of orModels) {
+      const orId = String(m.id);
+      if (!orId.startsWith(prefix)) continue;
+      const rest = orId.slice(prefix.length);
+      const bare = rest.replace(/:free$/, "");
+      if (referenced.has(orId) || referenced.has(rest) || referenced.has(bare)) continue;
+      const free = !!orFree.get(m.id);
+      if (!free && !INCLUDE_PAID) continue;
+      found.push({ id: orId, bare, free });
+    }
+    found.sort((a, b) => Number(b.free) - Number(a.free) || a.id.localeCompare(b.id));
+    if (found.length) candidates[provider] = found.slice(0, 8);
+  }
+
+  return { dead, candidates, unverifiable };
+}
+
+function report(catalogue, age, orModels, fetchError, result) {
+  const out = [];
+  out.push("Borrowed Hour — model catalogue drift check");
+  out.push(`Catalogue : src/llm/providers.ts (${catalogue.order.length} providers)`);
+  out.push(
+    `Checked   : ${catalogue.checked ?? "unknown"}` +
+      (age != null ? ` (${age} day${age === 1 ? "" : "s"} ago)` : "")
+  );
+
+  if (fetchError) {
+    out.push("");
+    out.push(`OpenRouter: could not reach catalog — ${fetchError}`);
+    out.push("  (offline or blocked by the network policy; rerun where openrouter.ai is reachable)");
+    console.log(out.join("\n"));
+    return;
+  }
+
+  out.push(`OpenRouter: ${orModels.length} models (public catalog, no key)`);
+  out.push("");
+  out.push(
+    result.dead.length
+      ? "DEAD ids in your `openrouter` entry (these 404 at runtime):"
+      : "DEAD ids in your `openrouter` entry: none — all live"
+  );
+  for (const id of result.dead) out.push(`  x ${id}`);
+
+  out.push("");
+  const vendors = Object.keys(result.candidates);
+  const scope = INCLUDE_PAID ? "" : "free ";
+  out.push(
+    vendors.length
+      ? `NEW ${scope}candidates OpenRouter lists that you don't reference:`
+      : `NEW ${scope}candidates: none`
+  );
+  out.push("  (hints, not drop-ins — a provider's native id may differ from the OpenRouter slug)");
+  for (const v of vendors) {
+    out.push(`  ${v}:`);
+    for (const c of result.candidates[v]) out.push(`    + ${c.id}${c.free ? "  (free)" : ""}`);
+  }
+  if (!INCLUDE_PAID) out.push("  ...rerun with --all to include paid candidates");
+
+  if (result.unverifiable.length) {
+    out.push("");
+    out.push(`NOT on OpenRouter — confirm via web search: ${result.unverifiable.join(", ")}`);
+  }
+
+  out.push("");
+  out.push("Curate + open a PR: docs/model-catalogue-maintenance.md");
+  console.log(out.join("\n"));
+}
+
+async function main() {
+  const catalogue = readCatalogue();
+  const age = daysSince(catalogue.checked);
+
+  let orModels = null;
+  let fetchError = null;
+  try {
+    orModels = await fetchOpenRouter();
+  } catch (e) {
+    fetchError = e?.message || String(e);
+  }
+
+  const result = orModels ? analyse(catalogue, orModels) : null;
+
+  if (AS_JSON) {
+    console.log(
+      JSON.stringify(
+        {
+          catalogue: { checked: catalogue.checked, ageDays: age, providers: catalogue.order.length },
+          openrouter: orModels ? { count: orModels.length } : { error: fetchError },
+          ...(result || {})
+        },
+        null,
+        2
+      )
+    );
+  } else {
+    report(catalogue, age, orModels, fetchError, result);
+  }
+
+  if (fetchError) process.exit(2);
+  if (result.dead.length) process.exit(1);
+  process.exit(0);
+}
+
+main().catch((err) => {
+  console.error(err?.stack || String(err));
+  process.exit(2);
+});

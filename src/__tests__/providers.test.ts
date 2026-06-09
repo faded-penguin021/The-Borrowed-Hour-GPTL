@@ -1,6 +1,6 @@
 import type { ProviderId } from "../types";
 import { describe, it, expect } from "vitest";
-import { PROVIDER_META, PROVIDER_ORDER } from "../llm/providers";
+import { PROVIDER_META, PROVIDER_ORDER, FREE_MODELS_BY_PROVIDER } from "../llm/providers";
 
 describe("PROVIDER_META integrity", () => {
   it("every ordered provider exists in meta", () => {
@@ -23,4 +23,31 @@ describe("PROVIDER_META integrity", () => {
       }
     }
   });
+});
+
+describe("FREE_MODELS_BY_PROVIDER ↔ PROVIDER_META", () => {
+  // Every default opener/gm/narrator must reference a model that actually exists
+  // in its provider's preset list. Otherwise the curated default selects an id
+  // the picker never offers (and which may 404 at the provider). This is the
+  // invariant an automated catalogue refresh is most likely to break, so the
+  // detector + this test guard it together (see docs/model-catalogue-maintenance.md).
+  const table = FREE_MODELS_BY_PROVIDER as Record<
+    string,
+    { provider?: string; opener: string; gm: string; narrator: string }
+  >;
+  for (const [key, picks] of Object.entries(table)) {
+    // The synthetic "free" entry names its provider explicitly; the rest are keyed by it.
+    const providerId = (key === "free" ? picks.provider : key) as ProviderId;
+    it(`${key}: opener/gm/narrator exist in PROVIDER_META.${providerId}`, () => {
+      const meta = PROVIDER_META[providerId];
+      expect(meta, `unknown provider "${providerId}"`).toBeDefined();
+      const ids = new Set(meta.models.map((m) => m.id));
+      for (const role of ["opener", "gm", "narrator"] as const) {
+        expect(
+          ids.has(picks[role]),
+          `${key}.${role} "${picks[role]}" is not in PROVIDER_META.${providerId}.models`
+        ).toBe(true);
+      }
+    });
+  }
 });

@@ -8,6 +8,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "gen:icons": "node scripts/gen-icons.mjs",
+    "check:models": "node scripts/check-models.mjs",
     "typecheck": "tsc --noEmit",
     "typecheck:watch": "tsc --noEmit --watch",
     "lint": "eslint .",
