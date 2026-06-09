@@ -227,6 +227,19 @@ export const cleanPlateCaption = (caption: string): string => {
   return c;
 };
 
+// Fallback engraving for plates whose curated caption was unusable — the common
+// case under "always" mode, where every turn yields a plate even when the Art
+// Director judged the beat insignificant and its caption leaked gate-talk.
+// The scene clause is purely visual by contract ("what the eye sees"), so its
+// opening phrase describes the plate without any significance to leak. Beats an
+// untitled plate.
+export const captionFromScene = (sceneClause: string): string => {
+  const first = (sceneClause || "").trim().split(/[—–;:.,]/)[0].trim().replace(/[.!]+$/g, "");
+  if (!first) return "";
+  const short = first.split(/\s+/).slice(0, 9).join(" ");
+  return short.charAt(0).toUpperCase() + short.slice(1);
+};
+
 export const composeImagePrompt = ({ styleBible, visualLedger, subjectIds, sceneClause, extraNegatives }: { styleBible: StyleBible, visualLedger: VisualLedgerEntry[], subjectIds?: string[], sceneClause?: string, extraNegatives?: string[] }): ComposedImagePrompt => {
   const sb = (styleBible || {}) as Partial<StyleBible>;
   const ledgerById = new Map((visualLedger || []).map((e) => [e.id, e]));
