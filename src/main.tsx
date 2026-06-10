@@ -10,6 +10,25 @@ import "./styles/theme.css";
 import { installDebugCapture } from "./debug/debugLog";
 installDebugCapture();
 
+// A deploy while a tab is open invalidates the old hashed chunk URLs, so the
+// first lazy import afterwards (e.g. opening the saves modal) 404s and trips
+// the error boundary. Vite reports failed dynamic imports through this event;
+// reload once to pick up the fresh index. The timestamp guard keeps a failure
+// that survives the reload (offline, broken deploy) from looping — on the
+// second hit we let the error propagate to the boundary instead.
+const CHUNK_RELOAD_KEY = "borrowed:chunk-reload-at";
+window.addEventListener("vite:preloadError", (event) => {
+  let justReloaded = false;
+  try {
+    const last = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY)) || 0;
+    justReloaded = Date.now() - last < 30_000;
+    if (!justReloaded) sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+  } catch {}
+  if (justReloaded) return;
+  event.preventDefault();
+  window.location.reload();
+});
+
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { ErrorBoundary } from "./components/ErrorBoundary";
