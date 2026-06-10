@@ -67,6 +67,6 @@ describe("buildOpenAIImageBody", () => {
   });
 
   it("honours an explicit non-deprecated model", () => {
-    expect(buildOpenAIImageBody("x", { model: "gpt-image-1" }).body.model).toBe("gpt-image-1");
+    expect(buildOpenAIImageBody("x", { model: "gpt-image-3" }).body.model).toBe("gpt-image-3");
   });
 });

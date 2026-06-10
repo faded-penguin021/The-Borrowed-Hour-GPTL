@@ -1,6 +1,6 @@
 import type { TTSProviderMeta } from "../types";
 // ── Provider catalogue ───────────────────────────────────────────────────
-// checked: 2026-06-02
+// checked: 2026-06-10
 export const TTS_PROVIDER_META: Record<string, TTSProviderMeta> = {
   browser: {
     id: "browser", name: "Browser", requiresKey: false, reusesLLMKey: null,
