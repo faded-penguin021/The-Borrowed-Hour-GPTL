@@ -26,4 +26,14 @@ describe("TTS_PROVIDER_META integrity", () => {
   it("google has allowCustomVoiceId", () => {
     expect(TTS_PROVIDER_META.google.allowCustomVoiceId).toBe(true);
   });
+  it("every default model exists in its models list", () => {
+    // `model` is the default TTS engine; `models` is what the picker offers.
+    // Providers without a server-side model (browser, puter, azure, google)
+    // leave both unset — skip those. The twin of the LLM/image default checks.
+    for (const [id, meta] of Object.entries(TTS_PROVIDER_META)) {
+      if (!meta.model) continue;
+      const ids = (meta.models ?? []).map((m) => m.id);
+      expect(ids, `${id}.model "${meta.model}" not in models [${ids.join(", ")}]`).toContain(meta.model);
+    }
+  });
 });

@@ -95,6 +95,30 @@ function daysSince(iso) {
   return Math.floor((Date.now() - then) / 86_400_000);
 }
 
+// Staleness across all three hand-maintained catalogues. The OpenRouter diff
+// below only covers the LLM catalogue (OpenRouter doesn't list image/TTS
+// models), so for image + TTS this age is the only signal here — refresh those
+// via the provider endpoints named in docs/model-catalogue-maintenance.md.
+const CATALOGUE_FILES = [
+  { label: "LLM", path: "src/llm/providers.ts" },
+  { label: "Image", path: "src/llm/imaging.ts" },
+  { label: "TTS", path: "src/tts/catalogue.ts" }
+];
+function readCheckedDates() {
+  return CATALOGUE_FILES.map(({ label, path }) => {
+    let date = null;
+    try {
+      const m = readFileSync(join(HERE, "..", path), "utf8").match(
+        /\/\/\s*checked:\s*(\d{4}-\d{2}-\d{2})/
+      );
+      date = m ? m[1] : null;
+    } catch {
+      // file missing — leave date null
+    }
+    return { label, path, date, ageDays: date != null ? daysSince(date) : null };
+  });
+}
+
 async function fetchOpenRouter() {
   const res = await fetch(OPENROUTER_URL, { headers: { accept: "application/json" } });
   if (!res.ok) throw new Error(`OpenRouter responded ${res.status}`);
@@ -168,14 +192,18 @@ function analyse(catalogue, orModels) {
   return { dead, candidates, unverifiable };
 }
 
-function report(catalogue, age, orModels, fetchError, result) {
+function report(catalogues, orModels, fetchError, result) {
   const out = [];
   out.push("Borrowed Hour — model catalogue drift check");
-  out.push(`Catalogue : src/llm/providers.ts (${catalogue.order.length} providers)`);
-  out.push(
-    `Checked   : ${catalogue.checked ?? "unknown"}` +
-      (age != null ? ` (${age} day${age === 1 ? "" : "s"} ago)` : "")
-  );
+  out.push("Catalogues:");
+  for (const c of catalogues) {
+    const stamp =
+      c.date == null
+        ? "no `checked:` date"
+        : `checked ${c.date}` +
+          (c.ageDays != null ? ` (${c.ageDays} day${c.ageDays === 1 ? "" : "s"} ago)` : "");
+    out.push(`  ${c.label.padEnd(6)} ${c.path.padEnd(22)} ${stamp}`);
+  }
 
   if (fetchError) {
     out.push("");
@@ -185,7 +213,8 @@ function report(catalogue, age, orModels, fetchError, result) {
     return;
   }
 
-  out.push(`OpenRouter: ${orModels.length} models (public catalog, no key)`);
+  out.push("");
+  out.push(`OpenRouter: ${orModels.length} models (public catalog, no key) — cross-checks the LLM catalogue only`);
   out.push("");
   out.push(
     result.dead.length
@@ -215,13 +244,14 @@ function report(catalogue, age, orModels, fetchError, result) {
   }
 
   out.push("");
+  out.push("Image + TTS aren't on OpenRouter — refresh those via provider endpoints (see docs).");
   out.push("Curate + open a PR: docs/model-catalogue-maintenance.md");
   console.log(out.join("\n"));
 }
 
 async function main() {
   const catalogue = readCatalogue();
-  const age = daysSince(catalogue.checked);
+  const catalogues = readCheckedDates();
 
   let orModels = null;
   let fetchError = null;
@@ -237,7 +267,8 @@ async function main() {
     console.log(
       JSON.stringify(
         {
-          catalogue: { checked: catalogue.checked, ageDays: age, providers: catalogue.order.length },
+          catalogues,
+          llm: { providers: catalogue.order.length },
           openrouter: orModels ? { count: orModels.length } : { error: fetchError },
           ...(result || {})
         },
@@ -246,7 +277,7 @@ async function main() {
       )
     );
   } else {
-    report(catalogue, age, orModels, fetchError, result);
+    report(catalogues, orModels, fetchError, result);
   }
 
   if (fetchError) process.exit(2);
