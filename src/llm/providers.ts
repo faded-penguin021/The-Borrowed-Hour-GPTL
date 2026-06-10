@@ -45,7 +45,7 @@ const normalizeClaudeMessages = (msgs: ChatMessage[]): Array<{ role: string; con
   content: normalizeContent(m.content)
 }));
 
-// checked: 2026-05-28
+// checked: 2026-06-10
 export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
   gemini: {
     name: "Gemini",
@@ -76,7 +76,8 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     windowKey: "ANTHROPIC_API_KEY",
     metaName: "anthropic-api-key",
     models: [
-      { id: "claude-opus-4-7", tier: "paid" },
+      { id: "claude-opus-4-8", tier: "paid" },
+      { id: "claude-fable-5", tier: "paid" },
       { id: "claude-sonnet-4-6", tier: "paid" },
       { id: "claude-haiku-4-5-20251001", tier: "paid" }
     ]
@@ -143,7 +144,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
       { id: "openai/gpt-oss-120b", tier: "free" },
       { id: "openai/gpt-oss-20b", tier: "free" },
       { id: "llama-3.3-70b-versatile", tier: "free" },
-      { id: "qwen-3-32b", tier: "free" }
+      { id: "qwen/qwen3-32b", tier: "free" }
     ]
   },
   openrouter: {
@@ -152,10 +153,10 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     windowKey: "OPENROUTER_API_KEY",
     metaName: "openrouter-api-key",
     models: [
-      { id: "deepseek/deepseek-v4-flash:free", tier: "free" },
-      { id: "meta-llama/llama-4-maverick:free", tier: "free" },
-      { id: "meta-llama/llama-4-scout:free", tier: "free" },
-      { id: "anthropic/claude-sonnet-4-6", tier: "paid" },
+      { id: "nvidia/nemotron-3-ultra-550b-a55b:free", tier: "free" },
+      { id: "moonshotai/kimi-k2.6:free", tier: "free" },
+      { id: "google/gemma-4-31b-it:free", tier: "free" },
+      { id: "anthropic/claude-fable-5", tier: "paid" },
       { id: "openai/gpt-5.4-mini", tier: "paid" }
     ]
   },
@@ -199,7 +200,7 @@ export const FREE_MODELS_BY_PROVIDER = {
   ernie:      { opener: "ernie-4.5-turbo-128k",     gm: "ernie-4.5-turbo-32k",        narrator: "ernie-4.5-turbo-32k" },
   mistral:    { opener: "mistral-large-latest",     gm: "mistral-medium-latest",      narrator: "mistral-medium-latest" },
   groq:       { opener: "llama-3.3-70b-versatile",  gm: "llama-3.3-70b-versatile",    narrator: "llama-3.3-70b-versatile" },
-  openrouter: { opener: "deepseek/deepseek-v4-flash:free", gm: "deepseek/deepseek-v4-flash:free", narrator: "deepseek/deepseek-v4-flash:free" },
+  openrouter: { opener: "nvidia/nemotron-3-ultra-550b-a55b:free", gm: "nvidia/nemotron-3-ultra-550b-a55b:free", narrator: "moonshotai/kimi-k2.6:free" },
   cerebras:   { opener: "gpt-oss-120b",             gm: "gpt-oss-120b",               narrator: "gpt-oss-120b" },
   local:      { opener: "llama3.2",                 gm: "llama3.1",                   narrator: "llama3.2" }
 };

@@ -20,7 +20,7 @@ export const LOCAL_IMAGE_DEFAULT_URL = "http://localhost:7860/sdapi/v1/txt2img";
 
 // gpt-image models OpenAI has retired or folded into gpt-image-2. Any of these
 // is silently upgraded so a stale saved config never hits a dead model.
-export const DEPRECATED_OPENAI_IMAGE_MODELS = ["gpt-image-1-mini", "gpt-image-1.5", "chatgpt-image-latest"];
+export const DEPRECATED_OPENAI_IMAGE_MODELS = ["gpt-image-1", "gpt-image-1-mini", "gpt-image-1.5", "chatgpt-image-latest"];
 
 // Tunable parameters for the OpenAI images endpoint, shared by the adapter and
 // the settings UI so the two can never drift. gpt-image-2 accepts flexible
@@ -41,7 +41,7 @@ export const OPENAI_IMAGE_DEFAULT_SIZE = "1024x1024";
 export const OPENAI_IMAGE_DEFAULT_QUALITY = "low";
 export const OPENAI_IMAGE_DEFAULT_FORMAT = "png";
 
-// checked: 2026-05-28. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
+// checked: 2026-06-10. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
 // gpt-image-* models remain for the OpenAI images endpoint.
 export const IMAGE_PROVIDER_META: Record<ImageProviderId, ImageProviderMeta & { keyless?: boolean, reusesLLMProvider?: string, windowKey?: string, description?: string }> = {
   pollinations: {
@@ -51,6 +51,8 @@ export const IMAGE_PROVIDER_META: Record<ImageProviderId, ImageProviderMeta & { 
     defaultModel: POLLINATIONS_DEFAULT_MODEL,
     models: [
       { id: "flux", tier: "free" },
+      { id: "zimage", tier: "free" },
+      { id: "kontext", tier: "free" },
       { id: "nanobanana-pro", tier: "free" },
       { id: "seedream-pro", tier: "free" },
       { id: "gpt-image-2", tier: "free" }
@@ -65,7 +67,7 @@ export const IMAGE_PROVIDER_META: Record<ImageProviderId, ImageProviderMeta & { 
     defaultModel: REPLICATE_DEFAULT_MODEL,
     models: [
       { id: "black-forest-labs/flux-schnell", tier: "fast" },
-      { id: "black-forest-labs/flux-2-klein", tier: "fast" },
+      { id: "black-forest-labs/flux-2-klein-4b", tier: "fast" },
       { id: "black-forest-labs/flux-2-pro", tier: "quality" }
     ]
   },
@@ -76,7 +78,6 @@ export const IMAGE_PROVIDER_META: Record<ImageProviderId, ImageProviderMeta & { 
     description: "Reuses your OpenAI API key (gpt-image family).",
     defaultModel: OPENAI_IMAGE_DEFAULT_MODEL,
     models: [
-      { id: "gpt-image-1", tier: "quality" },
       { id: "gpt-image-2", tier: "flagship" }
     ]
   },
