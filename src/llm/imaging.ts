@@ -13,7 +13,7 @@ import { getProviderKey } from "./providers";
 import { decryptStored, KeysUnrecoverableError } from "../passphrase";
 import { ReplicatePredictionSchema } from "./responseSchemas";
 
-export const POLLINATIONS_DEFAULT_MODEL = "flux";
+export const POLLINATIONS_DEFAULT_MODEL = "zimage";
 export const REPLICATE_DEFAULT_MODEL = "black-forest-labs/flux-schnell";
 export const OPENAI_IMAGE_DEFAULT_MODEL = "gpt-image-2";
 export const LOCAL_IMAGE_DEFAULT_URL = "http://localhost:7860/sdapi/v1/txt2img";
@@ -41,7 +41,7 @@ export const OPENAI_IMAGE_DEFAULT_SIZE = "1024x1024";
 export const OPENAI_IMAGE_DEFAULT_QUALITY = "low";
 export const OPENAI_IMAGE_DEFAULT_FORMAT = "png";
 
-// checked: 2026-06-10. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
+// checked: 2026-06-16. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
 // gpt-image-* models remain for the OpenAI images endpoint.
 export const IMAGE_PROVIDER_META: Record<ImageProviderId, ImageProviderMeta & { keyless?: boolean, reusesLLMProvider?: string, windowKey?: string, description?: string }> = {
   pollinations: {
@@ -50,9 +50,8 @@ export const IMAGE_PROVIDER_META: Record<ImageProviderId, ImageProviderMeta & { 
     description: "Free, keyless web router. No account needed.",
     defaultModel: POLLINATIONS_DEFAULT_MODEL,
     models: [
-      { id: "flux", tier: "free" },
       { id: "zimage", tier: "free" },
-      { id: "kontext", tier: "free" },
+      { id: "flux", tier: "free" },
       { id: "nanobanana-pro", tier: "free" },
       { id: "seedream-pro", tier: "free" },
       { id: "gpt-image-2", tier: "free" }

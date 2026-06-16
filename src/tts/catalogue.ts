@@ -1,6 +1,6 @@
 import type { TTSProviderMeta } from "../types";
 // ── Provider catalogue ───────────────────────────────────────────────────
-// checked: 2026-06-10
+// checked: 2026-06-16
 export const TTS_PROVIDER_META: Record<string, TTSProviderMeta> = {
   browser: {
     id: "browser", name: "Browser", requiresKey: false, reusesLLMKey: null,
@@ -40,7 +40,9 @@ export const TTS_PROVIDER_META: Record<string, TTSProviderMeta> = {
       { id: "onyx",    label: "Onyx — deep" },
       { id: "sage",    label: "Sage — calm" },
       { id: "shimmer", label: "Shimmer — clear" },
-      { id: "verse",   label: "Verse — expressive" }
+      { id: "verse",   label: "Verse — expressive" },
+      { id: "marin",   label: "Marin — vivid" },
+      { id: "cedar",   label: "Cedar — grounded" }
     ],
     model: "gpt-4o-mini-tts",
     models: [
@@ -76,10 +78,9 @@ export const TTS_PROVIDER_META: Record<string, TTSProviderMeta> = {
       { id: "ErXwobaYiN019PkySvjV",  label: "Antoni — warm" },
       { id: "TxGEqnHWrfWFTfGW9XjX",  label: "Josh — deep" }
     ],
-    model: "eleven_turbo_v2_5",
+    model: "eleven_flash_v2_5",
     models: [
-      { id: "eleven_turbo_v2_5", tier: "fast" },
-      { id: "eleven_flash_v2_5", tier: "fastest" },
+      { id: "eleven_flash_v2_5", tier: "fast" },
       { id: "eleven_multilingual_v2", tier: "quality" },
       { id: "eleven_v3", tier: "flagship" }
     ],
