@@ -41,7 +41,7 @@ export const OPENAI_IMAGE_DEFAULT_SIZE = "1024x1024";
 export const OPENAI_IMAGE_DEFAULT_QUALITY = "low";
 export const OPENAI_IMAGE_DEFAULT_FORMAT = "png";
 
-// checked: 2026-06-16. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
+// checked: 2026-06-24. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
 // gpt-image-* models remain for the OpenAI images endpoint.
 export const IMAGE_PROVIDER_META: Record<ImageProviderId, ImageProviderMeta & { keyless?: boolean, reusesLLMProvider?: string, windowKey?: string, description?: string }> = {
   pollinations: {
@@ -54,7 +54,11 @@ export const IMAGE_PROVIDER_META: Record<ImageProviderId, ImageProviderMeta & { 
       { id: "flux", tier: "free" },
       { id: "nanobanana-pro", tier: "free" },
       { id: "seedream-pro", tier: "free" },
-      { id: "gpt-image-2", tier: "free" }
+      { id: "seedream5", tier: "free" },
+      { id: "gpt-image-2", tier: "free" },
+      { id: "sana", tier: "free" },
+      { id: "kontext", tier: "free" },
+      { id: "ideogram-v4-turbo", tier: "free" }
     ]
   },
   replicate: {
@@ -67,7 +71,8 @@ export const IMAGE_PROVIDER_META: Record<ImageProviderId, ImageProviderMeta & { 
     models: [
       { id: "black-forest-labs/flux-schnell", tier: "fast" },
       { id: "black-forest-labs/flux-2-klein-4b", tier: "fast" },
-      { id: "black-forest-labs/flux-2-pro", tier: "quality" }
+      { id: "black-forest-labs/flux-2-pro", tier: "quality" },
+      { id: "black-forest-labs/flux-2-max", tier: "quality" }
     ]
   },
   openai: {
