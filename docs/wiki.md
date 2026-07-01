@@ -62,15 +62,15 @@ Mistral's free tier on the experimental API is generous enough for repeated per-
 | Provider | Models |
 |---|---|
 | **Gemini** | `gemini-3.5-flash`, `gemini-3.1-flash-lite`, `gemini-3-flash` |
-| **OpenAI** | `gpt-5.5`, `gpt-5.4-mini`, `gpt-5-mini`, `gpt-5.4-nano` |
-| **Claude** | `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001` |
+| **OpenAI** | `gpt-5.5`, `gpt-5.4-mini`, `gpt-5.4-nano` |
+| **Claude** | `claude-fable-5`, `claude-opus-4-8`, `claude-sonnet-5`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001` |
 | **DeepSeek** | `deepseek-v4-flash`, `deepseek-v4-pro` |
-| **Qwen** | `qwen-plus`, `qwen-flash`, `qwen-max`, `qwen-turbo` |
+| **Qwen** | `qwen3.7-plus`, `qwen3.6-flash`, `qwen-plus`, `qwen-flash` |
 | **Kimi** | `kimi-k2.6`, `kimi-k2.5` |
 | **ERNIE** | `ernie-4.5-turbo-128k`, `ernie-4.5-turbo-32k` |
 | **Mistral** | `mistral-small-latest`, `mistral-medium-latest` (both free), `mistral-large-latest` (free) |
-| **Groq** | `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `llama-3.3-70b-versatile`, `qwen-3-32b` |
-| **OpenRouter** | `deepseek/deepseek-v4-flash:free`, `meta-llama/llama-4-maverick:free`, `meta-llama/llama-4-scout:free`, `anthropic/claude-sonnet-4-6`, `openai/gpt-5.4-mini` |
+| **Groq** | `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.6-27b`, `qwen/qwen3-32b` |
+| **OpenRouter** | `nvidia/nemotron-3-ultra-550b-a55b:free`, `meta-llama/llama-3.3-70b-instruct:free`, `google/gemma-4-31b-it:free`, `anthropic/claude-fable-5`, `openai/gpt-5.4-mini` |
 | **Cerebras** | `gpt-oss-120b`, `llama-3.3-70b`, `qwen-3-32b` |
 | **Local LLM** | `llama3.2`, `llama3.1`, `mistral`, `phi3`, `qwen2.5` (or any custom ID) |
 
@@ -80,9 +80,9 @@ Each GM turn sends a large request — system prompt, tool schema, and the rolli
 
 - **Mistral** (default) has generous free API access with no per-minute token limits, making it the most reliable free option. Both medium and large models are available on the free tier.
 - **Gemini** (`gemini-3.5-flash`) has daily request quotas but no per-minute caps; suitable for casual play but capped at ~20 games/day.
-- **Groq** rejects requests larger than the model's per-minute budget. The Groq stack uses `llama-3.3-70b-versatile`; `openai/gpt-oss-120b` is also offered for higher throughput. Very long sessions can still exceed per-minute limits.
+- **Groq** rejects requests larger than the model's per-minute budget. The Groq stack uses `openai/gpt-oss-120b`; `qwen/qwen3.6-27b` is the recommended lighter alternative. Very long sessions can still exceed per-minute limits.
 - **Cerebras**' free tier caps context at 8,192 tokens — too small for a GM turn — so paid tier is required here.
-- **OpenRouter** free models (`deepseek/deepseek-v4-flash:free`) have tight per-minute caps and are not recommended for repeated calls.
+- **OpenRouter** free models (`nvidia/nemotron-3-ultra-550b-a55b:free`, `meta-llama/llama-3.3-70b-instruct:free`) have tight per-minute caps and are not recommended for repeated calls.
 
 ## Read aloud (text-to-speech)
 
