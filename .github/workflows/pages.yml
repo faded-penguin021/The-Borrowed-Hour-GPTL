@@ -9,6 +9,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write   # delete stale run artifacts before re-upload (see "Purge" step)
 
 concurrency:
   group: pages
@@ -34,6 +35,22 @@ jobs:
         uses: actions/configure-pages@v6
         with:
           enablement: true
+      # Re-running the *failed job* of a Pages deploy re-uploads a second
+      # artifact named "github-pages" into the same run; deploy-pages then
+      # aborts with "Multiple artifacts named github-pages". Purge any left by
+      # a prior attempt so a re-run always sees exactly one. No-op on the first
+      # attempt (nothing to delete). A fresh run is still the cleaner recovery.
+      - name: Purge stale github-pages artifacts from earlier attempts
+        if: github.run_attempt > 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            --jq '.artifacts[] | select(.name == "github-pages") | .id' \
+          | while read -r id; do
+              echo "Deleting stale artifact $id"
+              gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id" || true
+            done
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
