@@ -45,7 +45,7 @@ const normalizeClaudeMessages = (msgs: ChatMessage[]): Array<{ role: string; con
   content: normalizeContent(m.content)
 }));
 
-// checked: 2026-07-01
+// checked: 2026-07-08
 export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
   gemini: {
     name: "Gemini",
@@ -54,8 +54,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     metaName: "gemini-api-key",
     models: [
       { id: "gemini-3.5-flash", tier: "free" },
-      { id: "gemini-3.1-flash-lite", tier: "free" },
-      { id: "gemini-3-flash", tier: "free" }
+      { id: "gemini-3.1-flash-lite", tier: "free" }
     ]
   },
   openai: {
@@ -110,6 +109,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     windowKey: "KIMI_API_KEY",
     metaName: "kimi-api-key",
     models: [
+      { id: "kimi-k2.7-code", tier: "paid" },
       { id: "kimi-k2.6", tier: "paid" },
       { id: "kimi-k2.5", tier: "paid" }
     ]
@@ -120,6 +120,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     windowKey: "ERNIE_API_KEY",
     metaName: "ernie-api-key",
     models: [
+      { id: "ernie-5.1", tier: "paid" },
       { id: "ernie-4.5-turbo-128k", tier: "paid" },
       { id: "ernie-4.5-turbo-32k", tier: "paid" }
     ]
@@ -159,7 +160,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
       { id: "google/gemma-4-31b-it:free", tier: "free" },
       { id: "anthropic/claude-fable-5", tier: "paid" },
       { id: "openai/gpt-5.4-mini", tier: "paid" },
-      { id: "moonshotai/kimi-k2", tier: "paid" }
+      { id: "moonshotai/kimi-k2.7-code", tier: "paid" }
     ]
   },
   cerebras: {
@@ -170,8 +171,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     metaName: "cerebras-api-key",
     models: [
       { id: "gpt-oss-120b", tier: "paid" },
-      { id: "llama-3.3-70b", tier: "paid" },
-      { id: "qwen-3-32b", tier: "paid" }
+      { id: "gemma-4-31b", tier: "paid" }
     ]
   },
   local: {
@@ -198,8 +198,8 @@ export const FREE_MODELS_BY_PROVIDER = {
   anthropic:  { opener: "claude-sonnet-5",          gm: "claude-haiku-4-5-20251001",  narrator: "claude-haiku-4-5-20251001" },
   deepseek:   { opener: "deepseek-v4-flash",        gm: "deepseek-v4-flash",          narrator: "deepseek-v4-flash" },
   qwen:       { opener: "qwen3.7-plus",             gm: "qwen3.6-flash",              narrator: "qwen3.6-flash" },
-  kimi:       { opener: "kimi-k2.5",                gm: "kimi-k2.5",                  narrator: "kimi-k2.5" },
-  ernie:      { opener: "ernie-4.5-turbo-128k",     gm: "ernie-4.5-turbo-32k",        narrator: "ernie-4.5-turbo-32k" },
+  kimi:       { opener: "kimi-k2.7-code",            gm: "kimi-k2.5",                  narrator: "kimi-k2.5" },
+  ernie:      { opener: "ernie-5.1",                gm: "ernie-4.5-turbo-32k",        narrator: "ernie-4.5-turbo-32k" },
   mistral:    { opener: "mistral-large-latest",     gm: "mistral-medium-latest",      narrator: "mistral-medium-latest" },
   groq:       { opener: "openai/gpt-oss-120b",      gm: "openai/gpt-oss-120b",        narrator: "openai/gpt-oss-20b" },
   openrouter: { opener: "nvidia/nemotron-3-ultra-550b-a55b:free", gm: "nvidia/nemotron-3-ultra-550b-a55b:free", narrator: "google/gemma-4-31b-it:free" },
