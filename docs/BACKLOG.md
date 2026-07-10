@@ -27,7 +27,7 @@ Statuses: `todo` / `done` / `blocked: <one-line reason>`.
 ### U0 — Bootstrap the checkpoint rail — **done** (this commit)
 Ladder script, this backlog, audit scaffold, CONTRIBUTING/CLAUDE.md pointers, draft PR.
 
-### U1 — Make e2e runnable in agent sessions — **todo**
+### U1 — Make e2e runnable in agent sessions — **done** (verified: 7/7 smoke + 5/5 prod with `PW_CHROMIUM=/opt/pw-browsers/chromium`)
 - In `playwright.config.ts` and `playwright.prod.config.ts`, honor an env override:
   `launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}`
   inside the chromium project's `use`. CI is unaffected (env unset there).

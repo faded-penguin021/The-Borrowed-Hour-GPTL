@@ -15,6 +15,12 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:5173",
     trace: "on-first-retry",
+    // PW_CHROMIUM: path to a system Chromium for environments (e.g. agent
+    // containers) whose preinstalled browser revision doesn't match this
+    // Playwright version. Unset in CI, which installs the matching browser.
+    launchOptions: process.env.PW_CHROMIUM
+      ? { executablePath: process.env.PW_CHROMIUM }
+      : {},
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
