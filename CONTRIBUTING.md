@@ -14,10 +14,10 @@ Thanks for your interest in improving The Borrowed Hour.
 Before opening a pull request, run:
 
 ```bash
-npm test
-npm run typecheck
-npm run build
+npm run ladder
 ```
+
+This is the same sequence CI runs (typecheck, lint, unit tests, build).
 
 If a check cannot run in your environment, note that clearly in the pull request.
 
