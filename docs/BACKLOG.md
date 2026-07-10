@@ -97,7 +97,7 @@ verdict is clean) → append an entry to `docs/audit-2026-07.md` → ladder → 
   passes on clean tree; ladder green.
 - Commit: `test(csp): lock connect-src to the provider origin manifest`
 
-### B2 — Supply-chain guard as code — **todo**
+### B2 — Supply-chain guard as code — **done** (all 5 tripwires verified red then restored; wired into ladder + CI)
 - New `scripts/check-supply-chain.mjs`, zero-dep Node, exits non-zero on:
   lockfile `hasInstallScript` outside allowlist {`esbuild`, `fsevents`}; presence of
   package families `axios`, `@ctrl/tinycolor`, `@duckdb/node-*`,
