@@ -134,7 +134,7 @@ verdict is clean) → append an entry to `docs/audit-2026-07.md` → ladder → 
   package family; ladder green.
 - Commit: `test: add scoped coverage thresholds for context/llm/storage`
 
-### B6 — Storage-format golden fixtures — **todo**
+### B6 — Storage-format golden fixtures — **done** (src/storage/encryption-golden.test.ts: committed v1+v2 blobs, decrypt + migration + wrong-passphrase; a failure means add-a-migration, never regenerate)
 - Generate one `enc:v1:` and one `enc:v2:` blob with a known passphrase (use the
   code's own encrypt path in a script or test-time), commit as fixtures, and test
   that unlock + v1→v2 migration reproduce the plaintext (extends `migrate.test.ts` /
