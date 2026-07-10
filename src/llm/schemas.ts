@@ -19,10 +19,26 @@ import type {
 // `.default([])` and strings use `.default("")` so a partial response from the
 // model resolves to a safe, fully-populated object instead of crashing the app.
 
+// Anti-runaway clamps. Compliant providers already cap output via max_tokens,
+// but local endpoints (Ollama, LM Studio) and user proxies may ignore it — and
+// state persists into saves and is re-sent with every subsequent turn, so one
+// oversized field compounds into permanent per-turn cost. Clamp by truncation,
+// never by failing the parse: a turn must not be lost to verbosity.
+const MAX_LABEL = 1000;   // scene, time, npc name — a sentence or two
+const MAX_ITEM = 1000;    // inventory entries, clues, npc notes
+const MAX_PROSE = 20_000; // summary, hidden_state, narration, narrator_brief
+const MAX_LIST = 50;      // inventory, npcs, clues
+
+const clamped = (max: number) =>
+  z.string().transform((s) => (s.length > max ? s.slice(0, max) : s));
+
+const clampedList = <T extends z.ZodType>(item: T) =>
+  z.array(item).transform((a) => (a.length > MAX_LIST ? a.slice(0, MAX_LIST) : a));
+
 /** Single NPC entry. */
 export const NpcSchema = z.object({
-  name: z.string(),
-  note: z.string().default("")
+  name: clamped(MAX_LABEL),
+  note: clamped(MAX_ITEM).default("")
 });
 
 /**
@@ -33,13 +49,13 @@ export const NpcSchema = z.object({
  * these fields before validation.
  */
 const FlatGameStateSchema = z.object({
-  scene: z.string().default(""),
-  time: z.string().default(""),
-  inventory: z.array(z.string()).default([]),
-  npcs: z.array(NpcSchema).default([]),
-  clues: z.array(z.string()).default([]),
-  summary: z.string().default(""),
-  hidden_state: z.string().default("")
+  scene: clamped(MAX_LABEL).default(""),
+  time: clamped(MAX_LABEL).default(""),
+  inventory: clampedList(clamped(MAX_ITEM)).default([]),
+  npcs: clampedList(NpcSchema).default([]),
+  clues: clampedList(clamped(MAX_ITEM)).default([]),
+  summary: clamped(MAX_PROSE).default(""),
+  hidden_state: clamped(MAX_PROSE).default("")
 });
 
 /**
@@ -128,7 +144,7 @@ export const AmbienceInputSchema = z.object({
  * its inner fields are individually defaulted by `GameStateSchema`.
  */
 export const GMLogicResponseSchema = z.object({
-  narrator_brief: z.string().min(1),
+  narrator_brief: z.string().min(1).transform((s) => (s.length > MAX_PROSE ? s.slice(0, MAX_PROSE) : s)),
   state: GameStateSchema,
   ending: EndingSchema,
   ambience: AmbienceInputSchema,
@@ -140,7 +156,7 @@ export const GMLogicResponseSchema = z.object({
  * for a present-but-empty payload.
  */
 export const GMResponseSchema = z.object({
-  narration: z.string().min(1),
+  narration: z.string().min(1).transform((s) => (s.length > MAX_PROSE ? s.slice(0, MAX_PROSE) : s)),
   state: GameStateSchema.optional().default(() => GameStateSchema.parse({})),
   ending: EndingSchema,
   ambience: AmbienceInputSchema,

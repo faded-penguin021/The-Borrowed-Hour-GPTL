@@ -44,7 +44,7 @@ Each unit: deep-read the listed files end to end → fix real defects found → 
 regression test for **every** finding (tests are the durable artifact even when the
 verdict is clean) → append an entry to `docs/audit-2026-07.md` → ladder → commit → push.
 
-### A1 — LLM output trust boundary — **todo**
+### A1 — LLM output trust boundary — **done** (fixed-2: size clamps, array unwrap; see audit log)
 - Files: `src/llm/parse.ts`, `src/llm/stream.ts`, `src/llm/zodConfig.ts` (+ its test),
   existing coverage in `src/__tests__/parse-recover.test.ts`.
 - Questions: malformed / truncated / adversarial model output; partial-JSON recovery;

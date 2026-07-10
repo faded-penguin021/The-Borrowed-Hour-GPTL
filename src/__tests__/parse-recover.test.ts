@@ -231,6 +231,76 @@ describe("ledger / hidden_state structural split", () => {
   });
 });
 
+describe("array-wrapped payload recovery", () => {
+  it("unwraps a one-element array around the GM object", () => {
+    const raw = JSON.stringify([{ narration: "Hello", state: { scene: "room" } }]);
+    const result = parseGMResponse(raw);
+    expect(result.malformed).toBe(false);
+    expect(result.narration).toBe("Hello");
+    expect(result.state?.scene).toBe("room");
+  });
+
+  it("unwraps a fenced array-wrapped GM logic object", () => {
+    const raw = "```json\n" + JSON.stringify([{ narrator_brief: "b", state: {} }]) + "\n```";
+    const result = parseGMLogicResponse(raw);
+    expect(result.malformed).toBe(false);
+    expect(result.narrator_brief).toBe("b");
+  });
+
+  it("skips non-object leading elements", () => {
+    expect(extractJSONBlock('["noise", {"a":1}]')).toEqual({ a: 1 });
+  });
+
+  it("treats an array with no object element as malformed", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = parseGMResponse("[1, 2, 3]");
+    expect(result.malformed).toBe(true);
+    warn.mockRestore();
+  });
+});
+
+describe("anti-runaway size clamps", () => {
+  it("truncates oversized prose fields instead of failing the parse", () => {
+    const raw = JSON.stringify({
+      narrator_brief: "b".repeat(30_000),
+      state: {
+        ledger: { scene: "s".repeat(5_000), summary: "x".repeat(50_000) },
+        hidden_state: "h".repeat(50_000),
+      },
+    });
+    const result = parseGMLogicResponse(raw);
+    expect(result.malformed).toBe(false);
+    expect(result.narrator_brief.length).toBe(20_000);
+    expect(result.state?.scene.length).toBe(1_000);
+    expect(result.state?.summary.length).toBe(20_000);
+    expect(result.state?.hidden_state.length).toBe(20_000);
+  });
+
+  it("caps list lengths and entry sizes", () => {
+    const state = GameStateSchema.parse({
+      inventory: Array.from({ length: 500 }, (_, i) => `item ${i} ${"y".repeat(2_000)}`),
+      npcs: Array.from({ length: 500 }, (_, i) => ({ name: `npc ${i}`, note: "n".repeat(5_000) })),
+      clues: Array.from({ length: 500 }, (_, i) => `clue ${i}`),
+    });
+    expect(state.inventory.length).toBe(50);
+    expect(state.inventory[0].length).toBe(1_000);
+    expect(state.npcs.length).toBe(50);
+    expect(state.npcs[0].note.length).toBe(1_000);
+    expect(state.clues.length).toBe(50);
+  });
+
+  it("leaves normal-sized fields untouched", () => {
+    const state = GameStateSchema.parse({
+      scene: "A lamplit corridor",
+      inventory: ["a folded letter"],
+      summary: "You arrived at the appointed hour.",
+    });
+    expect(state.scene).toBe("A lamplit corridor");
+    expect(state.inventory).toEqual(["a folded letter"]);
+    expect(state.summary).toBe("You arrived at the appointed hour.");
+  });
+});
+
 describe("isStateEmpty", () => {
   it("treats null and a blank state as empty", () => {
     expect(isStateEmpty(null)).toBe(true);
