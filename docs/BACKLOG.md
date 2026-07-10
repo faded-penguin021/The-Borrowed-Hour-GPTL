@@ -141,7 +141,7 @@ verdict is clean) → append an entry to `docs/audit-2026-07.md` → ladder → 
   `encryption.test.ts`). Freezes back-compat against future refactors.
 - Commit: `test(storage): golden fixtures freeze enc:v1/v2 compatibility`
 
-### B7 — Dependabot, weekly, grouped — **todo**
+### B7 — Dependabot, weekly, grouped — **done** (.github/dependabot.yml: npm minor+patch grouped weekly, majors solo, actions grouped; guard runs on every PR)
 - Add `.github/dependabot.yml`: npm ecosystem, weekly, grouped minor+patch updates,
   separate group for GitHub Actions. Its PRs are explicit dep-change events per
   CLAUDE.md rule 2; B2's guard runs on them.
