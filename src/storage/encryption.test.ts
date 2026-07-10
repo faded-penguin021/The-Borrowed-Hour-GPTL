@@ -48,6 +48,17 @@ describe("encryption v2 round-trip", () => {
     expect(await decryptWithKey(key, bundle)).toBe("sk-secret-123");
   });
 
+  it("uses a fresh IV for every encryption (GCM must never reuse one)", async () => {
+    const key = await deriveSessionKey("pw");
+    const a = await encryptWithKey(key, "same-plaintext");
+    const b = await encryptWithKey(key, "same-plaintext");
+    expect(a).not.toBe(b);
+    const ivOf = (bundle: string) => bundle.slice(ENC_PREFIX_V2.length).split(".")[0];
+    expect(ivOf(a)).not.toBe(ivOf(b));
+    expect(await decryptWithKey(key, a)).toBe("same-plaintext");
+    expect(await decryptWithKey(key, b)).toBe("same-plaintext");
+  });
+
   it("the derived session key is non-extractable", async () => {
     const key = await deriveSessionKey("pw");
     expect(key.extractable).toBe(false);

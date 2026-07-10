@@ -7,7 +7,7 @@ import {
   hasKdfSalt,
   hasEncryptedV2Blobs,
 } from "../storage/encryption";
-import { createAutoLock } from "../security/autoLock";
+import { createAutoLock, type AutoLockController } from "../security/autoLock";
 
 interface PassphraseContextValue {
   /** The prompt for the currently pending request, or null when idle. */
@@ -52,6 +52,7 @@ export function usePassphrase(): PassphraseContextValue {
  */
 export function PassphraseProvider({ children }: { children: React.ReactNode }) {
   const sessionKeyRef = useRef<CryptoKey | null>(null);
+  const autoLockRef = useRef<AutoLockController | null>(null);
   const pendingResolveRef = useRef<((value: string | null) => void) | null>(null);
   const [prompt, setPrompt] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -75,6 +76,7 @@ export function PassphraseProvider({ children }: { children: React.ReactNode }) 
     // Migrate while the passphrase is still on the stack; afterwards only the key is held.
     await migrateV1Blobs(passphrase, key);
     sessionKeyRef.current = key;
+    autoLockRef.current?.noteUnlocked(); // (re)arm the absolute cap from this unlock
     setUnlocked(true);
     return key;
   }, []);
@@ -115,8 +117,12 @@ export function PassphraseProvider({ children }: { children: React.ReactNode }) 
   // minutes). See src/security/autoLock.ts.
   useEffect(() => {
     const controller = createAutoLock({ lock: clearSessionKey, isUnlocked });
+    autoLockRef.current = controller;
     controller.start();
-    return () => controller.stop();
+    return () => {
+      controller.stop();
+      autoLockRef.current = null;
+    };
   }, [clearSessionKey, isUnlocked]);
 
   const value = useMemo<PassphraseContextValue>(() => ({

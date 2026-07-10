@@ -59,7 +59,7 @@ verdict is clean) → append an entry to `docs/audit-2026-07.md` → ladder → 
   retry semantics; stale-closure/race hazards across the async pipeline.
 - Commit prefix: `fix(context)` / `test(context)` / `docs(audit)`
 
-### A3 — Crypto & key custody — **todo**
+### A3 — Crypto & key custody — **done** (fixed-1: session cap re-arms per unlock; all THREAT_MODEL claims verified; see audit log)
 - Files: `src/storage/*`, `src/security/autoLock.ts`, `src/passphrase.ts`;
   coverage in `src/storage/encryption.test.ts`, `src/__tests__/migrate.test.ts`.
 - Verify every THREAT_MODEL.md claim against code: PBKDF2-SHA-256 310k iterations;
