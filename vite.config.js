@@ -52,10 +52,13 @@ export default defineConfig({
       output: {
         // Split heavy, rarely-changing vendor code into its own chunks so the
         // app entry stays under the 500 kB warning limit and vendor bytes can
-        // be cached across app deploys.
-        manualChunks: {
-          react: ["react", "react-dom"],
-          zod: ["zod"],
+        // be cached across app deploys. (vite 8 / rolldown: advancedChunks
+        // replaces the old object-form manualChunks.)
+        advancedChunks: {
+          groups: [
+            { name: "react", test: /\/node_modules\/(react|react-dom|scheduler)\// },
+            { name: "zod", test: /\/node_modules\/zod\// },
+          ],
         },
       },
     },
@@ -74,8 +77,10 @@ export default defineConfig({
       include: ["src/context/**", "src/llm/**", "src/storage/**"],
       exclude: ["**/*.test.*"],
       reporter: ["text-summary"],
-      // Baseline 2026-07-10: lines 55.7, functions 52, branches 76.7.
-      thresholds: { lines: 53, functions: 50, branches: 74, statements: 53 },
+      // Baseline 2026-07-10 under vitest 4's AST-aware v8 remapping (counts
+      // differ from vitest 3 — re-baselined at the same measured−2 policy):
+      // lines 44.5, functions 45, branches 30.1, statements 42.7.
+      thresholds: { lines: 42, functions: 43, branches: 28, statements: 40 },
     },
   }
 });

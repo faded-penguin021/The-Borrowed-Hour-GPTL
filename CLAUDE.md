@@ -13,7 +13,7 @@ LLM / image / TTS providers. Deployed to GitHub Pages from `main`.
 
 ## Stack
 
-- Vite 5 + React 18 + TypeScript (strict)
+- Vite 8 (rolldown) + React 18 + TypeScript (strict)
 - Tailwind 3, PostCSS, Autoprefixer
 - Vitest (unit) and Playwright (e2e, `e2e/`)
 - ESLint 9 flat config

@@ -121,12 +121,12 @@ verdict is clean) → append an entry to `docs/audit-2026-07.md` → ladder → 
   lint (try it, revert); ladder green.
 - Commit: `chore(lint): ban script-injection sinks at commit time`
 
-### B4 — Pin GitHub Actions by SHA — **blocked: needs the commit SHAs behind actions/checkout@v6, setup-node@v6, cache@v4, upload-artifact@v4, configure-pages, upload-pages-artifact, deploy-pages — this session's GitHub scope is repo-only, so it cannot read the actions/* repos. Run from a session/machine with normal GitHub read access (git ls-remote --tags per action) and substitute `uses: owner/action@<sha> # vN`.**
+### B4 — Pin GitHub Actions by SHA — **blocked: repo-scoped sessions cannot read actions/* repos.** Current tags to resolve (post-#186): checkout@v7, setup-node@v6, cache@v6, upload-artifact@v7, configure-pages@v6, upload-pages-artifact@v5, deploy-pages@v5. Known-good SHAs already provided by the user (2026-07-10) for setup-node@v6 48b55a01, configure-pages@v6 45bfe019, upload-pages-artifact@v5 fc324d35, deploy-pages@v5 cd2ce8fc; still needed: checkout@v7, cache@v6, upload-artifact@v7 (`git ls-remote https://github.com/actions/<name> refs/tags/<tag>` from any normal machine). Then substitute `uses: owner/action@<full-sha> # vN` in both workflows.
 - In `ci.yml` + `pages.yml`, replace each `uses: owner/action@vN` with the commit SHA
   that tag currently points to (comment the tag alongside). Mechanical; PR CI proves it.
 - Commit: `ci: pin actions to commit SHAs`
 
-### B5 — Coverage ratchet — **done** (baseline lines 55.7/func 52/branches 76.7 on context+llm+storage; thresholds 53/50/74; npm test now runs coverage, test:fast skips it; vitest family aligned 3.2.6→3.2.7 as part of the declared install)
+### B5 — Coverage ratchet — **done** (re-baselined 2026-07-10 under vitest 4's AST-aware remapping: lines 44.5/func 45/branches 30.1 → thresholds 42/43/28/40; original vitest-3 baseline was 55.7/52/76.7 → 53/50/74; npm test runs coverage, test:fast skips it)
 - Add `@vitest/coverage-v8` as devDependency (lockfile diff expected and declared).
 - Enable v8 coverage in `vite.config.js` test block scoped to `src/context`,
   `src/llm`, `src/storage`; measure, then pin `thresholds` at measured−2%.
