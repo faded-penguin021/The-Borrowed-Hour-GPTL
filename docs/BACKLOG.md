@@ -126,7 +126,7 @@ verdict is clean) → append an entry to `docs/audit-2026-07.md` → ladder → 
   that tag currently points to (comment the tag alongside). Mechanical; PR CI proves it.
 - Commit: `ci: pin actions to commit SHAs`
 
-### B5 — Coverage ratchet — **todo** *(declared dep change — the one sanctioned `npm install`)*
+### B5 — Coverage ratchet — **done** (baseline lines 55.7/func 52/branches 76.7 on context+llm+storage; thresholds 53/50/74; npm test now runs coverage, test:fast skips it; vitest family aligned 3.2.6→3.2.7 as part of the declared install)
 - Add `@vitest/coverage-v8` as devDependency (lockfile diff expected and declared).
 - Enable v8 coverage in `vite.config.js` test block scoped to `src/context`,
   `src/llm`, `src/storage`; measure, then pin `thresholds` at measured−2%.
