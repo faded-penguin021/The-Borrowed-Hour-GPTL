@@ -587,6 +587,17 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   }
 
   async function loadSave(rawSave: SaveRecord): Promise<void> {
+    try {
+      await loadSaveUnguarded(rawSave);
+    } catch (e) {
+      // A record damaged beyond what migrateSave normalizes (or a storage
+      // read failing mid-load) degrades to a banner, never a crash.
+      dlog("saves:load-error", e);
+      deps.saves.setSaveBanner({ kind: "err", text: "This hour cannot be taken up — the record is damaged." });
+    }
+  }
+
+  async function loadSaveUnguarded(rawSave: SaveRecord): Promise<void> {
     // Loading over an in-flight turn: cancel it (abort + rollback) so its
     // finalize can't later clobber the loaded game's entries/history.
     if (inFlight || abortRef.current) cancelRequest();

@@ -9,7 +9,9 @@ Statuses: `todo` / `done` / `blocked: <one-line reason>`.
 1. Work on branch `claude/text-game-audit-plan-vfxup6`, starting from a clean tree.
    **One tool call at a time. No subagents, ever. No parallel agents.**
 2. Do only the unit's spec below. Definition of done: `npm run ladder` passes
-   (typecheck → lint → unit tests → build; ~21s).
+   (typecheck → lint → unit tests → build; ~21s). If you pipe its output
+   (e.g. through `tail`), run `set -o pipefail` first and check the exit code —
+   a bare pipe reports the *pipe's* exit and can mask a red ladder.
 3. Update the unit's status line in this file, commit with the unit's message prefix,
    then `git push -u origin claude/text-game-audit-plan-vfxup6`
    (on network failure retry after 2s/4s/8s/16s).
@@ -68,7 +70,7 @@ verdict is clean) → append an entry to `docs/audit-2026-07.md` → ladder → 
   logs, errors, or exports. Fix whichever side (code or doc) has drifted.
 - Commit prefix: `fix(storage)` / `test(storage)` / `docs(audit)`
 
-### A4 — Untrusted persistence & export — **todo**
+### A4 — Untrusted persistence & export — **done** (fixed-1: save-load normalization + guarded load; exports verified clean; see audit log)
 - Files: `src/hooks/useSaves.ts`, `src/saves/*`, `src/export/keepsake.ts`,
   `src/storage/imageStore*`; coverage in `imageStore.test.ts`, `compression.test.ts`.
 - Questions: an imported save is attacker-controlled JSON headed for the reducer —

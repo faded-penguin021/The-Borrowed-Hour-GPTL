@@ -257,6 +257,20 @@ describe("createGameLoop", () => {
       expect(trailingSetEntries).toHaveLength(0);
     });
 
+    it("shows a damaged-record banner instead of crashing when rehydration fails", async () => {
+      const { getImage } = await import("../storage/imageStore");
+      vi.mocked(getImage).mockRejectedValueOnce(new Error("idb exploded"));
+      const deps = makeDeps();
+      const loop = createGameLoop(deps);
+      await loop.loadSave(SAVE);
+      expect(deps.saves.setSaveBanner).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "err", text: expect.stringContaining("damaged") })
+      );
+      const loads = (deps.dispatch as ReturnType<typeof vi.fn>).mock.calls
+        .filter(([a]) => a.type === "LOAD_SAVE");
+      expect(loads).toHaveLength(0);
+    });
+
     it("cancels an in-flight turn before loading", async () => {
       const gate = deferred<string>();
       const deps = makeDeps({ callAPI: vi.fn(() => gate.promise), getState: () => ({
