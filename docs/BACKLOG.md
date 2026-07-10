@@ -121,7 +121,7 @@ verdict is clean) → append an entry to `docs/audit-2026-07.md` → ladder → 
   lint (try it, revert); ladder green.
 - Commit: `chore(lint): ban script-injection sinks at commit time`
 
-### B4 — Pin GitHub Actions by SHA — **todo**
+### B4 — Pin GitHub Actions by SHA — **blocked: needs the commit SHAs behind actions/checkout@v6, setup-node@v6, cache@v4, upload-artifact@v4, configure-pages, upload-pages-artifact, deploy-pages — this session's GitHub scope is repo-only, so it cannot read the actions/* repos. Run from a session/machine with normal GitHub read access (git ls-remote --tags per action) and substitute `uses: owner/action@<sha> # vN`.**
 - In `ci.yml` + `pages.yml`, replace each `uses: owner/action@vN` with the commit SHA
   that tag currently points to (comment the tag alongside). Mechanical; PR CI proves it.
 - Commit: `ci: pin actions to commit SHAs`
