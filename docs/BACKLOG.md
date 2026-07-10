@@ -78,7 +78,7 @@ verdict is clean) → append an entry to `docs/audit-2026-07.md` → ladder → 
   files) ever embed keys or ciphertext they shouldn't? Blob/quota failure paths.
 - Commit prefix: `fix(saves)` / `test(saves)` / `docs(audit)`
 
-### A5 — CSP / doc conformance sweep — **todo**
+### A5 — CSP / doc conformance sweep — **done** (fixed-1: Google+Azure TTS origins were missing from connect-src; manifest at src/security/origins.ts; see audit log)
 - Compare every network origin used in `src/llm/providers.ts`, `src/llm/imaging.ts`,
   `src/tts/*`, `src/llm/client.ts` against the `connect-src` allowlist in
   `index.html`. Produce a canonical origin manifest (e.g. exported const or JSON
@@ -88,7 +88,7 @@ verdict is clean) → append an entry to `docs/audit-2026-07.md` → ladder → 
 
 ### Phase B — deterministic hardening (safe for lesser models; in order)
 
-### B1 — CSP drift test — **todo**
+### B1 — CSP drift test — **done** (folded into A5: src/security/origins.test.ts, verified red-on-drift)
 - New unit test: parse `index.html`'s CSP `<meta>` `connect-src`, compare with the
   A5 origin manifest; fail on drift in either direction (extra or missing origin).
   If A5 never ran: build the manifest by grepping fetch/URL origins under `src/llm`,

@@ -217,8 +217,10 @@ is needed for a new model on an already-allowed provider.
 
 Request shaping for every provider is centralized in `src/llm/providers.ts` (new
 providers go here, not as siblings). Whenever a provider's requests reach a **new
-outbound origin**, you must also add that origin to the `connect-src` allowlist in
-the Content-Security-Policy `<meta>` tag in `index.html`. (Note: the CSP lives in
+outbound origin**, add that origin in the same commit to BOTH the `connect-src`
+allowlist in the Content-Security-Policy `<meta>` tag in `index.html` AND the
+declared manifest in `src/security/origins.ts` — `src/security/origins.test.ts`
+fails the suite if the two drift in either direction. (Note: the CSP lives in
 `index.html`, not `vite.config.js`.) Keep the local-LLM `http://localhost:*` /
 `http://127.0.0.1:*` entries as-is — forcing them to `https` breaks Ollama and
 LM Studio. After any endpoint change, smoke-test the affected provider before
