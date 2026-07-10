@@ -121,11 +121,7 @@ verdict is clean) → append an entry to `docs/audit-2026-07.md` → ladder → 
   lint (try it, revert); ladder green.
 - Commit: `chore(lint): ban script-injection sinks at commit time`
 
-### B4 — Pin GitHub Actions by SHA — **blocked: repo-scoped sessions cannot read actions/* repos.** Current tags to resolve (post-#186): checkout@v7, setup-node@v6, cache@v6, upload-artifact@v7, configure-pages@v6, upload-pages-artifact@v5, deploy-pages@v5. Known-good SHAs already provided by the user (2026-07-10) for setup-node@v6 48b55a01, configure-pages@v6 45bfe019, upload-pages-artifact@v5 fc324d35, deploy-pages@v5 cd2ce8fc; still needed: checkout@v7, cache@v6, upload-artifact@v7 (`git ls-remote https://github.com/actions/<name> refs/tags/<tag>` from any normal machine). Then substitute `uses: owner/action@<full-sha> # vN` in both workflows.
-- In `ci.yml` + `pages.yml`, replace each `uses: owner/action@vN` with the commit SHA
-  that tag currently points to (comment the tag alongside). Mechanical; PR CI proves it.
-- Commit: `ci: pin actions to commit SHAs`
-
+### B4 — Pin GitHub Actions by SHA — **done** (all 11 uses: lines across ci.yml + pages.yml pinned to full commit SHAs with `# vN` comments; SHAs supplied by the user via git ls-remote 2026-07-10; the dependabot actions group maintains the pins from here; note: the three pages-only pins first execute on the next main deploy — pages.yml has workflow_dispatch for a manual test)
 ### B5 — Coverage ratchet — **done** (re-baselined 2026-07-10 under vitest 4's AST-aware remapping: lines 44.5/func 45/branches 30.1 → thresholds 42/43/28/40; original vitest-3 baseline was 55.7/52/76.7 → 53/50/74; npm test runs coverage, test:fast skips it)
 - Add `@vitest/coverage-v8` as devDependency (lockfile diff expected and declared).
 - Enable v8 coverage in `vite.config.js` test block scoped to `src/context`,
