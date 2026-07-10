@@ -111,7 +111,7 @@ verdict is clean) → append an entry to `docs/audit-2026-07.md` → ladder → 
   (e.g. temp `.npmrc`), revert; ladder green.
 - Commit: `ci(security): enforce supply-chain tripwires as a guard script`
 
-### B3 — Sink lint rules — **todo**
+### B3 — Sink lint rules — **done** (no-eval, no-new-func, restricted properties + dangerouslySetInnerHTML selector; zero existing violations; verified red on probe)
 - In `eslint.config.js` add `no-restricted-properties` / `no-restricted-syntax`
   banning: `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `dangerouslySetInnerHTML`,
   `eval`, `new Function`, `document.write`. Message should point at
