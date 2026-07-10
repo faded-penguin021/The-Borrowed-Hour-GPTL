@@ -51,7 +51,7 @@ verdict is clean) → append an entry to `docs/audit-2026-07.md` → ladder → 
   schema-violation handling; what reaches the reducer unvalidated.
 - Commit prefix: `fix(llm)` / `test(llm)` / `docs(audit)`
 
-### A2 — Turn pipeline correctness — **todo**
+### A2 — Turn pipeline correctness — **done** (fixed-3: run latch, stale-abort rollback, loadSave rehydration; see audit log)
 - Files: `src/context/gameLoop.ts`, `src/context/storyReducer.ts`,
   `src/context/GameContext.tsx`; coverage in `gameLoop-unit.test.ts`,
   `gameLoop.test.tsx`, `storyReducer.test.ts`.
