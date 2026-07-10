@@ -1,0 +1,22 @@
+# Grouped weekly dependency updates. Every PR this produces is an explicit,
+# reviewable dependency-change event (CLAUDE.md supply-chain rule 2); CI runs
+# the supply-chain guard (scripts/check-supply-chain.mjs) against each one.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    groups:
+      npm-minor-and-patch:
+        update-types: ["minor", "patch"]
+    # Majors arrive as individual PRs so breaking changes are reviewed alone.
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

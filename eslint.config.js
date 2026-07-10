@@ -50,6 +50,22 @@ export default tseslint.config(
       // Enforced now that strict mode lands: no new TS-syntax `any`. The sole
       // sanctioned exception (the external `window.puter` SDK) is disabled inline.
       "@typescript-eslint/no-explicit-any": "error",
+      // Script-injection sinks. Production CSP enforces Trusted Types, which
+      // rejects these at runtime — these rules move the failure to commit
+      // time. Sanctioned sinks route through src/security/trustedTypes.ts.
+      "no-eval": "error",
+      "no-new-func": "error",
+      "no-restricted-properties": [
+        "error",
+        { property: "innerHTML", message: "Trusted Types blocks this in production. Sanctioned sinks go through src/security/trustedTypes.ts." },
+        { property: "outerHTML", message: "Trusted Types blocks this in production. Sanctioned sinks go through src/security/trustedTypes.ts." },
+        { property: "insertAdjacentHTML", message: "Trusted Types blocks this in production. Sanctioned sinks go through src/security/trustedTypes.ts." },
+        { object: "document", property: "write", message: "Trusted Types blocks this in production. Sanctioned sinks go through src/security/trustedTypes.ts." },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        { selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']", message: "React HTML injection is banned; render text (React escapes it) or go through src/security/trustedTypes.ts." },
+      ],
     },
   },
   {

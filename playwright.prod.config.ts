@@ -20,6 +20,10 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:4173",
     trace: "on-first-retry",
+    // Same PW_CHROMIUM escape hatch as playwright.config.ts.
+    launchOptions: process.env.PW_CHROMIUM
+      ? { executablePath: process.env.PW_CHROMIUM }
+      : {},
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {

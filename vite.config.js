@@ -64,6 +64,18 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["src/**/*.test.{js,jsx,ts,tsx}"],
-    setupFiles: ["src/__tests__/vitest-setup.ts"]
+    setupFiles: ["src/__tests__/vitest-setup.ts"],
+    // Coverage ratchet on the invariant cores (docs/BACKLOG.md B5). Thresholds
+    // are pinned ~2 points under the measured baseline: they exist to catch a
+    // regression in tested-ness, not to force new coverage. If you add
+    // well-tested code and the numbers rise, feel free to ratchet them up.
+    coverage: {
+      provider: "v8",
+      include: ["src/context/**", "src/llm/**", "src/storage/**"],
+      exclude: ["**/*.test.*"],
+      reporter: ["text-summary"],
+      // Baseline 2026-07-10: lines 55.7, functions 52, branches 76.7.
+      thresholds: { lines: 53, functions: 50, branches: 74, statements: 53 },
+    },
   }
 });

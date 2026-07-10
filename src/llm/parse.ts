@@ -137,6 +137,16 @@ function extractObject(text: string): unknown {
 }
 
 /**
+ * Some models wrap the tool payload in a one-element array (`[{...}]`).
+ * Unwrap to the first plain-object element; a bare array is useless to both
+ * GM parsers, which require an object.
+ */
+function unwrapArray(parsed: unknown): unknown {
+  if (!Array.isArray(parsed)) return parsed;
+  return parsed.find((el) => el && typeof el === "object" && !Array.isArray(el)) ?? null;
+}
+
+/**
  * Multi-stage JSON recovery (Layer 1 — string → object). Strip markdown fences,
  * direct-parse, slice the first balanced object, then run a regex repair pass
  * (trailing commas, smart quotes, raw control chars) and re-extract. Returns the
@@ -150,7 +160,7 @@ export function extractJSONBlock(rawText: string): unknown {
   text = text.trim();
 
   let parsed = tryParseJSON(text);
-  if (parsed) return parsed;
+  if (parsed) return unwrapArray(parsed);
 
   parsed = extractObject(text);
   if (parsed) return parsed;
@@ -159,7 +169,7 @@ export function extractJSONBlock(rawText: string): unknown {
 
   const repaired = repairJSON(text);
   parsed = tryParseJSON(repaired);
-  if (parsed) return parsed;
+  if (parsed) return unwrapArray(parsed);
 
   return extractObject(repaired);
 }

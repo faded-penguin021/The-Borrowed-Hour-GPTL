@@ -92,6 +92,28 @@ export function createGameLoop(deps: GameLoopDeps) {
     callAPI, streamAPI,
   } = deps;
 
+  // Synchronous one-run-at-a-time latch. The React `loading` flag only flips
+  // on the next render, and both beginAdventure and submit await ambience
+  // setup before setting it, so two clicks in that window would race two
+  // overlapping turns (double API spend, interleaved history dispatches).
+  // `runSeq` lets cancelRequest release the latch immediately without the
+  // cancelled run's finally stomping a newer run's latch when it resumes.
+  let inFlight = false;
+  let runSeq = 0;
+
+  function exclusive<A extends unknown[], R>(fn: (...args: A) => Promise<R>, blockedResult: R) {
+    return async (...args: A): Promise<R> => {
+      if (inFlight) return blockedResult;
+      const myRun = ++runSeq;
+      inFlight = true;
+      try {
+        return await fn(...args);
+      } finally {
+        if (runSeq === myRun) inFlight = false;
+      }
+    };
+  }
+
   function finalizeNarration(
     narration: string,
     gmParsed: RecoveryGMParsed,
@@ -522,6 +544,10 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     if (!ref) return;
     const { controller, rollback } = ref;
     abortRef.current = null;
+    // Release the latch now rather than when the cancelled run's finally
+    // resumes; bumping runSeq keeps that finally from stomping a newer run.
+    runSeq++;
+    inFlight = false;
     setLoading(false);
     dispatch({ type: "SET_ERROR", error: null });
     try { rollback?.(); } catch {}
@@ -533,7 +559,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   function undoLastTurn() {
     const s = deps.getState();
     const loading = deps.getLoading();
-    const canUndo = !loading && !s.metaMode && s.history.length >= 4 && s.entries.length >= 3;
+    const canUndo = !inFlight && !loading && !s.metaMode && s.history.length >= 4 && s.entries.length >= 3;
     if (!canUndo) return;
     const newHistory = s.history.slice(0, -2);
     const newEntries = s.entries.slice(0, -2);
@@ -561,6 +587,20 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   }
 
   async function loadSave(rawSave: SaveRecord): Promise<void> {
+    try {
+      await loadSaveUnguarded(rawSave);
+    } catch (e) {
+      // A record damaged beyond what migrateSave normalizes (or a storage
+      // read failing mid-load) degrades to a banner, never a crash.
+      dlog("saves:load-error", e);
+      deps.saves.setSaveBanner({ kind: "err", text: "This hour cannot be taken up — the record is damaged." });
+    }
+  }
+
+  async function loadSaveUnguarded(rawSave: SaveRecord): Promise<void> {
+    // Loading over an in-flight turn: cancel it (abort + rollback) so its
+    // finalize can't later clobber the loaded game's entries/history.
+    if (inFlight || abortRef.current) cancelRequest();
     const s = deps.getState();
     const save = migrateSave(rawSave);
     let found = null;
@@ -576,7 +616,20 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     deps.codex.revokeAllPlates(s.entries);
     deps.tts.stopTTS();
     deps.tts.resetTTSCursor((save.entries || []).length);
-    const rawEntries: Entry[] = (save.entries || []).map((e) => ({ ...e, fullyRevealed: true }));
+    // Rehydrate idb-backed illustrations BEFORE dispatching: a trailing
+    // async SET_ENTRIES here used to clobber a turn submitted right after
+    // the load landed.
+    const rawEntries: Entry[] = await Promise.all(
+      (save.entries || []).map(async (raw): Promise<Entry> => {
+        const e: Entry = { ...raw, fullyRevealed: true };
+        const ill = e.illustration;
+        if (!ill || typeof ill.url !== "string" || !ill.url.startsWith("idb:")) return e;
+        const imgKey = ill.url.slice("idb:".length);
+        const blob = await getImage(imgKey);
+        if (!blob) return { ...e, illustration: { ...ill, status: "failed", url: undefined } };
+        return { ...e, illustration: { ...ill, url: URL.createObjectURL(blob) } };
+      }),
+    );
     dispatch({
       type: "LOAD_SAVE",
       payload: {
@@ -590,17 +643,6 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
         metaMode: !!save.metaMode,
       },
     });
-    (async () => {
-      const rehydrated = await Promise.all(rawEntries.map(async (e): Promise<Entry> => {
-        const ill = e.illustration;
-        if (!ill || typeof ill.url !== "string" || !ill.url.startsWith("idb:")) return e;
-        const imgKey = ill.url.slice("idb:".length);
-        const blob = await getImage(imgKey);
-        if (!blob) return { ...e, illustration: { ...ill, status: "failed", url: undefined } };
-        return { ...e, illustration: { ...ill, url: URL.createObjectURL(blob) } };
-      }));
-      dispatch({ type: "SET_ENTRIES", entries: rehydrated });
-    })();
     deps.codex.restoreCodex(save.codex);
     deps.reveal.resetReveal();
     deps.keepsake.resetKeepsake();
@@ -625,9 +667,9 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
   }
 
   return {
-    beginAdventure,
-    submit,
-    continueNarration,
+    beginAdventure: exclusive(beginAdventure, undefined),
+    submit: exclusive(submit, true),
+    continueNarration: exclusive(continueNarration, undefined),
     undoLastTurn,
     loadSave,
     resumeAutosave,

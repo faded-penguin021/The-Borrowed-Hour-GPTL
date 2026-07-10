@@ -60,17 +60,28 @@ endpoints (below).
    workhorses plus the flagship. Drop retired ids. Set a free tier only when the
    provider genuinely serves it free with enough context/quota.
 6. Bump the `// checked:` stamp to today in whichever catalogue(s) you touched.
-7. `npm run check && npm test` — the guardrail tests catch default↔list drift.
-8. Open a PR. **Never auto-merge.**
+7. Sweep `docs/wiki.md` for references to model ids you renamed or removed (the
+   free-tier table names concrete ids, e.g. the Voxtral TTS model). Fix only
+   what the refresh stranded.
+8. `npm run ladder` — supply-chain guard, typecheck, lint, tests (the guardrail
+   tests catch default↔list drift), build. Coverage thresholds run with the
+   tests; catalogue data is imported by its tests, so a refresh should be
+   coverage-neutral — if thresholds still trip on a data-only change, **stop
+   and report instead of chasing coverage**.
+9. Material changes → open a PR. **Never auto-merge.** Nothing material
+   (stamps would be the only diff) → exit without a PR.
 
 ## Guardrails
 
-- Edit only the catalogue file(s): `src/llm/providers.ts`, `src/llm/imaging.ts`,
-  `src/tts/catalogue.ts`. If `package.json` / `package-lock.json` appear in the
-  diff, **stop** — that's a CLAUDE.md tripwire and this task adds no dependencies.
-- A genuinely new provider (new outbound origin) also needs a `connect-src` entry
-  in `index.html`'s CSP and an adapter — a bigger change; flag it, don't slip it
-  into a routine refresh.
+- Edit only the catalogue file(s) — `src/llm/providers.ts`, `src/llm/imaging.ts`,
+  `src/tts/catalogue.ts` — plus `docs/wiki.md` when step 7 strands a reference.
+  If `package.json` / `package-lock.json` appear in the diff, **stop** — that's
+  a CLAUDE.md tripwire and this task adds no dependencies.
+- A genuinely new provider (new outbound origin) also needs a `connect-src`
+  entry in `index.html`'s CSP **and** a matching line in the declared manifest
+  `src/security/origins.ts` (`origins.test.ts` fails the suite if they drift),
+  plus an adapter — a bigger change; flag it, don't slip it into a routine
+  refresh.
 - Keep edits surgical; match the surrounding style.
 
 ## PR template
@@ -80,7 +91,7 @@ Title: chore: refresh model catalogues (YYYY-MM-DD)
 
 - <catalogue>/<provider>: added / removed / re-tiered / default swaps, with the
   source (OpenRouter or a provider-docs URL) for each non-obvious id
-- npm run check + npm test green
+- npm run ladder green
 - no dependency changes
 ```
 
@@ -90,11 +101,19 @@ Configure a Claude Code on the web scheduled trigger against this repo — weekl
 plenty. Point it at this runbook with a prompt like:
 
 ```
-Refresh the model catalogues. Follow docs/model-catalogue-maintenance.md exactly:
-run `npm run check:models -- --all`, refresh the LLM / image / TTS catalogues
-(OpenRouter + provider endpoints + web search), keep each default resolving to a
-listed id, bump the `// checked:` stamps you touch, run `npm run check && npm test`,
-then open a PR. Do not auto-merge. If nothing material changed, exit without a PR.
+Refresh the model catalogues by following docs/model-catalogue-maintenance.md exactly.
+
+1. npm ci, then npm run check:models -- --all to identify dead/outdated entries.
+2. Refresh the LLM, image, and TTS catalogues (OpenRouter + provider endpoints +
+   web search, per the doc). Edit only the three catalogue files and docs/wiki.md.
+3. Ensure each default model resolves to a listed id (the suite enforces this).
+4. Bump the `// checked:` stamp in any catalogue you modify.
+5. Sweep docs/wiki.md for references to models you renamed or removed.
+6. npm run ladder must pass. If coverage thresholds fail on a data-only change,
+   or package.json/package-lock.json appear in the diff, STOP and report — do
+   not fix forward.
+7. Material changes → open a PR (never auto-merge), title
+   `chore: refresh model catalogues (YYYY-MM-DD)`. Nothing material → exit, no PR.
 ```
 
 The trigger itself is created in the web UI (you turn it on) — see

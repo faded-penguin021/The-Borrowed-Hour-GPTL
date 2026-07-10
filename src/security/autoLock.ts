@@ -25,6 +25,13 @@ export interface AutoLockOptions {
 export interface AutoLockController {
   start(): void;
   stop(): void;
+  /**
+   * Arm (or re-arm) the absolute session cap. Call at each successful unlock:
+   * the cap bounds an *unlocked session*, so it must run from the unlock, not
+   * from controller start — a page-lifetime timer would fire once (possibly
+   * while still locked) and leave later unlocks uncapped.
+   */
+  noteUnlocked(): void;
 }
 
 const DEFAULT_HIDE_GRACE_MS = 2 * 60 * 1000; // 2 minutes backgrounded → lock
@@ -64,13 +71,27 @@ export function createAutoLock(opts: AutoLockOptions): AutoLockController {
   // pagehide covers bfcache/navigation-away cases visibilitychange can miss.
   const onPageHide = () => scheduleHideLock();
 
+  const clearCapTimer = () => {
+    if (capTimer !== null) {
+      clearTimeout(capTimer);
+      capTimer = null;
+    }
+  };
+
   return {
     start() {
       if (started || typeof document === "undefined") return;
       started = true;
       document.addEventListener("visibilitychange", onVisibilityChange);
       window.addEventListener("pagehide", onPageHide);
-      capTimer = setTimeout(() => opts.lock(), sessionCapMs);
+    },
+    noteUnlocked() {
+      if (!started) return;
+      clearCapTimer();
+      capTimer = setTimeout(() => {
+        capTimer = null;
+        opts.lock();
+      }, sessionCapMs);
     },
     stop() {
       if (!started) return;
@@ -78,10 +99,7 @@ export function createAutoLock(opts: AutoLockOptions): AutoLockController {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", onPageHide);
       clearHideTimer();
-      if (capTimer !== null) {
-        clearTimeout(capTimer);
-        capTimer = null;
-      }
+      clearCapTimer();
     },
   };
 }

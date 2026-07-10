@@ -292,11 +292,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       if (!ref) return;
       const age = Date.now() - (ref.startedAt || 0);
       if (age > STALE_AFTER_MS) {
-        try { ref.controller.abort(); } catch {}
+        // Full cancel (abort + rollback + latch release), not a bare abort:
+        // a bare abort left the optimistic user turn dangling in history
+        // with no assistant reply, which strict-alternation providers reject
+        // on the next call.
+        try { loop.cancelRequest(); } catch {}
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loop is a stable ref-backed singleton
   }, []);
 
   // ── Dismiss the save banner after a beat ─────────────────────────
