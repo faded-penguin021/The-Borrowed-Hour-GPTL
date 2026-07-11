@@ -29,11 +29,17 @@ describe("cleanPlateCaption — epistemic-leak guard", () => {
 });
 
 describe("captionFromScene — descriptive fallback from the visual scene clause", () => {
-  it("takes the opening visual phrase, capitalized, capped to a caption", () => {
-    expect(captionFromScene("a woman in a green coat on the eastbound platform, lamplight on wet stone"))
-      .toBe("A woman in a green coat on the eastbound");
+  it("takes a short opening visual phrase, capitalized", () => {
     expect(captionFromScene("The reliquary, unopened, on a velvet cloth")).toBe("The reliquary");
     expect(captionFromScene("Holborn station — the 8:11 nearing")).toBe("Holborn station");
+    expect(captionFromScene("A woman in a green coat, lamplight on wet stone")).toBe("A woman in a green coat");
+  });
+
+  it("never truncates a long opening phrase — omits the caption instead", () => {
+    // A long opening phrase with no early natural break must not be sliced
+    // mid-thought; a cut-off engraving reads as a bug, so we show none at all.
+    expect(captionFromScene("a woman in a green coat on the eastbound platform, lamplight on wet stone")).toBe("");
+    expect(captionFromScene("the vast cathedral nave stretching away into candlelit gloom above kneeling figures")).toBe("");
   });
 
   it("returns empty for empty/whitespace input", () => {
