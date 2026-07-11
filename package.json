@@ -1,5 +1,6 @@
 {
   "name": "the-borrowed-hour",
+  "description": "A fully client-side, bring-your-own-API-key literary text adventure with a hidden GM logic layer, a custom Wild mode, and optional AI-generated art/ambience/TTS.",
   "private": true,
   "type": "module",
   "scripts": {
