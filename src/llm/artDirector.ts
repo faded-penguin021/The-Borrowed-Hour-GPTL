@@ -77,7 +77,7 @@ export const ART_DIRECTOR_BOOTSTRAP_TOOL: ToolDefinition = {
           type: "object",
           properties: {
             id: { type: "string", description: "Stable id like 'npc:elias' or 'location:chamber' or 'self:protagonist'." },
-            tags: { type: "array", items: { type: "string" }, description: "3–6 short physical/visual tags. No interior states." }
+            tags: { type: "array", items: { type: "string" }, description: "3–6 short physical/visual tags — what the eye sees, never interior states. For any person subject (self:* or npc:*), the FIRST tag MUST be the apparent sex/gender (e.g. 'woman', 'man', 'androgynous figure'); this is the anchor that keeps a recurring character from changing sex between plates." }
           },
           required: ["id", "tags"]
         }
@@ -112,7 +112,7 @@ export const ART_DIRECTOR_TURN_TOOL: ToolDefinition = {
       },
       scene_clause: {
         type: "string",
-        description: "12–35 words: the specific tableau for THIS turn, in visual terms — what the eye sees, the composition, the light. NO interior states, NO dialogue, NO meta. The Style Bible and ledger tags are prepended automatically."
+        description: "12–35 words: the specific tableau for THIS turn, in visual terms — what the eye sees, the composition, the light. When a figure is present, name their apparent sex (e.g. 'a woman', 'a man') matching their ledger entry, so the plate never redraws them as the wrong sex. NO interior states, NO dialogue, NO meta. The Style Bible and ledger tags are prepended automatically."
       },
       extra_negatives: {
         type: "array",
@@ -126,7 +126,7 @@ export const ART_DIRECTOR_TURN_TOOL: ToolDefinition = {
           type: "object",
           properties: {
             id: { type: "string" },
-            tags: { type: "array", items: { type: "string" } }
+            tags: { type: "array", items: { type: "string" }, description: "3–6 short physical/visual tags. For any person subject (self:* or npc:*), the FIRST tag MUST be the apparent sex/gender (e.g. 'woman', 'man', 'androgynous figure') so the character never changes sex between plates." }
           },
           required: ["id", "tags"]
         }
@@ -151,7 +151,7 @@ ${premise.seed}
 CALL THE TOOL \`seed_codex\` with:
 1) A Style Bible that PERFECTLY MATCHES the genre and tone of the seed above. You MUST invent the \`era\`, \`medium\`, \`palette\`, and \`composition\` to fit the story (e.g. "70s sci-fi paperback cover", "neon-drenched cyberpunk lithograph", "1950s cinematic noir photography", "medieval illuminated manuscript", "Studio Ghibli watercolor still"). Commit fully — once locked, this aesthetic governs every plate in the chronicle.
    - ALWAYS include these in your \`negatives\` list: "text", "watermark", "logo", "ui".
-2) A small Visual Ledger (2–5 entries) for what is already named in the seed: the player's body / role, any named NPCs, signature locations. Use stable ids like \`self:protagonist\`, \`npc:<name-lowercased>\`, \`location:<short-slug>\`. Each entry: 3–6 short physical/visual tags — what the eye sees, never interior states.
+2) A small Visual Ledger (2–5 entries) for what is already named in the seed: the player's body / role, any named NPCs, signature locations. Use stable ids like \`self:protagonist\`, \`npc:<name-lowercased>\`, \`location:<short-slug>\`. Each entry: 3–6 short physical/visual tags — what the eye sees, never interior states. For every person (self:* or npc:*), lead the tags with the apparent sex/gender (e.g. 'woman', 'man') exactly as the seed presents them — this single tag is what keeps a character's sex consistent across every plate.
 
 Write tag values plainly in English (these are prompt fragments for an image model). Output ONLY the tool call.`;
   }
@@ -171,7 +171,7 @@ ${premise.seed}
 
 CALL THE TOOL \`seed_codex\` with:
 1) A Style Bible that EXTENDS the anchors above (you may add composition specifics, a couple of palette nuances). DO NOT change the era or contradict the forbidden list.
-2) A small Visual Ledger (2–5 entries) for what is already named in the seed: the player's body / role, any named NPCs, signature locations. Use stable ids like \`self:protagonist\`, \`npc:<name-lowercased>\`, \`location:<short-slug>\`. Each entry: 3–6 short physical/visual tags — what the eye sees, never interior states.
+2) A small Visual Ledger (2–5 entries) for what is already named in the seed: the player's body / role, any named NPCs, signature locations. Use stable ids like \`self:protagonist\`, \`npc:<name-lowercased>\`, \`location:<short-slug>\`. Each entry: 3–6 short physical/visual tags — what the eye sees, never interior states. For every person (self:* or npc:*), lead the tags with the apparent sex/gender (e.g. 'woman', 'man') exactly as the seed presents them — this single tag is what keeps a character's sex consistent across every plate.
 
 Write tag values plainly in English (these are prompt fragments for an image model). Output ONLY the tool call.`;
 };
@@ -200,9 +200,9 @@ RULES:
 - If warrants_illustration is true, milestone_reason MUST name a concrete beat: a specific reveal, encounter, threshold, transformation, or finale. Not a negation.
 - If warrants_illustration is true, scene_clause MUST be present and 12–35 words. Without it, set warrants_illustration to false.
 - When you do warrant one, REUSE ledger ids (\`npc:<name>\`, \`location:<slug>\`, \`self:protagonist\`) so the recurring subjects look the same across plates.
-- scene_clause is purely visual: what the eye sees, the composition, the light. No interior states, no dialogue, no narrative meta.
-- Add ledger_updates ONLY for genuinely new recurring subjects.
-- CONTINUITY: if a [Previous plate scene clause] is provided, ensure returning subjects match their ledger tags exactly — same gender, same clothing, same features. The ledger is the single source of truth for how recurring subjects look.
+- scene_clause is purely visual: what the eye sees, the composition, the light. No interior states, no dialogue, no narrative meta. When a figure is present, name their apparent sex ('a woman', 'a man') so the image model cannot default to the wrong sex.
+- Add ledger_updates ONLY for genuinely new recurring subjects. Any person you add or revise MUST lead its tags with the apparent sex/gender (e.g. 'woman', 'man') taken from how the story presents them — this is the anchor that stops a character changing sex between plates.
+- CONTINUITY: subjects returning from the ledger must match their tags EXACTLY — same sex, same clothing, same features. The ledger is the single source of truth for how a recurring subject looks; if the [Named NPCs present this turn] block shows a character as she/her or he/him, that sex must match their ledger entry, and you must correct the ledger entry via ledger_updates if it disagrees.
 
 THE CAPTION vs THE GATE REASON — CRITICAL (these must not be confused):
 - \`milestone_reason\` is PRIVATE. It explains your yes/no decision and the player never sees it. It is allowed to talk about significance ("first reveal", "routine transit, no shift").
@@ -231,13 +231,18 @@ export const cleanPlateCaption = (caption: string): string => {
 // case under "always" mode, where every turn yields a plate even when the Art
 // Director judged the beat insignificant and its caption leaked gate-talk.
 // The scene clause is purely visual by contract ("what the eye sees"), so its
-// opening phrase describes the plate without any significance to leak. Beats an
-// untitled plate.
+// opening phrase (up to the first natural break) describes the plate without any
+// significance to leak. We NEVER hard-slice that phrase to fit: a caption cut
+// off mid-thought reads as a rendering bug, so if the opening phrase isn't
+// already short we omit the caption entirely — a clean untitled plate beats a
+// truncated one.
+const CAPTION_MAX_WORDS = 7;
+const CAPTION_MAX_CHARS = 48;
 export const captionFromScene = (sceneClause: string): string => {
   const first = (sceneClause || "").trim().split(/[—–;:.,]/)[0].trim().replace(/[.!]+$/g, "");
   if (!first) return "";
-  const short = first.split(/\s+/).slice(0, 9).join(" ");
-  return short.charAt(0).toUpperCase() + short.slice(1);
+  if (first.split(/\s+/).length > CAPTION_MAX_WORDS || first.length > CAPTION_MAX_CHARS) return "";
+  return first.charAt(0).toUpperCase() + first.slice(1);
 };
 
 export const composeImagePrompt = ({ styleBible, visualLedger, subjectIds, sceneClause, extraNegatives }: { styleBible: StyleBible, visualLedger: VisualLedgerEntry[], subjectIds?: string[], sceneClause?: string, extraNegatives?: string[] }): ComposedImagePrompt => {
