@@ -5,7 +5,7 @@ interface TypewriterTextProps {
   instant?: boolean;
   skipSignal?: number;
   onDone?: () => void;
-  scrollRef?: React.RefObject<HTMLElement>;
+  scrollRef?: React.RefObject<HTMLElement | null>;
   fastMode?: boolean;
 }
 
