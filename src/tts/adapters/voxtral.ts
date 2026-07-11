@@ -7,11 +7,16 @@ import { _fetchAudioBlob, _blobHandle } from "../shared";
 // the open-weight model's preset names — fetch them from /v1/audio/voices.
 export async function fetchVoxtralVoices(key: string, signal?: AbortSignal): Promise<TTSVoiceEntry[]> {
   if (!key) return [];
-  const resp = await fetch("https://api.mistral.ai/v1/audio/voices?limit=200&offset=0", {
+  const get = (qs: string) => fetch(`https://api.mistral.ai/v1/audio/voices${qs}`, {
     method: "GET",
     headers: { "Authorization": `Bearer ${key}` },
     signal
   });
+  // Mistral validates query params strictly: `limit` is capped at 100 and a
+  // larger value is rejected with a 422. Ask for the documented maximum, then
+  // fall back to the bare endpoint if the params are still refused.
+  let resp = await get("?limit=100&offset=0");
+  if (resp.status === 422) resp = await get("");
   if (!resp.ok) {
     let detail = "";
     try { const txt = await resp.text(); detail = txt.slice(0, 200); } catch (_) {}
