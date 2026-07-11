@@ -3,7 +3,7 @@ import type { StreamingStore } from "../context/storyReducer";
 
 interface StreamingNarrationProps {
   store: StreamingStore;
-  scrollRef?: React.RefObject<HTMLElement>;
+  scrollRef?: React.RefObject<HTMLElement | null>;
 }
 
 export function StreamingNarration({ store, scrollRef }: StreamingNarrationProps) {
