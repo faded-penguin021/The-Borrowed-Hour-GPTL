@@ -1,3 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+/* Tailwind 4 runs CSS-first by default; the palette/content globs still live
+   in the legacy JS config, loaded explicitly: */
+@config "../../tailwind.config.js";
