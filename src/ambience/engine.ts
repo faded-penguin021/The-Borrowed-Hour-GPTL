@@ -33,6 +33,9 @@ import {
   AMBIENCE_ATTACK_FLOOR,
   AMBIENCE_LANE_GAIN_CEILING,
   AMBIENCE_MICRO_EVENTS,
+  AMBIENCE_TONIC_BASE_HZ,
+  AMBIENCE_SPACE_REVERB,
+  AMBIENCE_REVERB_DEFAULT,
   sanitizeAmbience
 } from "./tables";
 
@@ -53,6 +56,8 @@ type DrumGainOverride = { kick?: number; snare?: number; hat?: number; tom?: num
 type MoodMusicGain = { chord: number; melody: number; pulse: number };
 // A single chord step: (root semitone offset, quality).
 type ChordStep = [number, string];
+// Per-space reverb-bus acoustics.
+type ReverbProfile = { ret: number; damp: number };
 
 // Typed views over the imported data tables. The tables are exported with
 // narrow per-entry inferred types, so generic keyed access needs a wider
@@ -68,6 +73,48 @@ const MOOD_PROGRESSION = AMBIENCE_MOOD_PROGRESSION as unknown as Record<string, 
 const MOOD_PROGRESSION_ALT = AMBIENCE_MOOD_PROGRESSION_ALT as unknown as Record<string, ChordStep[]>;
 const MOOD_SCALE = AMBIENCE_MOOD_SCALE as Record<string, number[]>;
 const INTENSITY_GAIN = AMBIENCE_INTENSITY_GAIN as Record<string, number>;
+const SPACE_REVERB = AMBIENCE_SPACE_REVERB as Record<string, ReverbProfile>;
+
+// Voice-led triad: place each chord tone in the octave nearest the voice's
+// previous position instead of gliding all voices in parallel to root
+// position. Movement cost dominates; a light pull toward the root-position
+// anchor stops the pad from creeping out of register over long progressions.
+// Pure and deterministic — no timers, no audio nodes.
+const CHORD_VOICE_LOW = -3;   // semitones vs tonic; ~C♯2 at the lowest tonic
+const CHORD_VOICE_HIGH = 19;  // ~F4 at the highest tonic
+export function voiceLeadTriad(prev: number[] | null | undefined, root: number, quality: string): number[] {
+  const third = quality === "min" ? root + 3 : root + 4;
+  const rootPosition = [root, third, root + 7];
+  if (!prev || prev.length < 3) return rootPosition;
+  const pcs = rootPosition.map((o) => ((o % 12) + 12) % 12);
+  const candidatesFor = (pc: number) => {
+    const out: number[] = [];
+    for (let o = pc - 12; o <= CHORD_VOICE_HIGH; o += 12) {
+      if (o >= CHORD_VOICE_LOW) out.push(o);
+    }
+    return out;
+  };
+  const perms = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+  let best = rootPosition;
+  let bestCost = Infinity;
+  for (const perm of perms) {
+    const offsets: number[] = [];
+    let cost = 0;
+    for (let v = 0; v < 3; v++) {
+      const pc = pcs[perm[v]];
+      let chosen = rootPosition[perm[v]];
+      let chosenCost = Infinity;
+      for (const cand of candidatesFor(pc)) {
+        const c = Math.abs(cand - prev[v]) + 0.15 * Math.abs(cand - rootPosition[perm[v]]);
+        if (c < chosenCost) { chosenCost = c; chosen = cand; }
+      }
+      offsets.push(chosen);
+      cost += chosenCost;
+    }
+    if (cost < bestCost) { bestCost = cost; best = offsets; }
+  }
+  return best;
+}
 
 type SceneLane = {
   gain: GainNode;
@@ -87,9 +134,9 @@ type ChordPad = {
   lpf: BiquadFilterNode;
   panner: StereoPannerNode;
   voices: { sine: OscillatorNode; tri: OscillatorNode; gain: GainNode }[];
-  baseHz: number;
   progressionIdx: number;
   scheduled: ReturnType<typeof setTimeout> | 0;
+  lastVoicing: { offsets: number[]; rootOffset: number; ninth: boolean } | null;
 };
 type MelodyVoice = {
   out: GainNode;
@@ -115,6 +162,9 @@ export class AmbienceEngine {
   reverbSend: GainNode;
   convolver: ConvolverNode;
   reverbReturn: GainNode;
+  reverbLPF: BiquadFilterNode;
+  tonicHz: number;
+  tonicSemitones: number;
   scene: { space: SceneLane, population: SceneLane };
   chordPad: ChordPad;
   melodyVoice: MelodyVoice;
@@ -173,6 +223,10 @@ export class AmbienceEngine {
     this.suspendTimer = 0;
     this.startTime = this.ctx.currentTime;
     this.comfortGain = 1.0;
+    // Story tonal center — every pitched lane derives from tonicHz, so
+    // setTonalCenter retunes chord/melody/instruments together.
+    this.tonicSemitones = 0;
+    this.tonicHz = AMBIENCE_TONIC_BASE_HZ;
 
     this.master = this.ctx.createGain();
     this.master.gain.value = 0;
@@ -214,12 +268,18 @@ export class AmbienceEngine {
     this.convolver = this.ctx.createConvolver();
     this.convolver.buffer = this._impulseResponse(2.4, 2.0);
     this.reverbReturn = this.ctx.createGain();
-    this.reverbReturn.gain.value = 0.55;
+    this.reverbReturn.gain.value = AMBIENCE_REVERB_DEFAULT.ret;
+    // Return-path damping — glided per space by _applySpaceReverb.
+    this.reverbLPF = this.ctx.createBiquadFilter();
+    this.reverbLPF.type = "lowpass";
+    this.reverbLPF.frequency.value = AMBIENCE_REVERB_DEFAULT.damp;
+    this.reverbLPF.Q.value = 0.5;
     this.reverbPanner = this.ctx.createStereoPanner();
     this.reverbPanner.pan.value = 0;
     this.reverbSend.connect(this.convolver);
     this.convolver.connect(this.reverbReturn);
-    this.reverbReturn.connect(this.reverbPanner);
+    this.reverbReturn.connect(this.reverbLPF);
+    this.reverbLPF.connect(this.reverbPanner);
     this.reverbPanner.connect(this.master);
     this._reverbLfoTimer = 0;
     this._startReverbLfo();
@@ -784,6 +844,10 @@ export class AmbienceEngine {
   _fireEvent(name: AmbienceEvent) {
     if (this.destroyed) return;
     if (this.muted || this.intensity === "off") return;
+    // A suspended context (hidden tab, blurred window) freezes currentTime;
+    // one-shots started against it stack at the same instant and all sound
+    // at once on resume — the thundering-herd screech, one-shot edition.
+    if (!this.ctx || this.ctx.state !== "running") return;
     if (this._activeEvents >= 4) return;
     const recipe = AMBIENCE_EVENT_RECIPES[name];
     if (!recipe) return;
@@ -811,36 +875,40 @@ export class AmbienceEngine {
     out.connect(panner);
     panner.connect(this.master);
     // Four voice slots — 3 triad voices + 1 optional 9th.
-    const baseHz = 110;
     const voices = [];
     for (let i = 0; i < 4; i++) {
-      const sine = ctx.createOscillator(); sine.type = "sine"; sine.frequency.value = baseHz;
-      const tri  = ctx.createOscillator(); tri.type  = "triangle"; tri.frequency.value = baseHz;
+      const sine = ctx.createOscillator(); sine.type = "sine"; sine.frequency.value = this.tonicHz;
+      const tri  = ctx.createOscillator(); tri.type  = "triangle"; tri.frequency.value = this.tonicHz;
       tri.detune.value = 4;
       const g = ctx.createGain(); g.gain.value = i < 3 ? 0.16 : 0;
       sine.connect(g); tri.connect(g); g.connect(lpf);
       sine.start(); tri.start();
       voices.push({ sine, tri, gain: g });
     }
-    return { out, lpf, panner, voices, baseHz, progressionIdx: 0, scheduled: 0 };
+    return { out, lpf, panner, voices, progressionIdx: 0, scheduled: 0, lastVoicing: null };
   }
-  _setChord(triadOffsets: number[], glideSeconds?: number) {
+  // opts.rootOffset: chord root in progression semitones — under voice
+  // leading, triadOffsets[0] is no longer guaranteed to be the root.
+  // opts.ninth: reuse a stored 9th decision (retunes) instead of re-rolling.
+  _setChord(triadOffsets: number[], glideSeconds?: number, opts?: { rootOffset?: number; ninth?: boolean }) {
     if (this.destroyed) return;
     const ctx = this.ctx;
     const t = ctx.currentTime;
     const TC = (glideSeconds || 4) / 3;
+    const rootOffset = opts?.rootOffset ?? triadOffsets[0];
     triadOffsets.forEach((semitones: number, i: number) => {
       const voice = this.chordPad.voices[i];
       if (!voice) return;
-      const freq = this.chordPad.baseHz * Math.pow(2, semitones / 12);
+      const freq = this.tonicHz * Math.pow(2, semitones / 12);
       voice.sine.frequency.setTargetAtTime(freq, t, TC);
       voice.tri.frequency.setTargetAtTime(freq, t, TC);
     });
     const v4 = this.chordPad.voices[3];
+    const ninth = opts?.ninth ?? (Math.random() < 0.20);
     if (v4) {
-      if (Math.random() < 0.20) {
-        const ninthSemitones = triadOffsets[0] + 14;
-        const freq9 = this.chordPad.baseHz * Math.pow(2, ninthSemitones / 12);
+      if (ninth) {
+        const ninthSemitones = ((rootOffset % 12) + 12) % 12 + 14;
+        const freq9 = this.tonicHz * Math.pow(2, ninthSemitones / 12);
         v4.sine.frequency.setTargetAtTime(freq9, t, TC);
         v4.tri.frequency.setTargetAtTime(freq9, t, TC);
         v4.gain.gain.setTargetAtTime(0.10, t, TC);
@@ -848,6 +916,7 @@ export class AmbienceEngine {
         v4.gain.gain.setTargetAtTime(0, t, TC);
       }
     }
+    this.chordPad.lastVoicing = { offsets: triadOffsets.slice(0, 3), rootOffset, ninth };
   }
   _scheduleNextChord(gen: number) {
     if (this.destroyed || gen !== this._gen) return;
@@ -862,8 +931,8 @@ export class AmbienceEngine {
       return;
     }
     const [root, quality] = prog[this.chordPad.progressionIdx % prog.length];
-    const third = quality === "min" ? root + 3 : root + 4;
-    this._setChord([root, third, root + 7], 4);
+    const prevOffsets = this.chordPad.lastVoicing ? this.chordPad.lastVoicing.offsets : null;
+    this._setChord(voiceLeadTriad(prevOffsets, root, quality), 4, { rootOffset: root });
     this.chordPad.progressionIdx = (this.chordPad.progressionIdx + 1) % prog.length;
     this.chordPad.scheduled = this._jitteredTimeout(() => this._scheduleNextChord(gen), 20000);
   }
@@ -927,7 +996,7 @@ export class AmbienceEngine {
     if (!instr) return;
     const scale = MOOD_SCALE[mood] || MOOD_SCALE.calm;
     const degree = this.melodyVoice.scaleDegree ?? 3;
-    const root = 220; // A3
+    const root = this.tonicHz * 2; // an octave above the pad tonic
     const freq = root * Math.pow(2, scale[degree] / 12);
     // Each instrument fires with a per-mood probability so they don't all
     // play every melody beat — sparseness sells the minimalist feel.
@@ -947,13 +1016,13 @@ export class AmbienceEngine {
       this._firePizz(freq);
     }
     if (instr.bow && allow.bow && Math.random() < 0.25) {
-      this._fireBow(110 * Math.pow(2, chordRoot / 12) * 2, 3.5 + Math.random() * 2);
+      this._fireBow(this.tonicHz * Math.pow(2, chordRoot / 12) * 2, 3.5 + Math.random() * 2);
     }
     if (instr.celeste && allow.celeste && Math.random() < 0.35) {
       this._fireCeleste(freq * 2, 0.08);
     }
     if (instr.choir_voice && allow.choir_voice && Math.random() < 0.20) {
-      this._fireChoir(110 * Math.pow(2, chordRoot / 12), 0.06);
+      this._fireChoir(this.tonicHz * Math.pow(2, chordRoot / 12), 0.06);
     }
     if (instr.marimba && allow.marimba && Math.random() < 0.40) {
       this._fireMarimba(freq, 0.10);
@@ -973,7 +1042,7 @@ export class AmbienceEngine {
     if (next >= len) next = 2 * (len - 1) - next;
     next = Math.max(0, Math.min(len - 1, next));
     this.melodyVoice.scaleDegree = next;
-    const root = 220; // A3 — melody sits an octave above the pad.
+    const root = this.tonicHz * 2; // melody sits an octave above the pad
     const freq = root * Math.pow(2, scale[next] / 12);
     const release = 1.3 + Math.random() * 1.6;
     const peak = 0.08 + Math.random() * 0.03;
@@ -1086,13 +1155,14 @@ export class AmbienceEngine {
     }
     // Randomly select primary or alt chord progression on mood change.
     this._activeProgression = Math.random() < 0.5 ? MOOD_PROGRESSION : MOOD_PROGRESSION_ALT;
-    // Snap chord progression to a fresh starting voicing.
+    // Snap chord progression to a fresh starting voicing — deliberately
+    // root position, not voice-led: a mood change re-states the tonality.
     this.chordPad.progressionIdx = 0;
     const prog = this._activeProgression[mood] || MOOD_PROGRESSION[mood];
     if (prog && prog[0]) {
       const [root, quality] = prog[0];
       const third = quality === "min" ? root + 3 : root + 4;
-      this._setChord([root, third, root + 7], 2);
+      this._setChord([root, third, root + 7], 2, { rootOffset: root });
       this.chordPad.progressionIdx = 1;
     }
     this._applyVoicing();
@@ -1108,6 +1178,15 @@ export class AmbienceEngine {
     const cutoff = Math.min(AMBIENCE_MASTER_LPF_CAP, cfg.cutoff);
     this.masterLPF.frequency.setTargetAtTime(cutoff, this.ctx.currentTime, 1.5);
     this._applyVoicing();
+  }
+  // Glide the reverb bus to the space's acoustics (null → neutral default).
+  // Param glides only — never swaps the convolver IR, never touches _gen.
+  _applySpaceReverb(name: string | null) {
+    if (this.destroyed) return;
+    const profile = (name && SPACE_REVERB[name]) || AMBIENCE_REVERB_DEFAULT;
+    const t = this.ctx.currentTime;
+    this.reverbReturn.gain.setTargetAtTime(profile.ret, t, 0.8);
+    this.reverbLPF.frequency.setTargetAtTime(profile.damp, t, 0.8);
   }
   // ── Comfort / master gain ─────────────────────────────────────────
   _updateComfort() {
@@ -1187,6 +1266,7 @@ export class AmbienceEngine {
       // Total silence: fade all lanes.
       this._setSceneLane(this.scene.space, "space", null, AMBIENCE_SPACE_TRIM);
       this._setSceneLane(this.scene.population, "population", null, AMBIENCE_POPULATION_TRIM);
+      this._applySpaceReverb(null);
       this.current.space = null;
       this.current.population = null;
       this.current.mood = null;
@@ -1203,6 +1283,7 @@ export class AmbienceEngine {
       if (this.current.space !== next) {
         this.current.space = next;
         this._setSceneLane(this.scene.space, "space", next, AMBIENCE_SPACE_TRIM);
+        this._applySpaceReverb(next);
       }
     }
     if ("population" in sanitized) {
@@ -1241,6 +1322,24 @@ export class AmbienceEngine {
     if (this.musicLevel === next) return;
     this.musicLevel = next;
     if (this.current.mood) this._applyVoicing();
+  }
+  // Story-level key, wrapped to −5..+6 semitones around A. Applied once per
+  // adventure from deriveTonalCenter — melody and instruments pick it up on
+  // their next note; the sounding pad re-glides its held voicing without
+  // bumping _gen or rescheduling anything (same contract as _applyPalette).
+  setTonalCenter(semitones: number) {
+    if (this.destroyed) return;
+    if (!Number.isFinite(semitones)) return;
+    let s = Math.round(semitones) % 12;
+    if (s > 6) s -= 12;
+    if (s < -5) s += 12;
+    if (s === this.tonicSemitones) return;
+    this.tonicSemitones = s;
+    this.tonicHz = AMBIENCE_TONIC_BASE_HZ * Math.pow(2, s / 12);
+    const lv = this.chordPad.lastVoicing;
+    if (lv && this.current.mood) {
+      this._setChord(lv.offsets, 2, { rootOffset: lv.rootOffset, ninth: lv.ninth });
+    }
   }
   _resumeWithRamp() {
     if (this.destroyed || !this.ctx || this.ctx.state !== "suspended") return;
@@ -1302,7 +1401,9 @@ export class AmbienceEngine {
     if (this.destroyed || gen !== this._gen) return;
     const fire = () => {
       if (this.destroyed || gen !== this._gen) return;
-      if (this.intensity !== "off" && !this.muted) {
+      // ctx.state guard: micro spawns must skip (not queue) while suspended,
+      // or throttled background ticks pile voices onto the frozen clock.
+      if (this.intensity !== "off" && !this.muted && this.ctx && this.ctx.state === "running") {
         const mood = this.current.mood || "calm";
         const pool = AMBIENCE_MICRO_EVENTS[mood] || AMBIENCE_MICRO_EVENTS.calm;
         if (pool && pool.length) {

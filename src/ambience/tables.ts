@@ -49,6 +49,8 @@ export const AMBIENCE_ATTACK_FLOOR       = 0.02;
 export const AMBIENCE_RELEASE_FLOOR      = 0.12;
 export const AMBIENCE_LANE_GAIN_CEILING  = 0.45;
 export const AMBIENCE_PALETTE_DEFAULT    = "piano";
+// A2. Every pitched lane transposes from here by the story's tonal center.
+export const AMBIENCE_TONIC_BASE_HZ      = 110;
 
 // Palette config — TIMBRE only, never adds lanes the mood didn't ask for.
 // cutoff ≤ CAP; melodyOsc for the melody voice oscillator type;
@@ -77,6 +79,25 @@ export const AMBIENCE_POPULATION_TRIM = {
   solitary: 0.30, sparse_voices: 0.40, crowd:    0.50, machinery: 0.55,
   nature:   0.45, ceremony:      0.45, creature: 0.50, wild:      0.60,
   spirits: 0.45, rain: 0.50
+};
+
+// Per-space acoustics for the shared reverb bus. ret = wet-return gain,
+// damp = lowpass cutoff (Hz) on the return, so the same music reads dry in
+// a vehicle and cathedral-wet in a cavern. Param glides only — the engine
+// never swaps the convolver IR, which would click mid-scene.
+export const AMBIENCE_REVERB_DEFAULT = { ret: 0.55, damp: 3200 };
+export const AMBIENCE_SPACE_REVERB = {
+  intimate:   { ret: 0.30, damp: 1800 },
+  chamber:    { ret: 0.45, damp: 2600 },
+  hall:       { ret: 0.75, damp: 3200 },
+  cavern:     { ret: 0.90, damp: 2400 },
+  street:     { ret: 0.40, damp: 2800 },
+  field:      { ret: 0.28, damp: 3000 },
+  forest:     { ret: 0.35, damp: 2600 },
+  vehicle:    { ret: 0.25, damp: 1600 },
+  void:       { ret: 0.85, damp: 2200 },
+  underwater: { ret: 0.80, damp: 1200 },
+  tavern:     { ret: 0.50, damp: 2400 }
 };
 
 // Mood → musical voicing tables.
@@ -230,6 +251,7 @@ export const AMBIENCE_MOOD_PROGRESSION_ALT = {
 export const AMBIENCE_MICRO_EVENTS: Record<string, string[]> = {
   calm:       ["breath_held", "paper_rustle", "water_drip"],
   tender:     ["breath_held", "paper_rustle", "water_drip"],
+  melancholy: ["sigh_close", "bell_distant", "water_drip"],
   tense:      ["metal_clang", "footsteps_recede", "lock_click"],
   urgent:     ["metal_clang", "footsteps_recede", "lock_click"],
   ominous:    ["whisper_close", "door_creak", "owl_hoot"],
@@ -273,6 +295,27 @@ export const deriveAmbienceFromSeed = (seed: string): AmbienceInput => {
     if (keywords.some((k) => s.includes(k))) return { ...config };
   }
   return { space: "intimate", population: "solitary", mood: "calm", palette: "piano" };
+};
+
+// Story-level tonal center, in semitones around A (range −5..+6, E..D♯).
+// Fixed realms get curated keys; Wild seeds hash (FNV-1a) to one, so the
+// same premise always returns in the same key. Deliberately not a GM-schema
+// field: the key is part of the story's identity, not the per-turn mood, and
+// keeping it out of the tool schema means the model can't thrash it.
+export const AMBIENCE_REALM_TONAL_CENTER: Record<string, number> = {
+  neon: -2, dream: 3, echo: -4, omen: 1, wild: 5
+};
+export const deriveTonalCenter = (realm: string, seed?: string): number => {
+  if (realm === "wild" && seed) {
+    let h = 2166136261;
+    for (let i = 0; i < seed.length; i++) {
+      h ^= seed.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    const pc = ((h % 12) + 12) % 12;
+    return pc > 6 ? pc - 12 : pc;
+  }
+  return AMBIENCE_REALM_TONAL_CENTER[realm] ?? 0;
 };
 
 export const sanitizeAmbience = (raw: unknown): AmbienceInput | null | undefined => {
