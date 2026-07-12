@@ -3,7 +3,7 @@ import React, { createContext, useContext, useReducer, useState, useRef, useEffe
 import type { ChatMessage, Entry, GameState, MetaMessage, Premise, SaveRecord } from "../types";
 import type { SetStateAction, Dispatch } from "react";
 import { createLLMClient } from "../llm/client";
-import { defaultAmbienceForRealm, deriveAmbienceFromSeed } from "../ambience/tables";
+import { defaultAmbienceForRealm, deriveAmbienceFromSeed, deriveTonalCenter } from "../ambience/tables";
 import { useCodex } from "../hooks/useCodex";
 import { useSaves } from "../hooks/useSaves";
 import { useAutosave } from "../hooks/useAutosave";
@@ -273,6 +273,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       (async () => {
         const built = await ensureAmbienceEngine();
         if (built) {
+          built.setTonalCenter(deriveTonalCenter(premise.realm, premise.seed));
           const bed = (premise.realm === "wild" && premise.seed)
             ? deriveAmbienceFromSeed(premise.seed)
             : defaultAmbienceForRealm(premise.realm);

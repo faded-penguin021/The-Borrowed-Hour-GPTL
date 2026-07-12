@@ -8,7 +8,7 @@ import { buildGMLogicTool, buildGMTool, buildSystem, buildNarratorSystem, buildM
 import { parseGMResponse, parseGMLogicResponse, isStateEmpty } from "../llm/parse";
 import { formatStateForPrompt, stripHistoricalUser, stripHistoricalAssistant, serializeStatePublic } from "../llm/prompt";
 import { formatError, BorrowedError } from "../llm/errors";
-import { defaultAmbienceForRealm, deriveAmbienceFromSeed } from "../ambience/tables";
+import { defaultAmbienceForRealm, deriveAmbienceFromSeed, deriveTonalCenter } from "../ambience/tables";
 import { getImage } from "../storage/imageStore";
 import { migrateSave } from "../saves/migrate";
 import { dlog } from "../debug/debugLog";
@@ -19,6 +19,7 @@ export type AbortRef = { controller: AbortController; rollback?: () => void; sta
 
 interface AmbienceHandle {
   applyAmbience: (input: AmbienceInput | null | undefined) => void;
+  setTonalCenter: (semitones: number) => void;
 }
 
 export interface GameLoopDeps {
@@ -206,12 +207,14 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
         deps.progress.recordEnding(chosen.id, parsed.ending);
       }
       if (deps.ambience.ambienceRef.current) {
+        const eng = deps.ambience.ambienceRef.current;
+        eng.setTonalCenter(deriveTonalCenter(chosen.realm, chosen.seed));
         const bed = (chosen.realm === "wild" && chosen.seed)
           ? deriveAmbienceFromSeed(chosen.seed)
           : defaultAmbienceForRealm(chosen.realm);
-        deps.ambience.ambienceRef.current.applyAmbience(bed);
+        eng.applyAmbience(bed);
         if (parsed.ambience !== undefined)
-          deps.ambience.ambienceRef.current.applyAmbience(parsed.ambience);
+          eng.applyAmbience(parsed.ambience);
       }
       if (codexOn) {
         bootstrapPromise.then(() => {
@@ -650,10 +653,12 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     deps.saves.setSaveBanner({ kind: "ok", text: "The hour resumes." });
     await deps.ambience.ensureAmbienceEngine();
     if (deps.ambience.ambienceRef.current) {
+      const eng = deps.ambience.ambienceRef.current;
+      eng.setTonalCenter(deriveTonalCenter(found.realm, found.seed));
       const bed = (found.realm === "wild" && found.seed)
         ? deriveAmbienceFromSeed(found.seed)
         : defaultAmbienceForRealm(found.realm);
-      deps.ambience.ambienceRef.current.applyAmbience(bed);
+      eng.applyAmbience(bed);
     }
   }
 
