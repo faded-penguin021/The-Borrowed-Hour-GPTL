@@ -133,18 +133,15 @@ page. Your proxy attaches the real credentials server-side and forwards the
 response — including SSE streams — unchanged.
 
 With a proxy configured you don't need to save provider keys in the browser at
-all; key rows can stay empty for any provider the proxy covers.
+all; key rows can stay empty for any provider the proxy covers, and the per-key
+TEST button pings through the proxy too, so its verdict reflects the same route
+in-game calls take.
 
-Two caveats:
-
-- **CSP** — the deployed page's `connect-src` allowlist covers the providers
-  plus `localhost`/`127.0.0.1`. A proxy on `localhost` works out of the box; a
-  remote proxy origin requires self-hosting the app and adding that origin to
-  both the CSP `<meta>` tag in `index.html` and the manifest in
-  `src/security/origins.ts` (a unit test keeps the two in sync).
-- **TEST buttons** — the per-key TEST button currently pings the provider
-  directly rather than through the proxy, so it can report failure while
-  in-game calls work (tracked in `docs/BACKLOG.md`, unit F2).
+One caveat — **CSP**: the deployed page's `connect-src` allowlist covers the
+providers plus `localhost`/`127.0.0.1`. A proxy on `localhost` works out of the
+box; a remote proxy origin requires self-hosting the app and adding that origin
+to both the CSP `<meta>` tag in `index.html` and the manifest in
+`src/security/origins.ts` (a unit test keeps the two in sync).
 
 ## Local LLM setup
 
