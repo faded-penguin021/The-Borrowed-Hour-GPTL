@@ -84,6 +84,11 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
 
   const limiter = createRateLimiter();
 
+  // Models that 400-rejected `temperature` this session (current Anthropic and
+  // OpenAI flagships do). Remembered per provider:model so later calls omit the
+  // parameter up front instead of re-paying a failed round-trip every turn.
+  const tempRejected = new Set<string>();
+
   const callAPI = async (sys: string, msgs: ChatMessage[], useTool = false, engine: EngineConfig = getDefaultEngine(), maxTokens = 3000, temperature = 0.6, signal: AbortSignal | null = null, tool: ToolDefinition = GM_TOOL, cacheBreakpoint?: number, cacheKey?: string): Promise<string> => {
     await limiter.acquire(signal ?? undefined);
     const providerId = engine?.provider;
@@ -93,7 +98,8 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
     if (!provider || !meta || !model || !String(model).trim()) {
       throw new BorrowedError("The hour cannot open yet.", "No story engine is selected. Open Settings → Story engines and choose a provider and a model.");
     }
-    let temp: number | undefined = temperature;
+    const proxied = !!getProxyUrl?.()?.trim();
+    let temp: number | undefined = tempRejected.has(`${providerId}:${model}`) ? undefined : temperature;
     const RETRYABLE = provider.retryable;
     const MAX_RETRIES = 2;
     let res: Response | null = null;
@@ -109,7 +115,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
       let request;
       let apiKey: string | null = null;
       try {
-        apiKey = await getProviderKey(providerId as ProviderId);
+        apiKey = await getProviderKey(providerId as ProviderId, { allowMissing: proxied });
         request = provider.buildRequest({
           sys, msgs, useTool, model, maxTokens, temperature: temp, tool, apiKey, cacheBreakpoint, cacheKey
         });
@@ -134,8 +140,12 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
         } catch (e) { dlog("llm:body-read-error", e); }
         if (res.status === 400 && temp !== undefined && /temperature/i.test(lastBodySnippet || "")) {
           temp = undefined;
+          tempRejected.add(`${providerId}:${model}`);
           lastErr = new BorrowedError("The hour falters.", `${meta.name} rejected temperature for this model; retrying with the model default.`);
           res = null;
+          // A deterministic parameter fix, not a transient fault — retry
+          // immediately without spending one of the transient-error attempts.
+          attempt--;
           continue;
         }
         const hint = httpStatusHint(res.status, meta.name);
@@ -199,7 +209,8 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
     // "Cannot read properties of undefined (reading 'buildRequest')".
     const buildStreamRequest = provider.buildStreamRequest.bind(provider);
     const parseStreamEvent = provider.parseStreamEvent.bind(provider);
-    let temp: number | undefined = temperature;
+    const proxied = !!getProxyUrl?.()?.trim();
+    let temp: number | undefined = tempRejected.has(`${providerId}:${model}`) ? undefined : temperature;
     const RETRYABLE = provider.retryable;
     const MAX_RETRIES = 2;
     let lastErr: BorrowedError | null = null;
@@ -212,7 +223,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
       let request;
       let apiKey: string | null = null;
       try {
-        apiKey = await getProviderKey(providerId as ProviderId);
+        apiKey = await getProviderKey(providerId as ProviderId, { allowMissing: proxied });
         request = buildStreamRequest({ sys, msgs, model, maxTokens, temperature: temp, apiKey });
       } catch (e) {
         if (e instanceof BorrowedError) throw e;
@@ -246,7 +257,10 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
         try { bodySnippet = scrubSecrets((await res.text()).slice(0, 500), apiKey); } catch {}
         if (res.status === 400 && temp !== undefined && /temperature/i.test(bodySnippet || "")) {
           temp = undefined;
+          tempRejected.add(`${providerId}:${model}`);
           lastErr = new BorrowedError("The hour falters.", `${meta.name} rejected temperature for this model; retrying with the model default.`);
+          // Parameter fix, not a transient fault — don't spend an attempt.
+          attempt--;
           continue;
         }
         const hint = httpStatusHint(res.status, meta.name);

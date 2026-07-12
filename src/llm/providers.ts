@@ -207,7 +207,7 @@ export const FREE_MODELS_BY_PROVIDER = {
   local:      { opener: "llama3.2",                 gm: "llama3.1",                   narrator: "llama3.2" }
 };
 export const getLocalUrl = (): string => localStorage.getItem(PROVIDER_META.local.urlStorage as string)?.trim() || LOCAL_DEFAULT_URL;
-export const getProviderKey = async (id: ProviderId): Promise<string> => {
+export const getProviderKey = async (id: ProviderId, opts?: { allowMissing?: boolean }): Promise<string> => {
   const m = PROVIDER_META[id];
   if (!m)
     throw new BorrowedError("The hour cannot open yet.", `Unknown API provider "${id}".`);
@@ -232,6 +232,10 @@ export const getProviderKey = async (id: ProviderId): Promise<string> => {
     return plain;
   }
   if (m.keyOptional)
+    return "";
+  // BYOB proxy calls tolerate an absent key — the proxy attaches credentials
+  // server-side. A stored key that fails to unlock still throws above.
+  if (opts?.allowMissing)
     return "";
   throw new BorrowedError("The hour cannot open yet.", `No ${m.name} API key is saved. Open Settings → API keys and paste your key there.`);
 };
@@ -259,10 +263,13 @@ export const checkProviderHealth = async (id: ProviderId, model?: string): Promi
   if (!provider) return { ok: false, detail: `No adapter registered for ${m.name}.` };
   const testModel = model || m.models[0]?.id || "";
   try {
+    // maxTokens 16 is the OpenAI Responses floor for max_output_tokens;
+    // temperature is omitted because current Anthropic/OpenAI flagships reject
+    // the parameter with a 400 — either would fail the ping with a valid key.
     const request = provider.buildRequest({
       sys: "Reply with exactly: ok",
       msgs: [{ role: "user", content: "Ping." }],
-      useTool: false, model: testModel, maxTokens: 4, temperature: 0, tool: null, apiKey
+      useTool: false, model: testModel, maxTokens: 16, tool: null, apiKey
     });
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
@@ -486,7 +493,12 @@ export const PROVIDERS: Record<string, ProviderAdapter> = {
           "Content-Type": "application/json",
           "x-api-key": apiKey as string,
           "anthropic-version": "2023-06-01",
-          "anthropic-beta": "extended-cache-ttl-2025-04-11"
+          "anthropic-beta": "extended-cache-ttl-2025-04-11",
+          // CORS opt-in: without it Anthropic never sets
+          // Access-Control-Allow-Origin and every direct browser call dies in
+          // preflight. "dangerous" is their name for the BYOK pattern this app
+          // is — the key holder is the user, in their own browser.
+          "anthropic-dangerous-direct-browser-access": "true"
         },
         body
       };
