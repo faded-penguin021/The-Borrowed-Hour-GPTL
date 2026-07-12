@@ -1,5 +1,5 @@
 import type { ChatMessage, EngineConfig, ProviderId, ThrownError, ToolDefinition } from "../types";
-import { PROVIDERS, PROVIDER_META, getProviderKey } from "./providers";
+import { PROVIDERS, PROVIDER_META, getProviderKey, applyProxyToRequest } from "./providers";
 import { GM_TOOL } from "./tools";
 import { scrubSecrets, extractApiErrorMessage, BorrowedError, httpStatusHint } from "./errors";
 import { createRateLimiter } from "./rateLimiter";
@@ -61,26 +61,10 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
   onUsage: (input: number, output: number) => void;
   getProxyUrl?: () => (string | undefined);
 }) {
-  /**
-   * BYOB proxy interceptor. If the user configured a proxy URL, rewrite the
-   * request to route through their backend (`<proxy>?target=<encoded origin>`)
-   * and strip every browser-held key header so the secret never leaves the
-   * device — the proxy is expected to attach its own credentials server-side.
-   * Mutates and returns the same request object. Leaves the body untouched, so
-   * stream requests (`stream: true`) are forwarded verbatim and `streamAPI`'s
-   * SSE parsing keeps reading whatever the proxy pipes back.
-   */
-  const applyProxy = <T extends { url: string; headers: Record<string, string> }>(request: T): T => {
-    const proxyUrl = getProxyUrl?.()?.trim();
-    if (!proxyUrl) return request;
-    request.url = `${proxyUrl}?target=${encodeURIComponent(request.url)}`;
-    if (request.headers) {
-      delete request.headers["Authorization"];
-      delete request.headers["x-api-key"];
-      delete request.headers["x-goog-api-key"];
-    }
-    return request;
-  };
+  // BYOB proxy interceptor — the rewrite itself lives in applyProxyToRequest
+  // (providers.ts) so the settings health check travels the identical route.
+  const applyProxy = <T extends { url: string; headers: Record<string, string> }>(request: T): T =>
+    applyProxyToRequest(request, getProxyUrl?.());
 
   const limiter = createRateLimiter();
 

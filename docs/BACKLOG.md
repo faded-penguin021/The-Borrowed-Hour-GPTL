@@ -150,7 +150,7 @@ a fresh branch cut from `main`.
 
 ### F1 — Provider request-shaping fixes — **done** (2026-07-12: Anthropic CORS opt-in, health-check params, temperature-rejection memo, keyless BYOB, Google TTS key header; see audit log F1)
 
-### F2 — Route checkProviderHealth through the BYOB proxy — **todo**
+### F2 — Route checkProviderHealth through the BYOB proxy — **done** (2026-07-12: shared applyProxyToRequest helper; TEST pings keyless through the proxy; proxied test case added)
 - `checkProviderHealth` (src/llm/providers.ts) builds and fetches directly, so
   with a proxy configured the Settings TEST button hits the provider from the
   browser (CORS + stripped-key failures) even though in-game calls work.

@@ -246,19 +246,40 @@ export const resetProviderKey = (id: ProviderId) => {
 };
 
 /**
+ * BYOB proxy rewrite shared by the live client and the health check: route the
+ * request through `<proxy>?target=<encoded provider URL>` and strip the
+ * browser-held key headers — the proxy attaches its own credentials
+ * server-side. Mutates and returns the same request object; the body is left
+ * untouched so stream requests are forwarded verbatim.
+ */
+export const applyProxyToRequest = <T extends { url: string; headers: Record<string, string> }>(request: T, proxyUrl?: string | null): T => {
+  const trimmed = proxyUrl?.trim();
+  if (!trimmed) return request;
+  request.url = `${trimmed}?target=${encodeURIComponent(request.url)}`;
+  if (request.headers) {
+    delete request.headers["Authorization"];
+    delete request.headers["x-api-key"];
+    delete request.headers["x-goog-api-key"];
+  }
+  return request;
+};
+
+/**
  * Lightweight connectivity check: resolves key, then fires a tiny
  * request to the provider's endpoint. Returns { ok, detail }.
+ * With a proxy URL the ping travels the same BYOB route as real calls.
  */
-export const checkProviderHealth = async (id: ProviderId, model?: string): Promise<{ ok: boolean; detail: string }> => {
+export const checkProviderHealth = async (id: ProviderId, model?: string, proxyUrl?: string): Promise<{ ok: boolean; detail: string }> => {
   const m = PROVIDER_META[id];
   if (!m) return { ok: false, detail: `Unknown provider "${id}".` };
+  const proxied = !!proxyUrl?.trim();
   let apiKey: string;
   try {
-    apiKey = await getProviderKey(id);
+    apiKey = await getProviderKey(id, { allowMissing: proxied });
   } catch (e) {
     return { ok: false, detail: e instanceof BorrowedError ? (e.detail || e.message) : String(e) };
   }
-  if (!apiKey && !m.keyOptional) return { ok: false, detail: `No API key configured for ${m.name}.` };
+  if (!apiKey && !m.keyOptional && !proxied) return { ok: false, detail: `No API key configured for ${m.name}.` };
   const provider = PROVIDERS[id];
   if (!provider) return { ok: false, detail: `No adapter registered for ${m.name}.` };
   const testModel = model || m.models[0]?.id || "";
@@ -271,6 +292,7 @@ export const checkProviderHealth = async (id: ProviderId, model?: string): Promi
       msgs: [{ role: "user", content: "Ping." }],
       useTool: false, model: testModel, maxTokens: 16, tool: null, apiKey
     });
+    applyProxyToRequest(request, proxyUrl);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
     const res = await fetch(request.url, {

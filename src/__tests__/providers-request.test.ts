@@ -47,6 +47,18 @@ describe("checkProviderHealth ping", () => {
   });
 });
 
+describe("checkProviderHealth via BYOB proxy", () => {
+  it("routes the ping through the proxy, keyless, with key headers stripped", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, text: async () => "" });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await checkProviderHealth("anthropic", undefined, "https://proxy.example/llm");
+    expect(result.ok).toBe(true);
+    const [url, init] = fetchMock.mock.calls[0] as [string, { headers: Record<string, string> }];
+    expect(url.startsWith("https://proxy.example/llm?target=")).toBe(true);
+    expect(init.headers["x-api-key"]).toBeUndefined();
+  });
+});
+
 describe("getProviderKey allowMissing", () => {
   it("returns empty for a missing key only when the caller allows it", async () => {
     await expect(getProviderKey("mistral", { allowMissing: true })).resolves.toBe("");
