@@ -123,6 +123,29 @@ For embedded environments that inject secrets, provide the key before the app sc
 | Cerebras | `window.CEREBRAS_API_KEY` or `<meta name="cerebras-api-key" content="...">` |
 | Local LLM | `window.LOCAL_LLM_API_KEY` or `<meta name="local-llm-api-key" content="...">` (optional) |
 
+## Bring Your Own Backend (proxy)
+
+**⚙ Settings → System → proxy URL** routes every LLM request through your own
+backend instead of calling the provider directly: the app rewrites the request
+to `<proxy>?target=<encoded provider URL>` and strips the browser-held key
+headers (`Authorization`, `x-api-key`, `x-goog-api-key`) before it leaves the
+page. Your proxy attaches the real credentials server-side and forwards the
+response — including SSE streams — unchanged.
+
+With a proxy configured you don't need to save provider keys in the browser at
+all; key rows can stay empty for any provider the proxy covers.
+
+Two caveats:
+
+- **CSP** — the deployed page's `connect-src` allowlist covers the providers
+  plus `localhost`/`127.0.0.1`. A proxy on `localhost` works out of the box; a
+  remote proxy origin requires self-hosting the app and adding that origin to
+  both the CSP `<meta>` tag in `index.html` and the manifest in
+  `src/security/origins.ts` (a unit test keeps the two in sync).
+- **TEST buttons** — the per-key TEST button currently pings the provider
+  directly rather than through the proxy, so it can report failure while
+  in-game calls work (tracked in `docs/BACKLOG.md`, unit F2).
+
 ## Local LLM setup
 
 The **Local LLM** provider connects to any server that exposes an OpenAI-compatible `/chat/completions` endpoint — [Ollama](https://ollama.com), [LM Studio](https://lmstudio.ai), [llama.cpp](https://github.com/ggerganov/llama.cpp), Jan, etc.
