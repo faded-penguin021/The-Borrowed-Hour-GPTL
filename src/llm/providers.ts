@@ -207,7 +207,7 @@ export const FREE_MODELS_BY_PROVIDER = {
   local:      { opener: "llama3.2",                 gm: "llama3.1",                   narrator: "llama3.2" }
 };
 export const getLocalUrl = (): string => localStorage.getItem(PROVIDER_META.local.urlStorage as string)?.trim() || LOCAL_DEFAULT_URL;
-export const getProviderKey = async (id: ProviderId): Promise<string> => {
+export const getProviderKey = async (id: ProviderId, opts?: { allowMissing?: boolean }): Promise<string> => {
   const m = PROVIDER_META[id];
   if (!m)
     throw new BorrowedError("The hour cannot open yet.", `Unknown API provider "${id}".`);
@@ -233,6 +233,10 @@ export const getProviderKey = async (id: ProviderId): Promise<string> => {
   }
   if (m.keyOptional)
     return "";
+  // BYOB proxy calls tolerate an absent key — the proxy attaches credentials
+  // server-side. A stored key that fails to unlock still throws above.
+  if (opts?.allowMissing)
+    return "";
   throw new BorrowedError("The hour cannot open yet.", `No ${m.name} API key is saved. Open Settings → API keys and paste your key there.`);
 };
 export const resetProviderKey = (id: ProviderId) => {
@@ -242,28 +246,53 @@ export const resetProviderKey = (id: ProviderId) => {
 };
 
 /**
+ * BYOB proxy rewrite shared by the live client and the health check: route the
+ * request through `<proxy>?target=<encoded provider URL>` and strip the
+ * browser-held key headers — the proxy attaches its own credentials
+ * server-side. Mutates and returns the same request object; the body is left
+ * untouched so stream requests are forwarded verbatim.
+ */
+export const applyProxyToRequest = <T extends { url: string; headers: Record<string, string> }>(request: T, proxyUrl?: string | null): T => {
+  const trimmed = proxyUrl?.trim();
+  if (!trimmed) return request;
+  request.url = `${trimmed}?target=${encodeURIComponent(request.url)}`;
+  if (request.headers) {
+    delete request.headers["Authorization"];
+    delete request.headers["x-api-key"];
+    delete request.headers["x-goog-api-key"];
+  }
+  return request;
+};
+
+/**
  * Lightweight connectivity check: resolves key, then fires a tiny
  * request to the provider's endpoint. Returns { ok, detail }.
+ * With a proxy URL the ping travels the same BYOB route as real calls.
  */
-export const checkProviderHealth = async (id: ProviderId, model?: string): Promise<{ ok: boolean; detail: string }> => {
+export const checkProviderHealth = async (id: ProviderId, model?: string, proxyUrl?: string): Promise<{ ok: boolean; detail: string }> => {
   const m = PROVIDER_META[id];
   if (!m) return { ok: false, detail: `Unknown provider "${id}".` };
+  const proxied = !!proxyUrl?.trim();
   let apiKey: string;
   try {
-    apiKey = await getProviderKey(id);
+    apiKey = await getProviderKey(id, { allowMissing: proxied });
   } catch (e) {
     return { ok: false, detail: e instanceof BorrowedError ? (e.detail || e.message) : String(e) };
   }
-  if (!apiKey && !m.keyOptional) return { ok: false, detail: `No API key configured for ${m.name}.` };
+  if (!apiKey && !m.keyOptional && !proxied) return { ok: false, detail: `No API key configured for ${m.name}.` };
   const provider = PROVIDERS[id];
   if (!provider) return { ok: false, detail: `No adapter registered for ${m.name}.` };
   const testModel = model || m.models[0]?.id || "";
   try {
+    // maxTokens 16 is the OpenAI Responses floor for max_output_tokens;
+    // temperature is omitted because current Anthropic/OpenAI flagships reject
+    // the parameter with a 400 — either would fail the ping with a valid key.
     const request = provider.buildRequest({
       sys: "Reply with exactly: ok",
       msgs: [{ role: "user", content: "Ping." }],
-      useTool: false, model: testModel, maxTokens: 4, temperature: 0, tool: null, apiKey
+      useTool: false, model: testModel, maxTokens: 16, tool: null, apiKey
     });
+    applyProxyToRequest(request, proxyUrl);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
     const res = await fetch(request.url, {
@@ -486,7 +515,12 @@ export const PROVIDERS: Record<string, ProviderAdapter> = {
           "Content-Type": "application/json",
           "x-api-key": apiKey as string,
           "anthropic-version": "2023-06-01",
-          "anthropic-beta": "extended-cache-ttl-2025-04-11"
+          "anthropic-beta": "extended-cache-ttl-2025-04-11",
+          // CORS opt-in: without it Anthropic never sets
+          // Access-Control-Allow-Origin and every direct browser call dies in
+          // preflight. "dangerous" is their name for the BYOK pattern this app
+          // is — the key holder is the user, in their own browser.
+          "anthropic-dangerous-direct-browser-access": "true"
         },
         body
       };

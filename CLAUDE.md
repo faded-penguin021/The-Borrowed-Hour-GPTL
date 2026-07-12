@@ -13,8 +13,8 @@ LLM / image / TTS providers. Deployed to GitHub Pages from `main`.
 
 ## Stack
 
-- Vite 8 (rolldown) + React 18 + TypeScript (strict)
-- Tailwind 3, PostCSS, Autoprefixer
+- Vite 8 (rolldown) + React 19 + TypeScript (strict)
+- Tailwind 4 (`@tailwindcss/postcss`)
 - Vitest (unit) and Playwright (e2e, `e2e/`)
 - ESLint 9 flat config
 - Node 24 in CI; npm with a committed lockfile

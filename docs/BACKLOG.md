@@ -142,3 +142,19 @@ verdict is clean) → append an entry to `docs/audit-2026-07.md` → ladder → 
   separate group for GitHub Actions. Its PRs are explicit dep-change events per
   CLAUDE.md rule 2; B2's guard runs on them.
 - Commit: `ci: add grouped weekly dependabot config`
+
+## Follow-ups (post-audit)
+
+Same protocol as above, except the audit branch has merged — work each unit on
+a fresh branch cut from `main`.
+
+### F1 — Provider request-shaping fixes — **done** (2026-07-12: Anthropic CORS opt-in, health-check params, temperature-rejection memo, keyless BYOB, Google TTS key header; see audit log F1)
+
+### F2 — Route checkProviderHealth through the BYOB proxy — **done** (2026-07-12: shared applyProxyToRequest helper; TEST pings keyless through the proxy; proxied test case added)
+- `checkProviderHealth` (src/llm/providers.ts) builds and fetches directly, so
+  with a proxy configured the Settings TEST button hits the provider from the
+  browser (CORS + stripped-key failures) even though in-game calls work.
+  Mirror client.ts: apply the proxy rewrite + key-header strip, and resolve
+  the key with `allowMissing` when a proxy is set. Extend
+  `src/__tests__/providers-request.test.ts` with a proxied TEST case.
+- Commit: `fix(llm): health-check honors the BYOB proxy`

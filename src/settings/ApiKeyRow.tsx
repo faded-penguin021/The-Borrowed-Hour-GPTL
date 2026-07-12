@@ -7,9 +7,10 @@ import { BTN_SETTINGS, FIELD_SETTINGS } from "../components/ui/styleClasses";
 
 interface ApiKeyRowProps {
   providerId: ProviderId;
+  proxyUrl?: string;
 }
 
-export function ApiKeyRow({ providerId }: ApiKeyRowProps) {
+export function ApiKeyRow({ providerId, proxyUrl }: ApiKeyRowProps) {
   const meta = PROVIDER_META[providerId];
   const { requestPassphrase, getSessionKey, setSessionKeyFromPassphrase, isUnlocked } = usePassphrase();
   const [stored, setStored] = React.useState(() => !!localStorage.getItem(meta.keyStorage));
@@ -43,7 +44,7 @@ export function ApiKeyRow({ providerId }: ApiKeyRowProps) {
     setTesting(true);
     setTestResult(null);
     try {
-      const result = await checkProviderHealth(providerId);
+      const result = await checkProviderHealth(providerId, undefined, proxyUrl);
       setTestResult(result);
     } catch {
       setTestResult({ ok: false, detail: "Health check threw unexpectedly." });

@@ -279,7 +279,7 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
             className="space-y-3"
           >
             <EngineSection settings={settings} onChange={onChange} />
-            <ApiKeysSection />
+            <ApiKeysSection proxyUrl={settings.proxyUrl} />
             <KeyLockRow />
           </div>
 
