@@ -19,9 +19,12 @@ export class GoogleTTSAdapter implements TTSAdapter {
       voice: { languageCode, name: this.voiceId },
       audioConfig: { audioEncoding: "MP3", speakingRate: this.rate }
     };
-    const resp = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(this.key)}`, {
+    // Key travels in a header (same scheme as the Gemini adapter), never the
+    // URL — request URLs surface in proxy and extension logs where headers
+    // don't, and nothing else in this app puts key material in a URL.
+    const resp = await fetch("https://texttospeech.googleapis.com/v1/text:synthesize", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Goog-Api-Key": this.key },
       body: JSON.stringify(body),
       signal
     });
