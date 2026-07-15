@@ -60,7 +60,7 @@ export const DEFAULT_CODEX_SETTINGS: CodexSettings = {
   mode: "off",
   provider: "pollinations",
   providerConfig: {
-    pollinations: { model: "flux" },
+    pollinations: { model: "sana" },
     replicate: { model: "black-forest-labs/flux-schnell" },
     openai: { model: "gpt-image-2" },
     local: {}
