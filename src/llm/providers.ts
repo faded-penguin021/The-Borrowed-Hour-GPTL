@@ -45,7 +45,7 @@ const normalizeClaudeMessages = (msgs: ChatMessage[]): Array<{ role: string; con
   content: normalizeContent(m.content)
 }));
 
-// checked: 2026-07-08
+// checked: 2026-07-15
 export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
   gemini: {
     name: "Gemini",
@@ -63,9 +63,9 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     windowKey: "OPENAI_API_KEY",
     metaName: "openai-api-key",
     models: [
-      { id: "gpt-5.5", tier: "paid" },
-      { id: "gpt-5.4-mini", tier: "paid" },
-      { id: "gpt-5.4-nano", tier: "paid" }
+      { id: "gpt-5.6-sol", tier: "paid" },
+      { id: "gpt-5.6-terra", tier: "paid" },
+      { id: "gpt-5.6-luna", tier: "paid" }
     ]
   },
   anthropic: {
@@ -194,7 +194,7 @@ export const PROVIDER_ORDER: ProviderId[] = ["gemini", "openai", "anthropic", "d
 export const FREE_MODELS_BY_PROVIDER = {
   free:       { provider: "mistral",    opener: "mistral-large-latest",                gm: "mistral-medium-latest",             narrator: "mistral-medium-latest" },
   gemini:     { opener: "gemini-3.5-flash",         gm: "gemini-3.5-flash",            narrator: "gemini-3.5-flash" },
-  openai:     { opener: "gpt-5.4-mini",             gm: "gpt-5.4-mini",               narrator: "gpt-5.4-nano" },
+  openai:     { opener: "gpt-5.6-terra",            gm: "gpt-5.6-terra",              narrator: "gpt-5.6-luna" },
   anthropic:  { opener: "claude-sonnet-5",          gm: "claude-haiku-4-5-20251001",  narrator: "claude-haiku-4-5-20251001" },
   deepseek:   { opener: "deepseek-v4-flash",        gm: "deepseek-v4-flash",          narrator: "deepseek-v4-flash" },
   qwen:       { opener: "qwen3.7-plus",             gm: "qwen3.6-flash",              narrator: "qwen3.6-flash" },
