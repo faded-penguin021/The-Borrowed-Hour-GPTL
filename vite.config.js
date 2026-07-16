@@ -15,6 +15,12 @@ import react from "@vitejs/plugin-react";
  * through a Trusted Types policy, but Vite's HMR client and error overlay assign
  * strings to script sinks (notably overlay innerHTML), which Trusted Types
  * enforcement would block in dev only. The shipped build keeps the directive.
+ *
+ * Finally it widens `connect-src` with the `ws:`/`wss:` local origins Vite's HMR
+ * websocket uses: the production policy already lists the `http(s)://localhost:*`
+ * / `127.0.0.1:*` local-LLM origins, but CSP matches schemes exactly, so the HMR
+ * socket (`ws://localhost:<port>`) is refused without a `ws:` entry. Dev only;
+ * the built policy keeps just the http(s) local origins.
  */
 function devCspRelax() {
   return {
@@ -29,6 +35,10 @@ function devCspRelax() {
         .replace(
           "style-src-elem 'self' https://fonts.googleapis.com",
           "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com"
+        )
+        .replace(
+          "http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:*",
+          "http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* wss://localhost:* wss://127.0.0.1:*"
         )
         .replace(
           "; require-trusted-types-for 'script'; trusted-types puter-loader",

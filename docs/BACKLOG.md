@@ -263,7 +263,7 @@ Concrete friction found in a scripted end-to-end playthrough (title → turns �
 ending → Hidden Hour reveal → Author's Table → keepsake). Each was confirmed in
 the source, not just the screenshot. Same unit protocol as everything above.
 
-### UX1 — Composer hint row must reflect the closed / at-rest state — **todo**
+### UX1 — Composer hint row must reflect the closed / at-rest state — **done** (2026-07-16: GameComposer gates the hint row on `inputLocked && !loading` — the closed hour now shows "the chronicle is closed" instead of "↵ act"; the skip-writing hint renders only while `loading`, so an at-rest transcript no longer advertises a click that skips nothing)
 - In `src/components/GameComposer.tsx` the hint row (~lines 124–127: "↵ act",
   "⇧ ↵ new line", "click the page to skip the writing") renders unconditionally.
   When the hour is spent the textarea is disabled and reads "The chronicle is
@@ -274,7 +274,7 @@ the source, not just the screenshot. Same unit protocol as everything above.
   and show the skip-writing hint only while the typewriter is actually running.
 - Commit: `fix(ui): composer hints reflect closed and at-rest states`
 
-### UX2 — Hidden Hour reveal text is not scrolled into view — **todo**
+### UX2 — Hidden Hour reveal text is not scrolled into view — **done** (2026-07-16: added `revealText` to the GameScreen scroll-pin effect deps; because `revealText` streams delta-by-delta (useReveal appends each chunk), the near-bottom guard follows the reveal into view as it surfaces, mirroring per-turn narration)
 - `src/components/GameScreen.tsx` pins the scroll on `[entries, loading,
   metaMessages]` (~line 80), so when `revealText` streams in after "UNVEIL THE
   HIDDEN HOUR" the view does not follow it — with the resolution buttons filling
@@ -284,7 +284,7 @@ the source, not just the screenshot. Same unit protocol as everything above.
   first render, mirroring the per-turn behavior.
 - Commit: `fix(ui): follow the Hidden Hour reveal into view`
 
-### UX3 — Dev CSP blocks the Vite HMR websocket — **todo** (low; dev-experience)
+### UX3 — Dev CSP blocks the Vite HMR websocket — **done** (2026-07-16: the dev-only `devCspRelax` plugin now widens `connect-src` with `ws://`/`wss://` localhost + 127.0.0.1 origins so the HMR socket connects — CSP matches schemes exactly, so the existing `http(s)://localhost:*` entries did not cover `ws:`. Production CSP and B1's drift test untouched — the transform runs only under `apply: "serve"`)
 - Under `npm run dev` the production CSP `<meta>` `connect-src` is served but
   omits the Vite HMR websocket origin, so the browser refuses the socket
   ("Refused to connect to 'ws://localhost:5173' … violates … connect-src") and

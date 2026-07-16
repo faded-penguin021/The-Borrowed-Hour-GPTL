@@ -24,7 +24,9 @@
     object-src/frame-ancestors are cheap hardening. upgrade-insecure-requests is
     deliberately omitted — it would rewrite the http://localhost:* /
     http://127.0.0.1:* local-LLM connect-src entries to https and break Ollama /
-    LM Studio.
+    LM Studio. connect-src lists the http(s) local origins only; the dev server
+    also widens it with the ws:/wss: local origins Vite's HMR socket needs
+    (vite.config.js), which the built policy omits.
 
     require-trusted-types-for 'script' is ENFORCED: the browser rejects a raw
     string assigned to a script-injection sink (innerHTML, eval/Function,
