@@ -170,7 +170,7 @@ config, docs, e2e surface). Same protocol as above. Phases are in priority order
 
 ### Phase H — agent-harness enablement
 
-### H1 — `.claude/settings.json` + SessionStart hook — **todo**
+### H1 — `.claude/settings.json` + SessionStart hook — **done** (2026-07-16: synchronous SessionStart hook runs `npm ci` + exports PW_CHROMIUM via CLAUDE_ENV_FILE; read-only permission allowlist; CLAUDE.md integrity section sanctions `.claude/`; guard does not flag it)
 - Add `.claude/settings.json` with:
   - a SessionStart hook that runs `npm ci` and exports a `PW_CHROMIUM` discovery
     (see U1's acceptance command) so remote agent sessions are test- and e2e-ready
