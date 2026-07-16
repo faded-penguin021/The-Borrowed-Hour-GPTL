@@ -224,7 +224,7 @@ config, docs, e2e surface). Same protocol as above. Phases are in priority order
   today) and `src/llm/prompt.ts` (state serialization / prompt formatting).
 - Commit: `test(llm): cover artDirector orchestration and prompt serialization`
 
-### T5 — Coverage ratchet expansion — **todo** (only after T1–T4)
+### T5 — Coverage ratchet expansion — **done** (2026-07-16: coverage include now adds src/export, src/saves, src/hooks, src/tts; measured lines 43.7/func 39.4/branches 34.5/stmts 40.6 → thresholds re-pinned at measured−2 = lines 41/func 37/branches 32/stmts 38)
 - Add `src/export`, `src/saves`, `src/hooks`, `src/tts` to the coverage scope in
   `vite.config.js`; measure; re-pin thresholds at measured−2% (same rule as B5).
 - Commit: `test: expand coverage ratchet to export/saves/hooks/tts`

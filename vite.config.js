@@ -74,13 +74,15 @@ export default defineConfig({
     // well-tested code and the numbers rise, feel free to ratchet them up.
     coverage: {
       provider: "v8",
-      include: ["src/context/**", "src/llm/**", "src/storage/**"],
+      include: ["src/context/**", "src/llm/**", "src/storage/**", "src/export/**", "src/saves/**", "src/hooks/**", "src/tts/**"],
       exclude: ["**/*.test.*"],
       reporter: ["text-summary"],
-      // Baseline 2026-07-10 under vitest 4's AST-aware v8 remapping (counts
-      // differ from vitest 3 — re-baselined at the same measured−2 policy):
-      // lines 44.5, functions 45, branches 30.1, statements 42.7.
-      thresholds: { lines: 42, functions: 43, branches: 28, statements: 40 },
+      // Baseline 2026-07-16 (T5): scope widened to export/saves/hooks/tts.
+      // Measured under vitest 4's AST-aware v8 remapping, re-pinned at the same
+      // measured−2 policy: lines 43.7, functions 39.4, branches 34.5,
+      // statements 40.6. (Prior context/llm/storage-only baseline 2026-07-10 was
+      // lines 44.5, functions 45, branches 30.1, statements 42.7.)
+      thresholds: { lines: 41, functions: 37, branches: 32, statements: 38 },
     },
   }
 });
