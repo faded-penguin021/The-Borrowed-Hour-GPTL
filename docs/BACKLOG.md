@@ -231,7 +231,7 @@ config, docs, e2e surface). Same protocol as above. Phases are in priority order
 
 ### Phase E — e2e depth (reuse the mocked-LLM pattern in `e2e/smoke.spec.ts`)
 
-### E1 — Undo + Wild mode e2e — **todo**
+### E1 — Undo + Wild mode e2e — **done** (2026-07-16: e2e/undo-wild.spec.ts — starts a Wild premise via the custom modal, advances one mocked turn, undoes; asserts narration count 1→2→1, prose gone, undo banner, and ledger scene rolled back to the opening; verified 8/8 e2e green with PW_CHROMIUM)
 - Start a Wild premise, advance a turn, undo; assert entries and visible state roll
   back cleanly.
 - Commit: `test(e2e): wild-mode start and undo round-trip`
