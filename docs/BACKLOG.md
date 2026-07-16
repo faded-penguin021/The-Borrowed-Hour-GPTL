@@ -236,7 +236,7 @@ config, docs, e2e surface). Same protocol as above. Phases are in priority order
   back cleanly.
 - Commit: `test(e2e): wild-mode start and undo round-trip`
 
-### E2 — BYOB proxy settings e2e — **todo**
+### E2 — BYOB proxy settings e2e — **done** (2026-07-16: e2e/proxy.spec.ts — sets a localhost proxy URL in Settings, asserts the TEST button and an in-game turn both fetch <proxy>?target=<encoded api.openai.com> and never hit the provider origin directly; fixtures refactored to export a shared fulfillLLM helper; 9/9 e2e green)
 - Configure a proxy URL in Settings against a mock endpoint; assert the TEST button
   and an in-game turn both route through it (regression net over F1/F2).
 - Commit: `test(e2e): BYOB proxy carries TEST and turn traffic`
