@@ -62,9 +62,10 @@ export default defineConfig({
       output: {
         // Split heavy, rarely-changing vendor code into its own chunks so the
         // app entry stays under the 500 kB warning limit and vendor bytes can
-        // be cached across app deploys. (vite 8 / rolldown: advancedChunks
-        // replaces the old object-form manualChunks.)
-        advancedChunks: {
+        // be cached across app deploys. (vite 8 / rolldown: codeSplitting's
+        // group form replaces advancedChunks, which replaced object-form
+        // manualChunks.)
+        codeSplitting: {
           groups: [
             { name: "react", test: /\/node_modules\/(react|react-dom|scheduler)\// },
             { name: "zod", test: /\/node_modules\/zod\// },
