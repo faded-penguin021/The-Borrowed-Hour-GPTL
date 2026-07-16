@@ -219,7 +219,7 @@ config, docs, e2e surface). Same protocol as above. Phases are in priority order
   (must be present in `src/security/origins.ts`), payload shape.
 - Commit: `test(tts): request-shaping coverage for azure/elevenlabs/openai/browser`
 
-### T4 — artDirector orchestration + prompt serialization tests — **todo**
+### T4 — artDirector orchestration + prompt serialization tests — **done** (2026-07-16: src/__tests__/prompt.test.ts (toPlayerLedger/formatStateForPrompt/serializeStatePublic/strip* — hidden_state never crosses to public) + artDirector-orchestration.test.ts (buildBootstrapSystem realm/custom/fallback, buildTurnSystem bible+ledger render, parse code-fence/embedded/malformed/entry-filter, end-to-end parse→merge→compose); 23 tests)
 - Files: `src/llm/artDirector.ts` (orchestration; only helpers/caption are covered
   today) and `src/llm/prompt.ts` (state serialization / prompt formatting).
 - Commit: `test(llm): cover artDirector orchestration and prompt serialization`
