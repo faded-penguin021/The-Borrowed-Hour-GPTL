@@ -243,7 +243,7 @@ config, docs, e2e surface). Same protocol as above. Phases are in priority order
 
 ### Phase P — product improvement (evidence-backed)
 
-### P1 — check-models covers image + TTS catalogues — **todo**
+### P1 — check-models covers image + TTS catalogues — **done** (2026-07-16: check-models.mjs now parses imaging.ts + catalogue.ts and cross-checks the keyless Pollinations image endpoint for dead ids (exit 1), enumerating key-gated image/TTS providers as confirm-by-hand; verified live (sana served, no dead) + red path via a bogus id → exit 1; JSON adds image/tts; doc updated)
 - Extend `scripts/check-models.mjs` beyond the LLM/OpenRouter cross-check: verify
   image and TTS catalogue ids against the provider endpoints the app itself uses,
   closing the staleness-only gap documented in `docs/model-catalogue-maintenance.md`
