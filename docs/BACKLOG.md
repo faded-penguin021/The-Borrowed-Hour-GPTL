@@ -1,20 +1,19 @@
-# Execution backlog — audit + hardening (2026-07)
+# Execution backlog
 
-This file is the single source of truth for the audit/hardening effort. Any session
+This file is the single source of truth for backlogged engineering work. Any session
 (any model) picks the **topmost `todo` unit**, executes exactly that unit, and stops.
 Statuses: `todo` / `done` / `blocked: <one-line reason>`.
 
 ## Protocol (every unit, every session)
 
-1. Work on branch `claude/text-game-audit-plan-vfxup6`, starting from a clean tree.
+1. Work each unit on a fresh branch cut from `main`, starting from a clean tree.
    **One tool call at a time. No subagents, ever. No parallel agents.**
 2. Do only the unit's spec below. Definition of done: `npm run ladder` passes
    (typecheck → lint → unit tests → build; ~21s). If you pipe its output
    (e.g. through `tail`), run `set -o pipefail` first and check the exit code —
    a bare pipe reports the *pipe's* exit and can mask a red ladder.
 3. Update the unit's status line in this file, commit with the unit's message prefix,
-   then `git push -u origin claude/text-game-audit-plan-vfxup6`
-   (on network failure retry after 2s/4s/8s/16s).
+   then `git push -u origin <branch>` (on network failure retry after 2s/4s/8s/16s).
 4. **If green is unreachable**: `git restore . && git clean -fd`, set the unit to
    `blocked: <reason>` here, commit and push that note alone, and stop. The branch
    must never be left red; failures leave a pushed record too.
@@ -24,7 +23,11 @@ Statuses: `todo` / `done` / `blocked: <one-line reason>`.
    explicitly-declared dep-change unit B5), any unplanned `package.json` /
    `package-lock.json` diff is a stop-and-report event.
 
-## Units
+## Units — audit + hardening (2026-07) — **complete**
+
+**Every unit below (U0–B7) and the follow-ups (F1–F2) is `done`.** They stay here as
+the record; the units originally ran on branch `claude/text-game-audit-plan-vfxup6`
+(since merged). Active work starts at the improvement phase further down.
 
 ### U0 — Bootstrap the checkpoint rail — **done** (this commit)
 Ladder script, this backlog, audit scaffold, CONTRIBUTING/CLAUDE.md pointers, draft PR.
@@ -158,3 +161,98 @@ a fresh branch cut from `main`.
   the key with `allowMissing` when a proxy is set. Extend
   `src/__tests__/providers-request.test.ts` with a proxied TEST case.
 - Commit: `fix(llm): health-check honors the BYOB proxy`
+
+## Improvement phase (2026-07, post-audit)
+
+Planned 2026-07-16 from a full inventory of the repo (test-coverage map, harness
+config, docs, e2e surface). Same protocol as above. Phases are in priority order
+(H → T → E → P); work units top to bottom.
+
+### Phase H — agent-harness enablement
+
+### H1 — `.claude/settings.json` + SessionStart hook — **todo**
+- Add `.claude/settings.json` with:
+  - a SessionStart hook that runs `npm ci` and exports a `PW_CHROMIUM` discovery
+    (see U1's acceptance command) so remote agent sessions are test- and e2e-ready
+    at session start;
+  - a permissions allowlist for the repo's read-only staples
+    (`npm run check|test|test:fast|guard|ladder`, `git status|log|diff`).
+- Same unit amends `CLAUDE.md` "Integrity of this file": `.claude/` is
+  user-sanctioned as of this unit; any *later* unexplained change to it is a
+  stop-and-report event like the rest of the tripwire list.
+- Acceptance: a fresh remote session reaches `npm run ladder` green with no manual
+  setup; `npm run guard` still passes (guard must not flag `.claude/`).
+- Commit: `chore(harness): SessionStart hook + permission allowlist for agent sessions`
+
+### H2 — model-catalogue-refresh repo skill — **todo**
+- Encode the procedure of `docs/model-catalogue-maintenance.md` as
+  `.claude/skills/model-catalogue-refresh/SKILL.md` so the weekly scheduled session
+  invokes it deterministically. The doc stays as rationale/reference; the skill
+  carries the executable steps: `npm run check:models`; edit only the three
+  catalogue files (`src/llm/providers.ts`, `src/llm/imaging.ts`,
+  `src/tts/catalogue.ts`) plus `docs/wiki.md` model references; refresh
+  `// checked:` stamps; curate-not-dump rules; ladder; PR-never-automerge.
+- Acceptance: skill steps match the doc (drift in either is a defect); ladder green.
+- Commit: `chore(harness): encode model-catalogue refresh as a repo skill`
+
+### Phase T — test depth on the riskiest untested code
+
+### T1 — Keepsake export lockdown — **todo**
+- `src/export/keepsake.ts` escapes HTML (`escapeHtml`) — freeze it. New unit tests:
+  narration/action/title text containing `<script>`, attribute-breakout quotes, and
+  entity edge cases must never reach the exported HTML unescaped. Cover every
+  interpolation site in the template (grep the file for `${` and account for each).
+- Commit: `test(export): lock keepsake HTML escaping at every interpolation site`
+
+### T2 — useSaves + compression failure paths — **todo**
+- Files: `src/hooks/useSaves.ts`, `src/saves/compression.ts`. Tests for
+  quota-exceeded rollback, corrupted/truncated blob → readable error (extend the
+  round-trip-only `compression.test.ts`), and save-version handling. Reuse the
+  patterns in `imageStore.test.ts` (quota rollback) and `migrate.test.ts`
+  (damaged records).
+- Commit: `test(saves): cover quota, corruption, and version failure paths`
+
+### T3 — TTS adapter request-shaping tests — **todo**
+- Cover the untested adapters in `src/tts/adapters/` (azure, elevenlabs, openai,
+  browser) mirroring `tts-google.test.ts` / `tts-voxtral.test.ts`: key placement
+  (headers, never URLs unless the API forces it — see A3 note), endpoint origin
+  (must be present in `src/security/origins.ts`), payload shape.
+- Commit: `test(tts): request-shaping coverage for azure/elevenlabs/openai/browser`
+
+### T4 — artDirector orchestration + prompt serialization tests — **todo**
+- Files: `src/llm/artDirector.ts` (orchestration; only helpers/caption are covered
+  today) and `src/llm/prompt.ts` (state serialization / prompt formatting).
+- Commit: `test(llm): cover artDirector orchestration and prompt serialization`
+
+### T5 — Coverage ratchet expansion — **todo** (only after T1–T4)
+- Add `src/export`, `src/saves`, `src/hooks`, `src/tts` to the coverage scope in
+  `vite.config.js`; measure; re-pin thresholds at measured−2% (same rule as B5).
+- Commit: `test: expand coverage ratchet to export/saves/hooks/tts`
+
+### Phase E — e2e depth (reuse the mocked-LLM pattern in `e2e/smoke.spec.ts`)
+
+### E1 — Undo + Wild mode e2e — **todo**
+- Start a Wild premise, advance a turn, undo; assert entries and visible state roll
+  back cleanly.
+- Commit: `test(e2e): wild-mode start and undo round-trip`
+
+### E2 — BYOB proxy settings e2e — **todo**
+- Configure a proxy URL in Settings against a mock endpoint; assert the TEST button
+  and an in-game turn both route through it (regression net over F1/F2).
+- Commit: `test(e2e): BYOB proxy carries TEST and turn traffic`
+
+### Phase P — product improvement (evidence-backed)
+
+### P1 — check-models covers image + TTS catalogues — **todo**
+- Extend `scripts/check-models.mjs` beyond the LLM/OpenRouter cross-check: verify
+  image and TTS catalogue ids against the provider endpoints the app itself uses,
+  closing the staleness-only gap documented in `docs/model-catalogue-maintenance.md`
+  (the Pollinations single-model collapse, 8343b60, is the motivating failure).
+  Update that doc to match.
+- Commit: `feat(scripts): health-check image and TTS catalogues in check:models`
+
+### P2 — Playtest-driven UX punch list — **todo** (discovery unit; run last)
+- Run the app end-to-end against a scripted mock provider (title → turns → ending →
+  reveal → meta → keepsake export) and record concrete friction items as new `todo`
+  units appended to this file. The output is backlog units, not code.
+- Commit: `docs(backlog): UX punch list from scripted playtest`

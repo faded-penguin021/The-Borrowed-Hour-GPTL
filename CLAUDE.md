@@ -62,9 +62,10 @@ LLM / image / TTS providers. Deployed to GitHub Pages from `main`.
 
 ## Conventions
 
-- **Audit/hardening sessions:** follow the unit protocol in `docs/BACKLOG.md` —
+- **Backlog sessions:** follow the unit protocol in `docs/BACKLOG.md` —
   one unit per sitting, one tool call at a time (no subagents), and end every unit
-  `npm run ladder`-green → commit → push. (Pointer added by the user, 2026-07-10.)
+  `npm run ladder`-green → commit → push. (Pointer added by the user, 2026-07-10;
+  scope widened from the completed audit to the improvement phases, 2026-07-16.)
 - Run `npm run check` (typecheck + lint) before declaring work done. Run
   `npm test` for anything touching reducers, parsing, or storage.
 - Match nearby style. This codebase prefers small, named functions over deep
