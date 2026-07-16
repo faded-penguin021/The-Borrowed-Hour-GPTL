@@ -46,13 +46,14 @@ endpoints (below).
 3. **Image catalogue** (`imaging.ts` → `IMAGE_PROVIDER_META`). Refresh each provider
    from its own endpoint/docs, keeping `defaultModel` pointed at a listed id:
    - Pollinations — image.pollinations.ai/models
-   - Replicate — replicate.com (black-forest-labs/* flux versions) or `/v1/models`
-   - OpenAI image — platform.openai.com/docs/models (gpt-image family); add retired
-     ids to `DEPRECATED_OPENAI_IMAGE_MODELS` so stale saved configs upgrade silently
+   - Replicate — replicate.com (the black-forest-labs/* image family) or `/v1/models`
+   - OpenAI image — platform.openai.com/docs/models (the current image-model family);
+     add retired ids to `DEPRECATED_OPENAI_IMAGE_MODELS` so stale saved configs
+     upgrade silently
    - Local — leave as is
 4. **TTS catalogue** (`catalogue.ts` → `TTS_PROVIDER_META`). Refresh `models` and the
    curated `voices` subset, keeping `model` pointed at a listed id:
-   - OpenAI — `/v1/models` (tts-*, gpt-4o-*-tts) + the voice list in its docs
+   - OpenAI — `/v1/models` (the current text-to-speech models) + the voice list in its docs
    - ElevenLabs — `GET /v1/models` and `GET /v1/voices`
    - Voxtral (Mistral) — `GET /v1/audio/voices` (the adapter already fetches this live)
    - Azure / Google — voices.list endpoints; keep the tasteful subset, don't dump
