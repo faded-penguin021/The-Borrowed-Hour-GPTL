@@ -20,16 +20,24 @@ browser bundle; it's maintenance tooling.
 `npm run check:models` reports:
 
 - **staleness** for all three catalogues (age of each `// checked:` stamp).
-- for the **LLM catalogue only**, cross-checked against OpenRouter's public model
+- for the **LLM catalogue**, cross-checked against OpenRouter's public model
   list (no key): **dead ids** in your `openrouter` entry (exact; these 404 — exit
   code 1) and **new free candidates** OpenRouter lists that you don't reference
   (`--all` adds paid; hints only — a provider's native id may differ from the
   OpenRouter slug, so confirm before pasting).
+- for the **image and TTS catalogues**, cross-checked against the **keyless**
+  provider endpoints the app itself uses (today: Pollinations' model list):
+  **dead ids** the endpoint no longer serves (exit code 1). This closes the
+  staleness-only gap that hid the Pollinations single-model collapse (8343b60),
+  where requesting a retired id silently served `sana` instead of erroring.
+  Key-gated providers have no keyless list, so Replicate, OpenAI image, and every
+  TTS provider are **enumerated and flagged** "confirm by hand" — refresh those
+  via the provider endpoints below.
 
-`-- --json` for machine output. Exit codes: `0` clean · `1` dead ids · `2`
-couldn't reach OpenRouter. OpenRouter is a text-LLM router — it does **not** list
-image or TTS models, so those are staleness-only here and refresh via provider
-endpoints (below).
+`-- --json` for machine output. Exit codes: `0` clean · `1` dead ids (LLM or
+image endpoint) · `2` couldn't reach OpenRouter. OpenRouter is a text-LLM router,
+so it never covers image or TTS — those are checked against their own keyless
+endpoints where one exists, and are staleness-only otherwise.
 
 ## Refresh procedure (the scheduled session follows this)
 
@@ -46,13 +54,14 @@ endpoints (below).
 3. **Image catalogue** (`imaging.ts` → `IMAGE_PROVIDER_META`). Refresh each provider
    from its own endpoint/docs, keeping `defaultModel` pointed at a listed id:
    - Pollinations — image.pollinations.ai/models
-   - Replicate — replicate.com (black-forest-labs/* flux versions) or `/v1/models`
-   - OpenAI image — platform.openai.com/docs/models (gpt-image family); add retired
-     ids to `DEPRECATED_OPENAI_IMAGE_MODELS` so stale saved configs upgrade silently
+   - Replicate — replicate.com (the black-forest-labs/* image family) or `/v1/models`
+   - OpenAI image — platform.openai.com/docs/models (the current image-model family);
+     add retired ids to `DEPRECATED_OPENAI_IMAGE_MODELS` so stale saved configs
+     upgrade silently
    - Local — leave as is
 4. **TTS catalogue** (`catalogue.ts` → `TTS_PROVIDER_META`). Refresh `models` and the
    curated `voices` subset, keeping `model` pointed at a listed id:
-   - OpenAI — `/v1/models` (tts-*, gpt-4o-*-tts) + the voice list in its docs
+   - OpenAI — `/v1/models` (the current text-to-speech models) + the voice list in its docs
    - ElevenLabs — `GET /v1/models` and `GET /v1/voices`
    - Voxtral (Mistral) — `GET /v1/audio/voices` (the adapter already fetches this live)
    - Azure / Google — voices.list endpoints; keep the tasteful subset, don't dump

@@ -121,19 +121,25 @@ export const GameComposer = React.memo(function GameComposer() {
             className={`${BORROWED_INPUT} flex-1 px-4 py-3 resize-none text-lg disabled:opacity-50 min-h-[52px] max-h-[160px] leading-[1.5]`}
           />
         </div>
-        <div className="text-xs mt-2 ml-8 italic font-body flex flex-wrap items-center gap-x-4 gap-y-1 text-cream-faint">
-          <span>↵ {metaMode ? "ask" : "act"}</span>
-          <span>⇧ ↵ new line</span>
-          <span>click the page to skip the writing</span>
-          {metaMode && (
-            <button
-              onClick={exitMetaMode}
-              className="ml-auto bg-transparent border-0 cursor-pointer text-cream-dim italic font-body text-[12px] underline underline-offset-[3px]"
-            >
-              leave the author's table
-            </button>
-          )}
-        </div>
+        {inputLocked && !loading ? (
+          <div className="text-xs mt-2 ml-8 italic font-body text-cream-faint">
+            <span>the chronicle is closed</span>
+          </div>
+        ) : (
+          <div className="text-xs mt-2 ml-8 italic font-body flex flex-wrap items-center gap-x-4 gap-y-1 text-cream-faint">
+            <span>↵ {metaMode ? "ask" : "act"}</span>
+            <span>⇧ ↵ new line</span>
+            {loading && <span>click the page to skip the writing</span>}
+            {metaMode && (
+              <button
+                onClick={exitMetaMode}
+                className="ml-auto bg-transparent border-0 cursor-pointer text-cream-dim italic font-body text-[12px] underline underline-offset-[3px]"
+              >
+                leave the author's table
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

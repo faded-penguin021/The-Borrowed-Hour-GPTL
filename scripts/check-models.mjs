@@ -9,12 +9,19 @@
 //                   a provider's native id may differ from OpenRouter's slug.
 //   3. staleness  — age of the `// checked:` date in providers.ts.
 //
+// It also cross-checks the IMAGE and TTS catalogues against the keyless provider
+// endpoints the app itself uses (Pollinations' model list today): any catalogued
+// id the endpoint no longer serves is a dead id. Key-gated providers (Replicate,
+// OpenAI image, every TTS provider) have no keyless list, so they're enumerated
+// and flagged "confirm by hand" — the scheduled session refreshes those.
+//
 // This is maintenance tooling — it never runs in the browser bundle. Run by
 // hand or let the scheduled catalogue-refresh session drive it:
 //   npm run check:models            (free candidates only)
 //   npm run check:models -- --all   (include paid candidates)
 //   npm run check:models -- --json  (machine-readable, for the agent)
-// Exit codes: 0 clean · 1 dead ids found · 2 couldn't reach OpenRouter.
+// Exit codes: 0 clean · 1 dead ids found (LLM or image endpoint) · 2 couldn't
+// reach OpenRouter.
 // Procedure for curating + opening the PR: docs/model-catalogue-maintenance.md
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -22,7 +29,20 @@ import { dirname, join } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PROVIDERS_TS = join(HERE, "..", "src", "llm", "providers.ts");
+const IMAGING_TS = join(HERE, "..", "src", "llm", "imaging.ts");
+const TTS_TS = join(HERE, "..", "src", "tts", "catalogue.ts");
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/models";
+
+// Keyless public model-list endpoints we can cross-check without a key — the
+// same endpoints the app itself would hit. Pollinations is the motivating case:
+// its free router collapsed to a single live model (commit 8343b60) and silently
+// served `sana` for every other id, so a stale catalogue here was invisible
+// until a hand refresh. Everything not listed (Replicate + OpenAI image, and
+// every TTS provider that carries a `models` list) is key-gated, so those are
+// enumerated and flagged "confirm by hand" rather than pinged.
+const IMAGE_MODEL_ENDPOINTS = {
+  pollinations: "https://image.pollinations.ai/models",
+};
 
 const args = new Set(process.argv.slice(2));
 const AS_JSON = args.has("--json");
@@ -87,6 +107,97 @@ function readCatalogue() {
   const checked = src.match(/\/\/\s*checked:\s*(\d{4}-\d{2}-\d{2})/);
   return { order, models, checked: checked ? checked[1] : null };
 }
+
+// Return the substring from the first `{` at/after `fromIndex` to its matching
+// `}` — a brace-balanced slice, so a provider object is bounded to its own
+// members (its `models:` is never confused with a later provider's).
+function balancedObject(src, fromIndex) {
+  const open = src.indexOf("{", fromIndex);
+  if (open < 0) return "";
+  let depth = 0;
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === "{") depth += 1;
+    else if (src[i] === "}") {
+      depth -= 1;
+      if (depth === 0) return src.slice(open, i + 1);
+    }
+  }
+  return "";
+}
+
+// Parse an image/TTS catalogue's per-provider model ids straight from source
+// text (no TS execution). Providers without a `models:` list (voices-only TTS,
+// the `local` image target) yield an empty list rather than throwing.
+function parseModelCatalogue(path, metaConst, orderConst) {
+  const src = readFileSync(path, "utf8");
+  const orderMatch = src.match(new RegExp(`${escapeRegExp(orderConst)}\\s*=\\s*\\[([\\s\\S]*?)\\]`));
+  if (!orderMatch) throw new Error(`could not parse ${orderConst} in ${path}`);
+  const order = [...orderMatch[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  if (order.length === 0) throw new Error(`${orderConst} parsed empty`);
+
+  const metaAt = src.indexOf(metaConst);
+  if (metaAt < 0) throw new Error(`could not locate ${metaConst} in ${path}`);
+  const metaSrc = src.slice(metaAt);
+
+  const models = {};
+  for (const id of order) {
+    const at = metaSrc.search(new RegExp(`\\n\\s*${escapeRegExp(id)}:\\s*\\{`));
+    if (at < 0) { models[id] = []; continue; }
+    const obj = balancedObject(metaSrc, at);
+    const mk = obj.indexOf("models:");
+    if (mk < 0) { models[id] = []; continue; }
+    const open = obj.indexOf("[", mk);
+    const close = obj.indexOf("]", open);
+    if (open < 0 || close < 0) { models[id] = []; continue; }
+    models[id] = [...obj.slice(open, close).matchAll(/id:\s*"([^"]+)"/g)].map((m) => m[1]);
+  }
+  const checked = src.match(/\/\/\s*checked:\s*(\d{4}-\d{2}-\d{2})/);
+  return { order, models, checked: checked ? checked[1] : null };
+}
+
+// Fetch a keyless model-list endpoint and normalize to a flat id list. The
+// payload may be an array of strings or of objects ({ id | name | model }).
+async function fetchModelEndpoint(url) {
+  const res = await fetch(url, { headers: { accept: "application/json" } });
+  if (!res.ok) throw new Error(`responded ${res.status}`);
+  const json = await res.json();
+  const arr = Array.isArray(json)
+    ? json
+    : Array.isArray(json?.models) ? json.models
+    : Array.isArray(json?.data) ? json.data
+    : [];
+  return arr
+    .map((x) => (typeof x === "string" ? x : x?.id || x?.name || x?.model || ""))
+    .filter(Boolean);
+}
+
+// Cross-check every catalogued id that has a keyless endpoint against what the
+// endpoint actually serves. `dead` = catalogued ids the endpoint no longer
+// lists (the Pollinations-collapse signal). `needsKey` = providers with a
+// `models` list but no keyless endpoint — enumerate + confirm by hand.
+async function checkKeylessCatalogue(catalogue, endpoints) {
+  const dead = {};
+  const served = {};
+  const needsKey = [];
+  const unreachable = [];
+  for (const id of catalogue.order) {
+    const listed = catalogue.models[id] || [];
+    if (listed.length === 0) continue; // voices-only / local — nothing to check
+    const endpoint = endpoints[id];
+    if (!endpoint) { needsKey.push(id); continue; }
+    try {
+      const live = await fetchModelEndpoint(endpoint);
+      served[id] = live.length;
+      const missing = listed.filter((mid) => !live.includes(mid));
+      if (missing.length) dead[id] = missing;
+    } catch (e) {
+      unreachable.push({ id, error: e?.message || String(e) });
+    }
+  }
+  return { dead, served, needsKey, unreachable };
+}
+
+const anyDead = (deadMap) => Object.values(deadMap).some((a) => a.length > 0);
 
 function daysSince(iso) {
   if (!iso) return null;
@@ -243,15 +354,36 @@ function report(catalogues, orModels, fetchError, result) {
     out.push(`NOT on OpenRouter — confirm via web search: ${result.unverifiable.join(", ")}`);
   }
 
+  console.log(out.join("\n"));
+}
+
+// Image + TTS aren't on OpenRouter; cross-check whatever has a keyless endpoint
+// (Pollinations) and flag the key-gated rest for a hand refresh.
+function reportKeyless(label, catalogue, result) {
+  const out = [];
   out.push("");
-  out.push("Image + TTS aren't on OpenRouter — refresh those via provider endpoints (see docs).");
-  out.push("Curate + open a PR: docs/model-catalogue-maintenance.md");
+  out.push(`${label}: cross-checked against keyless provider endpoints`);
+  if (anyDead(result.dead)) {
+    out.push(`  DEAD ${label.toLowerCase()} ids (endpoint no longer serves these):`);
+    for (const [provider, ids] of Object.entries(result.dead))
+      for (const id of ids) out.push(`    x ${provider}: ${id}`);
+  } else if (Object.keys(result.served).length) {
+    out.push("  keyless endpoints: all catalogued ids still served");
+  }
+  for (const [provider, count] of Object.entries(result.served))
+    out.push(`    ${provider}: endpoint lists ${count} model${count === 1 ? "" : "s"}`);
+  for (const u of result.unreachable)
+    out.push(`    ${u.id}: endpoint unreachable — ${u.error} (staleness date is the only signal)`);
+  if (result.needsKey.length)
+    out.push(`  key-gated (confirm via provider docs in the refresh session): ${result.needsKey.join(", ")}`);
   console.log(out.join("\n"));
 }
 
 async function main() {
   const catalogue = readCatalogue();
   const catalogues = readCheckedDates();
+  const imageCat = parseModelCatalogue(IMAGING_TS, "IMAGE_PROVIDER_META", "IMAGE_PROVIDER_ORDER");
+  const ttsCat = parseModelCatalogue(TTS_TS, "TTS_PROVIDER_META", "TTS_PROVIDER_ORDER");
 
   let orModels = null;
   let fetchError = null;
@@ -262,6 +394,9 @@ async function main() {
   }
 
   const result = orModels ? analyse(catalogue, orModels) : null;
+  // No keyless TTS model-list endpoint exists, so TTS is enumerate-and-flag only.
+  const imageResult = await checkKeylessCatalogue(imageCat, IMAGE_MODEL_ENDPOINTS);
+  const ttsResult = await checkKeylessCatalogue(ttsCat, {});
 
   if (AS_JSON) {
     console.log(
@@ -270,7 +405,9 @@ async function main() {
           catalogues,
           llm: { providers: catalogue.order.length },
           openrouter: orModels ? { count: orModels.length } : { error: fetchError },
-          ...(result || {})
+          ...(result || {}),
+          image: imageResult,
+          tts: ttsResult
         },
         null,
         2
@@ -278,10 +415,17 @@ async function main() {
     );
   } else {
     report(catalogues, orModels, fetchError, result);
+    reportKeyless("Image", imageCat, imageResult);
+    reportKeyless("TTS", ttsCat, ttsResult);
+    console.log("");
+    console.log("Curate + open a PR: docs/model-catalogue-maintenance.md");
   }
 
+  // A confirmed dead id (LLM or image endpoint) is actionable regardless of
+  // OpenRouter reachability, so it takes precedence over the unreachable code.
+  const deadIds = (result?.dead.length || 0) > 0 || anyDead(imageResult.dead);
+  if (deadIds) process.exit(1);
   if (fetchError) process.exit(2);
-  if (result.dead.length) process.exit(1);
   process.exit(0);
 }
 

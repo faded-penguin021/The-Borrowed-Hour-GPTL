@@ -1,4 +1,4 @@
-import { test as base, expect } from "@playwright/test";
+import { test as base, expect, type Route } from "@playwright/test";
 
 /**
  * Deterministic test harness for the smoke suite.
@@ -71,6 +71,32 @@ const GM_TURN_RESULT = {
 const NARRATOR_PROSE =
   "The door swings wide, and beyond it the borrowed hour draws its next breath. You step through, the letter warm against your palm.";
 
+/** The canned `output_text` for a given tool name (undefined → narrator prose). */
+export function outputTextForTool(toolName?: string): string {
+  if (toolName === "narrate_and_update_state") return JSON.stringify(OPENING_RESULT);
+  if (toolName === "gm_decide") return JSON.stringify(GM_TURN_RESULT);
+  return NARRATOR_PROSE;
+}
+
+/**
+ * Fulfill an intercepted LLM request with the canned response keyed on the
+ * requested tool name. Shared by the direct-provider route below and by the
+ * BYOB-proxy route in the proxy spec, so both paths return identical turns.
+ */
+export async function fulfillLLM(route: Route): Promise<void> {
+  let toolName: string | undefined;
+  try {
+    toolName = route.request().postDataJSON()?.text?.format?.name;
+  } catch {
+    toolName = undefined;
+  }
+  await route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ status: "completed", output_text: outputTextForTool(toolName) }),
+  });
+}
+
 export const test = base.extend({
   page: async ({ page }, use) => {
     await page.addInitScript(
@@ -88,29 +114,7 @@ export const test = base.extend({
       },
     );
 
-    await page.route("https://api.openai.com/**", async (route) => {
-      let toolName: string | undefined;
-      try {
-        toolName = route.request().postDataJSON()?.text?.format?.name;
-      } catch {
-        toolName = undefined;
-      }
-
-      let outputText: string;
-      if (toolName === "narrate_and_update_state") {
-        outputText = JSON.stringify(OPENING_RESULT);
-      } else if (toolName === "gm_decide") {
-        outputText = JSON.stringify(GM_TURN_RESULT);
-      } else {
-        outputText = NARRATOR_PROSE;
-      }
-
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ status: "completed", output_text: outputText }),
-      });
-    });
+    await page.route("https://api.openai.com/**", fulfillLLM);
 
     await use(page);
   },

@@ -77,7 +77,7 @@ export function GameScreen({
         el.scrollTop = el.scrollHeight;
       }
     }
-  }, [entries, loading, metaMessages]);
+  }, [entries, loading, metaMessages, revealText]);
 
   const lastEntry = entries[entries.length - 1];
   const showResolution = ended && lastEntry && lastEntry.type === "narration" && lastEntry.fullyRevealed && !metaMode;

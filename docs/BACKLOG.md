@@ -1,20 +1,19 @@
-# Execution backlog — audit + hardening (2026-07)
+# Execution backlog
 
-This file is the single source of truth for the audit/hardening effort. Any session
+This file is the single source of truth for backlogged engineering work. Any session
 (any model) picks the **topmost `todo` unit**, executes exactly that unit, and stops.
 Statuses: `todo` / `done` / `blocked: <one-line reason>`.
 
 ## Protocol (every unit, every session)
 
-1. Work on branch `claude/text-game-audit-plan-vfxup6`, starting from a clean tree.
+1. Work each unit on a fresh branch cut from `main`, starting from a clean tree.
    **One tool call at a time. No subagents, ever. No parallel agents.**
 2. Do only the unit's spec below. Definition of done: `npm run ladder` passes
    (typecheck → lint → unit tests → build; ~21s). If you pipe its output
    (e.g. through `tail`), run `set -o pipefail` first and check the exit code —
    a bare pipe reports the *pipe's* exit and can mask a red ladder.
 3. Update the unit's status line in this file, commit with the unit's message prefix,
-   then `git push -u origin claude/text-game-audit-plan-vfxup6`
-   (on network failure retry after 2s/4s/8s/16s).
+   then `git push -u origin <branch>` (on network failure retry after 2s/4s/8s/16s).
 4. **If green is unreachable**: `git restore . && git clean -fd`, set the unit to
    `blocked: <reason>` here, commit and push that note alone, and stop. The branch
    must never be left red; failures leave a pushed record too.
@@ -24,7 +23,11 @@ Statuses: `todo` / `done` / `blocked: <one-line reason>`.
    explicitly-declared dep-change unit B5), any unplanned `package.json` /
    `package-lock.json` diff is a stop-and-report event.
 
-## Units
+## Units — audit + hardening (2026-07) — **complete**
+
+**Every unit below (U0–B7) and the follow-ups (F1–F2) is `done`.** They stay here as
+the record; the units originally ran on branch `claude/text-game-audit-plan-vfxup6`
+(since merged). Active work starts at the improvement phase further down.
 
 ### U0 — Bootstrap the checkpoint rail — **done** (this commit)
 Ladder script, this backlog, audit scaffold, CONTRIBUTING/CLAUDE.md pointers, draft PR.
@@ -158,3 +161,136 @@ a fresh branch cut from `main`.
   the key with `allowMissing` when a proxy is set. Extend
   `src/__tests__/providers-request.test.ts` with a proxied TEST case.
 - Commit: `fix(llm): health-check honors the BYOB proxy`
+
+## Improvement phase (2026-07, post-audit)
+
+Planned 2026-07-16 from a full inventory of the repo (test-coverage map, harness
+config, docs, e2e surface). Same protocol as above. Phases are in priority order
+(H → T → E → P); work units top to bottom.
+
+### Phase H — agent-harness enablement
+
+### H1 — `.claude/settings.json` + SessionStart hook — **done** (2026-07-16: synchronous SessionStart hook runs `npm ci` + exports PW_CHROMIUM via CLAUDE_ENV_FILE; read-only permission allowlist; CLAUDE.md integrity section sanctions `.claude/`; guard does not flag it)
+- Add `.claude/settings.json` with:
+  - a SessionStart hook that runs `npm ci` and exports a `PW_CHROMIUM` discovery
+    (see U1's acceptance command) so remote agent sessions are test- and e2e-ready
+    at session start;
+  - a permissions allowlist for the repo's read-only staples
+    (`npm run check|test|test:fast|guard|ladder`, `git status|log|diff`).
+- Same unit amends `CLAUDE.md` "Integrity of this file": `.claude/` is
+  user-sanctioned as of this unit; any *later* unexplained change to it is a
+  stop-and-report event like the rest of the tripwire list.
+- Acceptance: a fresh remote session reaches `npm run ladder` green with no manual
+  setup; `npm run guard` still passes (guard must not flag `.claude/`).
+- Commit: `chore(harness): SessionStart hook + permission allowlist for agent sessions`
+
+### H2 — model-catalogue-refresh repo skill — **done** (2026-07-16: .claude/skills/model-catalogue-refresh/SKILL.md encodes the doc's 9-step procedure + guardrails + PR template; file/export references verified against providers.ts/imaging.ts/catalogue.ts; doc stays as rationale)
+- Encode the procedure of `docs/model-catalogue-maintenance.md` as
+  `.claude/skills/model-catalogue-refresh/SKILL.md` so the weekly scheduled session
+  invokes it deterministically. The doc stays as rationale/reference; the skill
+  carries the executable steps: `npm run check:models`; edit only the three
+  catalogue files (`src/llm/providers.ts`, `src/llm/imaging.ts`,
+  `src/tts/catalogue.ts`) plus `docs/wiki.md` model references; refresh
+  `// checked:` stamps; curate-not-dump rules; ladder; PR-never-automerge.
+- Acceptance: skill steps match the doc (drift in either is a defect); ladder green.
+- Commit: `chore(harness): encode model-catalogue refresh as a repo skill`
+
+### Phase T — test depth on the riskiest untested code
+
+### T1 — Keepsake export lockdown — **done** (2026-07-16: src/__tests__/keepsake-escaping.test.ts, 16 tests; every dynamic ${...} site — narration/action/title×2/realmLabel/teaser/illustration url+caption/reveal/meta×2/director's-notes — asserted script+attr-breakout+entity-safe; realm CSS fallback + markdown-after-escape pinned)
+- `src/export/keepsake.ts` escapes HTML (`escapeHtml`) — freeze it. New unit tests:
+  narration/action/title text containing `<script>`, attribute-breakout quotes, and
+  entity edge cases must never reach the exported HTML unescaped. Cover every
+  interpolation site in the template (grep the file for `${` and account for each).
+- Commit: `test(export): lock keepsake HTML escaping at every interpolation site`
+
+### T2 — useSaves + compression failure paths — **done** (2026-07-16: compression.test.ts +2 damaged-gzip reject cases; new src/__tests__/useSaves.test.tsx, 8 tests — quota rollback (blobs released + quota banner), non-quota generic banner, save-cap guard, success path, silent autosave failure, readAutosave version-stamp + corruption→null, loadSaveList migrate + skip-corrupt)
+- Files: `src/hooks/useSaves.ts`, `src/saves/compression.ts`. Tests for
+  quota-exceeded rollback, corrupted/truncated blob → readable error (extend the
+  round-trip-only `compression.test.ts`), and save-version handling. Reuse the
+  patterns in `imageStore.test.ts` (quota rollback) and `migrate.test.ts`
+  (damaged records).
+- Commit: `test(saves): cover quota, corruption, and version failure paths`
+
+### T3 — TTS adapter request-shaping tests — **done** (2026-07-16: src/__tests__/tts-adapters.test.tsx, 9 tests — openai/elevenlabs/azure key-in-header-not-url/body + origin-in-manifest + payload shape + speed clamp + azure XML-escape + azure keyless-refusal; browser adapter no-network + rate clamp + voice select + unavailable + aborted-signal)
+- Cover the untested adapters in `src/tts/adapters/` (azure, elevenlabs, openai,
+  browser) mirroring `tts-google.test.ts` / `tts-voxtral.test.ts`: key placement
+  (headers, never URLs unless the API forces it — see A3 note), endpoint origin
+  (must be present in `src/security/origins.ts`), payload shape.
+- Commit: `test(tts): request-shaping coverage for azure/elevenlabs/openai/browser`
+
+### T4 — artDirector orchestration + prompt serialization tests — **done** (2026-07-16: src/__tests__/prompt.test.ts (toPlayerLedger/formatStateForPrompt/serializeStatePublic/strip* — hidden_state never crosses to public) + artDirector-orchestration.test.ts (buildBootstrapSystem realm/custom/fallback, buildTurnSystem bible+ledger render, parse code-fence/embedded/malformed/entry-filter, end-to-end parse→merge→compose); 23 tests)
+- Files: `src/llm/artDirector.ts` (orchestration; only helpers/caption are covered
+  today) and `src/llm/prompt.ts` (state serialization / prompt formatting).
+- Commit: `test(llm): cover artDirector orchestration and prompt serialization`
+
+### T5 — Coverage ratchet expansion — **done** (2026-07-16: coverage include now adds src/export, src/saves, src/hooks, src/tts; measured lines 43.7/func 39.4/branches 34.5/stmts 40.6 → thresholds re-pinned at measured−2 = lines 41/func 37/branches 32/stmts 38)
+- Add `src/export`, `src/saves`, `src/hooks`, `src/tts` to the coverage scope in
+  `vite.config.js`; measure; re-pin thresholds at measured−2% (same rule as B5).
+- Commit: `test: expand coverage ratchet to export/saves/hooks/tts`
+
+### Phase E — e2e depth (reuse the mocked-LLM pattern in `e2e/smoke.spec.ts`)
+
+### E1 — Undo + Wild mode e2e — **done** (2026-07-16: e2e/undo-wild.spec.ts — starts a Wild premise via the custom modal, advances one mocked turn, undoes; asserts narration count 1→2→1, prose gone, undo banner, and ledger scene rolled back to the opening; verified 8/8 e2e green with PW_CHROMIUM)
+- Start a Wild premise, advance a turn, undo; assert entries and visible state roll
+  back cleanly.
+- Commit: `test(e2e): wild-mode start and undo round-trip`
+
+### E2 — BYOB proxy settings e2e — **done** (2026-07-16: e2e/proxy.spec.ts — sets a localhost proxy URL in Settings, asserts the TEST button and an in-game turn both fetch <proxy>?target=<encoded api.openai.com> and never hit the provider origin directly; fixtures refactored to export a shared fulfillLLM helper; 9/9 e2e green)
+- Configure a proxy URL in Settings against a mock endpoint; assert the TEST button
+  and an in-game turn both route through it (regression net over F1/F2).
+- Commit: `test(e2e): BYOB proxy carries TEST and turn traffic`
+
+### Phase P — product improvement (evidence-backed)
+
+### P1 — check-models covers image + TTS catalogues — **done** (2026-07-16: check-models.mjs now parses imaging.ts + catalogue.ts and cross-checks the keyless Pollinations image endpoint for dead ids (exit 1), enumerating key-gated image/TTS providers as confirm-by-hand; verified live (sana served, no dead) + red path via a bogus id → exit 1; JSON adds image/tts; doc updated)
+- Extend `scripts/check-models.mjs` beyond the LLM/OpenRouter cross-check: verify
+  image and TTS catalogue ids against the provider endpoints the app itself uses,
+  closing the staleness-only gap documented in `docs/model-catalogue-maintenance.md`
+  (the Pollinations single-model collapse, 8343b60, is the motivating failure).
+  Update that doc to match.
+- Commit: `feat(scripts): health-check image and TTS catalogues in check:models`
+
+### P2 — Playtest-driven UX punch list — **done** (2026-07-16: drove title → 2 turns → ending → reveal → author's-table → keepsake against a scripted mock via a throwaway Playwright spec, screenshotting each stage; three code-confirmed friction items appended below as UX1–UX3)
+- Run the app end-to-end against a scripted mock provider (title → turns → ending →
+  reveal → meta → keepsake export) and record concrete friction items as new `todo`
+  units appended to this file. The output is backlog units, not code.
+- Commit: `docs(backlog): UX punch list from scripted playtest`
+
+## UX punch list (from P2, 2026-07-16)
+
+Concrete friction found in a scripted end-to-end playthrough (title → turns →
+ending → Hidden Hour reveal → Author's Table → keepsake). Each was confirmed in
+the source, not just the screenshot. Same unit protocol as everything above.
+
+### UX1 — Composer hint row must reflect the closed / at-rest state — **done** (2026-07-16: GameComposer gates the hint row on `inputLocked && !loading` — the closed hour now shows "the chronicle is closed" instead of "↵ act"; the skip-writing hint renders only while `loading`, so an at-rest transcript no longer advertises a click that skips nothing)
+- In `src/components/GameComposer.tsx` the hint row (~lines 124–127: "↵ act",
+  "⇧ ↵ new line", "click the page to skip the writing") renders unconditionally.
+  When the hour is spent the textarea is disabled and reads "The chronicle is
+  closed." (`inputLocked = ended && !metaMode`, lines 27/117/120), yet the row
+  still advertises "↵ act" beneath it. "click the page to skip the writing" also
+  shows when no narration is streaming, where a click skips nothing. Gate the
+  row: hide it (or swap to a closed-state line) when `inputLocked && !loading`,
+  and show the skip-writing hint only while the typewriter is actually running.
+- Commit: `fix(ui): composer hints reflect closed and at-rest states`
+
+### UX2 — Hidden Hour reveal text is not scrolled into view — **done** (2026-07-16: added `revealText` to the GameScreen scroll-pin effect deps; because `revealText` streams delta-by-delta (useReveal appends each chunk), the near-bottom guard follows the reveal into view as it surfaces, mirroring per-turn narration)
+- `src/components/GameScreen.tsx` pins the scroll on `[entries, loading,
+  metaMessages]` (~line 80), so when `revealText` streams in after "UNVEIL THE
+  HIDDEN HOUR" the view does not follow it — with the resolution buttons filling
+  the viewport, the surfaced reveal lands off-screen (observed: after UNVEIL the
+  transcript stayed scrolled to the top with the button still showing). Add
+  `revealText` to the effect deps, or scroll the reveal section into view on its
+  first render, mirroring the per-turn behavior.
+- Commit: `fix(ui): follow the Hidden Hour reveal into view`
+
+### UX3 — Dev CSP blocks the Vite HMR websocket — **done** (2026-07-16: the dev-only `devCspRelax` plugin now widens `connect-src` with `ws://`/`wss://` localhost + 127.0.0.1 origins so the HMR socket connects — CSP matches schemes exactly, so the existing `http(s)://localhost:*` entries did not cover `ws:`. Production CSP and B1's drift test untouched — the transform runs only under `apply: "serve"`)
+- Under `npm run dev` the production CSP `<meta>` `connect-src` is served but
+  omits the Vite HMR websocket origin, so the browser refuses the socket
+  ("Refused to connect to 'ws://localhost:5173' … violates … connect-src") and
+  hot reload is dead during local development. Decide whether dev HMR should
+  work; if so, inject a dev-only `ws://localhost:*` / `ws://127.0.0.1:*`
+  allowance (e.g. via a Vite dev-only transform of the meta tag) that never
+  reaches the built output. Leave the production CSP — and B1's drift test —
+  untouched.
+- Commit: `fix(dev): allow the Vite HMR websocket under the dev CSP`

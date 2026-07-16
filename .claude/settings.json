@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm run check)",
+      "Bash(npm run test)",
+      "Bash(npm run test:fast)",
+      "Bash(npm run guard)",
+      "Bash(npm run ladder)",
+      "Bash(git status)",
+      "Bash(git status:*)",
+      "Bash(git log)",
+      "Bash(git log:*)",
+      "Bash(git diff)",
+      "Bash(git diff:*)"
+    ]
+  }
+}
