@@ -197,7 +197,7 @@ config, docs, e2e surface). Same protocol as above. Phases are in priority order
 
 ### Phase T — test depth on the riskiest untested code
 
-### T1 — Keepsake export lockdown — **todo**
+### T1 — Keepsake export lockdown — **done** (2026-07-16: src/__tests__/keepsake-escaping.test.ts, 16 tests; every dynamic ${...} site — narration/action/title×2/realmLabel/teaser/illustration url+caption/reveal/meta×2/director's-notes — asserted script+attr-breakout+entity-safe; realm CSS fallback + markdown-after-escape pinned)
 - `src/export/keepsake.ts` escapes HTML (`escapeHtml`) — freeze it. New unit tests:
   narration/action/title text containing `<script>`, attribute-breakout quotes, and
   entity edge cases must never reach the exported HTML unescaped. Cover every
