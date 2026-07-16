@@ -212,7 +212,7 @@ config, docs, e2e surface). Same protocol as above. Phases are in priority order
   (damaged records).
 - Commit: `test(saves): cover quota, corruption, and version failure paths`
 
-### T3 — TTS adapter request-shaping tests — **todo**
+### T3 — TTS adapter request-shaping tests — **done** (2026-07-16: src/__tests__/tts-adapters.test.tsx, 9 tests — openai/elevenlabs/azure key-in-header-not-url/body + origin-in-manifest + payload shape + speed clamp + azure XML-escape + azure keyless-refusal; browser adapter no-network + rate clamp + voice select + unavailable + aborted-signal)
 - Cover the untested adapters in `src/tts/adapters/` (azure, elevenlabs, openai,
   browser) mirroring `tts-google.test.ts` / `tts-voxtral.test.ts`: key placement
   (headers, never URLs unless the API forces it — see A3 note), endpoint origin
