@@ -204,7 +204,7 @@ config, docs, e2e surface). Same protocol as above. Phases are in priority order
   interpolation site in the template (grep the file for `${` and account for each).
 - Commit: `test(export): lock keepsake HTML escaping at every interpolation site`
 
-### T2 — useSaves + compression failure paths — **todo**
+### T2 — useSaves + compression failure paths — **done** (2026-07-16: compression.test.ts +2 damaged-gzip reject cases; new src/__tests__/useSaves.test.tsx, 8 tests — quota rollback (blobs released + quota banner), non-quota generic banner, save-cap guard, success path, silent autosave failure, readAutosave version-stamp + corruption→null, loadSaveList migrate + skip-corrupt)
 - Files: `src/hooks/useSaves.ts`, `src/saves/compression.ts`. Tests for
   quota-exceeded rollback, corrupted/truncated blob → readable error (extend the
   round-trip-only `compression.test.ts`), and save-version handling. Reuse the
