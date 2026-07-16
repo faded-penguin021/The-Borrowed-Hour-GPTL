@@ -184,7 +184,7 @@ config, docs, e2e surface). Same protocol as above. Phases are in priority order
   setup; `npm run guard` still passes (guard must not flag `.claude/`).
 - Commit: `chore(harness): SessionStart hook + permission allowlist for agent sessions`
 
-### H2 — model-catalogue-refresh repo skill — **todo**
+### H2 — model-catalogue-refresh repo skill — **done** (2026-07-16: .claude/skills/model-catalogue-refresh/SKILL.md encodes the doc's 9-step procedure + guardrails + PR template; file/export references verified against providers.ts/imaging.ts/catalogue.ts; doc stays as rationale)
 - Encode the procedure of `docs/model-catalogue-maintenance.md` as
   `.claude/skills/model-catalogue-refresh/SKILL.md` so the weekly scheduled session
   invokes it deterministically. The doc stays as rationale/reference; the skill
