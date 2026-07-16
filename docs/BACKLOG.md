@@ -251,8 +251,46 @@ config, docs, e2e surface). Same protocol as above. Phases are in priority order
   Update that doc to match.
 - Commit: `feat(scripts): health-check image and TTS catalogues in check:models`
 
-### P2 — Playtest-driven UX punch list — **todo** (discovery unit; run last)
+### P2 — Playtest-driven UX punch list — **done** (2026-07-16: drove title → 2 turns → ending → reveal → author's-table → keepsake against a scripted mock via a throwaway Playwright spec, screenshotting each stage; three code-confirmed friction items appended below as UX1–UX3)
 - Run the app end-to-end against a scripted mock provider (title → turns → ending →
   reveal → meta → keepsake export) and record concrete friction items as new `todo`
   units appended to this file. The output is backlog units, not code.
 - Commit: `docs(backlog): UX punch list from scripted playtest`
+
+## UX punch list (from P2, 2026-07-16)
+
+Concrete friction found in a scripted end-to-end playthrough (title → turns →
+ending → Hidden Hour reveal → Author's Table → keepsake). Each was confirmed in
+the source, not just the screenshot. Same unit protocol as everything above.
+
+### UX1 — Composer hint row must reflect the closed / at-rest state — **todo**
+- In `src/components/GameComposer.tsx` the hint row (~lines 124–127: "↵ act",
+  "⇧ ↵ new line", "click the page to skip the writing") renders unconditionally.
+  When the hour is spent the textarea is disabled and reads "The chronicle is
+  closed." (`inputLocked = ended && !metaMode`, lines 27/117/120), yet the row
+  still advertises "↵ act" beneath it. "click the page to skip the writing" also
+  shows when no narration is streaming, where a click skips nothing. Gate the
+  row: hide it (or swap to a closed-state line) when `inputLocked && !loading`,
+  and show the skip-writing hint only while the typewriter is actually running.
+- Commit: `fix(ui): composer hints reflect closed and at-rest states`
+
+### UX2 — Hidden Hour reveal text is not scrolled into view — **todo**
+- `src/components/GameScreen.tsx` pins the scroll on `[entries, loading,
+  metaMessages]` (~line 80), so when `revealText` streams in after "UNVEIL THE
+  HIDDEN HOUR" the view does not follow it — with the resolution buttons filling
+  the viewport, the surfaced reveal lands off-screen (observed: after UNVEIL the
+  transcript stayed scrolled to the top with the button still showing). Add
+  `revealText` to the effect deps, or scroll the reveal section into view on its
+  first render, mirroring the per-turn behavior.
+- Commit: `fix(ui): follow the Hidden Hour reveal into view`
+
+### UX3 — Dev CSP blocks the Vite HMR websocket — **todo** (low; dev-experience)
+- Under `npm run dev` the production CSP `<meta>` `connect-src` is served but
+  omits the Vite HMR websocket origin, so the browser refuses the socket
+  ("Refused to connect to 'ws://localhost:5173' … violates … connect-src") and
+  hot reload is dead during local development. Decide whether dev HMR should
+  work; if so, inject a dev-only `ws://localhost:*` / `ws://127.0.0.1:*`
+  allowance (e.g. via a Vite dev-only transform of the meta tag) that never
+  reaches the built output. Leave the production CSP — and B1's drift test —
+  untouched.
+- Commit: `fix(dev): allow the Vite HMR websocket under the dev CSP`
