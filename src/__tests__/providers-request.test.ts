@@ -7,7 +7,7 @@
 // floors max_output_tokens at 16).
 
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { PROVIDERS, getProviderKey, checkProviderHealth } from "../llm/providers";
+import { PROVIDERS, getProviderKey, checkProviderHealth, applyProxyToRequest } from "../llm/providers";
 
 afterEach(() => {
   delete (window as unknown as Record<string, unknown>).ANTHROPIC_API_KEY;
@@ -56,6 +56,14 @@ describe("checkProviderHealth via BYOB proxy", () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, { headers: Record<string, string> }];
     expect(url.startsWith("https://proxy.example/llm?target=")).toBe(true);
     expect(init.headers["x-api-key"]).toBeUndefined();
+  });
+
+  it("appends with & when the proxy URL already carries query params", () => {
+    const request = { url: "https://api.example/v1/chat", headers: {} };
+    applyProxyToRequest(request, "https://proxy.example/llm?token=abc");
+    expect(request.url).toBe(
+      `https://proxy.example/llm?token=abc&target=${encodeURIComponent("https://api.example/v1/chat")}`
+    );
   });
 });
 
