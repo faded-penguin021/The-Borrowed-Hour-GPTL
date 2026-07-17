@@ -4,9 +4,17 @@
 # dependencies are guaranteed present before the agent's first turn.
 set -euo pipefail
 
+# Supply-chain tripwires BEFORE the install, so a poisoned lockfile (new
+# install script, banned family, planted config file) is caught before npm ci
+# can execute any lifecycle script. The guard is zero-dependency by design.
+node scripts/check-supply-chain.mjs 1>&2
+
 # Install dependencies. npm ci (never npm install) per CLAUDE.md's
 # supply-chain rules: it honors the committed lockfile exactly.
 npm ci 1>&2
+
+# Re-run after the install for the node_modules sweep (binding.gyp tripwire).
+node scripts/check-supply-chain.mjs 1>&2
 
 # Discover the container's Playwright Chromium and export it for the session so
 # `npm run test:e2e` works without the manual PW_CHROMIUM override (see U1).

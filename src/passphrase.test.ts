@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   decryptStored,
+  encryptForStorage,
   setPassphraseService,
   WrongPassphraseError,
   type PassphraseService,
@@ -80,5 +81,35 @@ describe("decryptStored", () => {
       isUnlocked: () => false,
     });
     expect(await decryptStored(STORE, `${ENC_PREFIX_V1}stale.v1.blob`)).toBe("sk-after-migration");
+  });
+});
+
+describe("encryptForStorage", () => {
+  it("encrypts with the unlocked session key without prompting", async () => {
+    const key = await deriveSessionKey("pw");
+    const svc = stubService({ isUnlocked: () => true, getSessionKey: () => key });
+    const blob = await encryptForStorage("  sk-secret  ");
+    expect(svc.requestPassphrase).not.toHaveBeenCalled();
+    expect(blob).not.toBeNull();
+    expect(await decryptStored("k", blob as string)).toBe("sk-secret");
+  });
+
+  it("prompts and derives a key when locked, then encrypts", async () => {
+    const key = await deriveSessionKey("pw");
+    let unlocked = false;
+    stubService({
+      requestPassphrase: vi.fn(async () => "pw"),
+      setSessionKeyFromPassphrase: vi.fn(async () => { unlocked = true; return key; }),
+      getSessionKey: () => (unlocked ? key : null),
+      isUnlocked: () => unlocked,
+    });
+    const blob = await encryptForStorage("sk-secret");
+    expect(blob).not.toBeNull();
+    expect(await decryptStored("k", blob as string)).toBe("sk-secret");
+  });
+
+  it("returns null when the prompt is cancelled — callers must not store plaintext", async () => {
+    stubService({ requestPassphrase: vi.fn(async () => null) });
+    expect(await encryptForStorage("sk-secret")).toBeNull();
   });
 });

@@ -18,6 +18,7 @@ import {
   isEncrypted,
   isV2,
   decryptWithKey,
+  encryptWithKey,
 } from "./storage/encryption";
 
 /** Thrown when a stored blob fails to decrypt with the session key. */
@@ -96,6 +97,33 @@ export const isUnlocked = (): boolean => service().isUnlocked();
  * (after clearing the cached key) when decryption fails, and lets
  * KeysUnrecoverableError propagate from the unlock step.
  */
+export const ENCRYPT_PROMPT = "Set a session passphrase to encrypt your API keys:";
+
+/**
+ * Encrypt a secret for storage, shared by every key save path (LLM, local
+ * token, TTS, imaging). If the session is locked, prompts for a passphrase and
+ * derives the key first — the same gate on every provider key.
+ *
+ * Returns the enc:v2: bundle, or null when the user cancels the prompt.
+ * Callers must leave the stored value untouched on null — never fall back to
+ * persisting the plaintext.
+ */
+export async function encryptForStorage(
+  plain: string,
+  prompt: string = ENCRYPT_PROMPT,
+): Promise<string | null> {
+  if (!isUnlocked()) {
+    const pass = await requestPassphrase(prompt);
+    if (pass == null)
+      return null; // cancelled
+    await setSessionKeyFromPassphrase(pass);
+  }
+  const key = getSessionKey();
+  if (!key)
+    return null;
+  return encryptWithKey(key, plain.trim());
+}
+
 export async function decryptStored(
   storageKey: string,
   blob: string,

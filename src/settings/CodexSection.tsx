@@ -1,6 +1,6 @@
 import type { AppSettings, CodexSettings, ImageProviderId, ProviderId } from "../types";
 import React, { useState } from "react";
-import { IMAGE_PROVIDER_META, IMAGE_PROVIDER_ORDER, setReplicateKey, getReplicateKeyPlaintext, setLocalImageUrl, getLocalImageUrl, LOCAL_IMAGE_DEFAULT_URL, OPENAI_IMAGE_SIZES, OPENAI_IMAGE_QUALITIES, OPENAI_IMAGE_FORMATS, OPENAI_IMAGE_DEFAULT_SIZE, OPENAI_IMAGE_DEFAULT_QUALITY, OPENAI_IMAGE_DEFAULT_FORMAT } from "../llm/imaging";
+import { IMAGE_PROVIDER_META, IMAGE_PROVIDER_ORDER, saveReplicateKey, hasReplicateKey, getReplicateKeyPlaintext, setLocalImageUrl, getLocalImageUrl, LOCAL_IMAGE_DEFAULT_URL, OPENAI_IMAGE_SIZES, OPENAI_IMAGE_QUALITIES, OPENAI_IMAGE_FORMATS, OPENAI_IMAGE_DEFAULT_SIZE, OPENAI_IMAGE_DEFAULT_QUALITY, OPENAI_IMAGE_DEFAULT_FORMAT } from "../llm/imaging";
 import { PROVIDER_META, TOOL_USE_PROVIDER_ORDER } from "../llm/providers";
 import { CODEX_MODE_OPTIONS } from "../data/constants";
 import { ModelPicker } from "./ModelPicker";
@@ -21,7 +21,11 @@ export function CodexSection({ settings, onChange }: CodexSectionProps) {
   const providerCfg = (codex.providerConfig && codex.providerConfig[providerId]) || {};
   const ad = codex.artDirectorEngine || { provider: "mistral", model: "mistral-small-latest" };
 
+  // Seeded with any legacy plaintext value so it can be re-saved encrypted;
+  // an already-encrypted key shows as an empty field with the stored badge.
   const [replicateKey, setReplicateKeyState] = useState(() => getReplicateKeyPlaintext());
+  const [replicateStored, setReplicateStored] = useState(() => hasReplicateKey());
+  const [replicateSaved, setReplicateSaved] = useState(false);
   const [localUrl, setLocalUrl] = useState(() => getLocalImageUrl());
 
   // The OpenAI image provider carries extra tunables beyond `model`; read them
@@ -101,16 +105,30 @@ export function CodexSection({ settings, onChange }: CodexSectionProps) {
           {providerId === "replicate" && (
             <>
               <div className={subLabelClass}>Replicate API key</div>
-              <input
-                type="password"
-                value={replicateKey}
-                onChange={(e) => { setReplicateKeyState(e.target.value); setReplicateKey(e.target.value); }}
-                placeholder="r8_..."
-                autoComplete="off"
-                className={fieldClass}
-              />
+              <div className="flex gap-1.5 items-center">
+                <input
+                  type="password"
+                  value={replicateKey}
+                  onChange={(e) => { setReplicateKeyState(e.target.value); setReplicateSaved(false); }}
+                  placeholder={replicateStored ? "Key stored — paste to replace" : "r8_..."}
+                  autoComplete="off"
+                  className={fieldClass}
+                />
+                <IconButton
+                  type="button"
+                  pad="px-2.5 py-[5px]"
+                  className="text-[10px] tracking-[0.15em] mt-1.5"
+                  onClick={async () => {
+                    const ok = await saveReplicateKey(replicateKey);
+                    setReplicateStored(hasReplicateKey());
+                    setReplicateSaved(ok);
+                  }}
+                >
+                  {replicateSaved ? "SAVED" : "SAVE"}
+                </IconButton>
+              </div>
               <div className="font-body italic text-cream-faint text-[11px] mt-1">
-                Stored locally in plaintext. For encrypted-at-rest storage, set REPLICATE_API_KEY on window or as a meta tag.
+                Encrypted at rest behind your session passphrase, like every saved key. Leave empty and save to forget it.
               </div>
             </>
           )}

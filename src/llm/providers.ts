@@ -255,7 +255,9 @@ export const resetProviderKey = (id: ProviderId) => {
 export const applyProxyToRequest = <T extends { url: string; headers: Record<string, string> }>(request: T, proxyUrl?: string | null): T => {
   const trimmed = proxyUrl?.trim();
   if (!trimmed) return request;
-  request.url = `${trimmed}?target=${encodeURIComponent(request.url)}`;
+  // A user-entered proxy URL may already carry query params; append accordingly.
+  const sep = trimmed.includes("?") ? "&" : "?";
+  request.url = `${trimmed}${sep}target=${encodeURIComponent(request.url)}`;
   if (request.headers) {
     delete request.headers["Authorization"];
     delete request.headers["x-api-key"];

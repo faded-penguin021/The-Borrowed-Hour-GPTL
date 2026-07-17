@@ -10,6 +10,11 @@
 //   5. No binding.gyp anywhere under node_modules (Miasma executes code via a
 //      command-substitution `action` without any lifecycle script).
 // Exit 0 = clean; exit 1 = a tripwire fired (details on stderr).
+//
+// CI and the session-start hook run this twice: once BEFORE `npm ci` (rules
+// 1-4 are static, and must fire before any lifecycle script can execute) and
+// once after (rule 5 needs the installed tree; it no-ops when node_modules is
+// absent). Keep the script runnable with no node_modules and no dependencies.
 
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
