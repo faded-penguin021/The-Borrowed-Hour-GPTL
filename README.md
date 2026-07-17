@@ -11,7 +11,7 @@ The project began as a single-file HTML artifact and is now a small web app. `sr
 - **No backend, by design.** Every request — LLM, image, TTS — goes straight from your browser to the provider using your own API key. There's no server for this project to run or for your keys to pass through.
 - **A GM that doesn't leak its reasoning.** Turns are split across three model roles (opening scene, hidden GM logic, player-facing narration), optionally on different providers, so the rules adjudicator's bookkeeping never bleeds into the prose you read.
 - **Wild mode.** Beyond the built-in scenarios, you can describe your own premise and the same engine runs it.
-- **Encrypted local saves.** Keys and save data are AES-GCM encrypted at rest behind a session passphrase, with auto-lock when the tab is backgrounded.
+- **Encrypted keys, local saves.** API keys are AES-GCM encrypted at rest behind a session passphrase, with auto-lock when the tab is backgrounded. Saves and chronicles stay in this browser's local storage, unencrypted — they hold your story (including the hidden GM state), not your secrets. See `THREAT_MODEL.md`.
 - **Reactive atmosphere.** An "Art Director" step turns scene state into image prompts, and a Web Audio ambience engine scores the story live — both optional, both driven by the same turn state.
 
 ## Run locally
