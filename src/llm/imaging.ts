@@ -10,7 +10,7 @@ import type { GeneratedImage, ImageProviderId, ImageProviderMeta } from "../type
 import { BorrowedError, scrubSecrets } from "./errors";
 import { isEncrypted } from "../storage/encryption";
 import { getProviderKey } from "./providers";
-import { decryptStored, KeysUnrecoverableError } from "../passphrase";
+import { decryptStored, encryptForStorage, KeysUnrecoverableError } from "../passphrase";
 import { ReplicatePredictionSchema } from "./responseSchemas";
 
 export const POLLINATIONS_DEFAULT_MODEL = "sana";
@@ -304,11 +304,22 @@ export const generateImage = async ({ providerId, providerConfig, prompt, negati
   }
 };
 
-export const setReplicateKey = (raw: string): void => {
+/**
+ * Persist the Replicate key through the same passphrase gate as every other
+ * provider key. Returns false when the user cancels the passphrase prompt (the
+ * stored value is left untouched — plaintext is never written).
+ */
+export const saveReplicateKey = async (raw: string): Promise<boolean> => {
   const keyStorage = IMAGE_PROVIDER_META.replicate.keyStorage as string;
-  if (!raw) localStorage.removeItem(keyStorage);
-  else localStorage.setItem(keyStorage, raw.trim());
+  if (!raw.trim()) { localStorage.removeItem(keyStorage); return true; }
+  const blob = await encryptForStorage(raw);
+  if (blob == null) return false;
+  localStorage.setItem(keyStorage, blob);
+  return true;
 };
+export const hasReplicateKey = (): boolean =>
+  !!localStorage.getItem(IMAGE_PROVIDER_META.replicate.keyStorage as string);
+/** Legacy plaintext value, for seeding the settings field; "" once encrypted. */
 export const getReplicateKeyPlaintext = (): string => {
   const v = localStorage.getItem(IMAGE_PROVIDER_META.replicate.keyStorage as string);
   if (!v || isEncrypted(v)) return "";

@@ -1,14 +1,12 @@
 import React from "react";
 import { LOCAL_DEFAULT_URL } from "../data/constants";
-import { encryptWithKey } from "../storage/encryption";
+import { encryptForStorage } from "../passphrase";
 import { PROVIDER_META } from "../llm/providers";
-import { usePassphrase } from "../context/PassphraseContext";
 import { BTN_SETTINGS, FIELD_SETTINGS } from "../components/ui/styleClasses";
 
 /** No props. */
 export function LocalLLMRow() {
   const meta = PROVIDER_META.local;
-  const { requestPassphrase, getSessionKey, setSessionKeyFromPassphrase, isUnlocked } = usePassphrase();
   // The local provider always defines urlStorage (see PROVIDER_META.local).
   const urlStorage = meta.urlStorage as string;
   const [url, setUrl] = React.useState(() => localStorage.getItem(urlStorage) || "");
@@ -30,14 +28,9 @@ export function LocalLLMRow() {
   const saveKey = async () => {
     const trimmed = key.trim();
     if (!trimmed) return;
-    if (!isUnlocked()) {
-      const pass = await requestPassphrase("Set a session passphrase to encrypt your API keys:");
-      if (!pass) return;
-      await setSessionKeyFromPassphrase(pass);
-    }
-    const sessionKey = getSessionKey();
-    if (!sessionKey) return;
-    localStorage.setItem(meta.keyStorage, await encryptWithKey(sessionKey, trimmed));
+    const blob = await encryptForStorage(trimmed);
+    if (blob == null) return;
+    localStorage.setItem(meta.keyStorage, blob);
     setKey("");
     setEditingKey(false);
     setKeyStored(true);

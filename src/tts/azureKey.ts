@@ -1,5 +1,4 @@
-import { encryptWithKey } from "../storage/encryption";
-import { decryptStored, getSessionKey, isUnlocked } from "../passphrase";
+import { decryptStored, encryptForStorage } from "../passphrase";
 
 const KEY = "borrowed:tts_azure_key:v1";
 
@@ -11,12 +10,9 @@ export async function getTtsAzureKey(): Promise<string | null> {
 }
 export async function saveTtsAzureKey(plain: string | null): Promise<void> {
   if (!plain) { localStorage.removeItem(KEY); return; }
-  const key = getSessionKey();
-  if (isUnlocked() && key) {
-    localStorage.setItem(KEY, await encryptWithKey(key, plain.trim()));
-  } else {
-    localStorage.setItem(KEY, plain.trim());
-  }
+  const blob = await encryptForStorage(plain);
+  if (blob == null) return; // cancelled — leave any stored value untouched
+  localStorage.setItem(KEY, blob);
 }
 export function getTtsAzureRegion(): string {
   return localStorage.getItem("borrowed:tts_azure_region:v1") || "eastus";
