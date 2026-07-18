@@ -17,7 +17,7 @@
     "lint:fix": "eslint . --fix",
     "check": "tsc --noEmit && eslint .",
     "guard": "node scripts/check-supply-chain.mjs",
-    "ladder": "npm run guard && npm run check && npm test && npm run build",
+    "ladder": "bash scripts/ladder.sh",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:prod": "playwright test --config=playwright.prod.config.ts"
