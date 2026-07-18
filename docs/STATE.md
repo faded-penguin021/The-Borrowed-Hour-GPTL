@@ -56,14 +56,7 @@ queue.
    PRs **#204** (actions/setup-node 7) and **#205** (npm minor/patch group) are
    already green — merge as-is.
 
-**Open questions:**
-1. **Adopt eslint-plugin-react-hooks v7's new rules now, or as a dedicated
-   unit?** v7's `recommended` adds `react-hooks/set-state-in-effect`,
-   `react-hooks/immutability`, and friends — ~34 findings across existing hooks.
-   This bump keeps them off to stay surgical. Recommendation: **defer to a
-   dedicated backlog unit** — several findings are effect-timing/behavior
-   sensitive (setState-in-effect) and deserve per-site review + tests, not a bulk
-   change bundled into a dependency bump.
+**Open questions:** (none)
 
 **Incoming findings:** (none)
 
@@ -83,6 +76,11 @@ queue.
   numbered append-only ledger the first time a durable cross-session lesson has
   no home in BACKLOG or `docs/audit-2026-07.md`, and reconcile the audit doc in
   then.
+- **eslint-plugin-react-hooks v7's new rules stay off** (owner, 2026-07-18) —
+  `set-state-in-effect`, `immutability`, et al. (~34 findings) deferred to a
+  dedicated backlog unit; several are effect-timing/behavior sensitive and need
+  per-site review + tests, not a dep-bump side effect. `eslint.config.js` pins
+  the two classic rules explicitly to keep them off.
 
 ## Changelog
 
