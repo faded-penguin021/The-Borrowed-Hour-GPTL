@@ -28,8 +28,9 @@ Standing harness: `scripts/check-supply-chain.mjs` (the `guard`), `.claude/`
 SessionStart hook + permission rails, and the `model-catalogue-refresh` repo
 skill. This branch adds the maintenance harness itself — `docs/STATE.md` (this
 file), `scripts/ladder.sh` as the single verification entrypoint (CI invokes it
-directly), the folded session-discipline playbook in `CLAUDE.md`, and the
-force-push / push-to-`main` deny rails.
+directly), the folded session-discipline playbook in `CLAUDE.md` (incl. Secret
+hygiene + verification disclosure), and the force-push / push-to-`main` /
+secret-dump deny rails.
 
 Verification = `scripts/ladder.sh` (supply-chain guard → typecheck → lint →
 unit tests + coverage → build). Playwright e2e is **not** in the ladder: it runs
@@ -48,18 +49,7 @@ queue.
 1. Merge this harness branch (`claude/implement-harness-8kvhax`) into `main` via
    squash-merge when satisfied. Tagging/releasing stays an owner step.
 
-**Open questions:**
-1. **`docs/BACKLOG.md` — every unit is `done`. Keep it as the forward tracker,
-   or archive it?** Recommendation: keep BACKLOG.md as the append-a-unit backlog
-   (its unit protocol already matches this harness) and let STATE.md carry
-   *current* state + the Owner queue; revisit archiving only if BACKLOG grows a
-   large `done` tail that crowds out live units.
-2. **Adopt a formal append-only `docs/LEDGER.md` now, or defer?** The harness
-   template defers the ledger until a past mistake is being re-explained; this
-   repo already has `docs/audit-2026-07.md` (a de-facto discovery log) and
-   BACKLOG's inline `done`-notes filling that role. Recommendation: **defer** —
-   add the numbered ledger the first time a durable cross-session lesson has no
-   good home in those two files, and reconcile the audit doc into it then.
+**Open questions:** (none)
 
 **Incoming findings:** (none)
 
@@ -72,12 +62,23 @@ queue.
 - **Saves & chronicles are local plaintext, not encrypted** (2026-07-16, commit
   `48712bd`). Deliberate: they hold story state, not secrets. Only API keys are
   encrypted at rest. See `THREAT_MODEL.md`.
+- **`docs/BACKLOG.md` stays the forward backlog** (owner, 2026-07-18) — not
+  archived, even with every unit `done`; STATE.md carries current state + the
+  Owner queue. Revisit only if a large `done` tail crowds out live units.
+- **No formal `docs/LEDGER.md` yet** (owner, 2026-07-18) — deferred. Add the
+  numbered append-only ledger the first time a durable cross-session lesson has
+  no home in BACKLOG or `docs/audit-2026-07.md`, and reconcile the audit doc in
+  then.
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Pre-harness
 history lives in `docs/BACKLOG.md` and git.
 
+- 2026-07-18 — Harness v3 secret-hygiene pass: `CLAUDE.md` Secret hygiene section
+  + verification-disclosure rule; `env` / `printenv` / `.env`-read deny rails in
+  `.claude/settings.json`. Owner resolved both open questions (keep BACKLOG,
+  defer LEDGER) — recorded under Decided non-items.
 - 2026-07-18 — Add the maintenance harness: `docs/STATE.md`, `scripts/ladder.sh`
   (single verification entrypoint, STATE-length guard), CI wired to invoke it,
   session-discipline playbook folded into `CLAUDE.md`, force-push / push-to-main

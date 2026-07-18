@@ -42,7 +42,14 @@
       "Bash(git push origin main)",
       "Bash(git push origin main:*)",
       "Bash(git push origin HEAD:main)",
-      "Bash(git push origin HEAD:main:*)"
+      "Bash(git push origin HEAD:main:*)",
+      "Bash(env)",
+      "Bash(printenv)",
+      "Bash(printenv:*)",
+      "Bash(cat .env)",
+      "Bash(cat .env:*)",
+      "Bash(cat .env.local)",
+      "Bash(cat .env.local:*)"
     ]
   }
 }

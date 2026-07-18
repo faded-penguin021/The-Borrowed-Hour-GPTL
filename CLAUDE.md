@@ -121,6 +121,11 @@ that you are the last reviewer — there is no stronger pass behind you.
    rewrite pushed history.
 7. **These process docs are code.** If this file or `docs/STATE.md` is wrong,
    stale, or missing the case you just handled, fix it in the same change.
+8. **Verification disclosure.** Every commit body states what you actually
+   verified (which ladder rungs ran) and names what could *not* be verified
+   locally — for this repo that's Playwright e2e and any real-provider / on-device
+   behavior (owner-verified via the Owner queue). Disclosure of real actions,
+   never implied coverage.
 
 ## Git rules
 
@@ -131,6 +136,25 @@ that you are the last reviewer — there is no stronger pass behind you.
 - The owner merges session branches via **squash-merge** (one commit per branch
   on `main`). Don't open a PR unless asked. Tagging / releasing stays an owner
   step.
+
+## Secret hygiene
+
+This is about *your session's* credentials, not the app's — the codebase ships
+no backend and no secrets of its own, but the remote container you run in carries
+them anyway (the VCS push token, the outbound-proxy auth). (Separately, "Secrets
+are user-owned" under Architectural notes governs how the *product* handles a
+player's API keys.)
+
+- **Never dump the environment.** No bare `env` / `printenv`, no reading
+  `.env`-style files, no `inspect`-style config dumps. The permission rails in
+  `.claude/settings.json` deny these; the rest is discipline.
+- **Never print a credential's value, prefix, suffix, length, or hash.** Report
+  only fixed-key presence ("`PW_CHROMIUM` is set") and bounded counts. Redact
+  subprocess / exception / network output before reasoning over it.
+- **A diagnostic that seems to need raw secret material is an Owner-queue open
+  question** (ask for a narrower evidence contract) — never default to raw
+  output. Credential rotation or auth-config changes are Owner-queue items with
+  explicit approval and a rollback plan.
 
 ## Supply-chain hygiene (read before touching deps or running installs)
 
@@ -175,7 +199,8 @@ any *later* unexplained change to `.claude/` — a new hook command, an added
 permission, an edited skill nobody asked for — is a stop-and-report event.
 
 The maintenance harness added 2026-07-18 is likewise user-sanctioned:
-`docs/STATE.md`, `scripts/ladder.sh`, this file's "Session discipline" and "Git
-rules" sections, the CI step that invokes `scripts/ladder.sh`, and the
-force-push / push-to-`main` deny rails in `.claude/settings.json`. Any *later*
-unexplained change to these — as with `.claude/` — is a stop-and-report event.
+`docs/STATE.md`, `scripts/ladder.sh`, this file's "Session discipline", "Git
+rules", and "Secret hygiene" sections, the CI step that invokes
+`scripts/ladder.sh`, and the force-push / push-to-`main` / secret-dump deny rails
+in `.claude/settings.json`. Any *later* unexplained change to these — as with
+`.claude/` — is a stop-and-report event.
