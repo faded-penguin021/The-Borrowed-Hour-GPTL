@@ -28,7 +28,13 @@ export default tseslint.config(
       "react-refresh": reactRefresh,
     },
     rules: {
-      ...reactHooks.configs.recommended.rules,
+      // Pin the two classic react-hooks rules explicitly rather than spreading
+      // the plugin's `recommended` preset. eslint-plugin-react-hooks v7 folded a
+      // batch of new opinionated rules (react-hooks/set-state-in-effect,
+      // react-hooks/immutability, …) into `recommended`; adopting those is a
+      // deliberate, code-touching change, not a side effect of a version bump.
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
       "react-refresh/only-export-components": [
         "warn",
         { allowConstantExport: true },

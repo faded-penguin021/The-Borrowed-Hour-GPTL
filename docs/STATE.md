@@ -14,23 +14,27 @@
 The Borrowed Hour — a fully client-side, single-page literary text adventure.
 No backend: players bring their own API keys and the browser talks straight to
 LLM / image / TTS providers. Vite 8 + React 19 + TypeScript (strict), Tailwind 4,
-Vitest (unit) + Playwright (e2e), ESLint 9, Node 24 in CI. Shipped and deployed
+Vitest (unit) + Playwright (e2e), ESLint 10, Node 24 in CI. Shipped and deployed
 to GitHub Pages from `main` (`.github/workflows/pages.yml`).
 
 ## Current state
 
 **Shipped and in maintenance.** The 2026-07 audit + hardening pass (units U0–B7,
 follow-ups F1–F2) and the improvement phase (H / T / E / P) are all `done` —
-`docs/BACKLOG.md` is the full record, git history is the detail. No active
-multi-unit work.
+`docs/BACKLOG.md` is the full record, git history is the detail. The maintenance
+harness (STATE.md, `scripts/ladder.sh`, session discipline, deny rails) shipped
+in #208. No active multi-unit work.
+
+Active branch `claude/deps-eslint-majors`: takes the two coupled Dependabot
+eslint majors together — eslint 9→10 and eslint-plugin-react-hooks 5→7 (eslint
+10 can't install under the plugin's old peer cap; the plugin's v7 `recommended`
+adds new erroring rules). `eslint.config.js` now pins the two classic react-hooks
+rules explicitly instead of spreading `recommended`, so the lint surface is
+unchanged and no behavior-sensitive refactor is forced by the bump.
 
 Standing harness: `scripts/check-supply-chain.mjs` (the `guard`), `.claude/`
 SessionStart hook + permission rails, and the `model-catalogue-refresh` repo
-skill. This branch adds the maintenance harness itself — `docs/STATE.md` (this
-file), `scripts/ladder.sh` as the single verification entrypoint (CI invokes it
-directly), the folded session-discipline playbook in `CLAUDE.md` (incl. Secret
-hygiene + verification disclosure), and the force-push / push-to-`main` /
-secret-dump deny rails.
+skill.
 
 Verification = `scripts/ladder.sh` (supply-chain guard → typecheck → lint →
 unit tests + coverage → build). Playwright e2e is **not** in the ladder: it runs
@@ -46,8 +50,11 @@ queue.
 > this queue.
 
 **Pending owner actions:**
-1. Merge this harness branch (`claude/implement-harness-8kvhax`) into `main` via
-   squash-merge when satisfied. Tagging/releasing stays an owner step.
+1. **Dependabot triage.** Merge `claude/deps-eslint-majors` (eslint 10 +
+   react-hooks 7, ladder-green) and **close #206/#207 as superseded** — they are
+   the same two bumps split apart, and neither passes alone (they're coupled).
+   PRs **#204** (actions/setup-node 7) and **#205** (npm minor/patch group) are
+   already green — merge as-is.
 
 **Open questions:** (none)
 
@@ -69,12 +76,21 @@ queue.
   numbered append-only ledger the first time a durable cross-session lesson has
   no home in BACKLOG or `docs/audit-2026-07.md`, and reconcile the audit doc in
   then.
+- **eslint-plugin-react-hooks v7's new rules stay off** (owner, 2026-07-18) —
+  `set-state-in-effect`, `immutability`, et al. (~34 findings) deferred to a
+  dedicated backlog unit; several are effect-timing/behavior sensitive and need
+  per-site review + tests, not a dep-bump side effect. `eslint.config.js` pins
+  the two classic rules explicitly to keep them off.
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Pre-harness
 history lives in `docs/BACKLOG.md` and git.
 
+- 2026-07-18 — Take the coupled Dependabot eslint majors together: eslint 9→10 +
+  eslint-plugin-react-hooks 5→7; pin the classic react-hooks rules in
+  `eslint.config.js` so v7's new rules don't newly gate. Ladder green. New v7
+  rules deferred (Owner queue). Supersedes #206/#207.
 - 2026-07-18 — Harness v3 secret-hygiene pass: `CLAUDE.md` Secret hygiene section
   + verification-disclosure rule; `env` / `printenv` / `.env`-read deny rails in
   `.claude/settings.json`. Owner resolved both open questions (keep BACKLOG,
