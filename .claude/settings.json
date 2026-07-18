@@ -13,17 +13,43 @@
   },
   "permissions": {
     "allow": [
+      "Bash(scripts/ladder.sh)",
+      "Bash(scripts/ladder.sh:*)",
+      "Bash(bash scripts/ladder.sh)",
+      "Bash(bash scripts/ladder.sh:*)",
+      "Bash(npm run ladder)",
       "Bash(npm run check)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run lint)",
       "Bash(npm run test)",
       "Bash(npm run test:fast)",
+      "Bash(npm run build)",
       "Bash(npm run guard)",
-      "Bash(npm run ladder)",
       "Bash(git status)",
       "Bash(git status:*)",
       "Bash(git log)",
       "Bash(git log:*)",
       "Bash(git diff)",
       "Bash(git diff:*)"
+    ],
+    "deny": [
+      "Bash(git push --force)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git push origin main)",
+      "Bash(git push origin main:*)",
+      "Bash(git push origin HEAD:main)",
+      "Bash(git push origin HEAD:main:*)",
+      "Bash(env)",
+      "Bash(printenv)",
+      "Bash(printenv:*)",
+      "Bash(cat .env)",
+      "Bash(cat .env:*)",
+      "Bash(cat .env.local)",
+      "Bash(cat .env.local:*)"
     ]
   }
 }

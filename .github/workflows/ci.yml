@@ -24,17 +24,16 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-      # Guard runs twice: before `npm ci` so a poisoned lockfile (new install
-      # script, banned family, planted config) is caught *before* any lifecycle
-      # script can execute, and after so the node_modules sweep (binding.gyp)
-      # sees the installed tree. The script is zero-dependency by design.
+      # Guard runs before `npm ci` so a poisoned lockfile (new install script,
+      # banned family, planted config) is caught *before* any lifecycle script
+      # can execute. The script is zero-dependency by design.
       - run: npm run guard
       - run: npm ci
-      - run: npm run guard
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
+      # Single verification entrypoint, shared with local sessions by
+      # construction (no hand-maintained lockstep): the STATE-length guard, then
+      # the post-install supply-chain guard (node_modules binding.gyp sweep),
+      # typecheck, lint, unit tests, and build.
+      - run: bash scripts/ladder.sh
 
   e2e:
     name: Playwright smoke

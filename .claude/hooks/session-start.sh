@@ -24,3 +24,21 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
     echo "export PW_CHROMIUM=\"$pw_chromium\"" >> "$CLAUDE_ENV_FILE"
   fi
 fi
+
+# Branch check: the first misplaced commit is the expensive one. Warn loudly on
+# main or a detached HEAD so the session cuts a claude/<codename> branch first.
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+if [ "$branch" = "main" ]; then
+  echo "session-start: WARNING — on 'main'. Cut a claude/<codename> branch before committing (pushes to main are denied)." 1>&2
+elif [ "$branch" = "HEAD" ]; then
+  echo "session-start: WARNING — detached HEAD. Check out a branch before committing." 1>&2
+fi
+
+# Protocol pointer + STATE size vs its soft cap, so the session knows to
+# compress BEFORE writing if working memory is already near the cap.
+if [ -f docs/STATE.md ]; then
+  kb=$(( ( $(wc -c < docs/STATE.md) + 1023 ) / 1024 ))
+  echo "session-start: read docs/STATE.md first (${kb} KB, soft cap 8 KB), then the CLAUDE.md 'Session discipline' section. Verify with scripts/ladder.sh." 1>&2
+else
+  echo "session-start: read docs/STATE.md first, then the CLAUDE.md 'Session discipline' section. Verify with scripts/ladder.sh." 1>&2
+fi

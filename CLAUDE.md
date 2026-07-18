@@ -5,6 +5,16 @@ the existing style of nearby code; the project's own docs (`README.md`,
 `THREAT_MODEL.md`, `CONTRIBUTING.md`, `docs/wiki.md`) are the source of truth for
 anything not covered here.
 
+> **Ground truth:** the code and its committed tests (unit vectors, golden
+> storage fixtures, the CSP/origin manifest). Docs describe the system as-built
+> and *will* drift — when a doc conflicts with the code, trust the code and
+> correct the doc in the same change.
+
+**Start every session by reading `docs/STATE.md`** — current project state,
+anything awaiting owner action, and the Owner queue. It is working memory; keep
+it small (it has a machine-enforced length guard). The session-discipline
+playbook below is folded in from what would otherwise be a separate RUNBOOK.
+
 ## What this is
 
 The Borrowed Hour is a fully client-side, single-page interactive text adventure.
@@ -64,15 +74,87 @@ LLM / image / TTS providers. Deployed to GitHub Pages from `main`.
 
 - **Backlog sessions:** follow the unit protocol in `docs/BACKLOG.md` —
   one unit per sitting, one tool call at a time (no subagents), and end every unit
-  `npm run ladder`-green → commit → push. (Pointer added by the user, 2026-07-10;
+  `scripts/ladder.sh`-green → commit → push. (Pointer added by the user, 2026-07-10;
   scope widened from the completed audit to the improvement phases, 2026-07-16.)
-- Run `npm run check` (typecheck + lint) before declaring work done. Run
-  `npm test` for anything touching reducers, parsing, or storage.
+- **Verify with `scripts/ladder.sh`** (or `npm run ladder`, which invokes it) —
+  the single entrypoint CI runs too, so local-green and CI-green can't diverge.
+  It runs the supply-chain guard → typecheck → lint → unit tests + coverage →
+  build, after a fast `docs/STATE.md` length guard. `scripts/ladder.sh
+  --guards-only` is the seconds-long path for docs-only work. Playwright e2e is
+  a separate CI job (locally needs `PW_CHROMIUM`, which the SessionStart hook
+  exports); run it when a change touches the game flow.
 - Match nearby style. This codebase prefers small, named functions over deep
   class hierarchies and avoids speculative abstraction.
 - Don't add comments that restate the code. The existing files are sparse on
   comments by design.
 - Don't bump dependencies as a side effect of an unrelated change.
+
+## Session discipline (binding for every session)
+
+Assume the session can die at any moment (rate limit, context window, crash) and
+that you are the last reviewer — there is no stronger pass behind you.
+
+1. **Strictly sequential.** One unit of work at a time; no parallel subagents on
+   this repo.
+2. **Small, shippable units.** ≈ one focused hour, independently shippable, each
+   with a **binary** acceptance check (`scripts/ladder.sh` green — never "looks
+   right").
+3. **Checkpoint invariant.** Every unit ends: ladder green → `docs/STATE.md`
+   Changelog line → commit → push. Never start a second unit on top of an
+   uncommitted first — an interrupt then loses only the unit in flight.
+4. **Ask, don't assume — route owner-judgment forks to the queue.** Forks that
+   are (a) irreversible / expensive to unwind, (b) user-visible behavior with no
+   spec to appeal to, (c) version-semantics ambiguous, or (d) process-reshaping
+   are the **owner's**: stop at the last green checkpoint, record the fork +
+   options + your recommendation under `docs/STATE.md` → Owner queue → Open
+   questions, and move to independent work. Routine engineering judgment inside a
+   unit's stated scope is *not* a fork. Genuinely unsure? Treat it as a fork —
+   escalation costs one read, a wrong guess can cost a segment.
+5. **The Owner queue is the human-in-the-loop channel.** It holds Pending owner
+   actions, Open questions (above), and Incoming findings (where the owner drops
+   manual-test results). Every session's **final chat message restates the
+   queue** so the owner never has to open the file.
+6. **Recovery is a protocol, not improvisation.** If the unit in flight has gone
+   wrong, reset to the last green checkpoint (`git reset --hard HEAD`, careful
+   clean), re-run the ladder to confirm green, re-attempt smaller. Record a
+   durable lesson before retrying. Pushed checkpoints are immutable — never
+   rewrite pushed history.
+7. **These process docs are code.** If this file or `docs/STATE.md` is wrong,
+   stale, or missing the case you just handled, fix it in the same change.
+8. **Verification disclosure.** Every commit body states what you actually
+   verified (which ladder rungs ran) and names what could *not* be verified
+   locally — for this repo that's Playwright e2e and any real-provider / on-device
+   behavior (owner-verified via the Owner queue). Disclosure of real actions,
+   never implied coverage.
+
+## Git rules
+
+- Develop and push **only** on your session's assigned `claude/<codename>`
+  branch. Push with `git push -u origin <branch>` (retry with backoff on network
+  errors only). **Never force-push. Never push to `main`.** Both are denied in
+  `.claude/settings.json`, not just here.
+- The owner merges session branches via **squash-merge** (one commit per branch
+  on `main`). Don't open a PR unless asked. Tagging / releasing stays an owner
+  step.
+
+## Secret hygiene
+
+This is about *your session's* credentials, not the app's — the codebase ships
+no backend and no secrets of its own, but the remote container you run in carries
+them anyway (the VCS push token, the outbound-proxy auth). (Separately, "Secrets
+are user-owned" under Architectural notes governs how the *product* handles a
+player's API keys.)
+
+- **Never dump the environment.** No bare `env` / `printenv`, no reading
+  `.env`-style files, no `inspect`-style config dumps. The permission rails in
+  `.claude/settings.json` deny these; the rest is discipline.
+- **Never print a credential's value, prefix, suffix, length, or hash.** Report
+  only fixed-key presence ("`PW_CHROMIUM` is set") and bounded counts. Redact
+  subprocess / exception / network output before reasoning over it.
+- **A diagnostic that seems to need raw secret material is an Owner-queue open
+  question** (ask for a narrower evidence contract) — never default to raw
+  output. Credential rotation or auth-config changes are Owner-queue items with
+  explicit approval and a rollback plan.
 
 ## Supply-chain hygiene (read before touching deps or running installs)
 
@@ -115,3 +197,10 @@ user-sanctioned as of backlog unit H1 — it exists to make remote agent session
 test- and e2e-ready. Treat it like the rest of the tripwire list from here on:
 any *later* unexplained change to `.claude/` — a new hook command, an added
 permission, an edited skill nobody asked for — is a stop-and-report event.
+
+The maintenance harness added 2026-07-18 is likewise user-sanctioned:
+`docs/STATE.md`, `scripts/ladder.sh`, this file's "Session discipline", "Git
+rules", and "Secret hygiene" sections, the CI step that invokes
+`scripts/ladder.sh`, and the force-push / push-to-`main` / secret-dump deny rails
+in `.claude/settings.json`. Any *later* unexplained change to these — as with
+`.claude/` — is a stop-and-report event.
