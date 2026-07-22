@@ -87,6 +87,13 @@ queue.
 One line per shipped change or completed unit (newest first). Pre-harness
 history lives in `docs/BACKLOG.md` and git.
 
+- 2026-07-22 — Refresh model catalogues: LLM only (image/TTS re-verified,
+  no changes needed). Gemini `gemini-3.5-flash` → `gemini-3.6-flash`
+  (GA 2026-07-21); Kimi drops end-of-life `kimi-k2.5` for new flagship
+  `kimi-k3`; OpenRouter's dead `meta-llama/llama-3.3-70b-instruct:free`
+  swapped for `openai/gpt-oss-20b:free`, and its paid `gpt-5.4-mini`
+  entry bumped to the current `gpt-5.6-luna`. `docs/wiki.md` synced.
+  Ladder green; no dependency changes.
 - 2026-07-18 — Take the coupled Dependabot eslint majors together: eslint 9→10 +
   eslint-plugin-react-hooks 5→7; pin the classic react-hooks rules in
   `eslint.config.js` so v7's new rules don't newly gate. Ladder green. New v7
