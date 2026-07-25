@@ -14,7 +14,7 @@ export const SAVE_CAP = 30;
 export const APPROX_CHARS_PER_TOKEN = 3.5;
 
 export const estimateSize = (value: unknown): SizeEstimate => {
-  let bytes = 0;
+  let bytes: number;
   try {
     bytes = typeof value === "string" ? value.length : JSON.stringify(value).length;
   } catch {
