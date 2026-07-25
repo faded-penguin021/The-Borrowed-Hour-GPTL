@@ -54,7 +54,7 @@
 - D-003 [cited]: The `PreToolUse` install rail cannot be tested from a shell loop — a
   command line containing the literal test strings is blocked by the rail under
   test. Cases must be assembled from fragments and fed as JSON payloads
-  (`.claude/hooks/block-npm-install.test.mjs`). This is not incidental: it is
+  (`scripts/command-guard.sh --self-test`). This is not incidental: it is
   how a real bug surfaced — a rewrite that made the opt-out segment-scoped
   shifted the regex capture groups while the deny message still read the old
   indices, so the block named the verb where the manager belonged. Any rail
@@ -89,13 +89,15 @@
   leaving its mutation in place. Exercise a guard's failure paths against copies
   in the scratchpad, or commit first so the revert is a no-op. This is what a
   guard fixture suite is for.
-- D-008: A size/citation guard tends to count its own diagnostics. Two live
+- D-008 [cited]: A size/citation guard tends to count its own diagnostics. Two live
   instances on 2026-07-25: the landing-check FAIL string in `scripts/ladder.sh`
   cites D-005, so the citation guard counted the citation guard (rewording the
   message would have failed the build with "marked [cited] but no longer
   cited"), and the guard fixture suite's synthetic `D-404` tripped the same scan.
   Rule: a scan's own fixtures and self-referential prose are excluded from its
   scope, and rows illustrating future rollover prefixes are not citations.
+  (Correction 2026-07-25: the rail moved from `.claude/hooks/block-npm-install.mjs`
+  to `scripts/command-guard.sh`; the lesson is unchanged.)
 - D-009: A guard baselined on `HEAD` cannot fire in CI, where the working tree
   always equals HEAD. The first landing check compared the working tree against
   `HEAD`/`HEAD~1` and was dead code twice over: command substitution strips

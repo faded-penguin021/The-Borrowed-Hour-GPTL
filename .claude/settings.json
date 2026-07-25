@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node $CLAUDE_PROJECT_DIR/.claude/hooks/block-npm-install.mjs"
+            "command": "bash $CLAUDE_PROJECT_DIR/scripts/command-guard.sh"
           }
         ]
       }

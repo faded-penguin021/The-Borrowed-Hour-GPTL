@@ -130,7 +130,7 @@ fi
 
 # ── Rail + guard self-tests (a silently regressed rail is a weakened rail) ─
 bash scripts/test-ladder-guards.sh >/dev/null || { bash scripts/test-ladder-guards.sh; exit 1; }
-node .claude/hooks/block-npm-install.test.mjs >/dev/null || { node .claude/hooks/block-npm-install.test.mjs; exit 1; }
+bash scripts/command-guard.sh --self-test >/dev/null || { bash scripts/command-guard.sh --self-test; exit 1; }
 
 # ── Full verification set (one invocation; CI runs this same script) ─────
 npm run guard      # supply-chain tripwires
