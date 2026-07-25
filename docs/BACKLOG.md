@@ -9,7 +9,7 @@ Statuses: `todo` / `done` / `blocked: <one-line reason>`.
 1. Work each unit on a fresh branch cut from `main`, starting from a clean tree.
    **One tool call at a time. No parallel agents. (The one exception, added 2026-07-25: the single blocking fresh-context reviewer in `CLAUDE.md` → Fresh-context review — D-004.)**
 2. Do only the unit's spec below. Definition of done: `npm run ladder` passes
-   (typecheck → lint → unit tests → build; ~21s). If you pipe its output
+   (guards → rail and guard self-tests → supply-chain guard → typecheck → lint → unit tests → build). If you pipe its output
    (e.g. through `tail`), run `set -o pipefail` first and check the exit code —
    a bare pipe reports the *pipe's* exit and can mask a red ladder.
 3. Update the unit's status line in this file, commit with the unit's message prefix,

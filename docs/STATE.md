@@ -51,8 +51,10 @@ Remaining segment in `docs/plans/amh-v1.8-adoption.md`. Plus
 `scripts/check-supply-chain.mjs` (the `guard`), `.claude/` SessionStart hook,
 permission rails + `PreToolUse` install rail, `model-catalogue-refresh` skill.
 
-Verification = `scripts/ladder.sh` (supply-chain guard → typecheck → lint →
-unit tests + coverage → build). Playwright e2e is **not** in the ladder: it runs
+Verification = `scripts/ladder.sh`: guards (STATE length + structure, ledger
+rollover + citations — these hard-FAIL inside `--guards-only`), then the rail and
+guard self-tests, then supply-chain guard → typecheck → lint → unit tests +
+coverage → build. Playwright e2e is **not** in the ladder: it runs
 as a separate CI job and locally needs `PW_CHROMIUM` (the SessionStart hook
 exports it). On-device / real-provider behavior is owner-verified via the Owner
 queue.
@@ -86,7 +88,7 @@ queue.
    and the AMH v1.8 adoption — because follow-up work was stacked onto the
    session branch instead of cutting a new one from `main` each time. The owner
    accepted the blob rather than replaying it. **One-time exception, not a
-   precedent:** branch-per-change still binds (D-013).
+   precedent:** branch-per-change still binds (D-014).
 
 **Open questions:** (none — the owner resolved all five AMH v1.8 forks on
 2026-07-25; see Decided non-items.)
@@ -122,7 +124,10 @@ queue.
   Commit and push at green, run the reviewer, land findings in a follow-up
   commit. The gate is the branch merging, not the individual commit.
 - **Merge mode is branch-per-change** (owner, 2026-07-25) — one squash commit per
-  session branch, branches cut from `main`. Not a branch train.
+  session branch, branches cut from `main`. Not a branch train. PR #215 merged
+  as a four-change blob by explicit owner exception; that was a one-off and is
+  not precedent (D-014). Cutting the next branch from `main` is part of starting
+  a unit.
 - **eslint-plugin-react-hooks v7's new rules stay off** (owner, 2026-07-18) —
   ~34 findings deferred to a dedicated unit; several are effect-timing sensitive
   and need per-site review + tests, not a dep-bump side effect. `eslint.config.js`
@@ -133,6 +138,11 @@ queue.
 One line per shipped change or completed unit (newest first). Pre-harness
 history lives in `docs/BACKLOG.md` and git.
 
+- 2026-07-25 — Rule review of the checkpoint/review ordering: 7 findings fixed.
+  D-013's smuggled second lesson split out as D-014 (it was the very pattern
+  D-013 legislates against); "never merge unreviewed" marked prose-only; the
+  no-fallback escape hatch retimed for commit-before-review; an owed review given
+  a named home; ladder descriptions and the ESLint version resynced.
 - 2026-07-25 — Merge the duplicated review-ordering rule into one ordered
   statement; the prior commit had appended the new rule beside the old one, so
   the section said both hold and don't hold the checkpoint (D-013).

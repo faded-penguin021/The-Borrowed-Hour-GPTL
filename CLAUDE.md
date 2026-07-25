@@ -40,7 +40,7 @@ LLM / image / TTS providers. Deployed to GitHub Pages from `main`.
 - Vite 8 (rolldown) + React 19 + TypeScript (strict)
 - Tailwind 4 (`@tailwindcss/postcss`)
 - Vitest (unit) and Playwright (e2e, `e2e/`)
-- ESLint 9 flat config
+- ESLint 10 flat config
 - Node 24 in CI; npm with a committed lockfile
 
 ## Layout
@@ -135,7 +135,8 @@ that you are the last reviewer — there is no stronger pass behind you.
    unit's stated scope is *not* a fork. Genuinely unsure? Treat it as a fork —
    escalation costs one read, a wrong guess can cost a segment.
 5. **The Owner queue is the human-in-the-loop channel.** It holds Pending owner
-   actions, Open questions (above), and Incoming findings (where the owner drops
+   actions (including any "review owed: <branch>" a session could not complete),
+   Open questions (above), and Incoming findings (where the owner drops
    manual-test results). Every session's **final chat message restates the
    queue** so the owner never has to open the file.
 6. **Recovery is a protocol, not improvisation — and it is bounded.** If the unit
@@ -173,9 +174,13 @@ follow-up commit.** The review does not block the checkpoint; the gate is the
 branch **merging**, not the individual commit (D-012). Holding an uncommitted
 diff while a reviewer runs is the worst of both — a session death then loses the
 whole unit, which is what the checkpoint invariant exists to prevent. What must
-never happen is a reviewable diff merging unreviewed. If a session dies between
-the checkpoint and the review, the branch is carrying an unreviewed change: put
-that in the Owner queue so the next session knows the review is still owed.
+never happen is a reviewable diff merging unreviewed — **prose-only**: no guard
+sees a merge, and the rule-review tripwire is unbuilt (`docs/plans/amh-v1.8-adoption.md`),
+so the Owner-queue restatement is the only thing carrying an owed review across
+sessions. If a session dies between the checkpoint and the review, the branch is
+carrying an unreviewed change: record it under **Pending owner actions** as
+"review owed: <branch>" — it goes in front of the owner because only the owner
+can decide to merge without it.
 Expect two commits per reviewed unit — in practice the reviewer finds something
 — and state the verdict in the body of whichever commit carries the outcome
 ("glue-review pass: clean", "rule-review pass: 2 findings, fixed").
@@ -196,7 +201,8 @@ to the diff. Self-review is the fallback only if no fresh context can be spawned
 non-items), `scripts/ladder.sh` guard semantics, `.claude/` rails and hooks,
 `docs/LEDGER.md`'s preamble. Strongest tier regardless of diff size — a
 three-line rule edit can carry a semantic bomb — and **no self-review fallback**:
-a session that cannot spawn a fresh context parks the rule change for the owner.
+a session that cannot spawn a fresh context still checkpoints, then parks the
+change **unmerged** and records "review owed" under Pending owner actions.
 A bad rule manufactures defects in every future session that obeys it. Checklist:
 rule contradiction with an existing binding rule (D-004 is the worked example),
 prose/guard lockstep drift (a number in prose diverging from the guard constant

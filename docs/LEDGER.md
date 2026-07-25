@@ -152,10 +152,17 @@
   opposite. Before adding a rule, grep for every sentence stating the rule it
   replaces — including in `docs/BACKLOG.md` and the tripwire enumeration — and
   rewrite them in the same change. The authoring context is the worst placed to
-  notice the contradiction, which is why this keeps reaching review.
-  Related: 2026-07-25's branch-scope lapse has the same root — session discipline
-  was applied per unit while the branch-per-change rule went unapplied across
-  units, until PR #215 carried four independent changes. The owner accepted that
-  one as a one-time exception; the rule stands. Cutting the next branch from
-  `main` is part of *starting* a unit, not part of finishing one.
+  notice the contradiction, which is why this keeps reaching review. Same root
+  cause at a different altitude: D-014.
+- D-014: A rule can be obeyed perfectly at one altitude and never applied at the
+  one above it. Branch-per-change is binding here, and on 2026-07-25 every *unit*
+  followed session discipline exactly — ladder green, changelog line, commit,
+  push — while the *branch* silently accumulated four independent changes (a
+  provider fix, a lint cleanup, a command rail, a harness adoption) because each
+  new request was treated as another unit on the current branch. PR #215 became
+  ~1,200 lines the owner could not merge or revert piecewise; the owner accepted
+  it as a one-time exception and the rule stands. The operational fix: **cutting
+  the next branch from `main` is part of STARTING a unit, not part of finishing
+  one.** When a session is asked for something that is not a continuation of the
+  work in flight, that is a new branch, not a new unit.
 
