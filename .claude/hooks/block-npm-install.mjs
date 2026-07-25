@@ -14,8 +14,12 @@
 // stdout. Any internal failure exits 0 without a decision (fail-open) so a bug
 // here can never wedge a session.
 
-const INSTALLISH = /(^|[\n;&|(]|&&|\|\|)\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(npm|pnpm|yarn|bun)\s+(install|i|add|update|up|upgrade)(\s|$)/;
-const OPT_OUT = /(^|[\n;&|(]|&&|\|\|)\s*BORROWED_DEP_CHANGE=1\s/;
+// Segment-wise, so the opt-out stays narrow: it exempts the one command it
+// prefixes, not every command sharing the line. `BORROWED_DEP_CHANGE=1 npm ci
+// && npm add foo` still blocks on the second half.
+const SEGMENT = /\n|;|&&|\|\||[|&()]/;
+const INSTALLISH = /^\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(npm|pnpm|yarn|bun)\s+(install|i|add|update|up|upgrade)(\s|$)/;
+const OPT_OUT = /^\s*BORROWED_DEP_CHANGE=1\s/;
 
 const reason = (manager, verb) => [
   `Blocked by this project's supply-chain rail: \`${manager} ${verb}\` resolves versions off the registry and can pull a freshly compromised minor past the committed lockfile.`,
@@ -35,14 +39,19 @@ process.stdin.on("data", (chunk) => { raw += chunk; });
 process.stdin.on("end", () => {
   try {
     const command = JSON.parse(raw)?.tool_input?.command;
-    if (typeof command !== "string" || OPT_OUT.test(command)) process.exit(0);
-    const hit = INSTALLISH.exec(command);
+    if (typeof command !== "string") process.exit(0);
+    let hit = null;
+    for (const segment of command.split(SEGMENT)) {
+      if (OPT_OUT.test(segment)) continue;
+      hit = INSTALLISH.exec(segment);
+      if (hit) break;
+    }
     if (!hit) process.exit(0);
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: {
         hookEventName: "PreToolUse",
         permissionDecision: "deny",
-        permissionDecisionReason: reason(hit[2], hit[3])
+        permissionDecisionReason: reason(hit[1], hit[2])
       }
     }));
   } catch {

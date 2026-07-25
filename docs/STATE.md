@@ -67,6 +67,14 @@ queue.
 
 ## Decided non-items (don't re-litigate without new evidence)
 
+- **The install rail keeps its `BORROWED_DEP_CHANGE=1` opt-out** (owner,
+  2026-07-25) — "yes, in its narrow and well-defined scope." The rail
+  (`.claude/hooks/block-npm-install.mjs`) is not absolute: a task whose stated
+  purpose is a dependency change opts in explicitly, which keeps the intent
+  auditable in the transcript instead of inviting workarounds. Narrow is load-
+  bearing — the prefix exempts only the command segment it prefixes, never the
+  rest of the line — and `.claude/hooks/block-npm-install.test.mjs` pins that.
+
 - **No backend of this project's own.** All state lives in the browser; keys go
   straight from browser to provider (users may point at their own BYOB proxy,
   which is theirs, not ours). Architectural invariant — see `THREAT_MODEL.md`,
@@ -92,33 +100,23 @@ queue.
 One line per shipped change or completed unit (newest first). Pre-harness
 history lives in `docs/BACKLOG.md` and git.
 
-- 2026-07-25 — Enforce "npm ci, never npm install" with a `PreToolUse` hook
-  (`.claude/hooks/block-npm-install.mjs`) instead of prose: denies
-  `npm|pnpm|yarn|bun install|i|add|update|upgrade` with a reason that says it's
-  a deterministic rail and not to retry, leaves `npm ci` alone, and opts in via
-  `BORROWED_DEP_CHANGE=1` for real dependency work. Fails open on a malformed
-  payload. Owner-sanctioned; recorded in the `CLAUDE.md` tripwire list.
+- 2026-07-25 — Install rail: `PreToolUse` hook
+  (`.claude/hooks/block-npm-install.mjs` + `.test.mjs`, 17 cases) denies
+  `npm|pnpm|yarn|bun install|i|add|update|upgrade`, leaves `npm ci` alone, opts
+  in via a segment-scoped `BORROWED_DEP_CHANGE=1`, fails open. Owner-sanctioned;
+  in the `CLAUDE.md` tripwire list.
 - 2026-07-25 — Clear the `@eslint/js` 10 lint fallout at the source: four
   `no-useless-assignment` errors (`gameLoop.ts`, `constants.ts`, `client.ts` ×2)
-  that reddened the Dependabot bump. Adds `docs/dependabot-triage.md` — triage
-  by failure shape (peer-range block / lint fallout / coupled majors) — with a
-  pointer from `CLAUDE.md`. The `typescript` 7.0.2 bump stays blocked upstream
-  (Owner queue). Ladder green.
+  that reddened #214. Adds `docs/dependabot-triage.md` (triage by failure shape)
+  with a `CLAUDE.md` pointer.
 - 2026-07-25 — Gemini deprecated `temperature`/`top_p`/`top_k` (3.5 Flash-Lite,
-  3.6 Flash onward: ignored today, HTTP 400 in future generations). The Gemini
-  adapter now omits `temperature` for 3.5+ models and keeps sending it for
-  older ones; the app never sent `top_p`/`top_k`. Ladder green.
-- 2026-07-22 — Refresh model catalogues: LLM only (image/TTS re-verified,
-  no changes needed). Gemini `gemini-3.5-flash` → `gemini-3.6-flash`
-  (GA 2026-07-21); Kimi drops end-of-life `kimi-k2.5` for new flagship
-  `kimi-k3`; OpenRouter's dead `meta-llama/llama-3.3-70b-instruct:free`
-  swapped for `openai/gpt-oss-20b:free`, and its paid `gpt-5.4-mini`
-  entry bumped to the current `gpt-5.6-luna`. `docs/wiki.md` synced.
-  Ladder green; no dependency changes.
+  3.6 Flash onward: ignored today, HTTP 400 later). The adapter omits it for
+  3.5+ and keeps it for older models; `top_p`/`top_k` were never sent.
+- 2026-07-22 — Refresh model catalogues (LLM only): `gemini-3.6-flash`,
+  `kimi-k3`, OpenRouter `openai/gpt-oss-20b:free` + `gpt-5.6-luna`; wiki synced.
 - 2026-07-18 — Take the coupled Dependabot eslint majors together: eslint 9→10 +
   eslint-plugin-react-hooks 5→7; pin the classic react-hooks rules in
-  `eslint.config.js` so v7's new rules don't newly gate. Ladder green. New v7
-  rules deferred (Owner queue). Supersedes #206/#207.
+  `eslint.config.js` so v7's new rules don't newly gate. Superseded #206/#207.
 - 2026-07-18 — Harness v3 secret-hygiene pass: `CLAUDE.md` Secret hygiene section
   + verification-disclosure rule; `env` / `printenv` / `.env`-read deny rails in
   `.claude/settings.json`. Owner resolved both open questions (keep BACKLOG,

@@ -170,7 +170,9 @@ Treat the following as hard rules:
    `PreToolUse` hook `.claude/hooks/block-npm-install.mjs` denies
    `npm|pnpm|yarn|bun install|i|add|update|upgrade`. Retrying or rephrasing a
    blocked command fails identically — for a genuine dependency-change task,
-   prefix it `BORROWED_DEP_CHANGE=1` to opt in explicitly.
+   prefix it `BORROWED_DEP_CHANGE=1` to opt in explicitly. The opt-out exempts
+   only the command segment it prefixes. Cases:
+   `node .claude/hooks/block-npm-install.test.mjs`.
 2. **Any change to `package.json` or `package-lock.json` is a reviewable event.**
    If a task doesn't intend to touch them, and they show up in the diff, stop
    and surface it to the user.
