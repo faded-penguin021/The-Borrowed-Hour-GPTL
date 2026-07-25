@@ -87,13 +87,17 @@ LLM / image / TTS providers. Deployed to GitHub Pages from `main`.
 ## Conventions
 
 - **Backlog sessions:** follow the unit protocol in `docs/BACKLOG.md` —
-  one unit per sitting, one tool call at a time (no subagents), and end every unit
-  `scripts/ladder.sh`-green → commit → push. (Pointer added by the user, 2026-07-10;
+  one unit per sitting, one tool call at a time, and end every unit
+  `scripts/ladder.sh`-green → commit → push. Its blanket "no subagents, ever"
+  predates the fresh-context reviewer and is superseded by it (D-004); nothing
+  else about the protocol changes. (Pointer added by the user, 2026-07-10;
   scope widened from the completed audit to the improvement phases, 2026-07-16.)
 - **Verify with `scripts/ladder.sh`** (or `npm run ladder`, which invokes it) —
   the single entrypoint CI runs too, so local-green and CI-green can't diverge.
-  It runs the supply-chain guard → typecheck → lint → unit tests + coverage →
-  build, after a fast `docs/STATE.md` length guard. `scripts/ladder.sh
+  Guards first (`docs/STATE.md` length + structure, ledger rollover + citation
+  integrity — these can hard-FAIL inside `--guards-only`), then the rail and
+  guard self-tests, then supply-chain guard → typecheck → lint → unit tests +
+  coverage → build. `scripts/ladder.sh
   --guards-only` is the seconds-long path for docs-only work. Playwright e2e is
   a separate CI job (locally needs `PW_CHROMIUM`, which the SessionStart hook
   exports); run it when a change touches the game flow.
@@ -320,8 +324,10 @@ The `PreToolUse` install rail added 2026-07-25 is user-sanctioned:
 rather than advisory. Same tripwire terms as the rest of `.claude/`.
 
 The maintenance harness added 2026-07-18 is likewise user-sanctioned:
-`docs/STATE.md`, `scripts/ladder.sh`, this file's "Session discipline", "Git
-rules", and "Secret hygiene" sections, the CI step that invokes
+`docs/STATE.md`, `docs/LEDGER.md` (its preamble and its append-only rule),
+`AGENTS.md`, `scripts/ladder.sh` and `scripts/test-ladder-guards.sh`, this
+file's "Session discipline", "Fresh-context review", "Git rules", and "Secret
+hygiene" sections, the CI step that invokes
 `scripts/ladder.sh`, and the force-push / push-to-`main` / secret-dump deny rails
 in `.claude/settings.json`. Any *later* unexplained change to these — as with
 `.claude/` — is a stop-and-report event.

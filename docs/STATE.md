@@ -13,10 +13,14 @@
 > survive compression (Owner-queue items are the owner's to close — compress
 > their prose, never drop an open item).
 >
-> `scripts/ladder.sh` machine-checks all of it: warn > 14 KB, fail > 16 KB, plus
-> a **landing check** — a change that trims the file out of warn territory but
-> leaves it in the 9–14 KB band FAILS, so a compression must reach the ≤ 9 KB
-> floor rather than merely clear the warn.
+> `scripts/ladder.sh` machine-checks the sizes and the protected headers: warn
+> > 14 KB, fail > 16 KB, a **landing check** (a change that trims the file out of
+> warn territory but leaves it in the 9–14 KB band FAILS, so a compression must
+> reach the ≤ 9 KB floor rather than merely clear the warn — baselined against
+> the branch's merge base), and the presence of the four protected sections. The
+> compression *content* rules above — what to fold, what to push down to the
+> ledger, "compress an Owner-queue item's prose, never drop the item" — are
+> **prose-only**: no guard can tell a compressed item from a deleted one.
 
 ## Project
 
@@ -125,8 +129,14 @@ history lives in `docs/BACKLOG.md` and git.
   bidirectional machine-synced `[cited]` markers, fresh-context glue/rule review
   as the one subagent exception, branch-per-change written down, STATE hysteresis
   (9/14/16 + landing check). New ladder guards: STATE hysteresis + landing,
-  STATE structure, ledger rollover + citation integrity. Segment 4 (agent-neutral
-  bootstrap, generalized command guard, guard fixture suite) remains.
+  STATE structure, ledger rollover + citation integrity — plus
+  `scripts/test-ladder-guards.sh` (14 fixture cases) and the rail self-test, both
+  now ladder rungs. First mandatory rule review ran fresh-context and returned 11
+  findings; the substantive ones are fixed (dead landing check → merge-base
+  baseline D-009, `set -e` abort on a header-only ledger, the still-binding
+  subagent ban in `docs/BACKLOG.md`, unprotected Decided non-items, two guard
+  self-reference traps D-008, and three prose overclaims). Segment 4 (agent-neutral
+  bootstrap, generalized command guard) remains.
 - 2026-07-25 — Install rail: `PreToolUse` hook
   (`.claude/hooks/block-npm-install.mjs` + `.test.mjs`, 17 cases) denies
   `npm|pnpm|yarn|bun install|i|add|update|upgrade`, leaves `npm ci` alone, opts

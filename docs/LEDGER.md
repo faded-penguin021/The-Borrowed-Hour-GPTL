@@ -23,9 +23,16 @@
 >
 > **`[cited]` marker (machine-managed).** A row cited from code carries
 > ` [cited]` after its number. `scripts/ladder.sh` syncs it in both directions —
-> cited-but-unmarked and marked-but-uncited both fail — so it is verified
-> derived state, never hand-tracked. The marker warns you that code resolves
+> cited-but-unmarked and marked-but-uncited both fail — so the marker is
+> verified derived state, never hand-tracked. It warns you that code resolves
 > here before you lean on or reword a row.
+>
+> What the guard checks is **token sync and row existence** — that every
+> `D-NNN` appearing in code or docs resolves to a row, and that markers match
+> the code-citation set. It cannot check that the row actually *supports* the
+> claim made at the citation site; that is the rule reviewer's job (`CLAUDE.md`
+> → Fresh-context review). Doc citations are existence-checked but never carry
+> the marker.
 
 - D-001 [cited]: Gemini deprecated `temperature` / `top_p` / `top_k` starting with 3.5
   Flash-Lite and 3.6 Flash. They are accepted-and-ignored on those models today
@@ -82,3 +89,18 @@
   leaving its mutation in place. Exercise a guard's failure paths against copies
   in the scratchpad, or commit first so the revert is a no-op. This is what a
   guard fixture suite is for.
+- D-008: A size/citation guard tends to count its own diagnostics. Two live
+  instances on 2026-07-25: the landing-check FAIL string in `scripts/ladder.sh`
+  cites D-005, so the citation guard counted the citation guard (rewording the
+  message would have failed the build with "marked [cited] but no longer
+  cited"), and the guard fixture suite's synthetic `D-404` tripped the same scan.
+  Rule: a scan's own fixtures and self-referential prose are excluded from its
+  scope, and rows illustrating future rollover prefixes are not citations.
+- D-009: A guard baselined on `HEAD` cannot fire in CI, where the working tree
+  always equals HEAD. The first landing check compared the working tree against
+  `HEAD`/`HEAD~1` and was dead code twice over: command substitution strips
+  trailing newlines, so the "did it change?" byte comparison was always true and
+  the fallback was unreachable. Baseline branch-scoped state against
+  `git merge-base origin/main HEAD`, and read blob sizes with `git cat-file -s`,
+  never through a shell variable. Found by fresh-context rule review, not by any
+  passing run.
