@@ -29,9 +29,10 @@ rule + `AGENTS.md` pointer; agent-harness section.
 Shipped: STATE hysteresis (9 / 14 / 16 KB) with the landing check that fails a
 trim landing in the debounce band; STATE structure guard; ledger rollover warn +
 fail, duplicate-row detection, and bidirectional `[cited]` citation integrity.
-Failure paths were exercised by hand (D-007 — and that is exactly why the
-fixture suite in 4b is not optional). Still to do there: the local-only
-checkpoint and rule-review tripwires.
+Failure paths were exercised by hand at first (D-007), which is why
+`scripts/test-ladder-guards.sh` shipped alongside — 14 fixture cases, wired as a
+ladder rung. Still outstanding: the local-only checkpoint and rule-review
+tripwires.
 
 ## Segment 4a — generalize the command guard (SHIPPED 2026-07-25)
 
@@ -42,12 +43,14 @@ as the second net, and 56 self-test cases wired as a ladder rung. The JS hook it
 supersedes is deleted. Rails now resolve the real subcommand past global options
 (D-010), so `git -C path push --force` and `npm --prefix x install` are caught.
 
-## Segment 4b — agent-neutral bootstrap + guard fixture suite (REMAINING)
+## Segment 4b — agent-neutral bootstrap (REMAINING — the last segment)
 
 Move `.claude/hooks/session-start.sh` to `scripts/session-start.sh`, self-locating
 its repo root, remote-only steps gated on an explicit neutral flag rather than
-Claude-specific env vars; `.claude/` keeps a one-line wrapper. Add
-`scripts/test-ladder-guards.sh` (fixture suite for the guards themselves).
+Claude-specific env vars; `.claude/` keeps a one-line wrapper. Also repoint
+`AGENTS.md`, which still sends hookless agents at the Claude-specific path.
+(`scripts/test-ladder-guards.sh` was originally staged here; it shipped with
+segment 3 instead.)
 
 ## Owner forks — ALL RESOLVED 2026-07-25
 

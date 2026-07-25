@@ -130,4 +130,15 @@
   write long commit bodies and patch scripts to a file in the scratchpad and
   pass the path (`git commit -F <file>`, `python3 <file>`), which keeps the
   trigger text off the command line entirely.
+- D-012: The checkpoint invariant ("push at green before anything else") and the
+  fresh-context review protocol ("no rule diff without a reviewer") read as a
+  deadlock: hold the commit and a session death loses the unit; commit first and
+  the history briefly carries an unreviewed rule change. The question came up
+  three times in one session before being settled, which is the signature of a
+  rule that was never written down. Resolution (owner, 2026-07-25): **the branch
+  is the gate, not the commit.** Push at green, run the reviewer inside the same
+  unit, land findings in a follow-up commit; a reviewable diff must never *merge*
+  unreviewed. If a session dies in between, the outstanding review goes in the
+  Owner queue. Expect two commits per rule unit — the reviewer usually finds
+  something.
 

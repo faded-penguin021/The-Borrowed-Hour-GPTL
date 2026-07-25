@@ -111,6 +111,9 @@ queue.
 - **Fresh-context review is the one subagent exception** (owner, 2026-07-25 —
   D-004). Glue review and rule review spawn a single blocking, sequential
   reviewer inside the unit; the ban on parallel subagents otherwise stands.
+- **A pending review never holds the checkpoint** (owner, 2026-07-25 — D-012).
+  Commit and push at green, run the reviewer, land findings in a follow-up
+  commit. The gate is the branch merging, not the individual commit.
 - **Merge mode is branch-per-change** (owner, 2026-07-25) — one squash commit per
   session branch, branches cut from `main`. Not a branch train.
 - **eslint-plugin-react-hooks v7's new rules stay off** (owner, 2026-07-18) —
@@ -123,6 +126,10 @@ queue.
 One line per shipped change or completed unit (newest first). Pre-harness
 history lives in `docs/BACKLOG.md` and git.
 
+- 2026-07-25 — Write down how the checkpoint invariant and fresh-context review
+  compose: push at green, review inside the same unit, findings in a follow-up
+  commit; the branch merging is the gate, not the commit. Resolves the question
+  that recurred three times in one session (D-012).
 - 2026-07-25 — Segment 4a: `scripts/command-guard.sh` replaces the Claude-only
   JS install hook — agent-neutral (`--command` / stdin JSON / `--self-test`),
   covering all four hard rails (registry installs, force-push, pushes to `main`,

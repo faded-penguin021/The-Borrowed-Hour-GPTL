@@ -123,7 +123,9 @@ that you are the last reviewer — there is no stronger pass behind you.
    right").
 3. **Checkpoint invariant.** Every unit ends: ladder green → `docs/STATE.md`
    Changelog line → commit → push. Never start a second unit on top of an
-   uncommitted first — an interrupt then loses only the unit in flight.
+   uncommitted first — an interrupt then loses only the unit in flight. A
+   pending fresh-context review is **not** a reason to hold the checkpoint; see
+   Fresh-context review for how the two compose (D-012).
 4. **Ask, don't assume — route owner-judgment forks to the queue.** Forks that
    are (a) irreversible / expensive to unwind, (b) user-visible behavior with no
    spec to appeal to, (c) version-semantics ambiguous, or (d) process-reshaping
@@ -166,6 +168,19 @@ and tree access, but *not* the authoring rationale — after the ladder is green
 One level of meta only: the reviewer reports, the session triages, the owner
 arbitrates. Nobody reviews the reviewer. Record the verdict in the commit body
 ("glue-review pass: clean", "rule-review pass: 2 findings, fixed").
+
+**The review does not block the checkpoint — the branch is the gate, not the
+commit.** The checkpoint invariant and this protocol both bind, and they do not
+conflict: commit and push as soon as the ladder is green, then run the reviewer
+inside the same unit and land its findings in a follow-up commit. Holding an
+uncommitted diff while a reviewer runs is the worst of both — a session death
+then loses the whole unit, which is exactly what the checkpoint invariant
+exists to prevent. What must never happen is a reviewable diff **merging**
+without its review. If the session dies between the checkpoint and the review,
+the branch carries an unreviewed rule change: say so in the Owner queue, so the
+next session (or the owner) knows the review is still owed. In practice the
+reviewer usually finds something, so expect two commits per rule unit and write
+the verdict into whichever one carries it.
 
 **Glue review — for diffs touching what the tests can't see.** Unit tests here
 don't cover browser/runtime glue: streaming and abort paths, storage and
