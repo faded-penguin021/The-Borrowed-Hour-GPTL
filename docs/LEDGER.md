@@ -141,4 +141,21 @@
   unreviewed. If a session dies in between, the outstanding review goes in the
   Owner queue. Expect two commits per rule unit — the reviewer usually finds
   something.
+- D-013: Legislation must be **edited**, never appended to. Patching a rule by
+  adding a paragraph beside the sentences it supersedes leaves both readings
+  binding, and a later session picks whichever it reads first. Three instances
+  in one session, each caught by a human or a fresh-context reviewer rather than
+  by the author: the subagent ban carved out in one of three places; the
+  `CLAUDE.md` sanction paragraph naming a rail that had been deleted in the same
+  change; and the checkpoint/review ordering added as a new paragraph while the
+  old "record the verdict in the commit body" sentence still implied the
+  opposite. Before adding a rule, grep for every sentence stating the rule it
+  replaces — including in `docs/BACKLOG.md` and the tripwire enumeration — and
+  rewrite them in the same change. The authoring context is the worst placed to
+  notice the contradiction, which is why this keeps reaching review.
+  Related: 2026-07-25's branch-scope lapse has the same root — session discipline
+  was applied per unit while the branch-per-change rule went unapplied across
+  units, until PR #215 carried four independent changes. The owner accepted that
+  one as a one-time exception; the rule stands. Cutting the next branch from
+  `main` is part of *starting* a unit, not part of finishing one.
 

@@ -81,6 +81,13 @@ queue.
    blocked) and secret-scanning push protection. Agent rails bind only agents
    that load them; the server binds every actor.
 
+4. **Merge #215 as-is** (owner, 2026-07-25). It carries four independent changes
+   — the Gemini fix, the eslint 10 cleanup + triage playbook, the command rail,
+   and the AMH v1.8 adoption — because follow-up work was stacked onto the
+   session branch instead of cutting a new one from `main` each time. The owner
+   accepted the blob rather than replaying it. **One-time exception, not a
+   precedent:** branch-per-change still binds (D-013).
+
 **Open questions:** (none — the owner resolved all five AMH v1.8 forks on
 2026-07-25; see Decided non-items.)
 
@@ -126,6 +133,9 @@ queue.
 One line per shipped change or completed unit (newest first). Pre-harness
 history lives in `docs/BACKLOG.md` and git.
 
+- 2026-07-25 — Merge the duplicated review-ordering rule into one ordered
+  statement; the prior commit had appended the new rule beside the old one, so
+  the section said both hold and don't hold the checkpoint (D-013).
 - 2026-07-25 — Write down how the checkpoint invariant and fresh-context review
   compose: push at green, review inside the same unit, findings in a follow-up
   commit; the branch merging is the gate, not the commit. Resolves the question
