@@ -56,6 +56,12 @@ queue.
    PRs **#204** (actions/setup-node 7) and **#205** (npm minor/patch group) are
    already green — merge as-is.
 
+2. **`typescript` 7.0.2 bump is upstream-blocked** — `typescript-eslint` 8.65.0
+   (latest) still declares `peer typescript >=4.8.4 <6.1.0`, so `npm ci` can't
+   resolve and no ladder rung runs. Nothing to fix on our side; forcing it with
+   `overrides` / `--legacy-peer-deps` is explicitly not the move. Leave the PR
+   open and re-check when typescript-eslint ships a TS7-capable major.
+
 **Open questions:** (none)
 
 **Incoming findings:** (none)
@@ -87,6 +93,12 @@ queue.
 One line per shipped change or completed unit (newest first). Pre-harness
 history lives in `docs/BACKLOG.md` and git.
 
+- 2026-07-25 — Clear the `@eslint/js` 10 lint fallout at the source: four
+  `no-useless-assignment` errors (`gameLoop.ts`, `constants.ts`, `client.ts` ×2)
+  that reddened the Dependabot bump. Adds `docs/dependabot-triage.md` — triage
+  by failure shape (peer-range block / lint fallout / coupled majors) — with a
+  pointer from `CLAUDE.md`. The `typescript` 7.0.2 bump stays blocked upstream
+  (Owner queue). Ladder green.
 - 2026-07-25 — Gemini deprecated `temperature`/`top_p`/`top_k` (3.5 Flash-Lite,
   3.6 Flash onward: ignored today, HTTP 400 in future generations). The Gemini
   adapter now omits `temperature` for 3.5+ models and keeps sending it for

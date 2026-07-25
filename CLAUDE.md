@@ -88,6 +88,7 @@ LLM / image / TTS providers. Deployed to GitHub Pages from `main`.
 - Don't add comments that restate the code. The existing files are sparse on
   comments by design.
 - Don't bump dependencies as a side effect of an unrelated change.
+- **Red Dependabot CI:** triage by failure shape — `docs/dependabot-triage.md`.
 
 ## Session discipline (binding for every session)
 
