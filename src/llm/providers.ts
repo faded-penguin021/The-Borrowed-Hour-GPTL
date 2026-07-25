@@ -36,6 +36,18 @@ const normalizeOpenAIMessages = (sys: string, msgs: ChatMessage[]) => [
     content: normalizeContent(m.content)
   }))
 ];
+// Gemini deprecated temperature / top_p / top_k starting with 3.5 Flash-Lite
+// and 3.6 Flash: today they are silently ignored, and future generations
+// return HTTP 400 for supplying them. Omit them from 3.5+ up front rather than
+// paying a failed round-trip once the 400 lands.
+const geminiIgnoresSampling = (model: string): boolean => {
+  const m = /^gemini-(\d+)(?:\.(\d+))?/.exec(model);
+  if (!m) return false;
+  const major = Number(m[1]);
+  const minor = Number(m[2] ?? 0);
+  return major > 3 || (major === 3 && minor >= 5);
+};
+
 const normalizeGeminiMessages = (msgs: ChatMessage[]) => msgs.map((m) => ({
   role: m.role === "assistant" ? "model" : "user",
   parts: [{ text: normalizeContent(m.content) }]
@@ -411,7 +423,7 @@ export const PROVIDERS: Record<string, ProviderAdapter> = {
     retryable: new Set([408, 409, 429, 500, 502, 503, 504]),
     buildRequest({ sys, msgs, useTool, model, maxTokens, temperature, tool, apiKey }: BuildRequestParams): ProviderRequest {
       const generationConfig: Record<string, unknown> = { maxOutputTokens: maxTokens };
-      if (temperature !== undefined)
+      if (temperature !== undefined && !geminiIgnoresSampling(model))
         generationConfig.temperature = temperature;
       if (useTool) {
         generationConfig.responseMimeType = "application/json";

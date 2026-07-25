@@ -73,3 +73,27 @@ describe("getProviderKey allowMissing", () => {
     await expect(getProviderKey("mistral")).rejects.toThrow();
   });
 });
+
+describe("gemini sampling-parameter deprecation", () => {
+  const build = (model: string) => PROVIDERS.gemini.buildRequest({
+    sys: "s",
+    msgs: [{ role: "user", content: "hi" }],
+    useTool: false,
+    model,
+    maxTokens: 64,
+    temperature: 0.6,
+    tool: null,
+    apiKey: "k"
+  }).body as { generationConfig: Record<string, unknown> };
+
+  it("omits temperature for 3.5+ models, which ignore it and will 400 on it", () => {
+    expect(build("gemini-3.6-flash").generationConfig.temperature).toBeUndefined();
+    expect(build("gemini-3.5-flash-lite").generationConfig.temperature).toBeUndefined();
+    expect(build("gemini-4.0-pro").generationConfig.temperature).toBeUndefined();
+  });
+
+  it("still sends temperature for older models that honor it", () => {
+    expect(build("gemini-3.1-flash-lite").generationConfig.temperature).toBe(0.6);
+    expect(build("gemini-2.5-flash").generationConfig.temperature).toBe(0.6);
+  });
+});

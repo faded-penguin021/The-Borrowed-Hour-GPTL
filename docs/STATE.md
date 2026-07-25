@@ -87,6 +87,10 @@ queue.
 One line per shipped change or completed unit (newest first). Pre-harness
 history lives in `docs/BACKLOG.md` and git.
 
+- 2026-07-25 — Gemini deprecated `temperature`/`top_p`/`top_k` (3.5 Flash-Lite,
+  3.6 Flash onward: ignored today, HTTP 400 in future generations). The Gemini
+  adapter now omits `temperature` for 3.5+ models and keeps sending it for
+  older ones; the app never sent `top_p`/`top_k`. Ladder green.
 - 2026-07-22 — Refresh model catalogues: LLM only (image/TTS re-verified,
   no changes needed). Gemini `gemini-3.5-flash` → `gemini-3.6-flash`
   (GA 2026-07-21); Kimi drops end-of-life `kimi-k2.5` for new flagship
