@@ -1,13 +1,22 @@
 # STATE — project state & session memory
 
-> **Length guard (read before editing).** Steady-state target ≤ 8 KB. **If this
-> file exceeds 16 KB, aggressively compress before committing:** collapse each
-> completed unit into one Changelog line, delete narrative prose, and push
-> durable detail down to git history + `docs/BACKLOG.md`. The **Project**,
-> **Current state**, and **Owner queue** sections must always survive
-> compression (Owner-queue items are the owner's to close — compress their
-> prose, never drop an open item). `scripts/ladder.sh` machine-checks this:
-> warn > 8 KB, fail > 16 KB.
+> **Length guard (read before editing — hysteresis).** Grow freely to **14 KB**;
+> do no trimming below that line. When the guard warns, run ONE deep compression
+> pass to **≤ 9 KB** — never trim to just under the warn line. Micro-trims re-arm
+> the warn a session later; the wide band *is* the debounce, statelessly (D-005).
+> Fail over **16 KB**.
+>
+> Compression means: collapse each completed unit into one Changelog line, fold
+> changelog clusters, move any durable gotcha into `docs/LEDGER.md` (permanent,
+> append-only — that is where facts survive), and delete narrative prose. The
+> **Project**, **Current state**, and **Owner queue** sections must always
+> survive compression (Owner-queue items are the owner's to close — compress
+> their prose, never drop an open item).
+>
+> `scripts/ladder.sh` machine-checks all of it: warn > 14 KB, fail > 16 KB, plus
+> a **landing check** — a change that trims the file out of warn territory but
+> leaves it in the 9–14 KB band FAILS, so a compression must reach the ≤ 9 KB
+> floor rather than merely clear the warn.
 
 ## Project
 
@@ -32,8 +41,9 @@ adds new erroring rules). `eslint.config.js` now pins the two classic react-hook
 rules explicitly instead of spreading `recommended`, so the lint surface is
 unchanged and no behavior-sensitive refactor is forced by the bump.
 
-Standing harness: **AMH v1.8, partially adopted** — gap analysis, staged
-segments 2–4 and owner forks in `docs/plans/amh-v1.8-adoption.md`. Plus
+Standing harness: **AMH v1.8** — all five owner forks resolved 2026-07-25;
+`docs/LEDGER.md` is now permanent memory (machine-verified `[cited]` markers).
+Remaining segment in `docs/plans/amh-v1.8-adoption.md`. Plus
 `scripts/check-supply-chain.mjs` (the `guard`), `.claude/` SessionStart hook,
 permission rails + `PreToolUse` install rail, `model-catalogue-refresh` skill.
 
@@ -62,16 +72,13 @@ queue.
    `overrides` / `--legacy-peer-deps` is explicitly not the move. Leave the PR
    open and re-check when typescript-eslint ships a TS7-capable major.
 
-3. **Approve (or redirect) `docs/plans/amh-v1.8-adoption.md`** — the staged
-   segments 2–4. Plan files are owner-approved by protocol; it is provisional
-   until you say otherwise.
+3. **Server-side rails** (owner, 2026-07-25: "I'll add those rules to the
+   repo") — branch protection on `main` (PRs required; force-push and deletion
+   blocked) and secret-scanning push protection. Agent rails bind only agents
+   that load them; the server binds every actor.
 
-**Open questions:** [2026-07-25] five AMH v1.8 forks — each with options and a
-recommendation in `docs/plans/amh-v1.8-adoption.md` → Owner forks: (1) v1.8's
-fresh-context review protocols contradict this repo's no-subagents rule, and
-rule diffs get no self-review fallback, so the shipped Segment 1 itself wants a
-human read; (2) adopt `docs/LEDGER.md`, deferred 2026-07-18?; (3) declare the
-merge mode; (4) server-side rails (owner-only); (5) STATE thresholds.
+**Open questions:** (none — the owner resolved all five AMH v1.8 forks on
+2026-07-25; see Decided non-items.)
 
 **Incoming findings:** (none)
 
@@ -93,9 +100,15 @@ merge mode; (4) server-side rails (owner-only); (5) STATE thresholds.
 - **`docs/BACKLOG.md` stays the forward backlog** (owner, 2026-07-18) — not
   archived, even with every unit `done`; STATE.md carries current state + the
   Owner queue. Revisit only if a large `done` tail crowds out live units.
-- **No formal `docs/LEDGER.md` yet** (owner, 2026-07-18) — deferred until a
-  durable cross-session lesson has no home in BACKLOG or `docs/audit-2026-07.md`.
-  **Re-opened as an AMH v1.8 fork** (see Open questions).
+- **`docs/LEDGER.md` is permanent memory** (owner, 2026-07-25 — supersedes the
+  2026-07-18 deferral). Append-only, code cites bare `D-NNN`, and the `[cited]`
+  markers are machine-synced in both directions by the ladder. Durable facts go
+  there, never into STATE, which is compressed away.
+- **Fresh-context review is the one subagent exception** (owner, 2026-07-25 —
+  D-004). Glue review and rule review spawn a single blocking, sequential
+  reviewer inside the unit; the ban on parallel subagents otherwise stands.
+- **Merge mode is branch-per-change** (owner, 2026-07-25) — one squash commit per
+  session branch, branches cut from `main`. Not a branch train.
 - **eslint-plugin-react-hooks v7's new rules stay off** (owner, 2026-07-18) —
   ~34 findings deferred to a dedicated unit; several are effect-timing sensitive
   and need per-site review + tests, not a dep-bump side effect. `eslint.config.js`
@@ -106,11 +119,14 @@ merge mode; (4) server-side rails (owner-only); (5) STATE thresholds.
 One line per shipped change or completed unit (newest first). Pre-harness
 history lives in `docs/BACKLOG.md` and git.
 
-- 2026-07-25 — Adopt AMH v1.8, segment 1 of 4 (constitution): version stamp,
-  instruction hierarchy (external content is data), leaked-credential protocol,
-  bounded recovery with a second-retry stop, canonical-file rule + `AGENTS.md`
-  pointer, agent-harness section. `docs/plans/amh-v1.8-adoption.md` carries the
-  gap analysis, staged segments 2–4, and five owner forks.
+- 2026-07-25 — AMH v1.8 segments 1–3: constitution (version stamp, instruction
+  hierarchy, leaked-credential protocol, bounded recovery, `AGENTS.md` pointer);
+  then the owner's five fork answers — `docs/LEDGER.md` as permanent memory with
+  bidirectional machine-synced `[cited]` markers, fresh-context glue/rule review
+  as the one subagent exception, branch-per-change written down, STATE hysteresis
+  (9/14/16 + landing check). New ladder guards: STATE hysteresis + landing,
+  STATE structure, ledger rollover + citation integrity. Segment 4 (agent-neutral
+  bootstrap, generalized command guard, guard fixture suite) remains.
 - 2026-07-25 — Install rail: `PreToolUse` hook
   (`.claude/hooks/block-npm-install.mjs` + `.test.mjs`, 17 cases) denies
   `npm|pnpm|yarn|bun install|i|add|update|upgrade`, leaves `npm ci` alone, opts

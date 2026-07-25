@@ -39,7 +39,7 @@ const normalizeOpenAIMessages = (sys: string, msgs: ChatMessage[]) => [
 // Gemini deprecated temperature / top_p / top_k starting with 3.5 Flash-Lite
 // and 3.6 Flash: today they are silently ignored, and future generations
 // return HTTP 400 for supplying them. Omit them from 3.5+ up front rather than
-// paying a failed round-trip once the 400 lands.
+// paying a failed round-trip once the 400 lands. See D-001.
 const geminiIgnoresSampling = (model: string): boolean => {
   const m = /^gemini-(\d+)(?:\.(\d+))?/.exec(model);
   if (!m) return false;

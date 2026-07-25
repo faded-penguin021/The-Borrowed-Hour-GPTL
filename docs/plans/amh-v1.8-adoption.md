@@ -1,9 +1,9 @@
 # AMH v1.8 adoption — gap analysis and staged plan
 
-**Provisional** (P16: plans are owner-approved and die at the end). Created
-2026-07-25 when the owner supplied Agentic Maintenance Harness v1.8. This repo
-had been running an unversioned subset since 2026-07-18. Segment 1 is shipped;
-the rest are staged. Delete this file when the last segment lands — durable
+**Owner-approved 2026-07-25** (P16: plans die at the end). Created when the
+owner supplied Agentic Maintenance Harness v1.8; this repo had been running an
+unversioned subset since 2026-07-18. **Segments 1–3 are shipped and all five
+owner forks are resolved** — only segment 4 remains. Delete this file when the last segment lands — durable
 content must by then live in `CLAUDE.md`, `docs/STATE.md`, and git history.
 
 Sequencing rule: segments run one per sitting, ladder-green → commit → push,
@@ -24,7 +24,16 @@ Version stamp; instruction hierarchy (P18) as its own section; leaked-credential
 protocol (P17); bounded recovery — the second-retry stop (P7); canonical-file
 rule + `AGENTS.md` pointer; agent-harness section.
 
-## Segment 2 — generalize the command guard (agent-side, no fork)
+## Segment 3 — ladder guards (SHIPPED 2026-07-25)
+
+Shipped: STATE hysteresis (9 / 14 / 16 KB) with the landing check that fails a
+trim landing in the debounce band; STATE structure guard; ledger rollover warn +
+fail, duplicate-row detection, and bidirectional `[cited]` citation integrity.
+Failure paths were exercised by hand (D-007 — and that is exactly why the
+fixture suite in 4b is not optional). Still to do there: the local-only
+checkpoint and rule-review tripwires.
+
+## Segment 4a — generalize the command guard (REMAINING)
 
 `.claude/hooks/block-npm-install.mjs` already implements P13's pattern rules
 (segment-wise leading-command matching, mistake-not-evasion threat model,
@@ -35,51 +44,25 @@ deny reason instead of a mute prefix-match denial, and move it to
 static deny list beneath it as the second net. Wire its self-test as a ladder
 guard rung so a regressed rail fails the build.
 
-## Segment 3 — ladder guards
-
-STATE length hysteresis (compress-to / warn / hard, plus the landing check that
-fails a micro-trim landing in the debounce band); STATE structure guard (fail on
-a missing required header, warn if the Owner-queue header vanishes); local-only
-advisories — checkpoint tripwire (code changed vs `main` but STATE.md not in the
-diff) and rule-review tripwire (uncommitted diff touches a legislation file).
-Each guard lands with a fixture test.
-
-## Segment 4 — agent-neutral bootstrap
+## Segment 4b — agent-neutral bootstrap + guard fixture suite (REMAINING)
 
 Move `.claude/hooks/session-start.sh` to `scripts/session-start.sh`, self-locating
 its repo root, remote-only steps gated on an explicit neutral flag rather than
 Claude-specific env vars; `.claude/` keeps a one-line wrapper. Add
 `scripts/test-ladder-guards.sh` (fixture suite for the guards themselves).
 
-## Owner forks — blocked, do not decide these agent-side
+## Owner forks — ALL RESOLVED 2026-07-25
 
-1. **P12's review protocols vs this repo's no-subagents rule.** v1.8 mandates a
-   *fresh-context* reviewer for glue diffs, and for binding-rule diffs mandates
-   the strongest tier **with no self-review fallback** — a harness that cannot
-   spawn a fresh context "parks the rule change for the human." This repo bans
-   parallel subagents outright (`CLAUDE.md`, and it predates v1.8). The two
-   cannot both hold as written. Note the immediate consequence: **Segment 1 is
-   itself a rule diff**, so under a full adoption it wants a human read rather
-   than my own review. Options: (a) carve out "one blocking, sequential review
-   subagent" as compatible with the sequential rule — v1.8 argues exactly this;
-   (b) keep the ban and route all rule diffs to the owner; (c) keep the ban and
-   accept self-review for glue diffs only. Recommendation: (a), with the reviewer
-   explicitly sequential and blocking.
-2. **Adopt `docs/LEDGER.md`?** v1.8 makes the append-only ledger central (code
-   cites `D-NNN`, `[cited]` markers, rollover, a citation-integrity guard). The
-   owner deferred it on 2026-07-18 — "add the first time a durable cross-session
-   lesson has no home." v1.8 is new evidence for re-opening, and Segments 2–4
-   would generate ledger-worthy rows. Recommendation: adopt when Segment 2 lands,
-   seeding it with the rule-collision above.
-3. **Declare the merge mode.** v1.8 wants branch-per-change vs branch-train
-   stated explicitly. Practice here is branch-per-change (squash, one commit per
-   branch). Recommendation: write it down as-is.
-4. **Server-side rails (owner-only).** Branch protection on `main` (PRs required;
-   force-push and deletion blocked) and secret-scanning push protection. Agent
-   rails bind only agents that load them; the server binds every actor.
-5. **STATE thresholds.** Current guard is warn 8 KB / fail 16 KB with no
-   compress-to floor and no landing check. v1.8 suggests a 9/14/16-shaped band.
-   Changing them reshapes how often the owner sees compression churn.
+1. **Review protocols vs no-subagents** → glue review and rule review with a
+   fresh context are the sanctioned exception; one blocking, sequential reviewer
+   inside the unit. Ledgered as D-004.
+2. **Adopt `docs/LEDGER.md`?** → yes, as long-term storage, with machine-verified
+   bidirectional `[cited]` markers. Shipped.
+3. **Merge mode** → branch-per-change. Written into `CLAUDE.md` → Git rules.
+4. **Server-side rails** → the owner is adding them to the repo directly. Tracked
+   as a Pending owner action, not agent work.
+5. **STATE thresholds** → adopt the v1.8 band; it avoids micro-trimming. Shipped
+   as 9 / 14 / 16 KB plus the landing check (D-005).
 
 ## Deliberately not adopted (with reasons)
 

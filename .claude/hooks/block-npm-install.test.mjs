@@ -2,7 +2,7 @@
 //
 // A plain shell loop can't test this — a command line containing the literal
 // test strings is itself blocked by the rail under test — so the cases are
-// assembled from fragments and fed to the hook as JSON payloads.
+// assembled from fragments and fed to the hook as JSON payloads (D-003).
 import { execFileSync } from "node:child_process";
 
 const HOOK = new URL("./block-npm-install.mjs", import.meta.url).pathname;
