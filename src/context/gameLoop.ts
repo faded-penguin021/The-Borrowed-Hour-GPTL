@@ -606,12 +606,9 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
     if (inFlight || abortRef.current) cancelRequest();
     const s = deps.getState();
     const save = migrateSave(rawSave);
-    let found = null;
-    if (save.isCustom && save.premise) {
-      found = save.premise;
-    } else {
-      found = PREMISES.find((p) => p.id === save.premiseId) || save.premise || null;
-    }
+    const found = save.isCustom && save.premise
+      ? save.premise
+      : PREMISES.find((p) => p.id === save.premiseId) || save.premise || null;
     if (!found) {
       deps.saves.setSaveBanner({ kind: "err", text: "This hour is no longer here." });
       return;

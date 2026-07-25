@@ -97,7 +97,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
         throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
       }
       let request;
-      let apiKey: string | null = null;
+      let apiKey: string | null;
       try {
         apiKey = await getProviderKey(providerId as ProviderId, { allowMissing: proxied });
         request = provider.buildRequest({
@@ -205,7 +205,7 @@ export function createLLMClient({ getDefaultEngine, onUsage, getProxyUrl }: {
         throw new BorrowedError("The hour is set down.", "Request cancelled by the player.");
       }
       let request;
-      let apiKey: string | null = null;
+      let apiKey: string | null;
       try {
         apiKey = await getProviderKey(providerId as ProviderId, { allowMissing: proxied });
         request = buildStreamRequest({ sys, msgs, model, maxTokens, temperature: temp, apiKey });
