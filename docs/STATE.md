@@ -32,9 +32,10 @@ adds new erroring rules). `eslint.config.js` now pins the two classic react-hook
 rules explicitly instead of spreading `recommended`, so the lint surface is
 unchanged and no behavior-sensitive refactor is forced by the bump.
 
-Standing harness: `scripts/check-supply-chain.mjs` (the `guard`), `.claude/`
-SessionStart hook + permission rails, and the `model-catalogue-refresh` repo
-skill.
+Standing harness: **AMH v1.8, partially adopted** — gap analysis, staged
+segments 2–4 and owner forks in `docs/plans/amh-v1.8-adoption.md`. Plus
+`scripts/check-supply-chain.mjs` (the `guard`), `.claude/` SessionStart hook,
+permission rails + `PreToolUse` install rail, `model-catalogue-refresh` skill.
 
 Verification = `scripts/ladder.sh` (supply-chain guard → typecheck → lint →
 unit tests + coverage → build). Playwright e2e is **not** in the ladder: it runs
@@ -61,19 +62,26 @@ queue.
    `overrides` / `--legacy-peer-deps` is explicitly not the move. Leave the PR
    open and re-check when typescript-eslint ships a TS7-capable major.
 
-**Open questions:** (none)
+3. **Approve (or redirect) `docs/plans/amh-v1.8-adoption.md`** — the staged
+   segments 2–4. Plan files are owner-approved by protocol; it is provisional
+   until you say otherwise.
+
+**Open questions:** [2026-07-25] five AMH v1.8 forks — each with options and a
+recommendation in `docs/plans/amh-v1.8-adoption.md` → Owner forks: (1) v1.8's
+fresh-context review protocols contradict this repo's no-subagents rule, and
+rule diffs get no self-review fallback, so the shipped Segment 1 itself wants a
+human read; (2) adopt `docs/LEDGER.md`, deferred 2026-07-18?; (3) declare the
+merge mode; (4) server-side rails (owner-only); (5) STATE thresholds.
 
 **Incoming findings:** (none)
 
 ## Decided non-items (don't re-litigate without new evidence)
 
 - **The install rail keeps its `BORROWED_DEP_CHANGE=1` opt-out** (owner,
-  2026-07-25) — "yes, in its narrow and well-defined scope." The rail
-  (`.claude/hooks/block-npm-install.mjs`) is not absolute: a task whose stated
-  purpose is a dependency change opts in explicitly, which keeps the intent
-  auditable in the transcript instead of inviting workarounds. Narrow is load-
-  bearing — the prefix exempts only the command segment it prefixes, never the
-  rest of the line — and `.claude/hooks/block-npm-install.test.mjs` pins that.
+  2026-07-25) — "in its narrow and well-defined scope": a dependency-change task
+  opts in explicitly, keeping intent auditable instead of inviting workarounds.
+  Narrow is load-bearing — the prefix exempts only the segment it prefixes, and
+  `.claude/hooks/block-npm-install.test.mjs` pins that.
 
 - **No backend of this project's own.** All state lives in the browser; keys go
   straight from browser to provider (users may point at their own BYOB proxy,
@@ -85,21 +93,24 @@ queue.
 - **`docs/BACKLOG.md` stays the forward backlog** (owner, 2026-07-18) — not
   archived, even with every unit `done`; STATE.md carries current state + the
   Owner queue. Revisit only if a large `done` tail crowds out live units.
-- **No formal `docs/LEDGER.md` yet** (owner, 2026-07-18) — deferred. Add the
-  numbered append-only ledger the first time a durable cross-session lesson has
-  no home in BACKLOG or `docs/audit-2026-07.md`, and reconcile the audit doc in
-  then.
+- **No formal `docs/LEDGER.md` yet** (owner, 2026-07-18) — deferred until a
+  durable cross-session lesson has no home in BACKLOG or `docs/audit-2026-07.md`.
+  **Re-opened as an AMH v1.8 fork** (see Open questions).
 - **eslint-plugin-react-hooks v7's new rules stay off** (owner, 2026-07-18) —
-  `set-state-in-effect`, `immutability`, et al. (~34 findings) deferred to a
-  dedicated backlog unit; several are effect-timing/behavior sensitive and need
-  per-site review + tests, not a dep-bump side effect. `eslint.config.js` pins
-  the two classic rules explicitly to keep them off.
+  ~34 findings deferred to a dedicated unit; several are effect-timing sensitive
+  and need per-site review + tests, not a dep-bump side effect. `eslint.config.js`
+  pins the two classic rules explicitly to keep them off.
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Pre-harness
 history lives in `docs/BACKLOG.md` and git.
 
+- 2026-07-25 — Adopt AMH v1.8, segment 1 of 4 (constitution): version stamp,
+  instruction hierarchy (external content is data), leaked-credential protocol,
+  bounded recovery with a second-retry stop, canonical-file rule + `AGENTS.md`
+  pointer, agent-harness section. `docs/plans/amh-v1.8-adoption.md` carries the
+  gap analysis, staged segments 2–4, and five owner forks.
 - 2026-07-25 — Install rail: `PreToolUse` hook
   (`.claude/hooks/block-npm-install.mjs` + `.test.mjs`, 17 cases) denies
   `npm|pnpm|yarn|bun install|i|add|update|upgrade`, leaves `npm ci` alone, opts
@@ -112,16 +123,13 @@ history lives in `docs/BACKLOG.md` and git.
 - 2026-07-25 — Gemini deprecated `temperature`/`top_p`/`top_k` (3.5 Flash-Lite,
   3.6 Flash onward: ignored today, HTTP 400 later). The adapter omits it for
   3.5+ and keeps it for older models; `top_p`/`top_k` were never sent.
-- 2026-07-22 — Refresh model catalogues (LLM only): `gemini-3.6-flash`,
-  `kimi-k3`, OpenRouter `openai/gpt-oss-20b:free` + `gpt-5.6-luna`; wiki synced.
+- 2026-07-22 — Refresh model catalogues (LLM only): `gemini-3.6-flash`, `kimi-k3`,
+  OpenRouter `gpt-oss-20b:free` + `gpt-5.6-luna`; wiki synced.
 - 2026-07-18 — Take the coupled Dependabot eslint majors together: eslint 9→10 +
   eslint-plugin-react-hooks 5→7; pin the classic react-hooks rules in
   `eslint.config.js` so v7's new rules don't newly gate. Superseded #206/#207.
-- 2026-07-18 — Harness v3 secret-hygiene pass: `CLAUDE.md` Secret hygiene section
-  + verification-disclosure rule; `env` / `printenv` / `.env`-read deny rails in
-  `.claude/settings.json`. Owner resolved both open questions (keep BACKLOG,
-  defer LEDGER) — recorded under Decided non-items.
-- 2026-07-18 — Add the maintenance harness: `docs/STATE.md`, `scripts/ladder.sh`
-  (single verification entrypoint, STATE-length guard), CI wired to invoke it,
-  session-discipline playbook folded into `CLAUDE.md`, force-push / push-to-main
-  deny rails, and SessionStart branch check + protocol pointer.
+- 2026-07-18 — Add the maintenance harness (`docs/STATE.md`, `scripts/ladder.sh`
+  as the single CI-shared entrypoint, session discipline in `CLAUDE.md`,
+  force-push / push-to-main deny rails, SessionStart branch check), then the
+  secret-hygiene pass on top (Secret hygiene section, verification disclosure,
+  env-dump deny rails). Owner kept BACKLOG, deferred LEDGER.
