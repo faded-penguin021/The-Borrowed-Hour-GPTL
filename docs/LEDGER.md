@@ -60,6 +60,11 @@
   indices, so the block named the verb where the manager belonged. Any rail
   whose own diagnostics are user-visible needs a case asserting the *message*,
   not just the decision.
+  (Correction 2026-07-25: the rail moved from `.claude/hooks/block-npm-install.mjs`
+  to `scripts/command-guard.sh --self-test`. The fragment-assembly constraint
+  survives the move; the JSON-payload mechanism does not — the bash matrix calls
+  the check function in-process, which is exactly why the entrypoint itself
+  needed separate end-to-end cases. See D-010.)
 - D-004: AMH v1.8's review protocols (P12) require a fresh-context reviewer and
   forbid self-review for binding-rule diffs; this repo's session discipline
   banned parallel subagents outright. A direct rule collision, surfaced when
@@ -89,15 +94,13 @@
   leaving its mutation in place. Exercise a guard's failure paths against copies
   in the scratchpad, or commit first so the revert is a no-op. This is what a
   guard fixture suite is for.
-- D-008 [cited]: A size/citation guard tends to count its own diagnostics. Two live
+- D-008: A size/citation guard tends to count its own diagnostics. Two live
   instances on 2026-07-25: the landing-check FAIL string in `scripts/ladder.sh`
   cites D-005, so the citation guard counted the citation guard (rewording the
   message would have failed the build with "marked [cited] but no longer
   cited"), and the guard fixture suite's synthetic `D-404` tripped the same scan.
   Rule: a scan's own fixtures and self-referential prose are excluded from its
   scope, and rows illustrating future rollover prefixes are not citations.
-  (Correction 2026-07-25: the rail moved from `.claude/hooks/block-npm-install.mjs`
-  to `scripts/command-guard.sh`; the lesson is unchanged.)
 - D-009: A guard baselined on `HEAD` cannot fire in CI, where the working tree
   always equals HEAD. The first landing check compared the working tree against
   `HEAD`/`HEAD~1` and was dead code twice over: command substitution strips
@@ -106,3 +109,25 @@
   `git merge-base origin/main HEAD`, and read blob sizes with `git cat-file -s`,
   never through a shell variable. Found by fresh-context rule review, not by any
   passing run.
+- D-010: A command rail keyed on argv[2] is blind to global options, and an
+  unconditional rail on a *runner* blocks legitimate work. Both shipped in
+  `scripts/command-guard.sh` and were caught by fresh-context rule review, not
+  by 35 passing self-test cases: `git -C <path> push --force`,
+  `git --no-pager push --force` and `npm --prefix ./sub install` all sailed
+  through, while `env FOO=bar <cmd>` — a command prefix that dumps nothing — was
+  denied (it cost the reviewer a probe script mid-review). Rules must resolve the
+  first non-option operand, skipping flags and the values of flags that take one;
+  and a dump rail must fire only on the bare dump. Corollary for self-tests: a
+  matrix that only feeds the happy spellings measures nothing — include the
+  hand-typed variants an agent actually produces, and exercise the entrypoint,
+  not just the internal function.
+- D-011: The command rail's one accepted false positive has a routine trigger:
+  a heredoc body — a commit message, a patch script — whose line or clause
+  *begins* with a blocked command reads as its own segment and is denied. It
+  blocked a patch script and then the commit message describing the fix, twice
+  in one unit. Not worth "solving" with quote-aware parsing (that is evasion
+  territory, and the rail's threat model is mistakes). The working practice:
+  write long commit bodies and patch scripts to a file in the scratchpad and
+  pass the path (`git commit -F <file>`, `python3 <file>`), which keeps the
+  trigger text off the command line entirely.
+

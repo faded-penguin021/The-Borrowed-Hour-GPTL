@@ -216,7 +216,8 @@ the constitution has to bind the least-defended agent that reads it.
 - Develop and push **only** on your session's assigned `claude/<codename>`
   branch. Push with `git push -u origin <branch>` (retry with backoff on network
   errors only). **Never force-push. Never push to `main`.** Both are denied in
-  `.claude/settings.json`, not just here.
+  `.claude/settings.json` and blocked with an instructive reason by
+  `scripts/command-guard.sh`, not just here.
 - **Merge mode: branch-per-change** (owner, 2026-07-25). Each session branch
   squash-merges separately — one commit per branch on `main`. Session branches
   are cut from `main`, never from each other; there is no branch train here.
@@ -267,12 +268,12 @@ Treat the following as hard rules:
 1. **Use `npm ci`, never `npm install`**, unless the task is explicitly a
    dependency change. `npm ci` honors the lockfile; `npm install` will happily
    pull a freshly compromised minor. **This one is enforced, not advisory:** the
-   `PreToolUse` hook `.claude/hooks/block-npm-install.mjs` denies
+   `PreToolUse` hook `scripts/command-guard.sh` denies
    `npm|pnpm|yarn|bun install|i|add|update|upgrade`. Retrying or rephrasing a
    blocked command fails identically — for a genuine dependency-change task,
    prefix it `BORROWED_DEP_CHANGE=1` to opt in explicitly. The opt-out exempts
    only the command segment it prefixes. Cases:
-   `node .claude/hooks/block-npm-install.test.mjs`.
+   `scripts/command-guard.sh --self-test`.
 2. **Any change to `package.json` or `package-lock.json` is a reviewable event.**
    If a task doesn't intend to touch them, and they show up in the diff, stop
    and surface it to the user.
@@ -318,10 +319,13 @@ test- and e2e-ready. Treat it like the rest of the tripwire list from here on:
 any *later* unexplained change to `.claude/` — a new hook command, an added
 permission, an edited skill nobody asked for — is a stop-and-report event.
 
-The `PreToolUse` install rail added 2026-07-25 is user-sanctioned:
-`.claude/hooks/block-npm-install.mjs` and its `PreToolUse` entry in
-`.claude/settings.json`, which make rule 1 of Supply-chain hygiene deterministic
-rather than advisory. Same tripwire terms as the rest of `.claude/`.
+The `PreToolUse` command rail added 2026-07-25 is user-sanctioned:
+`scripts/command-guard.sh` and its `PreToolUse` entry in
+`.claude/settings.json`, which make the hard rails deterministic rather than
+advisory. It **supersedes** the original `.claude/hooks/block-npm-install.mjs`
+(installs only), which was deleted in the same change — that swap is sanctioned,
+not the unexplained hook change this section otherwise warns about. Same
+tripwire terms as the rest of `.claude/`.
 
 The maintenance harness added 2026-07-18 is likewise user-sanctioned:
 `docs/STATE.md`, `docs/LEDGER.md` (its preamble and its append-only rule),

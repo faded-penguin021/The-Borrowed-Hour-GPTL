@@ -33,16 +33,14 @@ Failure paths were exercised by hand (D-007 — and that is exactly why the
 fixture suite in 4b is not optional). Still to do there: the local-only
 checkpoint and rule-review tripwires.
 
-## Segment 4a — generalize the command guard (REMAINING)
+## Segment 4a — generalize the command guard (SHIPPED 2026-07-25)
 
-`.claude/hooks/block-npm-install.mjs` already implements P13's pattern rules
-(segment-wise leading-command matching, mistake-not-evasion threat model,
-fail-open, self-test). Widen it to the other hard rails — force-push, pushes
-targeting `main`, env/secret dumps — so those get an instructive, self-correcting
-deny reason instead of a mute prefix-match denial, and move it to
-`scripts/command-guard.sh` with `.claude/` holding only the wiring. Keep the
-static deny list beneath it as the second net. Wire its self-test as a ladder
-guard rung so a regressed rail fails the build.
+Shipped as `scripts/command-guard.sh`: agent-neutral (`--command`, PreToolUse
+JSON on stdin, `--self-test`), covering all four hard rails with instructive
+deny reasons, `.claude/` reduced to wiring, the static deny list kept beneath it
+as the second net, and 56 self-test cases wired as a ladder rung. The JS hook it
+supersedes is deleted. Rails now resolve the real subcommand past global options
+(D-010), so `git -C path push --force` and `npm --prefix x install` are caught.
 
 ## Segment 4b — agent-neutral bootstrap + guard fixture suite (REMAINING)
 

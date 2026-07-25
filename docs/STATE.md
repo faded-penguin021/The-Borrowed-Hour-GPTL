@@ -92,7 +92,7 @@ queue.
   2026-07-25) — "in its narrow and well-defined scope": a dependency-change task
   opts in explicitly, keeping intent auditable instead of inviting workarounds.
   Narrow is load-bearing — the prefix exempts only the segment it prefixes, and
-  `.claude/hooks/block-npm-install.test.mjs` pins that.
+  `scripts/command-guard.sh --self-test` pins that.
 
 - **No backend of this project's own.** All state lives in the browser; keys go
   straight from browser to provider (users may point at their own BYOB proxy,
@@ -123,6 +123,13 @@ queue.
 One line per shipped change or completed unit (newest first). Pre-harness
 history lives in `docs/BACKLOG.md` and git.
 
+- 2026-07-25 — Segment 4a: `scripts/command-guard.sh` replaces the Claude-only
+  JS install hook — agent-neutral (`--command` / stdin JSON / `--self-test`),
+  covering all four hard rails (registry installs, force-push, pushes to `main`,
+  env and `.env` dumps) with instructive deny reasons. 56 self-test cases as a
+  ladder rung. Rule review found the rail let `git -C path push --force` and
+  `npm --prefix x install` through and wrongly blocked `env FOO=bar <cmd>`; all
+  fixed and pinned (D-010).
 - 2026-07-25 — AMH v1.8 segments 1–3: constitution (version stamp, instruction
   hierarchy, leaked-credential protocol, bounded recovery, `AGENTS.md` pointer);
   then the owner's five fork answers — `docs/LEDGER.md` as permanent memory with

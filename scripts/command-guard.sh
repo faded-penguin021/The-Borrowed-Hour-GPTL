@@ -37,6 +37,22 @@ segments() {
   printf '%s\n' "$1" | tr '\n;&|()' '\n'
 }
 
+# First non-option token at or after position $2, skipping options and the
+# values of the option flags that take one. `git -C path push --force` and
+# `npm --prefix ./sub install` are things an agent types by hand, so keying a
+# rail off argv[2] alone leaves the headline rule unguarded.
+first_operand() {
+  printf '%s' "$1" | awk -v start="$2" '{
+    for (i = start; i <= NF; i++) {
+      if ($i == "-C" || $i == "-c" || $i == "--prefix" || $i == "--cwd" ||
+          $i == "--loglevel" || $i == "-w" || $i == "--workspace" ||
+          $i == "--filter" || $i == "--dir") { i++; continue }
+      if ($i ~ /^-/) continue
+      print $i; exit
+    }
+  }'
+}
+
 deny() {
   printf '%s\n' "$1" >&2
   exit 2
@@ -53,7 +69,7 @@ check_command() {
     # mentions a rail-tripping command — `git commit -m 'never force-push'`
     # reads as a git-push segment under `git*push*`.
     head_cmd=$(printf '%s' "$stripped" | awk '{print $1}')
-    arg1=$(printf '%s' "$stripped" | awk '{print $2}')
+    arg1=$(first_operand "$stripped" 2)
 
     case "$head_cmd" in
       npm|pnpm|yarn|bun)
@@ -79,7 +95,7 @@ If a bump is failing CI rather than being one you meant to make, see docs/depend
       git)
         [ "$arg1" = "push" ] || continue
         case "$stripped" in
-          *--force-with-lease*|*--force*|*" -f "*|*" -f")
+          *--force-with-lease*|*--force*|*" -f "*|*" -f"|*" +"*)
             deny "Blocked: force-push is forbidden in this repo (CLAUDE.md → Git rules). Pushed checkpoints are immutable.
 
 This is a deterministic project hook — retrying or respelling the flag will be blocked identically.
@@ -88,7 +104,7 @@ If the remote rejected your push, do NOT force it: fetch and merge the base bran
             ;;
         esac
         case "$stripped" in
-          *" main"|*" main "*|*":main"|*":main "*|*" main:"*)
+          *" main"|*" main "*|*":main"|*":main "*|*" main:"*|*" +main"|*" +main "*|*"refs/heads/main"*)
             deny "Blocked: pushing to \`main\` is forbidden (CLAUDE.md → Git rules). Develop on your session's claude/<codename> branch; the owner squash-merges it.
 
 This is a deterministic project hook — retrying will be blocked identically.
@@ -97,12 +113,30 @@ Use: \`git push -u origin <your-session-branch>\`."
             ;;
         esac
         ;;
-      env|printenv)
+      env)
+        # Only a BARE dump is blocked. With an operand this is a command prefix
+        # (`env PW_CHROMIUM=... npx playwright test`) that dumps nothing — the same
+        # "leading assignments are a prefix, not a command" principle as above.
+        # The reviewer's own probe script tripped the unconditional version.
+        if [ -n "$(printf '%s' "$stripped" | awk '{
+              for (i = 2; i <= NF; i++) {
+                if ($i == "-i" || $i == "-u") { i++; continue }
+                if ($i ~ /^-/ || $i ~ /^[A-Za-z_][A-Za-z0-9_]*=/) continue
+                print $i; exit
+              }
+            }')" ]; then continue; fi
         deny "Blocked: environment dumps are forbidden (CLAUDE.md → Secret hygiene). This session's container carries real credentials (the VCS push token, the outbound-proxy auth), and a dump puts them in the context window permanently.
 
 This is a deterministic project hook — retrying will be blocked identically.
 
 Report fixed-key PRESENCE instead (\`[ -n \"\${PW_CHROMIUM:-}\" ] && echo set\`), never a value, prefix, suffix, length, or hash. If a diagnostic seems to need raw secret material, that is an Owner-queue open question asking for a narrower evidence contract — not a reason to dump."
+        ;;
+      printenv)
+        deny "Blocked: environment dumps are forbidden (CLAUDE.md → Secret hygiene). This session's container carries real credentials, and a dump puts them in the context window permanently.
+
+This is a deterministic project hook — retrying will be blocked identically.
+
+Report fixed-key PRESENCE only, never a value, prefix, suffix, length, or hash. A diagnostic that seems to need raw secret material is an Owner-queue open question asking for a narrower evidence contract."
         ;;
       cat|less|head|tail|bat)
         case "$stripped" in
@@ -121,11 +155,10 @@ Report fixed-key presence only. A diagnostic that seems to need the file's conte
 }
 
 # ── Self-test matrix (run as a ladder rung; a rail must not regress silently) ─
-# Commands are assembled from fragments for two reasons: a shell line containing
-# the literal blocked strings is itself blocked by the rail under test (D-003),
-# and a scan of this file must not read its own fixtures as citations (D-008).
-# Assert the deny REASON too, not just the verdict — that is how the earlier
-# rail's mislabelled message got through (D-003).
+# Commands are assembled from fragments because a shell line containing the
+# literal blocked strings is itself blocked by the rail under test (D-003).
+# Assert the deny REASON too, not just the verdict — a mislabelled reason teaches
+# the wrong correction, which is how the earlier rail's bug got through.
 self_test() {
   local failures=0 n="npm" g="git" p="pnpm"
   # verdict <expected: allow|deny> <command>
@@ -176,6 +209,35 @@ self_test() {
   verdict allow "echo 'do not run env or cat .env here'"
   verdict allow "$g log --grep='$n install'"
 
+  # Global options must not defeat a rail: `git -C path push --force` and
+  # `npm --prefix ./sub install` are hand-typed spellings, i.e. mistakes, which
+  # is precisely the threat model.
+  verdict deny  "$g -C /tmp/x push --force"
+  verdict deny  "$g -C /tmp/x push origin main"
+  verdict deny  "$g --no-pager push --force"
+  verdict deny  "$n --prefix ./sub install"
+  verdict deny  "$n --silent install"
+  verdict deny  "$n -g install foo"
+  verdict deny  "yarn --cwd x add foo"
+  verdict deny  "$p -C x add foo"
+  verdict allow "$g -C /tmp/x push -u origin claude/thing"
+  verdict allow "$n --prefix ./sub ci"
+
+  # A leading + on the refspec is a force-push in disguise; a fully-qualified
+  # ref still targets main. Branch names merely CONTAINING "main" must not trip.
+  verdict deny  "$g push origin +main"
+  verdict deny  "$g push origin HEAD:refs/heads/main"
+  verdict allow "$g push -u origin claude/main-thing"
+  verdict allow "$g push -u origin feat/domain-fix"
+
+  # `env` with an operand is a runner, not a dump — blocking it is a false
+  # positive that cost the rule reviewer a probe script.
+  verdict allow "env FOO=bar $n ci"
+  verdict allow "env PW_CHROMIUM=/x npx playwright test"
+  verdict allow "env -u NODE_OPTIONS bash scripts/ladder.sh"
+  verdict deny  "env"
+  verdict deny  "env -i"
+
   # The deny REASON is part of the contract: a rail whose message names the
   # wrong command teaches the agent the wrong correction (D-003).
   reason_case() {
@@ -192,6 +254,29 @@ self_test() {
   reason_case "$g push origin main" "pushing to \`main\` is forbidden"
   reason_case "env" "environment dumps are forbidden"
   reason_case "cat .env" ".env-style files"
+
+  # Entrypoint cases: exercise main() itself, so the exit-code contract and the
+  # fail-open paths cannot regress green.
+  e2e() {
+    local name="$1" expected="$2" got
+    shift 2
+    "$@" >/dev/null 2>&1; got=$?
+    if [ "$got" -eq "$expected" ]; then
+      printf 'ok    e2e    %s\n' "$name"
+    else
+      printf 'FAIL  e2e    %s — exit %s, expected %s\n' "$name" "$got" "$expected"
+      failures=$(( failures + 1 ))
+    fi
+  }
+  e2e "--command allows" 0 bash "$0" --command "$n ci"
+  e2e "--command blocks" 2 bash "$0" --command "$n ${n:0:0}install"
+  printf '' | bash "$0" >/dev/null 2>&1
+  e2e_empty=$?; [ "$e2e_empty" -eq 0 ] || { printf 'FAIL  e2e    empty stdin fails open — exit %s\n' "$e2e_empty"; failures=$(( failures + 1 )); }
+  printf 'not json' | bash "$0" >/dev/null 2>&1
+  e2e_bad=$?; [ "$e2e_bad" -eq 0 ] || { printf 'FAIL  e2e    malformed payload fails open — exit %s\n' "$e2e_bad"; failures=$(( failures + 1 )); }
+  [ "$e2e_empty" -eq 0 ] && [ "$e2e_bad" -eq 0 ] && printf 'ok    e2e    fails open on empty and malformed input\n'
+  printf '{"tool_input":{"command":"%s %s"}}' "$n" "${n:0:0}install" | bash "$0" >/dev/null 2>&1
+  e2e_hook=$?; if [ "$e2e_hook" -eq 2 ]; then printf 'ok    e2e    hook-mode JSON blocks\n'; else printf 'FAIL  e2e    hook-mode JSON — exit %s, expected 2\n' "$e2e_hook"; failures=$(( failures + 1 )); fi
 
   printf '\n'
   if [ "$failures" -ne 0 ]; then
