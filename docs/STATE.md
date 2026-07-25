@@ -50,13 +50,12 @@ queue.
 > this queue.
 
 **Pending owner actions:**
-1. **Dependabot triage.** Merge `claude/deps-eslint-majors` (eslint 10 +
-   react-hooks 7, ladder-green) and **close #206/#207 as superseded** — they are
-   the same two bumps split apart, and neither passes alone (they're coupled).
-   PRs **#204** (actions/setup-node 7) and **#205** (npm minor/patch group) are
-   already green — merge as-is.
+1. **#214 (`@eslint/js` 9→10)** — red only on four `no-useless-assignment`
+   findings in our own source. #215 fixes them; once it is on `main`, #214 goes
+   green on its next rebase and merges as-is. (The 2026-07-18 eslint-majors item
+   is closed out — that branch merged, and #204–#207 are all closed.)
 
-2. **`typescript` 7.0.2 bump is upstream-blocked** — `typescript-eslint` 8.65.0
+2. **#213 (`typescript` 6.0.3→7.0.2) is upstream-blocked** — `typescript-eslint` 8.65.0
    (latest) still declares `peer typescript >=4.8.4 <6.1.0`, so `npm ci` can't
    resolve and no ladder rung runs. Nothing to fix on our side; forcing it with
    `overrides` / `--legacy-peer-deps` is explicitly not the move. Leave the PR
@@ -93,6 +92,12 @@ queue.
 One line per shipped change or completed unit (newest first). Pre-harness
 history lives in `docs/BACKLOG.md` and git.
 
+- 2026-07-25 — Enforce "npm ci, never npm install" with a `PreToolUse` hook
+  (`.claude/hooks/block-npm-install.mjs`) instead of prose: denies
+  `npm|pnpm|yarn|bun install|i|add|update|upgrade` with a reason that says it's
+  a deterministic rail and not to retry, leaves `npm ci` alone, and opts in via
+  `BORROWED_DEP_CHANGE=1` for real dependency work. Fails open on a malformed
+  payload. Owner-sanctioned; recorded in the `CLAUDE.md` tripwire list.
 - 2026-07-25 — Clear the `@eslint/js` 10 lint fallout at the source: four
   `no-useless-assignment` errors (`gameLoop.ts`, `constants.ts`, `client.ts` ×2)
   that reddened the Dependabot bump. Adds `docs/dependabot-triage.md` — triage

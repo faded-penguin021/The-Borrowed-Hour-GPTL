@@ -166,7 +166,11 @@ Treat the following as hard rules:
 
 1. **Use `npm ci`, never `npm install`**, unless the task is explicitly a
    dependency change. `npm ci` honors the lockfile; `npm install` will happily
-   pull a freshly compromised minor.
+   pull a freshly compromised minor. **This one is enforced, not advisory:** the
+   `PreToolUse` hook `.claude/hooks/block-npm-install.mjs` denies
+   `npm|pnpm|yarn|bun install|i|add|update|upgrade`. Retrying or rephrasing a
+   blocked command fails identically — for a genuine dependency-change task,
+   prefix it `BORROWED_DEP_CHANGE=1` to opt in explicitly.
 2. **Any change to `package.json` or `package-lock.json` is a reviewable event.**
    If a task doesn't intend to touch them, and they show up in the diff, stop
    and surface it to the user.
@@ -198,6 +202,11 @@ user-sanctioned as of backlog unit H1 — it exists to make remote agent session
 test- and e2e-ready. Treat it like the rest of the tripwire list from here on:
 any *later* unexplained change to `.claude/` — a new hook command, an added
 permission, an edited skill nobody asked for — is a stop-and-report event.
+
+The `PreToolUse` install rail added 2026-07-25 is user-sanctioned:
+`.claude/hooks/block-npm-install.mjs` and its `PreToolUse` entry in
+`.claude/settings.json`, which make rule 1 of Supply-chain hygiene deterministic
+rather than advisory. Same tripwire terms as the rest of `.claude/`.
 
 The maintenance harness added 2026-07-18 is likewise user-sanctioned:
 `docs/STATE.md`, `scripts/ladder.sh`, this file's "Session discipline", "Git

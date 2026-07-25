@@ -6,7 +6,8 @@ import reactRefresh from "eslint-plugin-react-refresh";
 
 export default tseslint.config(
   {
-    ignores: ["dist", "node_modules", "public", "scripts", "*.config.js"],
+    // .claude/hooks joins scripts/ here: Node-side tooling, not app source.
+    ignores: ["dist", "node_modules", "public", "scripts", ".claude/hooks", "*.config.js"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
