@@ -164,23 +164,21 @@ that you are the last reviewer — there is no stronger pass behind you.
 
 The context that wrote a diff is anchored on its own reasoning. Both passes below
 therefore run in a **fresh context** — a subagent given the diff, the checklist,
-and tree access, but *not* the authoring rationale — after the ladder is green.
-One level of meta only: the reviewer reports, the session triages, the owner
-arbitrates. Nobody reviews the reviewer. Record the verdict in the commit body
-("glue-review pass: clean", "rule-review pass: 2 findings, fixed").
+and tree access, but *not* the authoring rationale. One level of meta only: the
+reviewer reports, the session triages, the owner arbitrates. Nobody reviews the
+reviewer.
 
-**The review does not block the checkpoint — the branch is the gate, not the
-commit.** The checkpoint invariant and this protocol both bind, and they do not
-conflict: commit and push as soon as the ladder is green, then run the reviewer
-inside the same unit and land its findings in a follow-up commit. Holding an
-uncommitted diff while a reviewer runs is the worst of both — a session death
-then loses the whole unit, which is exactly what the checkpoint invariant
-exists to prevent. What must never happen is a reviewable diff **merging**
-without its review. If the session dies between the checkpoint and the review,
-the branch carries an unreviewed rule change: say so in the Owner queue, so the
-next session (or the owner) knows the review is still owed. In practice the
-reviewer usually finds something, so expect two commits per rule unit and write
-the verdict into whichever one carries it.
+**Order of operations: ladder green → commit and push → review → findings in a
+follow-up commit.** The review does not block the checkpoint; the gate is the
+branch **merging**, not the individual commit (D-012). Holding an uncommitted
+diff while a reviewer runs is the worst of both — a session death then loses the
+whole unit, which is what the checkpoint invariant exists to prevent. What must
+never happen is a reviewable diff merging unreviewed. If a session dies between
+the checkpoint and the review, the branch is carrying an unreviewed change: put
+that in the Owner queue so the next session knows the review is still owed.
+Expect two commits per reviewed unit — in practice the reviewer finds something
+— and state the verdict in the body of whichever commit carries the outcome
+("glue-review pass: clean", "rule-review pass: 2 findings, fixed").
 
 **Glue review — for diffs touching what the tests can't see.** Unit tests here
 don't cover browser/runtime glue: streaming and abort paths, storage and
