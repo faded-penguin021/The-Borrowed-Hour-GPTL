@@ -165,4 +165,17 @@
   the next branch from `main` is part of STARTING a unit, not part of finishing
   one.** When a session is asked for something that is not a continuation of the
   work in flight, that is a new branch, not a new unit.
+- D-015 [cited]: Adopting an upstream harness SUBTRACTS as well as adds, and the
+  subtractions are silent. AMH v2.1.0's shipped `command-guard.sh` overwrote this
+  repo's hand-rolled one and carries four rails where ours carried five — the
+  registry-install rail is this project's rule, not a harness-universal one, so
+  nothing upstream knew to keep it. Installing cleanly and reading a green ladder
+  would have dropped the tripwire the entire supply-chain section rests on, with no
+  guard anywhere able to notice: the rail's absence is not a failing test, it is a
+  test that no longer exists. Two things follow. **Diff what an install REPLACES,
+  not just what it adds** — every overwritten file is a possible deletion of
+  behaviour. And when a local rule survives an upstream file's replacement, it goes
+  beside the shipped artifact (`scripts/install-guard.sh`, a second `PreToolUse`
+  hook) rather than back inside it, with its own guard under `scripts/guards/` so
+  the next upgrade cannot silently take it again.
 

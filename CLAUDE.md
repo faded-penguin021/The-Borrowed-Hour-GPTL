@@ -17,11 +17,11 @@ playbook below is folded in from what would otherwise be a separate RUNBOOK
 (sanctioned by the harness's own "smallest useful subset" note — split it out
 when the playbooks multiply).
 
-**Harness: AMH v1.8, adopted 2026-07-25.** This repo instantiates the Agentic
-Maintenance Harness; naming the version keeps process drift diagnosable. What is
-adopted and what is deliberately not is tracked in
-`docs/plans/amh-v1.8-adoption.md` — read it before concluding this file is
-missing something the harness prescribes.
+**Harness: AMH v2.1.0, adopted 2026-07-27** (light profile; superseded the
+hand-rolled v1.8 subset). This repo instantiates the Agentic Maintenance Harness;
+naming the version keeps process drift diagnosable, and `amh.conf` records the same
+version machine-readably. The harness's own scripts are **shipped artifacts** — see
+"Shipped vs. yours" below before editing anything under `scripts/`.
 
 **Long-term memory: `docs/LEDGER.md`** — a permanent, append-only registry of
 numbered deviations and discoveries. Code cites bare `D-NNN`; cited rows carry a
@@ -59,6 +59,27 @@ LLM / image / TTS providers. Deployed to GitHub Pages from `main`.
 - `src/saves/`, `src/export/`, `src/hooks/`, `src/settings/`, `src/tts/` —
   named for what they hold.
 
+## Shipped vs. yours (the harness's files)
+
+The single most expensive mistake available in this tree is editing a shipped script.
+They are parameter-free and read `amh.conf` at runtime; that is what makes an AMH
+upgrade a copy instead of a merge, and a local edit turns every future upgrade into a
+silent three-way merge nobody signed up for. `scripts/MANIFEST.sha256` holds their
+published hashes and a ladder rung checks them every run, so an edit is reported rather
+than discovered a year later.
+
+| | Files | Rule |
+|---|---|---|
+| **Shipped** | `scripts/ladder.sh`, `session-start.sh`, `command-guard.sh`, `redact.sh`, `test-ladder-guards.sh`, `MANIFEST.sha256` | **Never edit.** Re-running the harness's `amh-init.sh` overwrites them on purpose. |
+| **Yours** | `amh.conf`, `scripts/verify.sh`, `scripts/guards/*.sh`, `scripts/bootstrap.sh`, `scripts/install-guard.sh`, `.claude/`, `.github/workflows/`, all prose | Edit freely; `amh-init.sh` never touches them. |
+
+**Wanting to edit a shipped script means you have found a missing extension point.**
+The change belongs in one of exactly three places: a value in `amh.conf`, a new guard
+under `scripts/guards/`, or a step in `scripts/verify.sh`. This repo's registry-install
+rail (`scripts/install-guard.sh`) is the worked example — the shipped command guard
+carries no such rail, so ours sits beside it as a second `PreToolUse` hook rather than
+being patched into it.
+
 ## Architectural notes
 
 - **`src/context/gameLoop.ts` (~640 lines) is one cohesive file.** It runs the
@@ -94,13 +115,18 @@ LLM / image / TTS providers. Deployed to GitHub Pages from `main`.
   scope widened from the completed audit to the improvement phases, 2026-07-16.)
 - **Verify with `scripts/ladder.sh`** (or `npm run ladder`, which invokes it) —
   the single entrypoint CI runs too, so local-green and CI-green can't diverge.
-  Guards first (`docs/STATE.md` length + structure, ledger rollover + citation
-  integrity — these can hard-FAIL inside `--guards-only`), then the rail and
-  guard self-tests, then supply-chain guard → typecheck → lint → unit tests +
-  coverage → build. `scripts/ladder.sh
-  --guards-only` is the seconds-long path for docs-only work. Playwright e2e is
-  a separate CI job (locally needs `PW_CHROMIUM`, which the SessionStart hook
-  exports); run it when a change touches the game flow.
+  Guards first, all of them, in seconds: `docs/STATE.md` size band + required
+  sections, ledger rollover, code↔ledger citation integrity, the secret-shape scan
+  (`scripts/redact.sh` **is** the scan — the filter is run over every text file),
+  commit-message poison tokens, git author identity, the shipped rails' self-tests,
+  shipped-script integrity against the manifest, then this repo's own guards under
+  `scripts/guards/`. Then rung 3, `scripts/verify.sh`: supply-chain guard →
+  typecheck + lint → unit tests + coverage → build → the ladder's own guard fixtures.
+  `scripts/ladder.sh --guards-only` is the seconds-long path for docs-only work.
+  Unlike the pre-AMH ladder, guards **do not stop at the first failure** — one run
+  gives one complete report, so read past the first `FAIL`.
+  Playwright e2e is a separate CI job (locally needs `PW_CHROMIUM`, which the
+  SessionStart hook exports); run it when a change touches the game flow.
 - Match nearby style. This codebase prefers small, named functions over deep
   class hierarchies and avoids speculative abstraction.
 - Don't add comments that restate the code. The existing files are sparse on
@@ -174,10 +200,14 @@ follow-up commit.** The review does not block the checkpoint; the gate is the
 branch **merging**, not the individual commit (D-012). Holding an uncommitted
 diff while a reviewer runs is the worst of both — a session death then loses the
 whole unit, which is what the checkpoint invariant exists to prevent. What must
-never happen is a reviewable diff merging unreviewed — **prose-only**: no guard
-sees a merge, and the rule-review tripwire is unbuilt (`docs/plans/amh-v1.8-adoption.md`),
-so the Owner-queue restatement is the only thing carrying an owed review across
-sessions. If a session dies between the checkpoint and the review, the branch is
+never happen is a reviewable diff merging unreviewed, and that half stays
+**prose-only**: no guard sees a merge, so the Owner-queue restatement is the only
+thing carrying an owed review across sessions. What AMH v2.1.0 *does* now give you
+is the front half — a local advisory that WARNs when an uncommitted diff touches a
+path in `amh.conf`'s `RULE_FILES`, so a rule change cannot be typed without the
+protocol being named. Note both of its limits before trusting it: it is a warning,
+not a gate, and it is skipped in CI (it describes a working session, which CI does
+not have). If a session dies between the checkpoint and the review, the branch is
 carrying an unreviewed change: record it under **Pending owner actions** as
 "review owed: <branch>" — it goes in front of the owner because only the owner
 can decide to merge without it.
@@ -255,7 +285,12 @@ player's API keys.)
   `.claude/settings.json` deny these; the rest is discipline.
 - **Never print a credential's value, prefix, suffix, length, or hash.** Report
   only fixed-key presence ("`PW_CHROMIUM` is set") and bounded counts. Redact
-  subprocess / exception / network output before reasoning over it.
+  subprocess / exception / network output before reasoning over it —
+  `cmd 2>&1 | scripts/redact.sh` does the known shapes. Claude Code has no
+  output-filter hook, so that piping is manual; the prose rule and the deny rails
+  are the layers that always apply. The same filter is also this repo's entire
+  secret scan: a ladder rung runs it over every tracked and untracked text file, so
+  a credential committed here fails the ladder.
 - **A diagnostic that seems to need raw secret material is an Owner-queue open
   question** (ask for a narrower evidence contract) — never default to raw
   output. Credential rotation or auth-config changes are Owner-queue items with
@@ -287,12 +322,16 @@ Treat the following as hard rules:
 1. **Use `npm ci`, never `npm install`**, unless the task is explicitly a
    dependency change. `npm ci` honors the lockfile; `npm install` will happily
    pull a freshly compromised minor. **This one is enforced, not advisory:** the
-   `PreToolUse` hook `scripts/command-guard.sh` denies
+   `PreToolUse` hook `scripts/install-guard.sh` denies
    `npm|pnpm|yarn|bun install|i|add|update|upgrade`. Retrying or rephrasing a
    blocked command fails identically — for a genuine dependency-change task,
    prefix it `BORROWED_DEP_CHANGE=1` to opt in explicitly. The opt-out exempts
    only the command segment it prefixes. Cases:
-   `scripts/command-guard.sh --self-test`.
+   `scripts/install-guard.sh --self-test`, run every ladder run by
+   `scripts/guards/install-rail.sh`. This rail is **repo-local**: AMH's shipped
+   `scripts/command-guard.sh` carries the force-push, push-to-`main`, env-dump and
+   `.env`-read rails and no install rail, because that rule is ours, not the
+   harness's. Both hooks run on every Bash call.
 2. **Any change to `package.json` or `package-lock.json` is a reviewable event.**
    If a task doesn't intend to touch them, and they show up in the diff, stop
    and surface it to the user.
@@ -313,10 +352,14 @@ Treat the following as hard rules:
 - **This file is canonical** for any coding agent working here, not just Claude
   Code. `AGENTS.md` is a pointer to it and must only point, never diverge. The
   repo's citations all name `CLAUDE.md`, so it stays the canonical one.
-- **Session bootstrap** is `.claude/hooks/session-start.sh`, currently wired only
-  through Claude Code's SessionStart hook. Making it agent-neutral
-  (`scripts/session-start.sh`, runnable by hand) is a staged segment — see
-  `docs/plans/amh-v1.8-adoption.md`.
+- **Session bootstrap** is `scripts/session-start.sh` (shipped, agent-neutral,
+  runnable by hand). It prints the branch check, working-memory headroom and the
+  protocol pointer, and runs `scripts/bootstrap.sh` — this repo's `npm ci` plus the
+  supply-chain sweep — only when `AMH_REMOTE=1`, so it never installs uninvited on
+  someone's own machine. `.claude/hooks/session-start.sh` is the Claude Code
+  adapter: it sets that flag, calls the shared script, and exports `PW_CHROMIUM`
+  through `CLAUDE_ENV_FILE`. That last step is the only genuinely Claude-specific
+  thing in it.
 - **Adapters hold wiring, not logic.** `.claude/` contains the hook wiring and
   permission rails; behavior lives in the shared scripts and in this file, so
   adding another agent rewrites nothing behavioral.
@@ -338,19 +381,32 @@ test- and e2e-ready. Treat it like the rest of the tripwire list from here on:
 any *later* unexplained change to `.claude/` — a new hook command, an added
 permission, an edited skill nobody asked for — is a stop-and-report event.
 
-The `PreToolUse` command rail added 2026-07-25 is user-sanctioned:
-`scripts/command-guard.sh` and its `PreToolUse` entry in
-`.claude/settings.json`, which make the hard rails deterministic rather than
-advisory. It **supersedes** the original `.claude/hooks/block-npm-install.mjs`
-(installs only), which was deleted in the same change — that swap is sanctioned,
-not the unexplained hook change this section otherwise warns about. Same
-tripwire terms as the rest of `.claude/`.
+The `PreToolUse` command rails are user-sanctioned: the shipped
+`scripts/command-guard.sh`, this repo's `scripts/install-guard.sh`, and both
+`PreToolUse` entries in `.claude/settings.json`, which make the hard rails
+deterministic rather than advisory. They **supersede**, in order, the original
+`.claude/hooks/block-npm-install.mjs` (deleted 2026-07-25) and the hand-rolled
+four-rail `command-guard.sh` (replaced by the shipped one on 2026-07-27, its
+install rail moving to `install-guard.sh`). Those swaps are sanctioned, not the
+unexplained hook change this section otherwise warns about.
 
-The maintenance harness added 2026-07-18 is likewise user-sanctioned:
-`docs/STATE.md`, `docs/LEDGER.md` (its preamble and its append-only rule),
-`AGENTS.md`, `scripts/ladder.sh` and `scripts/test-ladder-guards.sh`, this
-file's "Session discipline", "Fresh-context review", "Git rules", and "Secret
-hygiene" sections, the CI step that invokes
-`scripts/ladder.sh`, and the force-push / push-to-`main` / secret-dump deny rails
-in `.claude/settings.json`. Any *later* unexplained change to these — as with
-`.claude/` — is a stop-and-report event.
+**The AMH v2.1.0 instantiation of 2026-07-27 is user-sanctioned in full**, and it
+replaced the hand-rolled v1.8 subset added 2026-07-18. It covers: `amh.conf`; the
+shipped scripts and their manifest (`scripts/ladder.sh`, `session-start.sh`,
+`command-guard.sh`, `redact.sh`, `test-ladder-guards.sh`, `MANIFEST.sha256`); this
+repo's extension points (`scripts/verify.sh`, `scripts/guards/*.sh`,
+`scripts/bootstrap.sh`, `scripts/install-guard.sh`); `docs/STATE.md`,
+`docs/LEDGER.md` (its preamble and its append-only rule), `AGENTS.md`; this file's
+"Shipped vs. yours", "Session discipline", "Fresh-context review", "Git rules" and
+"Secret hygiene" sections; the CI step that invokes `scripts/ladder.sh`; and the
+deny rails in `.claude/settings.json`. Any *later* unexplained change to these — as
+with `.claude/` — is a stop-and-report event.
+
+**One caveat specific to the shipped scripts, because it is the shape most likely
+to fool this tripwire:** they are meant to be overwritten wholesale by a harness
+upgrade, so "the file changed" is not itself the signal. The signal is a change
+with no upgrade behind it. `scripts/MANIFEST.sha256` is what tells the two apart —
+a legitimate upgrade replaces the scripts *and* their manifest together and the
+ladder stays green, while an edit to one alone makes the integrity rung red.
+`sha256sum -c scripts/MANIFEST.sha256` checks it by hand without trusting any of
+this repo's own code.

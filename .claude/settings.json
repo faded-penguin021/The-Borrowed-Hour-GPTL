@@ -1,4 +1,5 @@
 {
+  "$comment": "AMH adapter for Claude Code — wiring only, no logic. Behaviour lives in CLAUDE.md (this repo's constitution; AGENTS.md only points at it) and in scripts/. Layers this adapter provides: two instructive pre-execution command guards (the shipped AMH rails, plus this repo's registry-install rail), static deny rails, and pre-allowed verification commands. It does NOT provide output redaction: Claude Code has no output-filter hook, so scripts/redact.sh stays available for manual piping and is what the ladder's secret scan uses. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them.",
   "hooks": {
     "PreToolUse": [
       {
@@ -7,6 +8,10 @@
           {
             "type": "command",
             "command": "bash $CLAUDE_PROJECT_DIR/scripts/command-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/scripts/install-guard.sh"
           }
         ]
       }
@@ -28,6 +33,12 @@
       "Bash(scripts/ladder.sh:*)",
       "Bash(bash scripts/ladder.sh)",
       "Bash(bash scripts/ladder.sh:*)",
+      "Bash(scripts/verify.sh)",
+      "Bash(scripts/session-start.sh)",
+      "Bash(scripts/test-ladder-guards.sh)",
+      "Bash(scripts/redact.sh:*)",
+      "Bash(scripts/command-guard.sh:*)",
+      "Bash(scripts/install-guard.sh:*)",
       "Bash(npm run ladder)",
       "Bash(npm run check)",
       "Bash(npm run typecheck)",
@@ -41,7 +52,9 @@
       "Bash(git log)",
       "Bash(git log:*)",
       "Bash(git diff)",
-      "Bash(git diff:*)"
+      "Bash(git diff:*)",
+      "Bash(git ls-files:*)",
+      "Bash(git ls-remote:*)"
     ],
     "deny": [
       "Bash(git push --force)",
@@ -50,17 +63,38 @@
       "Bash(git push -f:*)",
       "Bash(git push --force-with-lease)",
       "Bash(git push --force-with-lease:*)",
+      "Bash(git push --mirror:*)",
+      "Bash(git push --all:*)",
       "Bash(git push origin main)",
       "Bash(git push origin main:*)",
       "Bash(git push origin HEAD:main)",
       "Bash(git push origin HEAD:main:*)",
+      "Bash(git push origin +main:*)",
+      "Bash(git push origin +HEAD:main)",
+      "Bash(source .env:*)",
+      "Bash(source ./.env:*)",
+      "Bash(. .env:*)",
+      "Bash(. ./.env:*)",
       "Bash(env)",
+      "Bash(env:*)",
       "Bash(printenv)",
       "Bash(printenv:*)",
+      "Bash(set)",
+      "Bash(export -p)",
+      "Bash(declare -p)",
+      "Bash(declare -x)",
+      "Bash(typeset -p)",
+      "Bash(typeset -x)",
       "Bash(cat .env)",
       "Bash(cat .env:*)",
       "Bash(cat .env.local)",
-      "Bash(cat .env.local:*)"
+      "Bash(cat .env.local:*)",
+      "Read(/proc/*/environ)",
+      "Read(/proc/**/environ)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)"
     ]
   }
 }
