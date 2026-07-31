@@ -23,7 +23,7 @@
     "test:e2e:prod": "playwright test --config=playwright.prod.config.ts"
   },
   "dependencies": {
-    "lucide-react": "^1.26.0",
+    "lucide-react": "^1.27.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "zod": "^4.4.3"
@@ -41,7 +41,7 @@
     "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
-    "globals": "^17.7.0",
+    "globals": "^17.8.0",
     "jsdom": "^29.1.1",
     "postcss": "^8",
     "tailwindcss": "^4.3.2",
