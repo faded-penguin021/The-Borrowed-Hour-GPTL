@@ -41,7 +41,7 @@ export const OPENAI_IMAGE_DEFAULT_SIZE = "1024x1024";
 export const OPENAI_IMAGE_DEFAULT_QUALITY = "low";
 export const OPENAI_IMAGE_DEFAULT_FORMAT = "png";
 
-// checked: 2026-07-15. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
+// checked: 2026-08-05. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
 // gpt-image-* models remain for the OpenAI images endpoint. Pollinations'
 // free/keyless router has collapsed to a single live model — requesting
 // anything else no longer errors, it silently serves `sana` instead
