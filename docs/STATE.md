@@ -113,6 +113,9 @@ owner-verified via the Owner queue.
 One line per shipped change or completed unit (newest first). Pre-harness history lives
 in `docs/BACKLOG.md` and git.
 
+- 2026-08-05 — Refresh model catalogues (LLM only): `claude-opus-4-8` →
+  `claude-opus-5`, dropped `claude-sonnet-4-6` (redundant with `claude-sonnet-5`)
+  and Groq's `qwen/qwen3-32b` (provider-deprecated 2026-07-17); wiki synced. PR #219.
 - 2026-07-27 — Instantiate **AMH v2.1.0** (light), replacing the hand-rolled v1.8 subset.
   Shipped scripts + `MANIFEST.sha256` now come from the harness; everything repo-specific
   moved to the three extension points — `amh.conf`, `scripts/verify.sh`, and
