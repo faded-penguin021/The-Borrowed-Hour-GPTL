@@ -206,11 +206,11 @@ whole unit, which is what the checkpoint invariant exists to prevent. What must
 never happen is a reviewable diff merging unreviewed, and that half stays
 **prose-only**: no guard sees a merge, so the Owner-queue restatement is the only
 thing carrying an owed review across sessions. What the harness *does* give you
-(since v2.1.0) is the front half — a local advisory that WARNs when an uncommitted diff touches a
-path in `amh.conf`'s `RULE_FILES`, so a rule change cannot be typed without the
-protocol being named. Note both of its limits before trusting it: it is a warning,
-not a gate, and it is skipped in CI (it describes a working session, which CI does
-not have). If a session dies between the checkpoint and the review, the branch is
+(since v2.1.0) is the front half — a local advisory that WARNs when an uncommitted
+diff touches a path in `amh.conf`'s `RULE_FILES`, so a rule change cannot be typed
+without the protocol being named. Note both of its limits before trusting it: it is
+a warning, not a gate, and it is skipped in CI (it describes a working session, which
+CI does not have). If a session dies between the checkpoint and the review, the branch is
 carrying an unreviewed change: record it under **Pending owner actions** as
 "review owed: <branch>" — it goes in front of the owner because only the owner
 can decide to merge without it.
@@ -296,16 +296,16 @@ player's API keys.)
   its reader list is a list, not a category, so an interpreter outside it
   (`python3 -c "open('.env')"` above all) and wrappers it does not strip (`xargs`,
   `timeout`, `ssh`, `bash -c`) reach the file unjudged. The bullets here bind you
-  whether or not a scanner can see the shape you chose.
+  whether or not a scanner can see the shape you chose. The same filter is also this
+  repo's entire secret scan: a ladder rung runs it over every tracked and untracked
+  text file, so a credential committed here fails the ladder.
 - **An agent with no pre-execution hook has no command rail at all.** Both
   `PreToolUse` guards are then scripts nobody calls, and this file is the only layer
   standing. No check can tell you which case you are in — distinguishing a hook
   invocation from a manual one needs vendor-specific environment variables the
   harness will not assume — which is why it is written here rather than warned about
   at boot. Claude Code does support the hook, and `.claude/settings.json` wires both;
-  any other agent reading this should confirm that for itself before relying on them. The same filter is also this repo's entire
-  secret scan: a ladder rung runs it over every tracked and untracked text file, so
-  a credential committed here fails the ladder.
+  any other agent reading this should confirm that for itself before relying on them.
 - **A diagnostic that seems to need raw secret material is an Owner-queue open
   question** (ask for a narrower evidence contract) — never default to raw
   output. Credential rotation or auth-config changes are Owner-queue items with

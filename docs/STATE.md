@@ -35,8 +35,8 @@ Standing harness: **AMH v4.2.0**, upgraded 2026-08-09; adopted 2026-07-27 at the
 `amh.conf` holds every setting; the shipped scripts are never edited locally and
 `scripts/MANIFEST.sha256` is checked each run. `docs/LEDGER.md` is permanent memory and
 retrieval storage — grep one row, never read a volume whole; its `[cited]` markers are
-hand-written and machine-checked, not synced. Plus `scripts/check-supply-chain.mjs` (the `guard`) and the
-`model-catalogue-refresh` skill.
+hand-written and machine-checked, not synced. Plus `scripts/check-supply-chain.mjs`
+(the `guard`) and the `model-catalogue-refresh` skill.
 
 Verification = `scripts/ladder.sh` (rungs enumerated in `CLAUDE.md` → Conventions). It no
 longer stops at the first failure — one run, one complete report, so read past the first
