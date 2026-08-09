@@ -52,7 +52,8 @@ owner-verified via the Owner queue.
 
 **Pending owner actions:**
 
-1. **`claude/upgrade-amh-newest-0lw7s8` — fully reviewed, ready to merge; your call.**
+1. **PR #221 (`claude/upgrade-amh-newest-0lw7s8`) — fully reviewed, ready to squash-merge;
+   your call.**
    The AMH v4.2.0 upgrade is a rule-review diff (`CLAUDE.md`, `amh.conf`, the shipped
    scripts, the ledger preamble). Rule review **was completed** (fresh context,
    strongest tier, owner-requested in session): no blockers, 3 findings, all fixed in
