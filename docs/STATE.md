@@ -52,11 +52,16 @@ owner-verified via the Owner queue.
 
 **Pending owner actions:**
 
-1. **Review owed: `claude/upgrade-amh-newest-0lw7s8`** — the AMH v4.2.0 upgrade is a
-   rule-review diff (`CLAUDE.md`, `amh.conf`, the shipped scripts, the ledger preamble),
-   and rule review has **no self-review fallback**. This session could not spawn a
-   fresh-context reviewer, so the protocol's park-unmerged branch applies: pushed and
-   green, but it must not merge unreviewed. Only you can decide to merge without it.
+1. **`claude/upgrade-amh-newest-0lw7s8` is reviewed and ready to merge — your call.**
+   The AMH v4.2.0 upgrade is a rule-review diff (`CLAUDE.md`, `amh.conf`, the shipped
+   scripts, the ledger preamble). Rule review **was completed** (fresh context,
+   strongest tier, owner-requested in session): no blockers, 3 findings, all fixed in
+   `1154190`. The review debt is discharged; what remains is only the merge decision.
+   Two things the reviewer could not verify and neither can I: the shipped scripts'
+   **upstream provenance** (the clone is deleted, and the manifest was replaced in the
+   same commit, so it corroborates nothing on its own — re-clone the tag and diff if
+   you want that closed), and D-016's claims about upstream's `amh.conf.example` and
+   Upgrading sections.
    `Check:` `git log --oneline origin/main | grep -i 'amh v4.2.0'` — no output means
    still unmerged, so still open.
 2. **#213 (`typescript` 6.0.3→7.0.2) is upstream-blocked** — `typescript-eslint` 8.65.0
@@ -124,7 +129,10 @@ in `docs/BACKLOG.md` and git.
   the command guard's "does NOT catch" block. 3.0.0's archive-tier rule change is inert:
   no `docs/history/`, no `docs/plans/`, so completed plans are still deleted. Two queue
   items closed by testing rather than restatement: the v2.1.0 review-owed item (merged as
-  #216) and the segment-4b branch (no longer on `origin`).
+  #216) and the segment-4b branch (no longer on `origin`). Rule review completed on this
+  branch: no blockers, 3 findings, all fixed — the worst being a new bullet inserted into
+  the middle of an existing one, orphaning a sentence so that "the same filter" resolved
+  to the hooks rather than to `redact.sh` and inverted a secret-hygiene claim.
 - 2026-08-05 — Refresh model catalogues (LLM only): `claude-opus-4-8` →
   `claude-opus-5`, dropped `claude-sonnet-4-6` (redundant with `claude-sonnet-5`)
   and Groq's `qwen/qwen3-32b` (provider-deprecated 2026-07-17); wiki synced. PR #219.
