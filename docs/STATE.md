@@ -119,6 +119,15 @@ owner-verified via the Owner queue.
 One line per shipped change or completed unit (newest first). Pre-harness history lives
 in `docs/BACKLOG.md` and git.
 
+- 2026-08-09 — Lower `LEDGER_ROW_CHAR_CAP` 2000 → **800** (owner). Binds new rows only —
+   the rung exempts any row ID present at HEAD — so nothing was rewritten and no existing
+   row fails. Deliberately below the shipped default *and* below this ledger's own median:
+   7 of 16 prior rows exceed it. Measure with
+   `awk '/^- D[A-Z]*-[0-9]+/{if(id)printf "%s\t%d\n",id,n; id=$2; n=0} id{n+=length($0)+1}
+   END{if(id)printf "%s\t%d\n",id,n}' docs/LEDGER.md | sort -k2 -nr`. Preamble kept in
+   lockstep, plus a warning that `LEDGER_LINE_CAP` (800 *lines*, whole file) and
+   `LEDGER_ROW_CHAR_CAP` (800 *bytes*, one row) now share digits by coincidence and must
+   never be reconciled to each other. Cap proven to fire on an 830-byte row before landing.
 - 2026-08-09 — Upgrade **AMH v2.1.0 → v4.2.0** (five releases; two MAJORs, both largely
   inert here). Shipped scripts + manifest copied wholesale. `amh.conf` gained
   `REQUIRED_TOOLS`, `ADAPTER_FILES` and `LEDGER_ROW_CHAR_CAP` — the last one enforcing

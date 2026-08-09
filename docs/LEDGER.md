@@ -21,12 +21,20 @@
 > cite an existing row rather than append a near-duplicate. A row that
 > supersedes an older one says so ("supersedes D-NNN"), and the old row gets a
 > correction pointer, never deletion. **Keep new rows at or below
-> `LEDGER_ROW_CHAR_CAP`** (2000 bytes under `LC_ALL=C`; ASCII is one byte per
-> character): capture the durable lesson, not the whole debugging narrative.
+> `LEDGER_ROW_CHAR_CAP`** (**800** bytes under `LC_ALL=C`; ASCII is one byte per
+> character; keep this number in lockstep with `amh.conf`): capture the durable
+> lesson, not the whole debugging narrative. The cap is deliberately below the
+> shipped default and below the median of the rows written before it — if a real
+> lesson will not fit, that is worth saying out loud rather than splitting it
+> across two IDs or shipping it pre-truncated.
 >
 > **File cap & rollover.** This file holds at most **800 lines** (the cap is on
 > LINES, not rows — it's read cost being bounded; keep the number in lockstep
-> with the ladder guard's `LEDGER_LINE_CAP`). Rows already committed when
+> with the ladder guard's `LEDGER_LINE_CAP`). **Two different caps read 800 and
+> they are unrelated:** `LEDGER_LINE_CAP` is 800 *lines* for this whole file,
+> `LEDGER_ROW_CHAR_CAP` is 800 *bytes* for one new row. They are separate keys
+> enforced by separate rungs; the shared digits are coincidence, so never
+> "reconcile" one to the other. Rows already committed when
 > checked are historical and exempt from the row cap, so append-only history is
 > never rewritten. The final row may finish past the file cap, but no row may
 > ever *start* past it: when the file stands over the cap, create `LEDGER_A.md`
