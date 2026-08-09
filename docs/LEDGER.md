@@ -8,24 +8,66 @@
 > an entry conflicts with current code, trust the code and correct the entry
 > (never delete it).
 >
+> **This file is RETRIEVAL storage: grep it and cite it, never read it whole.**
+> A `D-NNN` citation resolves to one row, and one row is what you read. A volume
+> at its cap is tens of kilobytes whose overwhelming majority is irrelevant to
+> any given session, so reading it end to end spends context better spent on the
+> code you came to change. The ladder's cap rung prints a size in KB beside the
+> line count so the read cost the cap stands in for stays visible, and it
+> measures the **live** volume only — once this file rolls over its own size
+> stops being reported.
+>
 > **Search before appending:** grep this file for the topic first — extend or
 > cite an existing row rather than append a near-duplicate. A row that
 > supersedes an older one says so ("supersedes D-NNN"), and the old row gets a
-> correction pointer, never deletion.
+> correction pointer, never deletion. **Keep new rows at or below
+> `LEDGER_ROW_CHAR_CAP`** (**800** bytes under `LC_ALL=C`; ASCII is one byte per
+> character; keep this number in lockstep with `amh.conf`): capture the durable
+> lesson, not the whole debugging narrative. The cap is deliberately below the
+> shipped default and below the median of the rows written before it — if a real
+> lesson will not fit, that is worth saying out loud rather than splitting it
+> across two IDs or shipping it pre-truncated. **That last part is prose-only:**
+> no guard can tell a split lesson or a pre-truncated one from a genuinely short
+> row, so the cap is honoured by intent or not at all.
+>
+> **What the cap actually reaches.** It binds every row still *uncommitted* when
+> the ladder runs — the rung returns early unless the ledger has uncommitted
+> changes, and it skips any row ID already present at HEAD. So committing first
+> and verifying afterwards escapes it entirely, and rows already in history are
+> exempt permanently (editing one later keeps the exemption, which is what keeps
+> append-only corrections legal). One more reason the checkpoint invariant runs
+> ladder-green *before* commit rather than after.
 >
 > **File cap & rollover.** This file holds at most **800 lines** (the cap is on
 > LINES, not rows — it's read cost being bounded; keep the number in lockstep
-> with the ladder guard's `LEDGER_LINE_CAP`). The final row may finish past the
-> cap, but no row may ever *start* past it: when the file stands over the cap,
-> create `LEDGER_A.md` with this same header, numbering from **DA-001** (then
-> `_B.md` / DB-001, …). Existing rows are never moved or renumbered; a
-> citation's prefix names its file.
+> with the ladder guard's `LEDGER_LINE_CAP`). **Two different caps read 800 and
+> they are unrelated:** `LEDGER_LINE_CAP` is 800 *lines* for this whole file,
+> `LEDGER_ROW_CHAR_CAP` is 800 *bytes* for one new row. They are separate keys
+> enforced by separate rungs; the shared digits are coincidence, so never
+> "reconcile" one to the other. Rows already committed when
+> checked are historical and exempt from the row cap, so append-only history is
+> never rewritten. The final row may finish past the file cap, but no row may
+> ever *start* past it: when the file stands over the cap, create `LEDGER_A.md`
+> with this same header, numbering from **DA-001**. The suffix advances as an
+> **odometer over A–Z, not a list with a last entry**: `_Z` rolls to `_AA`, `_AZ`
+> to `_BA`, `_ZZ` to `_AAA`, without limit. The ladder computes that name and
+> prints it in the failure telling you to roll over, so you never spell it
+> yourself. Existing rows are never moved or renumbered; a citation's prefix
+> names its file.
 >
-> **`[cited]` marker (machine-managed).** A row cited from code carries
-> ` [cited]` after its number. `scripts/ladder.sh` syncs it in both directions —
-> cited-but-unmarked and marked-but-uncited both fail — so the marker is
-> verified derived state, never hand-tracked. It warns you that code resolves
-> here before you lean on or reword a row.
+> **The volumes form a CHAIN, and the ladder walks it from `LEDGER.md`, stopping
+> at the first missing link.** A volume is a file the scheme can *reach*, not a
+> file whose name looks right: a `LEDGER_X.md` with no `LEDGER_A.md`…`_W.md`
+> before it is unreachable and its rows are read by nothing. The rung warns
+> naming the unreachable file, and fails outright if `LEDGER.md` itself is the
+> missing one.
+>
+> **`[cited]` marker (machine-CHECKED — you write it, the ladder verifies it).**
+> A row cited from the ladder's scan scope carries ` [cited]` after its number.
+> `scripts/ladder.sh` checks it in both directions — cited-but-unmarked and
+> marked-but-uncited each fail — but it never edits this file: **nothing syncs
+> the marker for you.** It warns you that code resolves here before you lean on
+> or reword a row.
 >
 > What the guard checks is **token sync and row existence** — that every
 > `D-NNN` appearing in code or docs resolves to a row, and that markers match
@@ -179,3 +221,17 @@
   hook) rather than back inside it, with its own guard under `scripts/guards/` so
   the next upgrade cannot silently take it again.
 
+- D-016 [cited]: An upgrade's changelog Upgrading notes are the complete list of what
+  you must DO, not of what has changed under you. AMH v4.2.0 ships
+  `LEDGER_ROW_CHAR_CAP` in `amh.conf.example` and enforces it in `scripts/ladder.sh`,
+  and no Upgrading section across 2.1.1→4.2.0 mentions the key at all. It needed no
+  note by the harness's own logic — the script defaults it to 2000, so a tree that
+  never sets it is already compliant — but that logic silently makes an unset key a
+  live constraint. Contrast `REQUIRED_TOOLS` / `ADAPTER_FILES`, where absent means the
+  feature is OFF. The key-set diff in the upgrade procedure lists keys you do not set;
+  it cannot tell you which of those still bind you. So: after a harness upgrade, run
+  the diff AND grep the new scripts for each unset key to see whether its default is
+  inert or enforcing, and set the enforcing ones explicitly — a rule that binds every
+  future row belongs where this repo can read it, not only in a shipped script's
+  variable block. Generalises D-015 (an install SUBTRACTS silently) to the other
+  direction: an upgrade can ADD a binding rule silently too.

@@ -28,14 +28,15 @@ Playwright (e2e), ESLint 10, Node 24 in CI. Shipped and deployed to GitHub Pages
 the improvement phase (H / T / E / P) are all `done` — `docs/BACKLOG.md` is the record,
 git history the detail. No active multi-unit work.
 
-Active branch `claude/install-agentic-harness-uwvmw4`: instantiates AMH v2.1.0.
+Active branch `claude/upgrade-amh-newest-0lw7s8`: upgrades AMH v2.1.0 → v4.2.0.
 
-Standing harness: **AMH v2.1.0**, instantiated 2026-07-27 at the **light** profile
-(owner-confirmed in session), replacing the hand-rolled v1.8 subset. `amh.conf` holds
-every setting; the shipped scripts are never edited locally and `scripts/MANIFEST.sha256`
-is checked each run. `docs/LEDGER.md` is permanent memory (machine-synced `[cited]`
-markers). Plus `scripts/check-supply-chain.mjs` (the `guard`) and the
-`model-catalogue-refresh` skill.
+Standing harness: **AMH v4.2.0**, upgraded 2026-08-09; adopted 2026-07-27 at the
+**light** profile (owner-confirmed in session), replacing the hand-rolled v1.8 subset.
+`amh.conf` holds every setting; the shipped scripts are never edited locally and
+`scripts/MANIFEST.sha256` is checked each run. `docs/LEDGER.md` is permanent memory and
+retrieval storage — grep one row, never read a volume whole; its `[cited]` markers are
+hand-written and machine-checked, not synced. Plus `scripts/check-supply-chain.mjs`
+(the `guard`) and the `model-catalogue-refresh` skill.
 
 Verification = `scripts/ladder.sh` (rungs enumerated in `CLAUDE.md` → Conventions). It no
 longer stops at the first failure — one run, one complete report, so read past the first
@@ -51,18 +52,28 @@ owner-verified via the Owner queue.
 
 **Pending owner actions:**
 
-1. **Review owed: `claude/install-agentic-harness-uwvmw4`** — the AMH v2.1.0
-   instantiation is a rule-review diff (`CLAUDE.md`, `amh.conf`, `.claude/settings.json`,
-   the guard set), and rule review has **no self-review fallback**. Pushed and green, but
-   it must not merge unreviewed; only you can decide to merge without it.
-2. **`origin/claude/segment-4b-execution-w8hehw` is probably superseded** — segment 4b
-   was the agent-neutral bootstrap, which v2.1.0 now ships as `scripts/session-start.sh`.
-   Delete or merge is your call; nothing here depends on it.
-3. **#213 (`typescript` 6.0.3→7.0.2) is upstream-blocked** — `typescript-eslint` 8.65.0
+1. **PR #221 (`claude/upgrade-amh-newest-0lw7s8`) — fully reviewed, ready to squash-merge;
+   your call.**
+   The AMH v4.2.0 upgrade is a rule-review diff (`CLAUDE.md`, `amh.conf`, the shipped
+   scripts, the ledger preamble). Rule review **was completed** (fresh context,
+   strongest tier, owner-requested in session): no blockers, 3 findings, all fixed in
+   `1154190` — covering the branch through `08a6cda`. The later
+   `LEDGER_ROW_CHAR_CAP` 2000→800 commit (`bcd016d`) was the one later **reviewable**
+   commit (the others past `08a6cda` touch only this file — working memory, review-exempt).
+   It has since been reviewed too: no blockers, 4 findings, all fixed. Both reviews are
+   discharged; what remains is only the merge decision.
+   Two things the reviewer could not verify and neither can I: the shipped scripts'
+   **upstream provenance** (the clone is deleted, and the manifest was replaced in the
+   same commit, so it corroborates nothing on its own — re-clone the tag and diff if
+   you want that closed), and D-016's claims about upstream's `amh.conf.example` and
+   Upgrading sections.
+   `Check:` `git log --oneline origin/main | grep -i 'amh v4.2.0'` — no output means
+   still unmerged, so still open.
+2. **#213 (`typescript` 6.0.3→7.0.2) is upstream-blocked** — `typescript-eslint` 8.65.0
    still declares `peer typescript >=4.8.4 <6.1.0`, so `npm ci` can't resolve and no rung
    runs. Nothing to fix our side; `overrides` / `--legacy-peer-deps` is explicitly not the
    move. Leave open; re-check when a TS7-capable major ships.
-4. **Server-side rails** (owner, 2026-07-25) — branch protection on `main` (PRs required;
+3. **Server-side rails** (owner, 2026-07-25) — branch protection on `main` (PRs required;
    force-push and deletion blocked) and secret-scanning push protection. Agent rails bind
    only agents that load them; the server binds every actor.
 
@@ -97,8 +108,8 @@ owner-verified via the Owner queue.
 - **`docs/BACKLOG.md` stays the forward backlog** (owner, 2026-07-18) — not archived
   even with every unit `done`. Revisit only if a large `done` tail crowds out live units.
 - **`docs/LEDGER.md` is permanent memory** (owner, 2026-07-25). Append-only, code cites
-  bare `D-NNN`, markers machine-synced both ways. Durable facts go there, never into
-  STATE, which is compressed away.
+  bare `D-NNN`, markers hand-written and machine-checked both ways (nothing syncs them).
+  Durable facts go there, never into STATE, which is compressed away.
 - **Fresh-context review is the one subagent exception** (owner, 2026-07-25) — reasoning
   in D-004; protocol in `CLAUDE.md`.
 - **A pending review never holds the checkpoint** (owner, 2026-07-25) — D-012.
@@ -113,6 +124,32 @@ owner-verified via the Owner queue.
 One line per shipped change or completed unit (newest first). Pre-harness history lives
 in `docs/BACKLOG.md` and git.
 
+- 2026-08-09 — Lower `LEDGER_ROW_CHAR_CAP` 2000 → **800** (owner). Binds new rows only —
+   the rung exempts any row ID present at HEAD, and only runs at all when the ledger has
+   uncommitted changes — so nothing was rewritten and no existing row fails. Deliberately
+   below the shipped default *and* below this ledger's own median: 7 of 16 prior rows exceed
+   it. Measure with
+   `awk '/^- D[A-Z]*-[0-9]+/{if(id)printf "%s\t%d\n",id,n; id=$2; n=0} id{n+=length($0)+1}
+   END{if(id)printf "%s\t%d\n",id,n}' docs/LEDGER.md | sort -k2 -nr` — reads **one byte high**
+   per row versus the guard, which strips the trailing blank line, so treat a result of exactly
+   801 as a pass and re-check with the ladder. Preamble kept in
+   lockstep, plus a warning that `LEDGER_LINE_CAP` (800 *lines*, whole file) and
+   `LEDGER_ROW_CHAR_CAP` (800 *bytes*, one row) now share digits by coincidence and must
+   never be reconciled to each other. Cap proven to fire on an 830-byte row before landing.
+- 2026-08-09 — Upgrade **AMH v2.1.0 → v4.2.0** (five releases; two MAJORs, both largely
+  inert here). Shipped scripts + manifest copied wholesale. `amh.conf` gained
+  `REQUIRED_TOOLS`, `ADAPTER_FILES` and `LEDGER_ROW_CHAR_CAP` — the last one enforcing
+  whether or not it is set (D-016). Ledger preamble took the seed corrections:
+  retrieval storage, rollover as an unbounded odometer, the volume chain,
+  `[cited]` machine-*checked* not machine-managed — a wrong claim `CLAUDE.md` and this
+  file had both inherited. `CLAUDE.md` took 3.0.0's hookless-rail rule and the pointer to
+  the command guard's "does NOT catch" block. 3.0.0's archive-tier rule change is inert:
+  no `docs/history/`, no `docs/plans/`, so completed plans are still deleted. Two queue
+  items closed by testing rather than restatement: the v2.1.0 review-owed item (merged as
+  #216) and the segment-4b branch (no longer on `origin`). Rule review completed on this
+  branch: no blockers, 3 findings, all fixed — the worst being a new bullet inserted into
+  the middle of an existing one, orphaning a sentence so that "the same filter" resolved
+  to the hooks rather than to `redact.sh` and inverted a secret-hygiene claim.
 - 2026-08-05 — Refresh model catalogues (LLM only): `claude-opus-4-8` →
   `claude-opus-5`, dropped `claude-sonnet-4-6` (redundant with `claude-sonnet-5`)
   and Groq's `qwen/qwen3-32b` (provider-deprecated 2026-07-17); wiki synced. PR #219.

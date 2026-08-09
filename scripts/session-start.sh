@@ -32,10 +32,61 @@ STATE_FILE=docs/STATE.md
 STATE_WARN_KB=14
 STATE_COMPRESS_TO_KB=9
 REMOTE_FLAG=AMH_REMOTE
+# Both empty by default, which switches the runtime-inventory lines off entirely. Same
+# reasoning as MERGE_MODE and the release keys above: an adopter's amh.conf is theirs forever
+# and the harness cannot upgrade it, so a key this script reads but their file predates must
+# have a value here, or the whole banner dies under `set -u` on the first upgraded session.
+# Both lists live in amh.conf rather than here so this script names no vendor and no
+# toolchain of its own — the adopter declares theirs (P14).
+REQUIRED_TOOLS=''
+ADAPTER_FILES=''
 # shellcheck source=/dev/null
 [ -f "$ROOT/amh.conf" ] && . "$ROOT/amh.conf"
 
 say() { printf '%s\n' "$*"; }
+
+
+# Rearm the command guard's one-time advisories. Each is a per-session speed bump, and this
+# boot is what makes "one session" mean anything: the state file the guard writes under /tmp
+# outlives the session otherwise, so in a long-lived container the first warning of the
+# container's lifetime spends the advisory for every later session in the same repository.
+# The `.env` diagnostic states that scope in words; the destructive-command one does not, and
+# would silently have been once per container. Read command-guard.sh for what each says.
+#
+# The CATEGORY is a wildcard, deliberately. This function was written for `dotenv` alone and
+# named the category literally, so when the guard grew a second category the bootstrap kept
+# rearming exactly one of them and nothing said so: a list here is the same defect with an
+# extra step. The rest of the name is quoted, so only the category slot globs — a repository
+# path containing a glob character stays a literal rather than widening the pattern. That slot
+# is a greedy `*` that does not cross `/`, so the widest reach is another repository's file of
+# exactly this shape under /tmp, and erasing one of those is harmless: an advisory that rearms
+# early blocks one extra command and explains why, which is the direction this file is allowed
+# to fail in. Erasing one too FEW removes a rail in silence, which is why the pattern is wide.
+#
+# Globbing is forced on for the expansion rather than assumed. amh.conf is sourced above, it is
+# the adopter's file forever, and a `set -f` or `GLOBIGNORE` in it would leave the pattern
+# unexpanded — with `rm -f` swallowing the literal, that is a rail switched off in silence, the
+# same shape as the defect this function exists to fix. The no-match case still reaches `rm`
+# unexpanded, so the loop tests each entry exists rather than trusting the expansion.
+reset_command_guard_advisories() {
+	local slug uid f had_globignore old_globignore noglob=0
+	case $- in *f*) noglob=1 ;; esac
+	set +f
+	had_globignore=${GLOBIGNORE+x}
+	old_globignore=${GLOBIGNORE:-}
+	GLOBIGNORE=
+	slug=${ROOT//\//_}
+	slug=${slug// /_}
+	uid=${UID:-unknown}
+	for f in /tmp/amh-command-guard-*-advisory-"$uid"-"$slug"; do
+		[ -e "$f" ] && rm -f -- "$f" 2>/dev/null
+	done
+	if [ -n "$had_globignore" ]; then GLOBIGNORE=$old_globignore; else unset GLOBIGNORE; fi
+	[ "$noglob" = 1 ] && set -f
+	return 0
+}
+
+reset_command_guard_advisories
 
 say "── AMH session start ─────────────────────────────────────────"
 
@@ -185,6 +236,79 @@ if [ -f "$STATE_FILE" ]; then
 	fi
 else
 	say "· ⚠ $STATE_FILE is missing — working memory is where every session starts."
+fi
+
+# 3b. Runtime inventory: which declared tools are on PATH, and which adapter files this
+#     repository ships. Both lists come from amh.conf, so this script names no vendor.
+#
+#     NOTHING CONSUMES THIS. It is a line a human reads, printed and discarded. No guard, CI
+#     step, gate or agent decision procedure may branch on these states, and none does — the
+#     manifest that would have stored them was refused precisely so that no future code could
+#     (AMH ledger rows DA024 and DA001).
+#
+#     Two vocabularies, and the asymmetry between them is the entire point:
+#
+#     (a) A TOOL is `observed` or `unavailable`. `type -P` is a real probe — it ran, and its
+#         answer is a fact about this environment. Only the NAME is printed, never the resolved
+#         path: that leaks a home directory and a username into the transcript for no diagnostic
+#         gain (P17).
+#
+#         `type -P` and NOT `command -v`, which resolves builtins, functions and aliases before
+#         it looks at PATH. Under `command -v` this script reports its own `say()` helper — and
+#         anything an adopter's sourced amh.conf happens to define — as an installed tool, and
+#         `printf` as `observed` on a machine holding no binaries at all. `observed` is the one
+#         state whose entire warrant is "the probe ran and the answer is a fact about this
+#         environment"; a builtin makes it a fact about this bash instead. The design is careful
+#         that `unknown` never becomes `unavailable`; this is the symmetric hazard, a non-fact
+#         becoming `observed`, and it is the one the fixtures pin.
+#     (b) An ADAPTER FILE is `configured` or `unknown` — NEVER `observed`, and never
+#         `unavailable`. Present means the repository REQUESTS an integration; it is not evidence
+#         that a hook ever fired, and nothing here can see one fire. That is why the lifecycle
+#         probe layer was refused rather than deferred: a marker cannot name its caller, and the
+#         manual path the constitution mandates writes a byte-identical one. Absent means this
+#         repository declares none — a user-level or globally-configured adapter is invisible
+#         from inside the tree, so `unavailable` would be a claim about the world derived from a
+#         fact about the repo. `unknown` is never translated into `unavailable`, `disabled` or
+#         `safe`.
+#
+#     `set -f` around both loops. An entry containing a glob character would otherwise be
+#     expanded against the working directory, so `REQUIRED_TOOLS='*'` would report every file in
+#     the repo root as a missing tool. Neither list can express a name containing a space, and
+#     saying so here is cheaper than a quoting scheme nobody needs.
+#     Each line is gated on whether its LOOP produced anything, not on whether the config value
+#     was non-empty: a whitespace-only value splits to nothing, and the raw test would print a
+#     bare `· tools:` header, or `· adapters:` followed by two lines of gloss explaining zero
+#     states.
+if [ -n "$REQUIRED_TOOLS" ]; then
+	inv=''
+	set -f
+	for t in $REQUIRED_TOOLS; do
+		if type -P -- "$t" >/dev/null 2>&1; then
+			inv="$inv $t observed ·"
+		else
+			inv="$inv $t unavailable ·"
+		fi
+	done
+	set +f
+	[ -n "$inv" ] && say "· tools:${inv% ·}"
+fi
+
+if [ -n "$ADAPTER_FILES" ]; then
+	inv=''
+	set -f
+	for a in $ADAPTER_FILES; do
+		if [ -e "$a" ]; then
+			inv="$inv $a configured ·"
+		else
+			inv="$inv $a unknown ·"
+		fi
+	done
+	set +f
+	if [ -n "$inv" ]; then
+		say "· adapters:${inv% ·}"
+		say "  configured = requested by this repo, never observed firing; unknown = none declared here,"
+		say "  which is not evidence that none exists. Nothing reads these states."
+	fi
 fi
 
 # 4. Protocol pointer.
