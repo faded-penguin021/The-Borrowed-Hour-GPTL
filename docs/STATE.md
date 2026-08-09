@@ -52,18 +52,18 @@ owner-verified via the Owner queue.
 
 **Pending owner actions:**
 
-1. **Review owed: `claude/install-agentic-harness-uwvmw4`** — the AMH v2.1.0
-   instantiation is a rule-review diff (`CLAUDE.md`, `amh.conf`, `.claude/settings.json`,
-   the guard set), and rule review has **no self-review fallback**. Pushed and green, but
-   it must not merge unreviewed; only you can decide to merge without it.
-2. **`origin/claude/segment-4b-execution-w8hehw` is probably superseded** — segment 4b
-   was the agent-neutral bootstrap, which v2.1.0 now ships as `scripts/session-start.sh`.
-   Delete or merge is your call; nothing here depends on it.
-3. **#213 (`typescript` 6.0.3→7.0.2) is upstream-blocked** — `typescript-eslint` 8.65.0
+1. **Review owed: `claude/upgrade-amh-newest-0lw7s8`** — the AMH v4.2.0 upgrade is a
+   rule-review diff (`CLAUDE.md`, `amh.conf`, the shipped scripts, the ledger preamble),
+   and rule review has **no self-review fallback**. This session could not spawn a
+   fresh-context reviewer, so the protocol's park-unmerged branch applies: pushed and
+   green, but it must not merge unreviewed. Only you can decide to merge without it.
+   `Check:` `git log --oneline origin/main | grep -i 'amh v4.2.0'` — no output means
+   still unmerged, so still open.
+2. **#213 (`typescript` 6.0.3→7.0.2) is upstream-blocked** — `typescript-eslint` 8.65.0
    still declares `peer typescript >=4.8.4 <6.1.0`, so `npm ci` can't resolve and no rung
    runs. Nothing to fix our side; `overrides` / `--legacy-peer-deps` is explicitly not the
    move. Leave open; re-check when a TS7-capable major ships.
-4. **Server-side rails** (owner, 2026-07-25) — branch protection on `main` (PRs required;
+3. **Server-side rails** (owner, 2026-07-25) — branch protection on `main` (PRs required;
    force-push and deletion blocked) and secret-scanning push protection. Agent rails bind
    only agents that load them; the server binds every actor.
 
@@ -122,7 +122,9 @@ in `docs/BACKLOG.md` and git.
   `[cited]` machine-*checked* not machine-managed — a wrong claim `CLAUDE.md` and this
   file had both inherited. `CLAUDE.md` took 3.0.0's hookless-rail rule and the pointer to
   the command guard's "does NOT catch" block. 3.0.0's archive-tier rule change is inert:
-  no `docs/history/`, no `docs/plans/`, so completed plans are still deleted.
+  no `docs/history/`, no `docs/plans/`, so completed plans are still deleted. Two queue
+  items closed by testing rather than restatement: the v2.1.0 review-owed item (merged as
+  #216) and the segment-4b branch (no longer on `origin`).
 - 2026-08-05 — Refresh model catalogues (LLM only): `claude-opus-4-8` →
   `claude-opus-5`, dropped `claude-sonnet-4-6` (redundant with `claude-sonnet-5`)
   and Groq's `qwen/qwen3-32b` (provider-deprecated 2026-07-17); wiki synced. PR #219.
