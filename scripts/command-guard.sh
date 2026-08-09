@@ -18,12 +18,55 @@
 #   * Fail OPEN on malformed input. A guard that bricks every command gets disabled,
 #     not fixed.
 #
+# WHAT THIS GUARD DOES NOT CATCH — the consolidated list, so no one has to reconstruct
+# it from the per-scanner notes below and no one mistakes this script for a vault. Each
+# scanner still carries its own `Accepted miss:` note at the point it applies; this block
+# is the index, and it is deliberately exhaustive about the categories rather than about
+# every spelling inside them:
+#
+#   * INTERPRETERS. The secret-file scanners recognise a file read through an enumerated
+#     list of reader commands (`cat`, `grep`, `awk`, `wc`, `md5sum` and about thirty more)
+#     or a `<` redirection. A one-time `.env` advisory now blocks the first command text
+#     that names the path, but after that speed bump the list is still a list, not a
+#     category: `python3 -c "open('.env')"`, `perl -e`, `node -e`, `ruby -e` and every
+#     other interpreter NOT on it reach the file unjudged. This remains the widest hole
+#     and it is structural —
+#     enumerating interpreters would not close it, since each has unbounded ways to spell
+#     a read. Note the shape of the miss for a listed one: `awk '{print}' .env` is blocked
+#     because `awk` leads the segment, while `awk 'BEGIN{while((getline<".env")>0)print}'`
+#     hides the read inside the program text and is not.
+#   * WRAPPERS — but read which ones. `check_segment` STRIPS a set of transparent prefixes
+#     and judges what follows, so `sudo cat .env`, `nohup cat .env`, `nice`, `time`,
+#     `command`, `builtin`, `exec` and `env FOO=1 cat .env` ARE blocked (and a bare `env`
+#     or `env -i` is itself a dump, blocked on its own account). What gets past is every
+#     wrapper outside that set: `xargs cat .env`, `timeout 5 cat .env`, `ssh host cat
+#     .env`, `bash -c 'cat .env'`, and any shell function or alias standing in for the
+#     command. Do not read this bullet as "wrappers defeat the guard" — several do not,
+#     and deleting the strip loop because a comment said it was useless would remove real
+#     coverage the self-test asserts.
+#   * CONSTRUCTED AND ENCODED COMMANDS. `eval`, base64/hex payloads decoded at runtime,
+#     and any command assembled from variables are text at scan time, not commands.
+#   * HEREDOCS AND LONG LINES. `cmd <<EOF` hides its body until the delimiter, and the
+#     window-based scanners give up past `CHAR_LOOKAHEAD` characters — a variable name or
+#     redirection target longer than the window is not classified.
+#   * WHAT NO SCANNER LOOKS AT AT ALL. Container and service inspect output
+#     (`docker inspect` and friends) is prose-only policy: no guard sees it, and none is
+#     proposed, because it would block ordinary use to catch a shape the harness does not
+#     run. The identity rules are likewise prose here — an identity not yet committed is
+#     not on disk to check.
+#
+# None of this is a defect list. This guard exists to make the honest mistake expensive
+# and instructive; the deny rails beneath it add the spellings a prefix matcher can
+# express, and the rules in the constitution bind the agent whether or not any script can
+# see the shape it chose. Treat a green run as "no mistake this scanner recognises", never
+# as "this command is safe".
+#
 # Usage:
 #   command-guard.sh                  read a hook payload (JSON) on stdin
 #   command-guard.sh --command 'CMD'  check one command directly
 #   command-guard.sh --self-test      blocked + allowed fixture matrix
 #
-# Exit codes: 0 = allowed (or fail-open), 2 = blocked (reason on stderr).
+# Exit codes: 0 = allowed (or fail-open; warnings may print on stderr), 2 = blocked (reason on stderr).
 #
 # Shipped by the Agentic Maintenance Harness. Repo-agnostic: do not edit locally.
 #
@@ -226,12 +269,61 @@ strip_heredocs() {
 
 # --- rails ------------------------------------------------------------------
 BLOCK_REASON=''
+WARN_REASON=''
+ADVISORY_REASON=''
+DOTENV_ADVISORY_REASON=''
 
 is_env_template() { # .env.example and friends carry no secrets
 	case $1 in
 	*.env.example | *.env.sample | *.env.template | *.env.dist) return 0 ;;
 	*) return 1 ;;
 	esac
+}
+
+
+# A broad, one-time speed bump for commands that merely CONTAIN `.env`, including
+# interpreter snippets this guard deliberately cannot parse as file reads. This is an
+# advisory block, not a proof of danger: the second attempt in the same session is
+# allowed through to the normal rails so false positives do not brick the agent.
+#
+# Session identity is not portable across agent vendors, so the default state is a
+# per-repository, per-category file under /tmp. Tests may override either category's
+# file explicitly; DOTENV_ADVISORY_STATE remains supported for compatibility.
+advisory_state_file() { # advisory_state_file <name>
+	local name=$1 slug uid
+	case $name in
+	dotenv) [ -n "${DOTENV_ADVISORY_STATE+x}" ] && { printf '%s' "$DOTENV_ADVISORY_STATE"; return 0; } ;;
+	destructive) [ -n "${DESTRUCTIVE_ADVISORY_STATE+x}" ] && { printf '%s' "$DESTRUCTIVE_ADVISORY_STATE"; return 0; } ;;
+	*) return 1 ;;
+	esac
+	slug=${ROOT//\//_}
+	slug=${slug// /_}
+	uid=${UID:-unknown}
+	printf '/tmp/amh-command-guard-%s-advisory-%s-%s' "$name" "$uid" "$slug"
+}
+
+needs_one_time_advisory() { # needs_one_time_advisory <name> <command>
+	local name=$1 cmd=$2 state
+	case $name in
+	dotenv) case $cmd in *.env*) ;; *) return 1 ;; esac ;;
+	destructive) is_destructive_command "$cmd" || return 1 ;;
+	*) return 1 ;;
+	esac
+	state=$(advisory_state_file "$name")
+	[ -n "$state" ] || return 1
+	[ -e "$state" ] && return 1
+	: >"$state" 2>/dev/null || return 1
+	case $name in
+	dotenv)
+		# shellcheck disable=SC2016 # the presence-check example must print literally.
+		ADVISORY_REASON='This command mentions `.env`. Those files commonly contain live credentials, and even lengths, hashes, excerpts, copies or interpreter reads can disclose or spread secrets. The command guard is stopping this once so you can reconsider: prefer presence-only checks (for example, `[ -n "${MY_KEY:-}" ] && echo set`) or let the tool that needs credentials read them directly. If this warning is not applicable, or this is a false positive such as prose or a template-safe operation, run the same command again; this one-time advisory will not rearm during this session.'
+		DOTENV_ADVISORY_REASON=$ADVISORY_REASON
+		;;
+	destructive)
+		ADVISORY_REASON='This destructive filesystem command may delete guard fixtures, source files, or untracked evidence. Prefer targeted removal, moving the path set to a temporary directory, or confirming the complete path set before deletion. The command guard is stopping this once so you can reconsider; rerun the command to proceed if the deletion is intentional.'
+		;;
+	esac
+	return 0
 }
 
 names_env_file() {
@@ -666,8 +758,9 @@ check_segment() {
 		;;
 	# Commands that PRINT what they read. `wc`, `md5sum` and friends are here because
 	# a length and a hash are exactly what P17 forbids reporting — not because they
-	# show the file. This list is a list: `python3 -c "open('.env')"` is an accepted
-	# miss and the prose must not claim otherwise.
+	# show the file. This list is a list: after the one-time `.env` advisory is spent,
+	# `python3 -c "open('.env')"` is an accepted miss and the prose must not claim
+	# otherwise.
 	cat | less | more | head | tail | bat | xxd | od | strings | nl | \
 		grep | egrep | fgrep | rg | awk | cut | tr | base64 | uniq | \
 		wc | md5sum | sha1sum | sha256sum | sha512sum | shasum | cksum | sum | cmp | diff)
@@ -744,10 +837,146 @@ check_segment() {
 	return 0
 }
 
+leading_command() {
+	local raw=$1 w i=0
+	local words=()
+	while IFS= read -r -d '' w; do words+=("$w"); done < <(split_words "$raw")
+	while [ "$i" -lt "${#words[@]}" ]; do
+		w=${words[$i]}
+		case $w in
+		*=*) i=$((i + 1)) ;;
+		sudo | nohup | nice | time | command | builtin | exec) i=$((i + 1)) ;;
+		env)
+			# Mirror check_segment's transparent-prefix treatment for ordinary
+			# `env NAME=value cmd` forms. An `env` dump is not the advisory's subject.
+			if [ $((i + 1)) -lt "${#words[@]}" ]; then
+				case ${words[$((i + 1))]} in -*) break ;; *) i=$((i + 1)) ;; esac
+			else
+				break
+			fi
+			;;
+		*) break ;;
+		esac
+	done
+	[ "$i" -lt "${#words[@]}" ] || return 1
+	printf '%s' "${words[$i]##*/}"
+}
+
+is_destructive_segment() {
+	local raw=$1 w cmd recursive=1 force=1 descend=1 i=0
+	local words=()
+	while IFS= read -r -d '' w; do words+=("$w"); done < <(split_words "$raw")
+	# Find the same leading command that leading_command reports, without treating
+	# later quoted prose or operands as commands.
+	while [ "$i" -lt "${#words[@]}" ]; do
+		w=${words[$i]}
+		case $w in
+		*=* | sudo | nohup | nice | time | command | builtin | exec) i=$((i + 1)) ;;
+		env)
+			if [ $((i + 1)) -lt "${#words[@]}" ]; then
+				case ${words[$((i + 1))]} in -*) break ;; *) i=$((i + 1)) ;; esac
+			else break
+			fi
+			;;
+		*) break ;;
+		esac
+	done
+	[ "$i" -lt "${#words[@]}" ] || return 1
+	cmd=${words[$i]##*/}
+	i=$((i + 1))
+	case $cmd in
+	rm)
+		for w in "${words[@]:i}"; do
+			case $w in
+			--recursive) recursive=0 ;;
+			--force) force=0 ;;
+			--) break ;;
+			[^-]*) ;;
+			-*)
+				case ${w#-} in *[rR]*) recursive=0 ;; esac
+				case ${w#-} in *f*) force=0 ;; esac
+				;;
+			esac
+			done
+		[ "$recursive" -eq 0 ] && [ "$force" -eq 0 ]
+		;;
+	git)
+		# Skip git's global options, then require the clean subcommand and short
+		# options containing both -f and -d. Clusters may be ordered or split.
+		while [ "$i" -lt "${#words[@]}" ]; do
+			w=${words[$i]}
+			case $w in -C | -c | --git-dir | --work-tree) i=$((i + 2)) ;; -*) i=$((i + 1)) ;; *) break ;; esac
+		done
+		[ "$i" -lt "${#words[@]}" ] && [ "${words[$i]}" = clean ] || return 1
+		i=$((i + 1))
+		for w in "${words[@]:i}"; do
+			case $w in
+			-n | --dry-run) return 1 ;;
+			--force) force=0 ;;
+			--) break ;;
+			[^-]*) ;;
+			--*) ;;
+			-*)
+				case ${w#-} in *n*) return 1 ;; esac
+				case ${w#-} in *f*) force=0 ;; esac
+				case ${w#-} in *d*) descend=0 ;; esac
+				;;
+			esac
+			done
+		[ "$force" -eq 0 ] && [ "$descend" -eq 0 ]
+		;;
+	*) return 1 ;;
+	esac
+}
+
+is_destructive_command() {
+	local cmd=$1 seg
+	cmd=$(strip_heredocs "$cmd")
+	while IFS= read -r -d '' seg; do
+		[ -n "${seg// /}" ] || continue
+		is_destructive_segment "$seg" && return 0
+	done < <(split_segments "$cmd")
+	return 1
+}
+
+warn_ladder_tail() {
+	local cmd=$1 seg lead prev_ladder=0
+	case $cmd in *ladder.sh*tail*) ;; *) return 0 ;; esac
+	# Warn only for the ordinary mistaken shape: a direct ladder invocation whose
+	# output is piped to tail. Reuse the shell-ish segment and word scanners so quoted
+	# prose like a commit message stays data, not a warning.
+	cmd=$(strip_heredocs "$cmd")
+	while IFS= read -r -d '' seg; do
+		[ -n "${seg// /}" ] || continue
+		lead=$(leading_command "$seg") || { prev_ladder=0; continue; }
+		# split_segments treats the `&` in `2>&1` as an operator, yielding a bare
+		# file-descriptor segment between the ladder and the real pipe target. Ignore
+		# that artifact so the common `2>&1 | tail` spelling still warns.
+		[ "$prev_ladder" -eq 1 ] && case $lead in [0-9]*) continue ;; esac
+		if [ "$prev_ladder" -eq 1 ] && [ "$lead" = tail ]; then
+			WARN_REASON="Running the AMH ladder through \`tail\` can hide the ladder exit status. Run \`scripts/ladder.sh\` directly when verifying; use a separate read-only command only after the direct run."
+			return 0
+		fi
+		case $lead in ladder.sh) prev_ladder=1 ;; *) prev_ladder=0 ;; esac
+	done < <(split_segments "$cmd")
+}
+
 check_command() {
 	local cmd=$1
 	local seg
 	BLOCK_REASON=''
+	WARN_REASON=''
+	ADVISORY_REASON=''
+	DOTENV_ADVISORY_REASON=''
+	if needs_one_time_advisory dotenv "$cmd"; then
+		BLOCK_REASON=$ADVISORY_REASON
+		return 1
+	fi
+	if needs_one_time_advisory destructive "$cmd"; then
+		BLOCK_REASON=$ADVISORY_REASON
+		return 1
+	fi
+	warn_ladder_tail "$cmd"
 	cmd=$(strip_heredocs "$cmd")
 	while IFS= read -r -d '' seg; do
 		[ -n "${seg// /}" ] || continue
@@ -780,6 +1009,7 @@ run_hook() {
 		printf 'BLOCKED by the AMH command guard.\n\n%s\n' "$BLOCK_REASON" >&2
 		exit 2
 	fi
+	[ -n "$WARN_REASON" ] && printf 'WARNING from the AMH command guard.\n\n%s\n' "$WARN_REASON" >&2
 	exit 0
 }
 
@@ -795,6 +1025,64 @@ st_allowed() {
 	if ! check_command "$1"; then
 		printf 'SELF-TEST FAIL: should have been ALLOWED: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
 		ST_FAILS=$((ST_FAILS + 1))
+	elif [ -n "$WARN_REASON" ]; then
+		printf 'SELF-TEST FAIL: should have been ALLOWED WITHOUT WARNING: %s\n   warning given: %s\n' "$1" "$WARN_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+}
+st_dotenv_advisory_once() {
+	local state old_set old_state
+	old_set=${DOTENV_ADVISORY_STATE+x}
+	old_state=${DOTENV_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-dotenv-advisory-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DOTENV_ADVISORY_STATE=$state
+	if check_command "$1"; then
+		printf 'SELF-TEST FAIL: should have had one-time .env advisory: %s\n' "$1" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ -z "$DOTENV_ADVISORY_REASON" ]; then
+		printf 'SELF-TEST FAIL: .env advisory did not explain itself: %s\n' "$1" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif ! check_command "$1"; then
+		printf 'SELF-TEST FAIL: second .env advisory attempt should have reached normal rails: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then
+		DOTENV_ADVISORY_STATE=$old_state
+	else
+		unset DOTENV_ADVISORY_STATE
+	fi
+}
+
+st_destructive_advisory_once() {
+	local state old_set old_state
+	old_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	old_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-advisory-test.XXXXXX") || exit 1
+	rm -f -- "$state"
+	DESTRUCTIVE_ADVISORY_STATE=$state
+	if check_command "$1"; then
+		printf 'SELF-TEST FAIL: should have had one-time destructive advisory: %s\n' "$1" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ -z "$ADVISORY_REASON" ]; then
+		printf 'SELF-TEST FAIL: destructive advisory did not explain itself: %s\n' "$1" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif ! check_command "$1"; then
+		printf 'SELF-TEST FAIL: second destructive attempt should have reached normal rails: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	rm -f -- "$state"
+	if [ -n "$old_set" ]; then DESTRUCTIVE_ADVISORY_STATE=$old_state; else unset DESTRUCTIVE_ADVISORY_STATE; fi
+}
+
+st_warn_allowed() {
+	if ! check_command "$1"; then
+		printf 'SELF-TEST FAIL: should have been ALLOWED WITH WARNING: %s\n   reason given: %s\n' "$1" "$BLOCK_REASON" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ -z "$WARN_REASON" ]; then
+		printf 'SELF-TEST FAIL: should have WARNED: %s\n' "$1" >&2
+		ST_FAILS=$((ST_FAILS + 1))
 	fi
 }
 
@@ -802,6 +1090,19 @@ st_allowed() {
 # text to be evaluated: single quotes are what stop `$GITHUB_TOKEN` expanding in this
 # shell, and expanding it would test nothing. Scoped to this function on purpose.
 self_test() {
+	local old_dotenv_advisory_state_set=${DOTENV_ADVISORY_STATE+x}
+	local old_dotenv_advisory_state=${DOTENV_ADVISORY_STATE:-}
+	local self_dotenv_advisory_state
+	self_dotenv_advisory_state=$(mktemp "${TMPDIR:-/tmp}/amh-dotenv-advisory-self-test.XXXXXX") || exit 1
+	rm -f -- "$self_dotenv_advisory_state"
+	DOTENV_ADVISORY_STATE=$self_dotenv_advisory_state
+	local old_destructive_advisory_state_set=${DESTRUCTIVE_ADVISORY_STATE+x}
+	local old_destructive_advisory_state=${DESTRUCTIVE_ADVISORY_STATE:-}
+	local self_destructive_advisory_state
+	self_destructive_advisory_state=$(mktemp "${TMPDIR:-/tmp}/amh-destructive-advisory-self-test.XXXXXX") || exit 1
+	rm -f -- "$self_destructive_advisory_state"
+	DESTRUCTIVE_ADVISORY_STATE=$self_destructive_advisory_state
+
 	# --- must block: the rails themselves
 	st_blocked 'git push --force origin feature'
 	st_blocked 'git push -f origin feature'
@@ -896,6 +1197,20 @@ printenv'
 	st_blocked 'dd if=.env of=/tmp/e'
 	st_blocked 'sed -n "/KEY/p" .env'
 	st_blocked 'sort .env'
+	st_dotenv_advisory_once 'python3 -c "open('"'"'.env'"'"')"'
+	st_destructive_advisory_once 'rm -rf tmp/build'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -fr tmp/build'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -r -f tmp/build'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm -f -r tmp/build'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'rm tmp/build -rf'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git clean -fdx'
+	rm -f -- "$self_destructive_advisory_state"
+	st_destructive_advisory_once 'git clean -df'
 
 	# --- must allow: the known false-positive classes.
 	# Quoted text naming a forbidden command is DATA, not a command.
@@ -904,6 +1219,13 @@ printenv'
 	st_allowed 'echo "cat .env is forbidden by P17"'
 	st_allowed 'grep -rn "printenv" docs/'
 	st_allowed 'scripts/command-guard.sh --self-test'
+	st_warn_allowed 'scripts/ladder.sh | tail -20'
+	st_warn_allowed './scripts/ladder.sh --guards-only 2>&1 | tail -40'
+	st_allowed 'git commit -m "document scripts/ladder.sh | tail warning"'
+	st_allowed 'git commit -m "document rm -rf risk"'
+	st_allowed 'rm file.txt'
+	st_allowed 'git clean --force --dry-run'
+	st_allowed 'git clean -nfd'
 	# Prose naming a forbidden path.
 	st_allowed 'grep -rn "force-push" docs/RUNBOOK.md'
 	# Ordinary correct usage.
@@ -1018,6 +1340,18 @@ git push --force origin main
 	st_allowed ''
 	st_allowed '   '
 
+	rm -f -- "$self_dotenv_advisory_state"
+	if [ -n "$old_dotenv_advisory_state_set" ]; then
+		DOTENV_ADVISORY_STATE=$old_dotenv_advisory_state
+	else
+		unset DOTENV_ADVISORY_STATE
+	fi
+	rm -f -- "$self_destructive_advisory_state"
+	if [ -n "$old_destructive_advisory_state_set" ]; then
+		DESTRUCTIVE_ADVISORY_STATE=$old_destructive_advisory_state
+	else
+		unset DESTRUCTIVE_ADVISORY_STATE
+	fi
 	if [ "$ST_FAILS" -ne 0 ]; then
 		printf 'command-guard.sh self-test: %d failure(s)\n' "$ST_FAILS" >&2
 		return 1
@@ -1028,7 +1362,10 @@ git push --force origin main
 case "${1:-}" in
 "") run_hook ;;
 --command)
-	if check_command "${2:-}"; then exit 0; fi
+	if check_command "${2:-}"; then
+		[ -n "$WARN_REASON" ] && printf 'WARNING from the AMH command guard.\n\n%s\n' "$WARN_REASON" >&2
+		exit 0
+	fi
 	printf 'BLOCKED by the AMH command guard.\n\n%s\n' "$BLOCK_REASON" >&2
 	exit 2
 	;;

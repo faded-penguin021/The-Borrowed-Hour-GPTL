@@ -28,13 +28,14 @@ Playwright (e2e), ESLint 10, Node 24 in CI. Shipped and deployed to GitHub Pages
 the improvement phase (H / T / E / P) are all `done` — `docs/BACKLOG.md` is the record,
 git history the detail. No active multi-unit work.
 
-Active branch `claude/install-agentic-harness-uwvmw4`: instantiates AMH v2.1.0.
+Active branch `claude/upgrade-amh-newest-0lw7s8`: upgrades AMH v2.1.0 → v4.2.0.
 
-Standing harness: **AMH v2.1.0**, instantiated 2026-07-27 at the **light** profile
-(owner-confirmed in session), replacing the hand-rolled v1.8 subset. `amh.conf` holds
-every setting; the shipped scripts are never edited locally and `scripts/MANIFEST.sha256`
-is checked each run. `docs/LEDGER.md` is permanent memory (machine-synced `[cited]`
-markers). Plus `scripts/check-supply-chain.mjs` (the `guard`) and the
+Standing harness: **AMH v4.2.0**, upgraded 2026-08-09; adopted 2026-07-27 at the
+**light** profile (owner-confirmed in session), replacing the hand-rolled v1.8 subset.
+`amh.conf` holds every setting; the shipped scripts are never edited locally and
+`scripts/MANIFEST.sha256` is checked each run. `docs/LEDGER.md` is permanent memory and
+retrieval storage — grep one row, never read a volume whole; its `[cited]` markers are
+hand-written and machine-checked, not synced. Plus `scripts/check-supply-chain.mjs` (the `guard`) and the
 `model-catalogue-refresh` skill.
 
 Verification = `scripts/ladder.sh` (rungs enumerated in `CLAUDE.md` → Conventions). It no
@@ -97,8 +98,8 @@ owner-verified via the Owner queue.
 - **`docs/BACKLOG.md` stays the forward backlog** (owner, 2026-07-18) — not archived
   even with every unit `done`. Revisit only if a large `done` tail crowds out live units.
 - **`docs/LEDGER.md` is permanent memory** (owner, 2026-07-25). Append-only, code cites
-  bare `D-NNN`, markers machine-synced both ways. Durable facts go there, never into
-  STATE, which is compressed away.
+  bare `D-NNN`, markers hand-written and machine-checked both ways (nothing syncs them).
+  Durable facts go there, never into STATE, which is compressed away.
 - **Fresh-context review is the one subagent exception** (owner, 2026-07-25) — reasoning
   in D-004; protocol in `CLAUDE.md`.
 - **A pending review never holds the checkpoint** (owner, 2026-07-25) — D-012.
@@ -113,6 +114,15 @@ owner-verified via the Owner queue.
 One line per shipped change or completed unit (newest first). Pre-harness history lives
 in `docs/BACKLOG.md` and git.
 
+- 2026-08-09 — Upgrade **AMH v2.1.0 → v4.2.0** (five releases; two MAJORs, both largely
+  inert here). Shipped scripts + manifest copied wholesale. `amh.conf` gained
+  `REQUIRED_TOOLS`, `ADAPTER_FILES` and `LEDGER_ROW_CHAR_CAP` — the last one enforcing
+  whether or not it is set (D-016). Ledger preamble took the seed corrections:
+  retrieval storage, rollover as an unbounded odometer, the volume chain,
+  `[cited]` machine-*checked* not machine-managed — a wrong claim `CLAUDE.md` and this
+  file had both inherited. `CLAUDE.md` took 3.0.0's hookless-rail rule and the pointer to
+  the command guard's "does NOT catch" block. 3.0.0's archive-tier rule change is inert:
+  no `docs/history/`, no `docs/plans/`, so completed plans are still deleted.
 - 2026-08-05 — Refresh model catalogues (LLM only): `claude-opus-4-8` →
   `claude-opus-5`, dropped `claude-sonnet-4-6` (redundant with `claude-sonnet-5`)
   and Groq's `qwen/qwen3-32b` (provider-deprecated 2026-07-17); wiki synced. PR #219.

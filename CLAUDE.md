@@ -17,15 +17,18 @@ playbook below is folded in from what would otherwise be a separate RUNBOOK
 (sanctioned by the harness's own "smallest useful subset" note — split it out
 when the playbooks multiply).
 
-**Harness: AMH v2.1.0, adopted 2026-07-27** (light profile; superseded the
-hand-rolled v1.8 subset). This repo instantiates the Agentic Maintenance Harness;
+**Harness: AMH v4.2.0, upgraded 2026-08-09** (light profile; adopted at v2.1.0 on
+2026-07-27, which superseded the hand-rolled v1.8 subset). This repo instantiates the
+Agentic Maintenance Harness;
 naming the version keeps process drift diagnosable, and `amh.conf` records the same
 version machine-readably. The harness's own scripts are **shipped artifacts** — see
 "Shipped vs. yours" below before editing anything under `scripts/`.
 
 **Long-term memory: `docs/LEDGER.md`** — a permanent, append-only registry of
 numbered deviations and discoveries. Code cites bare `D-NNN`; cited rows carry a
-machine-synced `[cited]` marker; entries are never compressed or deleted. Durable
+hand-written, machine-**checked** `[cited]` marker (you write it, the ladder verifies
+it both ways; nothing syncs it); entries are never compressed or deleted. It is
+retrieval storage — grep it and cite one row, never read a volume whole. Durable
 facts go there, not into `docs/STATE.md` (working memory) — STATE is compressed
 every few sessions and will lose them.
 
@@ -202,8 +205,8 @@ diff while a reviewer runs is the worst of both — a session death then loses t
 whole unit, which is what the checkpoint invariant exists to prevent. What must
 never happen is a reviewable diff merging unreviewed, and that half stays
 **prose-only**: no guard sees a merge, so the Owner-queue restatement is the only
-thing carrying an owed review across sessions. What AMH v2.1.0 *does* now give you
-is the front half — a local advisory that WARNs when an uncommitted diff touches a
+thing carrying an owed review across sessions. What the harness *does* give you
+(since v2.1.0) is the front half — a local advisory that WARNs when an uncommitted diff touches a
 path in `amh.conf`'s `RULE_FILES`, so a rule change cannot be typed without the
 protocol being named. Note both of its limits before trusting it: it is a warning,
 not a gate, and it is skipped in CI (it describes a working session, which CI does
@@ -288,7 +291,19 @@ player's API keys.)
   subprocess / exception / network output before reasoning over it —
   `cmd 2>&1 | scripts/redact.sh` does the known shapes. Claude Code has no
   output-filter hook, so that piping is manual; the prose rule and the deny rails
-  are the layers that always apply. The same filter is also this repo's entire
+  are the layers that always apply. **Read `scripts/command-guard.sh`'s header
+  "what this guard does NOT catch" block before treating a green check as safety** —
+  its reader list is a list, not a category, so an interpreter outside it
+  (`python3 -c "open('.env')"` above all) and wrappers it does not strip (`xargs`,
+  `timeout`, `ssh`, `bash -c`) reach the file unjudged. The bullets here bind you
+  whether or not a scanner can see the shape you chose.
+- **An agent with no pre-execution hook has no command rail at all.** Both
+  `PreToolUse` guards are then scripts nobody calls, and this file is the only layer
+  standing. No check can tell you which case you are in — distinguishing a hook
+  invocation from a manual one needs vendor-specific environment variables the
+  harness will not assume — which is why it is written here rather than warned about
+  at boot. Claude Code does support the hook, and `.claude/settings.json` wires both;
+  any other agent reading this should confirm that for itself before relying on them. The same filter is also this repo's entire
   secret scan: a ladder rung runs it over every tracked and untracked text file, so
   a credential committed here fails the ladder.
 - **A diagnostic that seems to need raw secret material is an Owner-queue open
@@ -401,6 +416,16 @@ repo's extension points (`scripts/verify.sh`, `scripts/guards/*.sh`,
 "Secret hygiene" sections; the CI step that invokes `scripts/ladder.sh`; and the
 deny rails in `.claude/settings.json`. Any *later* unexplained change to these — as
 with `.claude/` — is a stop-and-report event.
+
+**The upgrade to AMH v4.2.0 on 2026-08-09 is user-sanctioned on the same terms**, and
+carries the same coverage forward. It was a script copy plus hand-applied changelog
+notes: the five shipped scripts and `MANIFEST.sha256` replaced wholesale; `amh.conf`
+gained `REQUIRED_TOOLS`, `ADAPTER_FILES` and `LEDGER_ROW_CHAR_CAP`; `docs/LEDGER.md`'s
+preamble took the 3.0.0 and 4.0.0 seed corrections (retrieval storage, the unbounded
+rollover odometer, the volume chain, `[cited]` machine-*checked* rather than
+machine-managed); and this file took 3.0.0's hookless-rail rule and the pointer to the
+command guard's "does NOT catch" block. No file this repo owns was overwritten and
+`AMH-ADOPT.md` was not re-issued — an upgrade never re-issues it.
 
 **One caveat specific to the shipped scripts, because it is the shape most likely
 to fool this tripwire:** they are meant to be overwritten wholesale by a harness
