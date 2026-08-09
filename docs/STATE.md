@@ -52,11 +52,15 @@ owner-verified via the Owner queue.
 
 **Pending owner actions:**
 
-1. **`claude/upgrade-amh-newest-0lw7s8` is reviewed and ready to merge — your call.**
+1. **`claude/upgrade-amh-newest-0lw7s8` — reviewed through `08a6cda`; one later commit
+   still owes review.**
    The AMH v4.2.0 upgrade is a rule-review diff (`CLAUDE.md`, `amh.conf`, the shipped
    scripts, the ledger preamble). Rule review **was completed** (fresh context,
    strongest tier, owner-requested in session): no blockers, 3 findings, all fixed in
-   `1154190`. The review debt is discharged; what remains is only the merge decision.
+   `1154190`. **That review covered the branch through `08a6cda` only.** The later
+   `LEDGER_ROW_CHAR_CAP` 2000→800 commit (`bcd016d`) edits `amh.conf`, which is
+   legislation, so it carries a **fresh review debt** — the cap it sets binds every
+   future ledger row. Merging the branch merges that commit too.
    Two things the reviewer could not verify and neither can I: the shipped scripts'
    **upstream provenance** (the clone is deleted, and the manifest was replaced in the
    same commit, so it corroborates nothing on its own — re-clone the tag and diff if
