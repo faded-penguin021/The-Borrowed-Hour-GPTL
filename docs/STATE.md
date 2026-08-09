@@ -52,15 +52,15 @@ owner-verified via the Owner queue.
 
 **Pending owner actions:**
 
-1. **`claude/upgrade-amh-newest-0lw7s8` — reviewed through `08a6cda`; one later commit
-   still owes review.**
+1. **`claude/upgrade-amh-newest-0lw7s8` — fully reviewed, ready to merge; your call.**
    The AMH v4.2.0 upgrade is a rule-review diff (`CLAUDE.md`, `amh.conf`, the shipped
    scripts, the ledger preamble). Rule review **was completed** (fresh context,
    strongest tier, owner-requested in session): no blockers, 3 findings, all fixed in
-   `1154190`. **That review covered the branch through `08a6cda` only.** The later
-   `LEDGER_ROW_CHAR_CAP` 2000→800 commit (`bcd016d`) edits `amh.conf`, which is
-   legislation, so it carries a **fresh review debt** — the cap it sets binds every
-   future ledger row. Merging the branch merges that commit too.
+   `1154190` — covering the branch through `08a6cda`. The later
+   `LEDGER_ROW_CHAR_CAP` 2000→800 commit (`bcd016d`) was the one later **reviewable**
+   commit (the others past `08a6cda` touch only this file — working memory, review-exempt).
+   It has since been reviewed too: no blockers, 4 findings, all fixed. Both reviews are
+   discharged; what remains is only the merge decision.
    Two things the reviewer could not verify and neither can I: the shipped scripts'
    **upstream provenance** (the clone is deleted, and the manifest was replaced in the
    same commit, so it corroborates nothing on its own — re-clone the tag and diff if
@@ -124,11 +124,14 @@ One line per shipped change or completed unit (newest first). Pre-harness histor
 in `docs/BACKLOG.md` and git.
 
 - 2026-08-09 — Lower `LEDGER_ROW_CHAR_CAP` 2000 → **800** (owner). Binds new rows only —
-   the rung exempts any row ID present at HEAD — so nothing was rewritten and no existing
-   row fails. Deliberately below the shipped default *and* below this ledger's own median:
-   7 of 16 prior rows exceed it. Measure with
+   the rung exempts any row ID present at HEAD, and only runs at all when the ledger has
+   uncommitted changes — so nothing was rewritten and no existing row fails. Deliberately
+   below the shipped default *and* below this ledger's own median: 7 of 16 prior rows exceed
+   it. Measure with
    `awk '/^- D[A-Z]*-[0-9]+/{if(id)printf "%s\t%d\n",id,n; id=$2; n=0} id{n+=length($0)+1}
-   END{if(id)printf "%s\t%d\n",id,n}' docs/LEDGER.md | sort -k2 -nr`. Preamble kept in
+   END{if(id)printf "%s\t%d\n",id,n}' docs/LEDGER.md | sort -k2 -nr` — reads **one byte high**
+   per row versus the guard, which strips the trailing blank line, so treat a result of exactly
+   801 as a pass and re-check with the ladder. Preamble kept in
    lockstep, plus a warning that `LEDGER_LINE_CAP` (800 *lines*, whole file) and
    `LEDGER_ROW_CHAR_CAP` (800 *bytes*, one row) now share digits by coincidence and must
    never be reconciled to each other. Cap proven to fire on an 830-byte row before landing.

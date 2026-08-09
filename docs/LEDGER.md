@@ -26,7 +26,17 @@
 > lesson, not the whole debugging narrative. The cap is deliberately below the
 > shipped default and below the median of the rows written before it — if a real
 > lesson will not fit, that is worth saying out loud rather than splitting it
-> across two IDs or shipping it pre-truncated.
+> across two IDs or shipping it pre-truncated. **That last part is prose-only:**
+> no guard can tell a split lesson or a pre-truncated one from a genuinely short
+> row, so the cap is honoured by intent or not at all.
+>
+> **What the cap actually reaches.** It binds every row still *uncommitted* when
+> the ladder runs — the rung returns early unless the ledger has uncommitted
+> changes, and it skips any row ID already present at HEAD. So committing first
+> and verifying afterwards escapes it entirely, and rows already in history are
+> exempt permanently (editing one later keeps the exemption, which is what keeps
+> append-only corrections legal). One more reason the checkpoint invariant runs
+> ladder-green *before* commit rather than after.
 >
 > **File cap & rollover.** This file holds at most **800 lines** (the cap is on
 > LINES, not rows — it's read cost being bounded; keep the number in lockstep
