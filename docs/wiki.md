@@ -65,7 +65,7 @@ Mistral's free tier on the experimental API is generous enough for repeated per-
 | **OpenAI** | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
 | **Claude** | `claude-fable-5`, `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5-20251001` |
 | **DeepSeek** | `deepseek-v4-flash`, `deepseek-v4-pro` |
-| **Qwen** | `qwen3.7-plus`, `qwen3.6-flash`, `qwen-plus`, `qwen-flash` |
+| **Qwen** | `qwen3.7-plus`, `qwen3.7-flash`, `qwen-plus`, `qwen-flash` |
 | **Kimi** | `kimi-k3`, `kimi-k2.7-code`, `kimi-k2.6` |
 | **ERNIE** | `ernie-5.1`, `ernie-4.5-turbo-128k`, `ernie-4.5-turbo-32k` |
 | **Mistral** | `mistral-small-latest`, `mistral-medium-latest` (both free), `mistral-large-latest` (free) |
