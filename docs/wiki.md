@@ -61,7 +61,7 @@ Mistral's free tier on the experimental API is generous enough for repeated per-
 
 | Provider | Models |
 |---|---|
-| **Gemini** | `gemini-3.6-flash`, `gemini-3.1-flash-lite` |
+| **Gemini** | `gemini-3.7-flash`, `gemini-3.5-flash-lite` |
 | **OpenAI** | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
 | **Claude** | `claude-fable-5`, `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5-20251001` |
 | **DeepSeek** | `deepseek-v4-flash`, `deepseek-v4-pro` |
@@ -79,7 +79,7 @@ Mistral's free tier on the experimental API is generous enough for repeated per-
 Each GM turn sends a large request — system prompt, tool schema, and the rolling chronicle history. Free tiers differ in how much they allow per request and per minute:
 
 - **Mistral** (default) has generous free API access with no per-minute token limits, making it the most reliable free option. Both medium and large models are available on the free tier.
-- **Gemini** (`gemini-3.6-flash`) has daily request quotas but no per-minute caps; suitable for casual play but capped at ~20 games/day.
+- **Gemini** (`gemini-3.7-flash`) has daily request quotas but no per-minute caps; suitable for casual play but capped at ~20 games/day.
 - **Groq** rejects requests larger than the model's per-minute budget. The Groq stack uses `openai/gpt-oss-120b`; `qwen/qwen3.6-27b` is the recommended lighter alternative. Very long sessions can still exceed per-minute limits.
 - **Cerebras**' free tier caps context at 8,192 tokens — too small for a GM turn — so paid tier is required here.
 - **OpenRouter** free models (`nvidia/nemotron-3-ultra-550b-a55b:free`, `openai/gpt-oss-20b:free`) have tight per-minute caps and are not recommended for repeated calls.
