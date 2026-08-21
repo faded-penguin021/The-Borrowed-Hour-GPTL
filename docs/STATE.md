@@ -124,6 +124,10 @@ owner-verified via the Owner queue.
 One line per shipped change or completed unit (newest first). Pre-harness history lives
 in `docs/BACKLOG.md` and git.
 
+- 2026-08-19 — Refresh model catalogues (LLM only): `gemini-3.6-flash` →
+  `gemini-3.7-flash` (GA 2026-08-13), `gemini-3.1-flash-lite` → `gemini-3.5-flash-lite`
+  (3.1 deprecated per its own ai.google.dev page); wiki synced. Image/TTS catalogues
+  checked against provider docs — no changes needed. PR #224.
 - 2026-08-09 — Lower `LEDGER_ROW_CHAR_CAP` 2000 → **800** (owner). Binds new rows only —
    the rung exempts any row ID present at HEAD, and only runs at all when the ledger has
    uncommitted changes — so nothing was rewritten and no existing row fails. Deliberately
