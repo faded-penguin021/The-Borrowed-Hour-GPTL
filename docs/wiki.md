@@ -70,7 +70,7 @@ Mistral's free tier on the experimental API is generous enough for repeated per-
 | **ERNIE** | `ernie-5.1`, `ernie-4.5-turbo-128k`, `ernie-4.5-turbo-32k` |
 | **Mistral** | `mistral-small-latest`, `mistral-medium-latest` (both free), `mistral-large-latest` (free) |
 | **Groq** | `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.6-27b` |
-| **OpenRouter** | `nvidia/nemotron-3-ultra-550b-a55b:free`, `openai/gpt-oss-20b:free`, `google/gemma-4-31b-it:free`, `anthropic/claude-fable-5`, `openai/gpt-5.6-luna`, `moonshotai/kimi-k2.7-code` |
+| **OpenRouter** | `nvidia/nemotron-3-ultra-550b-a55b:free`, `google/gemma-4-31b-it:free`, `anthropic/claude-fable-5`, `openai/gpt-5.6-luna`, `openai/gpt-oss-20b`, `moonshotai/kimi-k2.7-code` |
 | **Cerebras** | `gpt-oss-120b`, `gemma-4-31b` |
 | **Local LLM** | `llama3.2`, `llama3.1`, `mistral`, `phi3`, `qwen2.5` (or any custom ID) |
 
@@ -82,7 +82,7 @@ Each GM turn sends a large request — system prompt, tool schema, and the rolli
 - **Gemini** (`gemini-3.7-flash`) has daily request quotas but no per-minute caps; suitable for casual play but capped at ~20 games/day.
 - **Groq** rejects requests larger than the model's per-minute budget. The Groq stack uses `openai/gpt-oss-120b`; `qwen/qwen3.6-27b` is the recommended lighter alternative. Very long sessions can still exceed per-minute limits.
 - **Cerebras**' free tier caps context at 8,192 tokens — too small for a GM turn — so paid tier is required here.
-- **OpenRouter** free models (`nvidia/nemotron-3-ultra-550b-a55b:free`, `openai/gpt-oss-20b:free`) have tight per-minute caps and are not recommended for repeated calls.
+- **OpenRouter** free models (`nvidia/nemotron-3-ultra-550b-a55b:free`, `google/gemma-4-31b-it:free`) have tight per-minute caps and are not recommended for repeated calls.
 
 ## Read aloud (text-to-speech)
 
