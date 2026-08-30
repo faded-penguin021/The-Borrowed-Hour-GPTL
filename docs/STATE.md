@@ -124,6 +124,12 @@ owner-verified via the Owner queue.
 One line per shipped change or completed unit (newest first). Pre-harness history lives
 in `docs/BACKLOG.md` and git.
 
+- 2026-08-30 — Refresh model catalogues (LLM only): OpenRouter dropped the free variant
+  of `openai/gpt-oss-20b` (`:free` 404s per `check:models --all`); moved the still-live
+  paid id to that provider's `paid` tier rather than dropping it (not a default anywhere).
+  Wiki synced. Image/TTS catalogues checked against provider docs (Groq, Cerebras, ERNIE,
+  DeepSeek, Kimi, Qwen, Mistral, Gemini, OpenAI, Replicate flux family, OpenAI TTS,
+  ElevenLabs, Azure, Google) — all current, no changes needed. PR #227.
 - 2026-08-19 — Refresh model catalogues (LLM only): `gemini-3.6-flash` →
   `gemini-3.7-flash` (GA 2026-08-13), `gemini-3.1-flash-lite` → `gemini-3.5-flash-lite`
   (3.1 deprecated per its own ai.google.dev page); wiki synced. Image/TTS catalogues
