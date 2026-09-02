@@ -57,7 +57,7 @@ const normalizeClaudeMessages = (msgs: ChatMessage[]): Array<{ role: string; con
   content: normalizeContent(m.content)
 }));
 
-// checked: 2026-08-30
+// checked: 2026-09-02
 export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
   gemini: {
     name: "Gemini",
@@ -86,7 +86,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     windowKey: "ANTHROPIC_API_KEY",
     metaName: "anthropic-api-key",
     models: [
-      { id: "claude-fable-5", tier: "paid" },
+      { id: "claude-fable-5-1", tier: "paid" },
       { id: "claude-opus-5", tier: "paid" },
       { id: "claude-sonnet-5", tier: "paid" },
       { id: "claude-haiku-4-5-20251001", tier: "paid" }
@@ -167,7 +167,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     models: [
       { id: "nvidia/nemotron-3-ultra-550b-a55b:free", tier: "free" },
       { id: "google/gemma-4-31b-it:free", tier: "free" },
-      { id: "anthropic/claude-fable-5", tier: "paid" },
+      { id: "anthropic/claude-fable-5.1", tier: "paid" },
       { id: "openai/gpt-5.6-luna", tier: "paid" },
       { id: "openai/gpt-oss-20b", tier: "paid" },
       { id: "moonshotai/kimi-k2.7-code", tier: "paid" }
