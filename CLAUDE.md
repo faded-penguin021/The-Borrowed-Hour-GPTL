@@ -8,29 +8,65 @@ anything not covered here.
 > **Ground truth:** the code and its committed tests (unit vectors, golden
 > storage fixtures, the CSP/origin manifest). Docs describe the system as-built
 > and *will* drift — when a doc conflicts with the code, trust the code and
-> correct the doc in the same change.
+> correct the doc in the same change. **The append-only ledger is the exception:**
+> its rows are immutable, so a stale row is never edited in place — write a new
+> row and append one pointer line to the old one (`docs/LEDGER.md` preamble).
 
 **Start every session by reading `docs/STATE.md`** — current project state,
 anything awaiting owner action, and the Owner queue. It is working memory; keep
-it small (it has a machine-enforced length guard). The session-discipline
-playbook below is folded in from what would otherwise be a separate RUNBOOK
-(sanctioned by the harness's own "smallest useful subset" note — split it out
-when the playbooks multiply).
+it small (it has a machine-enforced length guard; the rules that govern it are
+**Working-memory compression** below). This repo runs the harness's `light` profile,
+which withholds a separate `docs/RUNBOOK.md`, so every playbook the harness routes there
+— session discipline, the review protocols, the acceptance ladder, working-memory
+compression, CI triage — lives in this file instead. Splitting them out is an owner
+decision, open in the queue.
 
-**Harness: AMH v4.2.0, upgraded 2026-08-09** (light profile; adopted at v2.1.0 on
-2026-07-27, which superseded the hand-rolled v1.8 subset). This repo instantiates the
-Agentic Maintenance Harness;
-naming the version keeps process drift diagnosable, and `amh.conf` records the same
-version machine-readably. The harness's own scripts are **shipped artifacts** — see
+**Harness: AMH v14.0.0** (light profile). This repo instantiates the Agentic Maintenance
+Harness; naming the version keeps process drift diagnosable, and `amh.conf` records the same
+version machine-readably. Adoption and per-upgrade history is in `docs/LEDGER.md`, not here.
+The harness's own scripts are **shipped artifacts** — see
 "Shipped vs. yours" below before editing anything under `scripts/`.
 
 **Long-term memory: `docs/LEDGER.md`** — a permanent, append-only registry of
 numbered deviations and discoveries. Code cites bare `D-NNN`; cited rows carry a
 hand-written, machine-**checked** `[cited]` marker (you write it, the ladder verifies
-it both ways; nothing syncs it); entries are never compressed or deleted. It is
-retrieval storage — grep it and cite one row, never read a volume whole. Durable
-facts go there, not into `docs/STATE.md` (working memory) — STATE is compressed
-every few sessions and will lose them.
+it both ways; nothing syncs it); entries are never compressed or deleted. **Rows are
+immutable** — correct a detail with a new row plus `Corrected by D-NNN.` on the old one,
+replace a conclusion with `Superseded by D-NNN.`, and never edit a committed row except to
+sync its `[cited]` marker. It is retrieval storage — grep it and cite one row, never read a
+volume whole. Durable facts go there, not into `docs/STATE.md` (working memory) — STATE is
+compressed every few sessions and will lose them.
+
+> **This file states the harness and the project as they are NOW.** Every rule here binds
+> today and every inventory names what exists today: a rule that changed is rewritten in
+> place, a rule that stopped binding is deleted, and neither leaves behind a note saying what
+> it used to be. **A rule that still binds stays, whatever its age** — what follows routes
+> HISTORY, and a live rule is never history, so relocating one is not tidying but repeal.
+> Supersession history, adoption and upgrade narratives, and per-version records of what the
+> owner sanctioned belong in `docs/LEDGER.md` — permanent, dated, retrieval storage — with a
+> single pointer line in the `docs/STATE.md` changelog for the migration as a whole. That is
+> not deletion: it puts them where a reader can grep for them instead of in front of every
+> session, most of which will never need them. Moving anything out of this file is a change to
+> legislation and takes the rule-review protocol; a bulk relocation is an owner decision.
+>
+> **No byte cap governs this file, and that is deliberate.** The defect a cap catches is size;
+> the defect here is KIND — this file can be long and wholly current, or short and half
+> history — and a cap over live legislation invites shaving rules to make room for kept
+> narrative, the same reflex the compression rule below exists to break. What stands in for a
+> cap is a reader, not a check. This file is in `RULE_FILES`, so an uncommitted diff touching
+> it raises the ladder's legislation advisory — and know exactly what that is worth: a WARN
+> that blocks nothing, skipped in CI, reading only the uncommitted diff, so it goes quiet the
+> moment the change is committed. Reviewer attention is the enforcement; the warning only says
+> the protocol applies.
+
+> **Establish coverage before you report an absence.** "It does not exist" and "it never
+> happened" are claims about your search until you can say what you searched and that it could
+> have contained the thing. Before reporting one, name the artifact you looked in and why it
+> would hold the answer. The recurring trap here is local git state: this repo squash-merges
+> branch-per-change, so an entire session's train arrives as ONE commit and every intermediate
+> state is destroyed on purpose — `git log` cannot answer a question about this repository's
+> past, and `docs/LEDGER.md` plus the `docs/STATE.md` changelog are the record. Nothing
+> enforces this; no pre-execution check can see a belief formed after a command returns.
 
 ## What this is
 
@@ -130,6 +166,23 @@ being patched into it.
   gives one complete report, so read past the first `FAIL`.
   Playwright e2e is a separate CI job (locally needs `PW_CHROMIUM`, which the
   SessionStart hook exports); run it when a change touches the game flow.
+- **A green rung deliberately does not print its thresholds**, and that is not
+  information lost. A healthy size line reads `8 KB, within the band`; a completed
+  compression landing reports how far *clear of* the ceilings it landed rather than
+  naming them; the ledger rung reports each new row's own sentence count. Every WARN and
+  FAIL still quotes the threshold it turned on, because a rejection has to say what it
+  rejected against. Read a threshold from `amh.conf`, which is where it is authoritative
+  — **a number the ladder printed is never a value to copy back into prose**, and prose
+  that restates a threshold as a digit drifts silently the first time the key moves.
+- **When CI fails (workflow vs code).** The local ladder and CI run the same script, but
+  the commit, index and worktree are inputs too: a guard built on `git ls-files` may omit
+  an untracked file, so staging it after the local run changes what CI receives and turns
+  local-green into CI-red with no environment difference. Triage: (1) read the failing
+  log; (2) reproduce from the exact tree state CI checked, staging new files before the
+  local ladder when a guard's file discovery is index-dependent; then classify a real
+  failure (fix the code), a toolchain mismatch (fix the workflow, in the same PR), or a
+  flake (re-run once; never "fix" code for a flake). (3) Never weaken a gate to get green.
+  (4) Real but out of scope: say so, with the log excerpt.
 - Match nearby style. This codebase prefers small, named functions over deep
   class hierarchies and avoids speculative abstraction.
 - Don't add comments that restate the code. The existing files are sparse on
@@ -166,8 +219,16 @@ that you are the last reviewer — there is no stronger pass behind you.
 5. **The Owner queue is the human-in-the-loop channel.** It holds Pending owner
    actions (including any "review owed: <branch>" a session could not complete),
    Open questions (above), and Incoming findings (where the owner drops
-   manual-test results). Every session's **final chat message restates the
-   queue** so the owner never has to open the file.
+   manual-test results). Every item carries a `Check:` that settles it from the tree or
+   the world — test the check before restating the item, since an item whose check reads
+   a squash-merged commit subject will report "still open" forever. Every session's
+   **final chat message restates the queue** so the owner never has to open the file.
+   **Plans under `docs/plans/` are provisional context and end archived or deleted**, with
+   no redirect or tombstone left behind. A ledger row may therefore **never cite a plan's
+   path**: permanent memory is immutable, so such a row would pin the plan in place
+   forever. A committed row that already names one does not block anything — its
+   immutability covers its text, not the lifetime of a file it names, and historical path
+   drift is expected.
 6. **Recovery is a protocol, not improvisation — and it is bounded.** If the unit
    in flight has gone wrong, reset to the last green checkpoint
    (`git reset --hard HEAD`, careful clean), re-run the ladder to confirm green,
@@ -190,6 +251,95 @@ that you are the last reviewer — there is no stronger pass behind you.
    behavior (owner-verified via the Owner queue). Disclosure of real actions,
    never implied coverage.
 
+## Working-memory compression
+
+The rules for compressing `docs/STATE.md`. They live here rather than in the file they
+govern, and that placement is the point: these rules change only under the rule-review
+protocol, while the byte band on `docs/STATE.md` exists to force *volatile* content out. A
+block of permanent rules sitting inside that band spends the budget every compression pass is
+fighting for, and it cannot itself be compressed — folding a live rule is repeal. `docs/STATE.md`
+keeps a pointer here; **that pointer is prose-only** — no guard checks it, so deleting it is
+how a relocation quietly finishes becoming a repeal.
+
+**Thresholds.** `STATE_WARN_KB`, `STATE_HARD_KB`, both post-action ceilings and
+`STATE_EDIT_DELTA_BYTES` live in `amh.conf` and are deliberately **not** restated here as
+numbers. In the 13.0.0 vocabulary: WARN and EDIT_DELTA are *triggers*, HARD is a *rejection
+boundary*, and the two COMPRESS_TO keys are *post-action ceilings*. Boundaries decide when
+machinery intervenes, never how much content an author should produce.
+
+**Two ceilings, because neither works alone.** A landing must satisfy the byte ceiling AND
+the sentence ceiling. A byte ceiling is reachable by shaving words, which removes no content;
+a sentence ceiling is reachable by rewriting `. T` to `; t`, which frees no space. Each blocks
+the cheap move that satisfies the other, and folding whole stages is what satisfies both at
+once. **What this does not claim** is that the pair cannot be gamed: a rewrite that removes
+the wrong content passes both, and no guard can see it.
+
+**Counter acceptance is not a quality verdict.** Passing both establishes only that the
+result is not obviously oversized — never concision, correct scope, or successful compression.
+**Counter-only rewrites are forbidden:** never merge sentences, repunctuate, or remove useful
+qualifiers solely to move a number.
+
+**When.** Compress by lifecycle, not by file size: once a stage is complete, fold its
+narrative and route its durable lessons to `docs/LEDGER.md` even while the file sits below the
+compression trigger. The trigger only makes a pass *mandatory* before further substantive
+work; a typo fix above it is allowed and still owes the pass.
+
+**How far.** Keep only current state, unresolved Owner-queue items, immediate operational
+gotchas and concise Changelog pointers. The configured values are acceptance ceilings, not
+retention goals: there is no reward for keeping text because space remains, no preferred
+landing size, and no need to add or reshape content to approach either ceiling. A
+substantially smaller file is equally successful, and often better, when it retains everything
+live.
+
+**How.** Decide each fold by whether the stage is complete, never by proximity to a number.
+Collapse completed stages into concise Changelog pointers, fold changelog clusters, move
+durable lessons into the append-only ledger *before* deleting their narrative. Never shave
+clauses until the guard goes quiet, and never cut text into another file — that is not
+compression, it is relocation, and relocation is legislation. **Project**, **Current state**,
+**Owner queue** and **Decided non-items** must always survive: compress an Owner-queue item's
+prose, never drop an open one.
+
+**What may be in `Current state` at all — the content rule beside the size rule.** Three
+categories, and only the first is unqualified truth there:
+
+1. **Repository-controlled** — true of the checked-out tree until another repository change
+   alters it: implemented behavior, the version the tree declares, tracked active work, the
+   live ledger VOLUME (never its latest row id, which every append moves and no sentence
+   follows). This is what `Current state` is for.
+2. **World-controlled** — can change with no change to the tree: whether a branch merged,
+   whether a remote tag or release exists, PR and CI status, deployments, remote branches,
+   forge protection settings. **Never cached here as current truth.**
+3. **Historical observation** — a past external fact kept because it is still useful, scoped
+   in the sentence to when it was observed so it cannot read as present status.
+
+Apply the test before writing a sentence: *would it still be accurate if this same commit were
+cloned tomorrow, under another branch name, after forge state had moved?* If not, route it.
+Where a live probe computes the fact, point at the probe rather than copying its output. Where
+a session cannot inspect the setting (branch protection, a remote's configuration), state the
+expectation without claiming to have observed it. Where the resolution is an external action,
+it is an Owner-queue item with its `Check:`, not a sentence here. Two limits, so this is not
+read wider than it is: the scope is `Current state` and does not reach the Changelog or the
+ledger pointers, which are historical storage by construction; and it is **prose-only** — no
+guard reads a State sentence for temporal validity, none is proposed, and none should be, since
+the discriminator is meaning.
+
+**What the ladder checks, and what it does not.** `scripts/ladder.sh` machine-checks the band,
+the required sections and their non-empty bodies, that no level-2 heading appears twice, that
+the Owner-queue heading is still there, and that a compression pass lands on the ceilings
+rather than just clearing the warning; above the trigger it tells a pass from an ordinary edit
+by how much the file shrank. **And that list is the whole of it** — a claim about
+`guard_state_size` and `guard_state_structure` in a script that upgrades independently of this
+file, so those two functions are the authority and this sentence is what goes stale. Everything
+else here — what to fold, whether what survived is any good, whether you dropped an open
+Owner-queue item — is prose no guard will catch you breaking.
+
+**One consequence, since silence reads as approval: the landing check never runs below the
+compression trigger.** Only a file that started above it reaches that check. So a deep pass on
+a file already under the trigger draws a plain size line and nothing more — the absence of a
+check, not a verdict that the edit was right. Do not reach for a threshold to cover it: it is
+the SHRINK that is measured, and a check treating any large shrink as a compression pass would
+fail a session for deleting one resolved Owner-queue item from a healthy file.
+
 ## Fresh-context review (the sanctioned subagent)
 
 The context that wrote a diff is anchored on its own reasoning. Both passes below
@@ -206,7 +356,7 @@ whole unit, which is what the checkpoint invariant exists to prevent. What must
 never happen is a reviewable diff merging unreviewed, and that half stays
 **prose-only**: no guard sees a merge, so the Owner-queue restatement is the only
 thing carrying an owed review across sessions. What the harness *does* give you
-(since v2.1.0) is the front half — a local advisory that WARNs when an uncommitted
+is the front half — a local advisory that WARNs when an uncommitted
 diff touches a path in `amh.conf`'s `RULE_FILES`, so a rule change cannot be typed
 without the protocol being named. Note both of its limits before trusting it: it is
 a warning, not a gate, and it is skipped in CI (it describes a working session, which
@@ -270,10 +420,17 @@ the constitution has to bind the least-defended agent that reads it.
   errors only). **Never force-push. Never push to `main`.** Both are denied in
   `.claude/settings.json` and blocked with an instructive reason by
   `scripts/command-guard.sh`, not just here.
+- **The branch-naming rule above is enforced by you and your reviewer, not by a rail.**
+  The command guard checks facts it can read off the push — the default branch in every
+  spelling git resolves, force, deletion, an explicit `refs/tags/` push, `HEAD`/`@`, a
+  second ref — and deliberately carries no branch-prefix test, because it cannot tell a
+  name the harness assigned from one an agent invented. An explicitly named off-convention
+  branch (`git push -u origin work`) is stopped by this clause and nothing else.
 - **Merge mode: branch-per-change** (owner, 2026-07-25). Each session branch
   squash-merges separately — one commit per branch on `main`. Session branches
   are cut from `main`, never from each other; there is no branch train here.
-  Don't open a PR unless asked. Tagging / releasing stays an owner step.
+  Don't open a PR unless asked. **Tagging / releasing stays an owner step**, and both
+  rails now deny a tag push outright rather than stopping one by accident.
 
 ## Secret hygiene
 
@@ -285,7 +442,26 @@ player's API keys.)
 
 - **Never dump the environment.** No bare `env` / `printenv`, no reading
   `.env`-style files, no `inspect`-style config dumps. The permission rails in
-  `.claude/settings.json` deny these; the rest is discipline.
+  `.claude/settings.json` deny these; the rest is discipline. `env` is judged by whether
+  it was handed a command to run: `env -u FOO cmd` is a prefix and passes, `env FOO=1`
+  prints the environment and is blocked.
+- **Private key material is denied outright, not speed-bumped.** Reading, redirecting
+  from or copying a file named `id_rsa`, `id_dsa`, `id_ecdsa`, `id_ed25519` or the `_sk`
+  variants is blocked across every path that reaches a file. The `.pub` half is excluded
+  by construction — it exposes nothing. Certificate container extensions are not proof of
+  a secret (a fullchain or CA bundle is public by design), so they get the same one-time
+  advisory the dotenv tier has: blocked once with an explanation, allowed on the rerun.
+  Nothing in that tier is permanently denied. If a task genuinely needs a key, point the
+  tool at the path instead of reading the file, or take it to the Owner queue as a
+  narrower evidence contract.
+- **Forge and API mutations have their own rail.** Parsed `gh api` and direct-forge `curl`
+  stay allowed for GET/HEAD/OPTIONS; mutation-capable methods and body/upload flags are
+  classified by endpoint or GraphQL operation, and settings, secrets, environments,
+  storage, release, ref, destructive and bulk operations stop. Read its boundary honestly:
+  a mutation hidden in application code, an opaque script, an alias or a dedicated forge
+  tool is invisible to it — dedicated forge tools bypass Bash hooks entirely. The
+  server-side controls (least-privilege tokens, branch protection, required approvals) are
+  what cover those paths, and this repo's owner mirrors them.
 - **Never print a credential's value, prefix, suffix, length, or hash.** Report
   only fixed-key presence ("`PW_CHROMIUM` is set") and bounded counts. Redact
   subprocess / exception / network output before reasoning over it —
@@ -397,35 +573,30 @@ any *later* unexplained change to `.claude/` — a new hook command, an added
 permission, an edited skill nobody asked for — is a stop-and-report event.
 
 The `PreToolUse` command rails are user-sanctioned: the shipped
-`scripts/command-guard.sh`, this repo's `scripts/install-guard.sh`, and both
-`PreToolUse` entries in `.claude/settings.json`, which make the hard rails
-deterministic rather than advisory. They **supersede**, in order, the original
-`.claude/hooks/block-npm-install.mjs` (deleted 2026-07-25) and the hand-rolled
-four-rail `command-guard.sh` (replaced by the shipped one on 2026-07-27, its
-install rail moving to `install-guard.sh`). Those swaps are sanctioned, not the
-unexplained hook change this section otherwise warns about.
+`scripts/command-guard.sh`, this repo's `scripts/install-guard.sh`, and all three
+`PreToolUse` entries in `.claude/settings.json` — the two `Bash` guards and the `Task`
+spawn advisory — which make the hard rails deterministic rather than advisory. So is the
+git-native pre-push rail `scripts/session-start.sh` installs at `.git/hooks/pre-push`,
+which rejects a push to the default branch, a branch deletion or a non-fast-forward by
+OUTCOME rather than by reading the command. Which rails superseded which, and when, is in
+`docs/LEDGER.md`; a swap recorded there is sanctioned, an unexplained hook change is the
+stop-and-report event this section otherwise warns about.
 
-**The AMH v2.1.0 instantiation of 2026-07-27 is user-sanctioned in full**, and it
-replaced the hand-rolled v1.8 subset added 2026-07-18. It covers: `amh.conf`; the
-shipped scripts and their manifest (`scripts/ladder.sh`, `session-start.sh`,
-`command-guard.sh`, `redact.sh`, `test-ladder-guards.sh`, `MANIFEST.sha256`); this
-repo's extension points (`scripts/verify.sh`, `scripts/guards/*.sh`,
-`scripts/bootstrap.sh`, `scripts/install-guard.sh`); `docs/STATE.md`,
-`docs/LEDGER.md` (its preamble and its append-only rule), `AGENTS.md`; this file's
-"Shipped vs. yours", "Session discipline", "Fresh-context review", "Git rules" and
-"Secret hygiene" sections; the CI step that invokes `scripts/ladder.sh`; and the
-deny rails in `.claude/settings.json`. Any *later* unexplained change to these — as
-with `.claude/` — is a stop-and-report event.
-
-**The upgrade to AMH v4.2.0 on 2026-08-09 is user-sanctioned on the same terms**, and
-carries the same coverage forward. It was a script copy plus hand-applied changelog
-notes: the five shipped scripts and `MANIFEST.sha256` replaced wholesale; `amh.conf`
-gained `REQUIRED_TOOLS`, `ADAPTER_FILES` and `LEDGER_ROW_CHAR_CAP`; `docs/LEDGER.md`'s
-preamble took the 3.0.0 and 4.0.0 seed corrections (retrieval storage, the unbounded
-rollover odometer, the volume chain, `[cited]` machine-*checked* rather than
-machine-managed); and this file took 3.0.0's hookless-rail rule and the pointer to the
-command guard's "does NOT catch" block. No file this repo owns was overwritten and
-`AMH-ADOPT.md` was not re-issued — an upgrade never re-issues it.
+**The AMH instantiation is user-sanctioned in full, at the version `amh.conf` records**,
+and each upgrade carries that sanction forward on the same terms. It covers: `amh.conf`;
+the shipped scripts and their manifest (`scripts/ladder.sh`, `session-start.sh`,
+`command-guard.sh`, `redact.sh`, `test-ladder-guards.sh`, `MANIFEST.sha256`); this repo's
+extension points (`scripts/verify.sh`, `scripts/guards/*.sh`, `scripts/bootstrap.sh`,
+`scripts/install-guard.sh`); `docs/STATE.md`, `docs/LEDGER.md` (its preamble and its
+append-only rule), `AGENTS.md`, `.gitattributes`; this file's "Shipped vs. yours",
+"Session discipline", "Fresh-context review", "Working-memory compression", "Git rules"
+and "Secret hygiene" sections; the CI step that invokes `scripts/ladder.sh`; and the deny
+rails in `.claude/settings.json`. Any *later* unexplained change to these — as with
+`.claude/` — is a stop-and-report event. **Per-version adoption and upgrade records are
+dated rows in `docs/LEDGER.md`**, not paragraphs here: a sanction paragraph lives inside
+the very file an injection would edit, so anything able to add a rule is able to add its
+own sanction for it. What actually discriminates is the `RULE_FILES` advisory on the diff
+and the review protocol behind it.
 
 **One caveat specific to the shipped scripts, because it is the shape most likely
 to fool this tripwire:** they are meant to be overwritten wholesale by a harness

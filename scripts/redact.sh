@@ -15,7 +15,11 @@
 #
 # Usage:
 #   cmd 2>&1 | redact.sh          filter
-#   redact.sh --classes           list the token classes recognised
+#   redact.sh --classes           list the classes recognised (tokens, plus the key block)
+#   redact.sh --baseline          the same stages with NO substitutions — the bytes an
+#                                 unredacted stream has after this platform's sed. Compare
+#                                 filtered output against THIS, never against the raw file:
+#                                 sed is not byte-transparent everywhere (see `baseline`)
 #   redact.sh --self-test         fixture matrix (tokens are generated at runtime,
 #                                 never stored — a stored literal would itself be a
 #                                 secret-shaped string in the tree)
@@ -39,8 +43,7 @@ set -euo pipefail
 # `[REDACTED:<class>]` followed by its own tail, which is exactly the suffix the prose
 # rule forbids. A vendor lengthening a token must not silently downgrade this filter
 # from redaction to truncation.
-PATTERNS=$(
-	cat <<-'PATS'
+IFS= read -r -d '' PATTERNS <<-'PATS' || true
 		aws_access_key_id	AKIA[0-9A-Z]{16,}
 		aws_temp_key	ASIA[0-9A-Z]{16,}
 		github_pat	github_pat_[A-Za-z0-9_]{20,}
@@ -64,7 +67,6 @@ PATTERNS=$(
 		url_token_userinfo	[A-Za-z][A-Za-z0-9+.-]*://[A-Za-z0-9._~+%-]{20,}@
 		private_key_block	-----BEGIN [A-Z ]*PRIVATE KEY-----
 	PATS
-)
 
 # No regex here may contain `|` or `&`: the generated substitution is `s|regex|repl|g`,
 # so a `|` would terminate the command and a `&` in a replacement would re-insert the
@@ -176,6 +178,67 @@ PATTERNS=$(
 # the same shape `AKIA` has carried since the beginning — but if this ever fires on real
 # output, tighten it here rather than deleting the class.
 
+# --- the one shape that is not a token --------------------------------------
+# Every class above is a per-LINE substitution, which is all a token needs: a token is one
+# string on one line. A PEM private key is not one — its value is the base64 BODY under the
+# header, and `private_key_block` matches the header LINE only. So `cat id_rsa | redact.sh`
+# printed `[REDACTED:private_key_block]` and then the entire key, in the clear, one 64-character
+# line at a time. The marker made it look handled. That is worse than no class at all, and it is
+# why the command guard blocks reading those files rather than trusting this filter.
+#
+# The fix is a RANGE, and a range is the most dangerous construct in this file: `/BEGIN/,/END/`
+# with no END in the stream runs to EOF, so one header in a truncated log — or in prose about
+# key handling, which this repository is full of — would swallow everything after it. A filter
+# that eats a build log gets switched off, and then nothing is redacted at all.
+#
+# So the range does not substitute lines wholesale. Inside it, only lines that LOOK like key
+# body are replaced: 32 or more base64 characters, optional `=` padding, nothing else on the
+# line. Prose cannot match that — English has spaces, and a 32-character unbroken word is not a
+# sentence. The consequence worth stating: an unterminated header leaves the range open, but
+# what it can do to the rest of the stream is bounded to lines that are already base64 blobs,
+# and the fixtures below pin both halves.
+#
+# NO LENGTH FLOOR, and that is the correction a review forced. The first version required 32
+# characters, on the stated reasoning that the floor "sits under the shortest real body line".
+# It does not: 40 freshly generated RSA-2048 keys ended in a body line of 20, 24 or 28
+# characters — 37 of them 24 — so every one of those keys printed its tail in the clear under a
+# marker that said it had been handled. That is the `st_redacted` partial-redaction class
+# reproduced inside the stage written to fix it, and a number nobody measured is how it got
+# there. A PEM body's last line is (body length mod 64) characters and can be as short as 4.
+#
+# Inside the range there is no benign base64 population to protect, so no floor is needed: a
+# line that is nothing but base64 characters, between a key's BEGIN and END markers, IS key
+# material. Blank lines do not match, and neither do the encrypted-key headers
+# (`Proc-Type: 4,ENCRYPTED`, `DEK-Info: …`) — a `:`, `,` or `-` disqualifies the line.
+#
+# Two residues, both fixtured. After an UNMATCHED header, a line that is one unbroken
+# alphanumeric word is redacted. And a key EMBEDDED in a structured line — `{"key":"-----BEGIN
+# …"}` — is not reached at all: its body shares a line with JSON syntax, so no wholly-base64
+# pattern matches it, and the header on that line still opens a range that never closes. That
+# shape leaked before this stage existed and leaks now; it is named here rather than implied
+# away, because the class of thing this stage handles is a key printed as a BLOCK. It takes the literal `-----BEGIN <CAPS> PRIVATE
+# KEY-----` to reach that state at all, and once that string is in the stream, redacting toward
+# safety is the right direction. Prose survives regardless — English has spaces.
+#
+# The anchor does ALL the false-positive work, which is why it must never be promoted to a bare
+# line pattern: git SHAs (40) and sha256 manifest hashes (64) are pure base64 characters, and a
+# bare pattern would redact every one of them.
+#
+# Not collapsed into a single marker per block, deliberately: that needs the hold space and a
+# flag, and a stateful sed inside the repo's entire secret scan buys one line of tidier output
+# for a construct nobody can read six months later. N marker lines say the same thing.
+# These three go into a `|`-delimited sed program, so the PATTERNS invariant binds here too:
+# no `|` and no `&` in any of them. The BEGIN pattern is deliberately the same text as the
+# `private_key_block` row above — tighten one without the other and the ordering argument in
+# `filter()` stops holding, with nothing to catch it.
+KEY_BLOCK_BEGIN='-----BEGIN [A-Z ]*PRIVATE KEY-----'
+KEY_BLOCK_END='-----END [A-Z ]*PRIVATE KEY-----'
+KEY_BLOCK_BODY='^[[:space:]]*[A-Za-z0-9+/]+={0,2}[[:space:]]*$'
+
+redact_key_blocks() {
+	sed -E "\|$KEY_BLOCK_BEGIN|,\|$KEY_BLOCK_END|{s|$KEY_BLOCK_BODY|[REDACTED:private_key_body]|;}"
+}
+
 build_sed_script() {
 	local class regex
 	while IFS=$'\t' read -r class regex; do
@@ -184,7 +247,29 @@ build_sed_script() {
 	done <<<"$PATTERNS"
 }
 
-filter() { sed -E -f <(build_sed_script); }
+# Blocks first, then tokens: the range stage needs the header line intact to open on, and the
+# token stage rewrites that line to `[REDACTED:private_key_block]`. Reversed, the range never
+# opens and the body prints — which is the bug this stage exists to fix.
+filter() { redact_key_blocks | sed -E -f <(build_sed_script); }
+
+# The filter's own baseline: the SAME two `sed` stages, with a script that holds no commands
+# at all. Output is therefore what an unredacted stream looks like after this platform's sed
+# has copied it — no substitution, no range, nothing this file's patterns could have done.
+#
+# It exists because `sed` is not byte-transparent everywhere, and a caller comparing this
+# filter's output against the RAW file is silently asserting that it is. The GNU sed shipped
+# with Git for Windows (MSYS2) rewrites CRLF to LF even for a script that matches nothing, so
+# on a Windows checkout — where `core.autocrlf=true` is the installer's own default — every
+# text file differed from its own filtered stream, and the ladder's secret scan, which is
+# defined as "any byte this filter changed is a credential", reported one in all 529 of them
+# (AMH ledger row DC030). Nothing was wrong with the patterns; the newline handling underneath
+# them was never the filter's to promise.
+#
+# So the promise is narrowed to one this file can actually keep: the filter changes nothing
+# that these same stages do not change on ANY input. Compare against this, and what remains is
+# redaction. That is weaker than byte-exactness with the file on disk, deliberately — a claim
+# that only holds on some platforms is worth less than a smaller one that holds on all of them.
+baseline() { sed -E -f /dev/null | sed -E -f /dev/null; }
 
 list_classes() {
 	local class regex
@@ -192,6 +277,10 @@ list_classes() {
 		[ -n "$class" ] || continue
 		printf '%s\n' "$class"
 	done <<<"$PATTERNS"
+	# Not in PATTERNS because it is not a per-line substitution — see the range stage above.
+	# Listed anyway: a class the filter can emit and `--classes` does not name is a class
+	# nobody knows to look for in the output.
+	printf '%s\n' private_key_body
 }
 
 # --- self-test --------------------------------------------------------------
@@ -211,9 +300,14 @@ rand_alnum() { rand_class 'A-Za-z0-9' "$1"; }
 rand_upper() { rand_class 'A-Z0-9' "$1"; }
 
 # shellcheck disable=SC2094 # "$1" is opened twice for READING only — the filter's stdin
-# and cmp's operand. SC2094 warns about a read/write pair; nothing here writes it, and
+# and the baseline's. SC2094 warns about a read/write pair; nothing here writes it, and
 # comparing a file against its own filtered stream is the whole point of the check.
-clean_under_filter() { filter <"$1" | cmp -s - "$1"; }
+#
+# Against the BASELINE and not the file itself: on a platform whose sed rewrites line
+# endings, this comparison is what made redact.sh fail its own self-test on its own bytes
+# while nothing about its patterns was wrong (AMH ledger row DC030). See `baseline` above for
+# what the check still promises.
+clean_under_filter() { filter <"$1" | cmp -s - <(baseline <"$1"); }
 
 ST_FAILS=0
 
@@ -249,10 +343,114 @@ st_redacted() {
 }
 
 st_untouched() { # <label> <text> — ordinary output must pass through byte-identical
-	local label=$1 text=$2 out
-	out=$(printf '%s\n' "$text" | filter)
-	if [ "$out" != "$text" ]; then
+	local label=$1 text=$2
+	# Compared with `cmp`, not with `$(...)`. Command substitution strips trailing newlines
+	# from both sides before the comparison, so this assertion — the one that claims
+	# ordinary output passes through BYTE-IDENTICAL — could not see a filter that mangled
+	# line endings at all, which is the class of defect that made every file on a CRLF
+	# checkout read as a credential (AMH ledger row DC030). An assertion that cannot fail on
+	# the thing it names is worse than none, because it is counted as coverage. Against the
+	# baseline, so what it now asserts is filter/baseline parity — see `st_crlf` below for
+	# why that is the strongest claim either of them can make.
+	if ! printf '%s\n' "$text" | filter | cmp -s - <(printf '%s\n' "$text" | baseline); then
 		printf 'SELF-TEST FAIL: %s was mangled by the filter\n' "$label" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+}
+
+# CRLF input at the byte level, which no `st_untouched` case can express: its argument is a
+# single line and the `printf '%s\n'` that feeds it decides the ending.
+#
+# Be exact about what this can catch, because the honest answer is narrower than "the CRLF
+# defect" and overstating it here would repeat the mistake it was written for (AMH ledger row
+# DC030). Both sides run the same sed stages, so a platform that mangles line endings mangles
+# BOTH and the comparison cancels. What it fails on is the filter gaining a stage the baseline
+# does not have — parity, not transparency. The platform defect itself is only visible from
+# outside this file, in the ladder's fixture, which runs the scan under a sed that drops CR.
+crlf_sample() { printf 'ordinary line\r\nsecond line, no credential here\r\n'; }
+
+st_crlf() {
+	if ! crlf_sample | filter | cmp -s - <(crlf_sample | baseline); then
+		printf 'SELF-TEST FAIL: CRLF input is not byte-identical under the filter\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+	# ...and the other half, because the fix must not buy transparency with a blind spot: a
+	# token on a CRLF line still gets redacted. The assertion is ABSENCE rather than
+	# `st_redacted`'s exact equality, because whether the CR itself survives is the
+	# platform's business and this fixture is deliberately not the one that decides it.
+	local token
+	token="AKIA$(rand_upper 16)"
+	if printf 'lead %s trail\r\n' "$token" | filter | grep -qF "$token"; then
+		printf 'SELF-TEST FAIL: a token on a CRLF line survived redaction\n' >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+}
+
+# Multi-line fixtures for the range stage. stdin is a whole block, not a line, so neither
+# st_redacted nor st_untouched can express them: the assertion is about what happens to the
+# lines AROUND the match as much as to the match itself.
+#
+# The block is assembled from generated body lines and printf-built markers, for the reason
+# every fixture here is: written out whole, this file would carry a key-shaped block and stop
+# being clean under its own filter.
+key_block() { # key_block <full-body-lines> [end-marker: yes|no] [final-line-length]
+	local n=$1 end=${2:-yes} tail=${3:-24} i=0
+	printf -- '-----%s RSA PRIVATE KEY-----\n' BEGIN
+	while [ "$i" -lt "$n" ]; do
+		rand_alnum 64
+		printf '\n'
+		i=$((i + 1))
+	done
+	# A SHORT final line, because a real one is: the body's last line is (length mod 64)
+	# characters and measured 20, 24 or 28 across 40 generated RSA-2048 keys. A fixture that
+	# emits only 64-character lines cannot see a floor set above those values, and that is
+	# exactly the defect the first version of this stage shipped.
+	if [ "$tail" -gt 0 ]; then
+		rand_alnum "$tail"
+		printf '\n'
+	fi
+	[ "$end" = yes ] && printf -- '-----%s RSA PRIVATE KEY-----\n' END
+	return 0
+}
+
+# <label> <block-text> <expected body-line count> — EXACT equality, line by line.
+#
+# The first version asserted survival with the same `{32,}` regex the implementation uses, so a
+# body line shorter than the floor satisfied it trivially and the fixture could not fail on the
+# floor being wrong — which it was. An oracle written in the implementation's own constant tests
+# the constant against itself. This one knows only what a redacted block LOOKS like: every line
+# between the markers is the marker line, and there are as many of them as the caller built.
+st_block_redacted() {
+	local label=$1 block=$2 want=$3 out line bodies=0 bad=0 inside=0
+	out=$(printf '%s\n' "$block" | filter)
+	# The header line is `[REDACTED:private_key_block]` by the time it reaches here — the token
+	# stage rewrites it — so THAT is what opens the region, not the raw BEGIN marker. The END
+	# marker carries no secret and is left intact, which is what closes it.
+	while IFS= read -r line; do
+		case $line in
+		'[REDACTED:private_key_block]') inside=1 ;;
+		*'PRIVATE KEY-----') inside=0 ;;
+		'[REDACTED:private_key_body]') bodies=$((bodies + 1)) ;;
+		'') ;;
+		*) [ "$inside" -eq 1 ] && bad=$((bad + 1)) ;;
+		esac
+	done <<<"$out"
+	if [ "$bad" -ne 0 ]; then
+		# Never prints the line itself: a diagnostic that echoes it leaks the key material the
+		# stage exists to suppress.
+		printf 'SELF-TEST FAIL: %s — %d line(s) between the key markers were not redacted\n' "$label" "$bad" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	elif [ "$bodies" -ne "$want" ]; then
+		printf 'SELF-TEST FAIL: %s — %d body line(s) redacted, expected %d\n' "$label" "$bodies" "$want" >&2
+		ST_FAILS=$((ST_FAILS + 1))
+	fi
+}
+
+st_block_survives() { # <label> <block-text> <text that must appear verbatim in the output>
+	local label=$1 block=$2 want=$3 out
+	out=$(printf '%s\n' "$block" | filter)
+	if ! printf '%s\n' "$out" | grep -qF -- "$want"; then
+		printf 'SELF-TEST FAIL: %s — the filter ate output it must not touch\n' "$label" >&2
 		ST_FAILS=$((ST_FAILS + 1))
 	fi
 }
@@ -273,6 +471,36 @@ self_test() {
 	st_redacted jwt "eyJ$(rand_alnum 20).$(rand_alnum 20).$(rand_alnum 20)"
 	# Assembled at runtime: a stored literal would make this file match its own filter.
 	st_redacted private_key_block "$(printf -- '-----%s RSA PRIVATE KEY-----' BEGIN)"
+
+	# The header class above redacts the HEADER. These cover the body, which is the part
+	# that is actually the key — before this stage existed, `cat id_rsa | redact.sh` printed
+	# the marker and then every base64 line of the key in the clear.
+	st_block_redacted key_block "$(key_block 3)" 4
+	# A block whose END marker never arrives: the body must still go. This is the shape a
+	# truncated log has, and the one an interrupted `cat` produces.
+	st_block_redacted key_block_unterminated "$(key_block 3 no)" 4
+	# The REAL shape a floor gets wrong: a body whose last line is 20 characters. With the
+	# 32-character floor this stage first shipped, this fixture fails and the tail prints.
+	st_block_redacted key_block_short_tail "$(key_block 2 yes 20)" 3
+	# And the shortest a PEM tail can mathematically be: (body length mod 64) can be 4.
+	st_block_redacted key_block_minimal_tail "$(key_block 1 yes 4)" 2
+	# ...and the other half of the same case, which is what makes the range affordable: an
+	# unterminated header must NOT eat the ordinary PROSE after it. Prose has spaces; that is
+	# what saves it, not a length — the residue below is the price of having no floor.
+	st_block_survives key_block_open_range_prose \
+		"$(printf -- '-----%s RSA PRIVATE KEY-----\nwarning: key rotated, see docs/RUNBOOK.md\n' BEGIN)" \
+		'warning: key rotated, see docs/RUNBOOK.md'
+	# The accepted residue, pinned so it is a trade rather than a surprise: after an UNMATCHED
+	# header, a line that is one unbroken alphanumeric word IS redacted. Reaching this state
+	# takes the literal key header in the stream, and at that point redacting toward safety is
+	# the right direction — but if it ever costs something real, the fix is a smarter END
+	# detection, never a length floor. A floor is what leaked the tail.
+	st_block_redacted key_block_open_range_word \
+		"$(printf -- '-----%s RSA PRIVATE KEY-----\nTraceback\n' BEGIN)" 1
+	# A manifest line is 64 base64-legal characters and clears the body floor by construction.
+	# It survives only because the range never opened — which is the whole argument for the
+	# anchor, pinned as a fixture rather than left in a comment.
+	st_untouched manifest_hash_line "$(rand_class 'a-f0-9' 64)"
 
 	# Shapes that were live and unmatched. `sk-proj-` is the one that matters most: it is
 	# OpenAI's current format, and the class named after that vendor stopped matching it
@@ -413,6 +641,10 @@ self_test() {
 		ST_FAILS=$probe_before
 	fi
 
+	# Line endings, at the byte level. Every fixture above is fed one `printf '%s\n'` line,
+	# so none of them can see what the filter does to a CR.
+	st_crlf
+
 	# The filter must be clean under itself: its own patterns must not look like
 	# tokens, or the ladder's tree scan would flag this very file forever.
 	#
@@ -438,9 +670,10 @@ self_test() {
 case "${1:-}" in
 "") filter ;;
 --classes) list_classes ;;
+--baseline) baseline ;;
 --self-test) self_test ;;
 *)
-	printf 'usage: %s [--classes|--self-test]\n' "$0" >&2
+	printf 'usage: %s [--classes|--baseline|--self-test]\n' "$0" >&2
 	exit 2
 	;;
 esac

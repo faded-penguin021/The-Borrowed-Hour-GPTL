@@ -1,80 +1,67 @@
 # DEVIATIONS & DISCOVERIES LEDGER — permanent registry (D-001…)
 
-> **Append-only registry — NEVER archived, compressed, or truncated.** This is
-> the canonical, permanent home for every numbered deviation and discovery.
-> Code and docs cite entries as bare `D-NNN` and must always resolve here — no
-> entry may ever be deleted or summarized away. Append new entries at the
-> bottom, one continuous sequence. Code + committed tests are ground truth; if
-> an entry conflicts with current code, trust the code and correct the entry
-> (never delete it).
+> **Append-only retrieval storage — NEVER archived, compressed, or truncated.** This is the
+> canonical, permanent home for every numbered deviation and discovery. Append rows at the
+> bottom in one continuous sequence; never move, renumber, summarize or delete them. **Grep it
+> and cite one row, never read a volume whole** — a volume at its cap is tens of kilobytes
+> whose overwhelming majority is irrelevant to any given session. Code and committed tests
+> settle current behavior; a stale row remains historical.
 >
-> **This file is RETRIEVAL storage: grep it and cite it, never read it whole.**
-> A `D-NNN` citation resolves to one row, and one row is what you read. A volume
-> at its cap is tens of kilobytes whose overwhelming majority is irrelevant to
-> any given session, so reading it end to end spends context better spent on the
-> code you came to change. The ladder's cap rung prints a size in KB beside the
-> line count so the read cost the cap stands in for stays visible, and it
-> measures the **live** volume only — once this file rolls over its own size
-> stops being reported.
+> **Rows are immutable.** The ` [cited]` marker is metadata and may be synchronized in place —
+> the one exception, and a required one, because the ladder's citation rung checks that marker
+> in both directions and an append-only guard of your own must permit adding AND dropping it.
+> Otherwise correct a detail with a new row and append `Corrected by D-NNN.` to the old row, or
+> replace its whole conclusion with a new row and append `Superseded by D-NNN.` A row carries
+> at most one pointer, ever, and the first is final. The guard checks pointer FORM; whether the
+> verb chosen is honest is the rule reviewer's.
 >
-> **Search before appending:** grep this file for the topic first — extend or
-> cite an existing row rather than append a near-duplicate. A row that
-> supersedes an older one says so ("supersedes D-NNN"), and the old row gets a
-> correction pointer, never deletion. **Keep new rows at or below
-> `LEDGER_ROW_CHAR_CAP`** (**800** bytes under `LC_ALL=C`; ASCII is one byte per
-> character; keep this number in lockstep with `amh.conf`): capture the durable
-> lesson, not the whole debugging narrative. The cap is deliberately below the
-> shipped default and below the median of the rows written before it — if a real
-> lesson will not fit, that is worth saying out loud rather than splitting it
-> across two IDs or shipping it pre-truncated. **That last part is prose-only:**
-> no guard can tell a split lesson or a pre-truncated one from a genuinely short
-> row, so the cap is honoured by intent or not at all.
+> **Authoring.** Search the volume chain before appending — extend or cite an existing row
+> rather than add a near-duplicate. Write the smallest self-contained durable lesson, one or two
+> sentences where they suffice; route debugging narrative to git and leave a concise pointer.
+> `LEDGER_ROW_SENTENCE_CAP` is the working limit and `LEDGER_ROW_CHAR_CAP` the backstop beneath
+> it (both in `amh.conf`, deliberately not restated here as numbers). They are **rejection
+> boundaries, never desired sizes**: crossing either rejects the row, and passing them proves no
+> more than the absence of obvious oversizing — never concision, scope or information quality.
+> Approaching one is a classification signal that the material holds narrative or two lessons:
+> split it or reduce it to the durable conclusion. **Never merge sentences, repunctuate, or drop
+> useful qualifiers solely to move a counter.**
 >
-> **What the cap actually reaches.** It binds every row still *uncommitted* when
-> the ladder runs — the rung returns early unless the ledger has uncommitted
-> changes, and it skips any row ID already present at HEAD. So committing first
-> and verifying afterwards escapes it entirely, and rows already in history are
-> exempt permanently (editing one later keeps the exemption, which is what keeps
-> append-only corrections legal). One more reason the checkpoint invariant runs
-> ladder-green *before* commit rather than after.
+> **What the boundaries actually reach.** They bind every row still *uncommitted* when the
+> ladder runs — the rung returns early unless the ledger has uncommitted changes, and skips any
+> row ID already present at HEAD. Committing first and verifying afterwards escapes them
+> entirely, and rows already in history are exempt permanently. One more reason the checkpoint
+> invariant runs ladder-green *before* commit rather than after.
 >
-> **File cap & rollover.** This file holds at most **800 lines** (the cap is on
-> LINES, not rows — it's read cost being bounded; keep the number in lockstep
-> with the ladder guard's `LEDGER_LINE_CAP`). **Two different caps read 800 and
-> they are unrelated:** `LEDGER_LINE_CAP` is 800 *lines* for this whole file,
-> `LEDGER_ROW_CHAR_CAP` is 800 *bytes* for one new row. They are separate keys
-> enforced by separate rungs; the shared digits are coincidence, so never
-> "reconcile" one to the other. Rows already committed when
-> checked are historical and exempt from the row cap, so append-only history is
-> never rewritten. The final row may finish past the file cap, but no row may
-> ever *start* past it: when the file stands over the cap, create `LEDGER_A.md`
-> with this same header, numbering from **DA-001**. The suffix advances as an
-> **odometer over A–Z, not a list with a last entry**: `_Z` rolls to `_AA`, `_AZ`
-> to `_BA`, `_ZZ` to `_AAA`, without limit. The ladder computes that name and
-> prints it in the failure telling you to roll over, so you never spell it
-> yourself. Existing rows are never moved or renumbered; a citation's prefix
-> names its file.
+> **Paths in rows.** A row's immutability covers its text, not the lifetime or location of a
+> file it names. A new path reference must resolve in the tree where the row is authored; a
+> committed row's target may later move or disappear, and that historical drift leaves the text
+> alone and blocks nothing. **A new row may not cite a plan's path** — a plan is provisional
+> context whose citation dies when it retires, and a row that pinned one would make
+> archive-or-delete impossible.
 >
-> **The volumes form a CHAIN, and the ladder walks it from `LEDGER.md`, stopping
-> at the first missing link.** A volume is a file the scheme can *reach*, not a
-> file whose name looks right: a `LEDGER_X.md` with no `LEDGER_A.md`…`_W.md`
-> before it is unreachable and its rows are read by nothing. The rung warns
-> naming the unreachable file, and fails outright if `LEDGER.md` itself is the
-> missing one.
+> **Rollover.** `LEDGER_LINE_CAP` is a rollover boundary on LINES for this whole file, not on
+> rows and not the same unit as either row boundary above. The final row may finish past it, but
+> no row may ever *start* past it: when the file stands over the cap, create `LEDGER_A.md` with
+> this same header, numbering from **DA-001**. The suffix advances as an **odometer over A–Z,
+> not a list with a last entry**: `_Z` rolls to `_AA`, `_AZ` to `_BA`, `_ZZ` to `_AAA`, without
+> limit. The ladder computes that name and prints it in the failure telling you to roll over, so
+> you never spell it yourself. The live volume's byte size is measurement only — reported, never
+> judged, and once this file rolls over its size stops being reported at all.
 >
-> **`[cited]` marker (machine-CHECKED — you write it, the ladder verifies it).**
-> A row cited from the ladder's scan scope carries ` [cited]` after its number.
-> `scripts/ladder.sh` checks it in both directions — cited-but-unmarked and
-> marked-but-uncited each fail — but it never edits this file: **nothing syncs
-> the marker for you.** It warns you that code resolves here before you lean on
-> or reword a row.
+> **The volumes form a CHAIN, and the ladder walks it from `LEDGER.md`, stopping at the first
+> missing link.** A volume is a file the scheme can *reach*, not one whose name looks right: a
+> `LEDGER_X.md` with no `LEDGER_A.md`…`_W.md` before it is unreachable and its rows are read by
+> nothing. The rung warns naming the unreachable file, and fails outright if `LEDGER.md` itself
+> is the missing one.
 >
-> What the guard checks is **token sync and row existence** — that every
-> `D-NNN` appearing in code or docs resolves to a row, and that markers match
-> the code-citation set. It cannot check that the row actually *supports* the
-> claim made at the citation site; that is the rule reviewer's job (`CLAUDE.md`
-> → Fresh-context review). Doc citations are existence-checked but never carry
-> the marker.
+> **`[cited]` (machine-CHECKED — you write it, the ladder verifies it).** A row cited from the
+> configured code/workflow scan paths carries ` [cited]` after its number. `scripts/ladder.sh`
+> checks it both ways — cited-but-unmarked and marked-but-uncited each fail — but it never edits
+> this file: **nothing syncs the marker for you.** What it checks is token sync and row
+> existence, never that the row actually *supports* the claim at the citation site; that is the
+> rule reviewer's job (`CLAUDE.md` → Fresh-context review). Documentation mentions are
+> existence-checked by this repo's own `scripts/guards/docs-citations.sh` and never carry the
+> marker.
 
 - D-001 [cited]: Gemini deprecated `temperature` / `top_p` / `top_k` starting with 3.5
   Flash-Lite and 3.6 Flash. They are accepted-and-ignored on those models today
@@ -275,3 +262,34 @@
   degrades silently: an established fact folded to text is still true, a ruled-out one
   becomes its own opposite. Check a compaction step against every field the CONSUMER
   interprets, and keep dedupe keyed on the fact rather than the rendered line.
+
+- D-021: The pre-AMH harness history, relocated out of `CLAUDE.md` on the v14.0.0 upgrade
+  under AMH 8.0.0's rule that the constitution states the system as it is now. A
+  hand-rolled v1.8 rule subset was added 2026-07-18 and hardened 2026-07-25; the AMH
+  v2.1.0 instantiation of 2026-07-27 superseded it and was owner-sanctioned in full; the
+  v4.2.0 upgrade of 2026-08-09 carried that sanction forward, adding `REQUIRED_TOOLS`,
+  `ADAPTER_FILES` and `LEDGER_ROW_CHAR_CAP` to `amh.conf`.
+
+- D-022: The `PreToolUse` rail lineage, relocated with D-021. `.claude/hooks/block-npm-install.mjs`
+  (deleted 2026-07-25) was superseded by a hand-rolled four-rail `command-guard.sh`, which the
+  shipped AMH guard replaced on 2026-07-27 with its install rail moving to this repo's own
+  `scripts/install-guard.sh`. Each swap was owner-sanctioned; an unexplained hook change is
+  still a stop-and-report event.
+
+- D-023: AMH v14.0.0 adopted 2026-09-05 from v4.2.0, twenty-one releases in one pass,
+  owner-sanctioned in advance. Two forks were decided by the session rather than queued, both
+  flagged back to the owner: `LEDGER_ROW_CHAR_CAP` went 800 back to the shipped 2000 because
+  8.0.0's new `LEDGER_ROW_SENTENCE_CAP` now does the job 800 was standing in for, and the
+  `light` profile was kept rather than splitting a `docs/RUNBOOK.md`.
+
+- D-024: An upgrade note that names a seed file this profile does not carry needs a written
+  destination, not a judgement call each time. Five AMH releases route legislation into
+  `docs/RUNBOOK.md`, which the `light` profile withholds; the content must still land somewhere
+  live, uncapped and inside `RULE_FILES`, which here is `CLAUDE.md`. Record the mapping in the
+  constitution so the next upgrade does not re-derive it — or re-decide the split deliberately.
+
+- D-025: Writing rule prose ABOUT the credential rails trips them. The command guard's dotenv
+  and certificate-container advisories match the filename shapes anywhere in a command, so a
+  heredoc carrying constitution text about them is blocked exactly as a read would be. Both are
+  one-time speed bumps and the rerun proceeds, which is the designed answer; the cost is one
+  turn each. Do not reword the rule to dodge the scanner.
