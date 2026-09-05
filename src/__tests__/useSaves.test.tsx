@@ -8,8 +8,9 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { SAVE_PREFIX, AUTOSAVE_KEY, SAVE_CAP } from "../data/constants";
+import { SAVE_PREFIX, AUTOSAVE_KEY, SAVE_CAP, EMPTY_LEDGER } from "../data/constants";
 import type { SaveCurrentArgs } from "../hooks/useSaves";
+import { CURRENT_SAVE_VERSION } from "../saves/migrate";
 import type { Premise } from "../types";
 
 // ── Boundary doubles ─────────────────────────────────────────────────────────
@@ -44,6 +45,7 @@ function args(overrides: Partial<SaveCurrentArgs> = {}): SaveCurrentArgs {
     entries: [{ type: "narration", text: "A door opens.", fullyRevealed: true }],
     ended: false,
     gameState: null,
+    ledger: EMPTY_LEDGER,
     history: [],
     metaMessages: [],
     metaMode: false,
@@ -172,7 +174,7 @@ describe("readAutosave — version handling and corruption tolerance", () => {
     await act(async () => { rec = await result.current.readAutosave(); });
 
     expect(rec).not.toBeNull();
-    expect(rec!.schemaVersion).toBe(1);
+    expect(rec!.schemaVersion).toBe(CURRENT_SAVE_VERSION);
     expect(rec!.premise?.title).toBe("The Hour");
   });
 
@@ -204,7 +206,7 @@ describe("loadSaveList — version stamping and damaged-record tolerance", () =>
     await act(async () => { await result.current.loadSaveList(); });
 
     expect(result.current.saveList).toHaveLength(1);
-    expect(result.current.saveList[0].schemaVersion).toBe(1);
+    expect(result.current.saveList[0].schemaVersion).toBe(CURRENT_SAVE_VERSION);
     expect(result.current.savesTotalBytes).toBeGreaterThan(0);
   });
 });

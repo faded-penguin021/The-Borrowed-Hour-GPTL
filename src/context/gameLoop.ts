@@ -639,11 +639,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
         history: save.history || [],
         ended: !!save.ended,
         gameState: save.gameState || EMPTY_STATE,
-        // Saves do not carry a ledger yet -- that is unit G4, which adds the
-        // field to SaveRecord and migrates the schema. Harmless while nothing
-        // writes rows, and a silent memory loss the moment something does, so
-        // G4 lands before or with the unit that starts appending.
-        ledger: EMPTY_LEDGER,
+        ledger: save.ledger || EMPTY_LEDGER,
         language: save.language || "en",
         metaMessages: (save.metaMessages || []).map((m) => ({ ...m, fullyRevealed: true })),
         metaMode: !!save.metaMode,

@@ -30,12 +30,8 @@ git history the detail.
 
 Active multi-unit work: **`docs/plans/amh-principles-in-game.md`** (owner-approved,
 branch `claude/text-adventure-amh-crkvd4`) — ports AMH's memory tiering into the *game*,
-which today has working memory only. **G1 done**; G2–G5 open. The plan holds the detail,
-including a secondary AMH 4.2.0 → 14.0.0 track not yet in scope.
-
-**G4 (save persistence) must land before or with G2 (the append path).** Until it does,
-`LOAD_SAVE` fills the ledger with `EMPTY_LEDGER` — harmless while nothing writes rows, a
-silent loss of permanent memory the moment something does.
+which today has working memory only. **G1 and G4 done**; G2, G3, G5 open. The plan holds
+the detail, including a secondary AMH 4.2.0 → 14.0.0 track not yet in scope.
 
 Standing harness: **AMH v4.2.0**, upgraded 2026-08-09; adopted 2026-07-27 at the
 **light** profile (owner-confirmed in session), replacing the hand-rolled v1.8 subset.
@@ -131,6 +127,12 @@ owner-verified via the Owner queue.
 One line per shipped change or completed unit (newest first). Pre-harness history lives
 in `docs/BACKLOG.md` and git.
 
+- 2026-09-05 — G4 (taken early, out of plan order, because G1 left `LOAD_SAVE` filling
+  `EMPTY_LEDGER` — a landmine the moment G2 starts writing rows): save schema v1→v2
+  carries the ledger. A v1 save gets an empty one rather than reconstructed rows; a
+  damaged one degrades to empty via `StoryLedgerSchema`. Autosave deps and both save
+  call sites wired; version assertions now read `CURRENT_SAVE_VERSION` instead of a
+  literal, so the constant and its tests cannot drift.
 - 2026-09-05 — G1: the `StoryLedger` tier — permanent memory for the story, append-only
   by construction (`APPEND_LEDGER_ROWS` is the only action; no edit or delete exists).
   Dedupe, a truncating row cap, and rollover that folds the oldest batch into a frozen

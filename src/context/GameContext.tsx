@@ -150,7 +150,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   // ── Core story state (reducer) ────────────────────────────────────
   const [s, dispatch] = useReducer(storyReducer, INITIAL_STATE);
-  const { phase, premise, entries, history, ended, gameState, language,
+  const { phase, premise, entries, history, ended, gameState, ledger, language,
           metaMode, metaMessages, skipNonce, recovery } = s;
   const error = s.error;
 
@@ -209,7 +209,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   // ── Autosave ────────────────────────────────────────────────────
   useAutosave(
-    { phase, loading, premise, entries, ended, gameState, history, metaMessages, metaMode, language, codex: codexSnapshot },
+    { phase, loading, premise, entries, ended, gameState, ledger, history, metaMessages, metaMode, language, codex: codexSnapshot },
     saves.writeAutosave
   );
 
@@ -321,7 +321,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const canUndo = !loading && !metaMode && history.length >= 4 && entries.length >= 3;
 
   const saveCurrent = () => saves.saveCurrent({
-    premise, entries, ended, gameState, history, metaMessages, metaMode, language,
+    premise, entries, ended, gameState, ledger, history, metaMessages, metaMode, language,
     codex: codexSnapshot
   });
 

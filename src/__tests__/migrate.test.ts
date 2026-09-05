@@ -5,13 +5,18 @@ describe("migrateSave", () => {
   it("stamps schemaVersion on a pre-versioning save", () => {
     const old = { id: "abc", premiseId: "p1", savedAt: 123 };
     const result = migrateSave(old);
-    expect(result.schemaVersion).toBe(1);
+    expect(result.schemaVersion).toBe(CURRENT_SAVE_VERSION);
   });
 
-  it("preserves schemaVersion on an already-versioned save", () => {
+  it("upgrades a version-1 save to the current version", () => {
     const v1 = { id: "abc", schemaVersion: 1 };
     const result = migrateSave(v1);
-    expect(result.schemaVersion).toBe(1);
+    expect(result.schemaVersion).toBe(2);
+  });
+
+  it("does not downgrade a save from the future", () => {
+    const v99 = { id: "abc", schemaVersion: 99 };
+    expect(migrateSave(v99).schemaVersion).toBe(99);
   });
 
   it("handles null/undefined gracefully", () => {
@@ -19,8 +24,50 @@ describe("migrateSave", () => {
     expect(migrateSave(undefined)).toBeUndefined();
   });
 
-  it("exports the current version as 1", () => {
-    expect(CURRENT_SAVE_VERSION).toBe(1);
+  it("exports the current version as 2", () => {
+    expect(CURRENT_SAVE_VERSION).toBe(2);
+  });
+});
+
+// The ledger is the story's permanent memory, so a damaged one must degrade to
+// empty rather than surface half-parsed rows the story would then trust.
+describe("migrateSave: the story ledger (schemaVersion 2)", () => {
+  it("gives a version-1 save an empty ledger rather than inventing rows", () => {
+    const v1 = { id: "abc", schemaVersion: 1, history: [{ role: "assistant", content: "a thing happened" }] };
+    const result = migrateSave(v1);
+    expect(result.ledger).toEqual({ rows: [], chronicle: "", rolled: 0 });
+  });
+
+  it("preserves a well-formed ledger through the migration", () => {
+    const rec = {
+      id: "abc", schemaVersion: 2,
+      ledger: {
+        rows: [{ id: "L-001", turn: 3, kind: "ruled_out", text: "the abbot is innocent" }],
+        chronicle: "earlier things",
+        rolled: 20,
+      },
+    };
+    const result = migrateSave(rec);
+    expect(result.ledger?.rows).toHaveLength(1);
+    expect(result.ledger?.rows[0]).toMatchObject({ id: "L-001", turn: 3, kind: "ruled_out" });
+    expect(result.ledger?.chronicle).toBe("earlier things");
+    expect(result.ledger?.rolled).toBe(20);
+  });
+
+  it("degrades a non-object ledger to empty", () => {
+    expect(migrateSave({ id: "a", ledger: "corrupt" }).ledger).toEqual({ rows: [], chronicle: "", rolled: 0 });
+    expect(migrateSave({ id: "a", ledger: null }).ledger).toEqual({ rows: [], chronicle: "", rolled: 0 });
+  });
+
+  it("repairs a row with a bad kind or turn instead of dropping the ledger", () => {
+    const rec = {
+      id: "abc", schemaVersion: 2,
+      ledger: { rows: [{ id: "L-001", turn: -5, kind: "invented", text: "kept" }], chronicle: "", rolled: 0 },
+    };
+    const row = migrateSave(rec).ledger?.rows[0];
+    expect(row?.text).toBe("kept");
+    expect(row?.kind).toBe("established");
+    expect(row?.turn).toBe(0);
   });
 });
 

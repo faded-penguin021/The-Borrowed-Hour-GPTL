@@ -31,7 +31,7 @@ export function useAutosave(slice: AutosaveSlice, write: (args: SaveCurrentArgs)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once per settled turn; `slice`/`write` are rebuilt each render and read at call time to avoid a stale snapshot
   }, [
     phase, loading, premise, entries,
-    slice.history, slice.ended, slice.gameState,
+    slice.history, slice.ended, slice.gameState, slice.ledger,
     slice.metaMessages, slice.metaMode, slice.language, slice.codex,
   ]);
 }

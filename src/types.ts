@@ -466,6 +466,10 @@ export interface SaveRecord {
   turns: number;
   ended: boolean;
   gameState: GameState | null;
+  // Permanent memory. Optional because saves written before schemaVersion 2 have
+  // none -- migrateSave defaults those to an empty ledger, which is honest: an
+  // old save genuinely has no permanent memory to recover.
+  ledger?: StoryLedger;
   entries: Entry[];
   history: ChatMessage[];
   metaMessages: MetaMessage[];

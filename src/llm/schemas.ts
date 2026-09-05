@@ -77,6 +77,32 @@ export const GameStateSchema = z.preprocess((val) => {
   return val;
 }, FlatGameStateSchema);
 
+/**
+ * A story-ledger row as it comes back off disk or in from the GM.
+ *
+ * Note the name: the GM tool's `ledger` sub-object is the player-facing DIARY
+ * (PlayerLedger). This is the separate permanent-memory tier (StoryLedger), and
+ * the two must never share a field name in a payload -- hence `story_ledger`
+ * wherever a model can see it.
+ */
+const LedgerRowSchema = z.object({
+  id: clamped(MAX_LABEL).default(""),
+  turn: z.number().int().nonnegative().catch(0).default(0),
+  kind: z.enum(["established", "ruled_out"]).catch("established").default("established"),
+  text: clamped(MAX_ITEM).default("")
+});
+
+/**
+ * The permanent-memory tier. Every field defaults, so a save written before the
+ * tier existed -- or a truncated one -- degrades to an empty ledger rather than
+ * failing the whole record.
+ */
+export const StoryLedgerSchema = z.object({
+  rows: clampedList(LedgerRowSchema).default([]),
+  chronicle: clamped(MAX_PROSE).default(""),
+  rolled: z.number().int().nonnegative().catch(0).default(0)
+});
+
 /** The canonical set of terminal ending tags, lower-cased. */
 export const ENDING_VALUES = ["good", "bittersweet", "pyrrhic", "ambiguous", "bad"] as const;
 
