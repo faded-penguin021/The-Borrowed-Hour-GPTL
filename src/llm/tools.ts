@@ -8,6 +8,7 @@ export { buildMetaSystem } from "../prompts/meta";
 export {
   GM_SCRATCHPAD_DESC,
   STATE_SCHEMA,
+  STORY_LEDGER_APPEND_SCHEMA,
   AMBIENCE_SCHEMA,
   GM_LOGIC_TOOL,
   GM_TOOL,

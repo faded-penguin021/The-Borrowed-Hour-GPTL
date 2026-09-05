@@ -6,7 +6,8 @@ import {
   stripHistoricalUser,
   stripHistoricalAssistant,
 } from "../llm/prompt";
-import type { GameState } from "../types";
+import type { GameState, StoryLedger } from "../types";
+import { EMPTY_LEDGER } from "../data/constants";
 
 // The prompt serializers are the barrier between GM-private state and everything
 // the player (or a saved/exported transcript) can see. hidden_state must never
@@ -47,6 +48,15 @@ describe("toPlayerLedger", () => {
   });
 });
 
+const ledgerWith: StoryLedger = {
+  rows: [
+    { id: "L-001", turn: 3, kind: "established", text: "The watchman is dead." },
+    { id: "L-002", turn: 4, kind: "ruled_out", text: "The east door will never open again." },
+  ],
+  chronicle: "",
+  rolled: 0,
+};
+
 describe("formatStateForPrompt", () => {
   it("returns empty blocks for a null state", () => {
     expect(formatStateForPrompt(null)).toEqual({ publicBlock: "", privateBlock: "" });
@@ -81,6 +91,30 @@ describe("formatStateForPrompt", () => {
   it("leaves the private block empty when there is no hidden_state", () => {
     const { privateBlock } = formatStateForPrompt({ ...fullState, hidden_state: "" });
     expect(privateBlock).toBe("");
+  });
+
+  // The permanent tier is only useful if it is the FIRST thing the turn says.
+  // Ordering is the assertion: a ledger rendered under the mutable state is a
+  // ledger the model reads as a footnote to memory it is about to overwrite.
+  it("puts the story-ledger block above the mutable state block", () => {
+    const { publicBlock } = formatStateForPrompt(fullState, ledgerWith);
+    expect(publicBlock.indexOf("STORY LEDGER")).toBeGreaterThanOrEqual(0);
+    expect(publicBlock.indexOf("STORY LEDGER")).toBeLessThan(publicBlock.indexOf("CURRENT GAME STATE"));
+    expect(publicBlock).toContain("The watchman is dead");
+    expect(publicBlock).toContain("RULED OUT");
+  });
+
+  it("renders the state alone when no ledger is passed, and the ledger alone when there is no state", () => {
+    expect(formatStateForPrompt(fullState).publicBlock).not.toContain("STORY LEDGER");
+    expect(formatStateForPrompt(fullState, EMPTY_LEDGER).publicBlock).not.toContain("STORY LEDGER");
+    const { publicBlock } = formatStateForPrompt(null, ledgerWith);
+    expect(publicBlock).toContain("STORY LEDGER");
+    expect(publicBlock).not.toContain("CURRENT GAME STATE");
+  });
+
+  it("keeps the ledger out of the private block", () => {
+    const { privateBlock } = formatStateForPrompt(fullState, ledgerWith);
+    expect(privateBlock).not.toContain("STORY LEDGER");
   });
 });
 

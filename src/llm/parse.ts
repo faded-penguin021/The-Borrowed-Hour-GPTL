@@ -251,6 +251,7 @@ export function parseGMLogicResponse(rawText: string): GMLogicParseResult {
     state: result.data.state,
     ending: result.data.ending ?? null,
     ambience: resolveAmbience(obj),
+    story_ledger_append: result.data.story_ledger_append,
     raw: rawText,
     malformed: false
   };
@@ -287,6 +288,7 @@ export function parseGMResponse(rawText: string): GMParseResult {
     state: result.data.state,
     ending: result.data.ending ?? null,
     ambience: resolveAmbience(obj),
+    story_ledger_append: result.data.story_ledger_append,
     raw: rawText,
     malformed: false
   };

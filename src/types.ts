@@ -515,6 +515,9 @@ export interface GMParseResult {
   state: GameState | null;
   ending: string | null;
   ambience?: AmbienceInput | null;
+  // Rows the GM proposes for the permanent tier this turn. Proposals only:
+  // `id` and `turn` are assigned by appendLedgerRows, never by the model.
+  story_ledger_append?: LedgerRowInput[];
   raw: string;
   malformed: boolean;
   diagnostic?: string;
@@ -525,6 +528,7 @@ export interface GMLogicParseResult {
   state: GameState | null;
   ending: string | null;
   ambience?: AmbienceInput | null;
+  story_ledger_append?: LedgerRowInput[];
   raw: string;
   malformed: boolean;
   diagnostic?: string;

@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { LEDGER_CHRONICLE_CHAR_CAP, LEDGER_MAX_ROWS } from "../data/constants";
+import {
+  LEDGER_CHRONICLE_CHAR_CAP, LEDGER_MAX_ROWS, LEDGER_MAX_ROWS_PER_TURN,
+  LEDGER_ROW_CHAR_CAP,
+} from "../data/constants";
 import {
   AMBIENCE_SPACE_VALUES,
   AMBIENCE_POPULATION_VALUES,
@@ -119,6 +122,31 @@ export const StoryLedgerSchema = z.object({
   rolled: z.number().int().nonnegative().catch(0).default(0)
 });
 
+/**
+ * What the GM may propose for the permanent tier this turn. Deliberately NOT
+ * the row shape above: the model supplies `kind` and `text` only, because `id`
+ * and `turn` are assigned by appendLedgerRows. A model that could name its own
+ * id could overwrite a row, which is the one thing the tier does not allow.
+ *
+ * Both caps are applied here as well as in appendLedgerRows, and that is not
+ * redundant: this is the boundary an untrusted payload crosses, and it keeps an
+ * oversized proposal out of the parse result the debug console prints.
+ *
+ * Every level catches. A malformed proposal must cost at most the rows it
+ * carries -- never the turn, which holds the narration the player is waiting on.
+ */
+const LedgerRowInputSchema = z.object({
+  kind: z.enum(["established", "ruled_out"]).catch("established").default("established"),
+  text: clamped(LEDGER_ROW_CHAR_CAP).catch("").default("")
+});
+
+export const StoryLedgerAppendSchema = z
+  .array(LedgerRowInputSchema)
+  .transform((a) => a.filter((r) => r.text.trim() !== ""))
+  .transform((a) => (a.length > LEDGER_MAX_ROWS_PER_TURN ? a.slice(0, LEDGER_MAX_ROWS_PER_TURN) : a))
+  .catch([])
+  .default([]);
+
 /** The canonical set of terminal ending tags, lower-cased. */
 export const ENDING_VALUES = ["good", "bittersweet", "pyrrhic", "ambiguous", "bad"] as const;
 
@@ -190,6 +218,7 @@ export const GMLogicResponseSchema = z.object({
   state: GameStateSchema,
   ending: EndingSchema,
   ambience: AmbienceInputSchema,
+  story_ledger_append: StoryLedgerAppendSchema,
 });
 
 /**
@@ -202,6 +231,7 @@ export const GMResponseSchema = z.object({
   state: GameStateSchema.optional().default(() => GameStateSchema.parse({})),
   ending: EndingSchema,
   ambience: AmbienceInputSchema,
+  story_ledger_append: StoryLedgerAppendSchema,
 });
 
 // Type exports — keep parity with the `src/types.ts` names so consumers retain

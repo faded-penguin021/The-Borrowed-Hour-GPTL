@@ -30,7 +30,7 @@ git history the detail.
 
 Active multi-unit work: **`docs/plans/amh-principles-in-game.md`** (owner-approved,
 branch `claude/text-adventure-amh-crkvd4`) — ports AMH's memory tiering into the *game*,
-which today has working memory only. **G1 and G4 done and glue-reviewed**; G2, G3, G5 open. The plan holds
+which today has working memory only. **G1, G4 and G2 done** (G1/G4 glue-reviewed); G3 and G5 open. The plan holds
 the detail, including a secondary AMH 4.2.0 → 14.0.0 track not yet in scope.
 
 Standing harness: **AMH v4.2.0**, upgraded 2026-08-09; adopted 2026-07-27 at the
@@ -127,6 +127,15 @@ owner-verified via the Owner queue.
 One line per shipped change or completed unit (newest first). Pre-harness history lives
 in `docs/BACKLOG.md` and git.
 
+- 2026-09-05 — Unit G2 of `docs/plans/amh-principles-in-game.md`: the ledger gets a
+  producer and a reader. `story_ledger_append` on both GM tools (optional, 0–3 rows,
+  never `ledger` — that word is the player-facing diary), Zod-clamped at the parse
+  boundary so a malformed proposal costs its rows and never the turn, and the ledger
+  block now renders above the mutable state in every turn's prompt. Rows are stamped
+  from the history the dispatch just committed (`turnOf` post-append), which is G1's
+  open finding closed. `responseSchemas.ts` needed nothing — the plan named it, but it
+  holds provider *envelope* schemas, not GM payloads. Verified: full ladder green plus
+  Playwright (9/9). Glue review pending.
 - 2026-09-05 — Ledger tier, units G1 + G4 of `docs/plans/amh-principles-in-game.md`
   (plan recorded the same day). `StoryLedger` is the story's permanent memory:
   append-only for the GM (`APPEND_LEDGER_ROWS` is his only action; UNDO's truncation is

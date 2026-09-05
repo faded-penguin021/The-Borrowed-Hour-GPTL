@@ -136,6 +136,19 @@ export function createGameLoop(deps: GameLoopDeps) {
       gameState: shouldUpdateState ? gmParsed.state : undefined,
       ended: !!gmParsed.ending,
     });
+    // AFTER the dispatch above, never before: rows are stamped with the turn the
+    // assistant message completes, and turnOf reads that off `newHistory`, which
+    // includes it. Stamping mid-turn would date every row to the PREVIOUS turn,
+    // and an undo -- which truncates against the same function -- would then
+    // leave the undone turn's rows behind.
+    //
+    // A resumed narration reaches here twice for one turn with the same rows
+    // (once for the partial, once for the continuation). That is harmless by
+    // construction: appendLedgerRows drops a row whose text it already holds.
+    const rows = gmParsed.story_ledger_append;
+    if (rows && rows.length) {
+      dispatch({ type: "APPEND_LEDGER_ROWS", turn: turnOf(newHistory), rows });
+    }
     if (gmParsed.ending) {
       deps.progress.recordEnding(s.premise?.id, gmParsed.ending);
     }
@@ -197,13 +210,19 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
         if (parsed.raw) err.raw = parsed.raw;
         throw err;
       }
+      const openingHistory: ChatMessage[] = [...msgs, { role: "assistant", content: openingRaw }];
       dispatch({
         type: "APPEND_TURN",
         entries: [{ type: "narration", text: parsed.narration, fullyRevealed: false }],
-        history: [...msgs, { role: "assistant", content: openingRaw }],
+        history: openingHistory,
         gameState: parsed.state,
         ended: !!parsed.ending,
       });
+      // Stamped off the same history the dispatch above committed, for the same
+      // reason as in finalizeNarration -- one function decides what turn it is.
+      if (parsed.story_ledger_append && parsed.story_ledger_append.length) {
+        dispatch({ type: "APPEND_LEDGER_ROWS", turn: turnOf(openingHistory), rows: parsed.story_ledger_append });
+      }
       if (parsed.ending) {
         deps.progress.recordEnding(chosen.id, parsed.ending);
       }
@@ -386,7 +405,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     const newEntries: Entry[] = [...s.entries, { type: "action", text, fullyRevealed: true }];
     dispatch({ type: "SET_ENTRIES", entries: newEntries });
     if (deps.tts.ttsRef.current) deps.tts.ttsRef.current.stop();
-    const { publicBlock, privateBlock } = formatStateForPrompt(s.gameState);
+    const { publicBlock, privateBlock } = formatStateForPrompt(s.gameState, s.ledger);
     const parts: string[] = [];
     if (publicBlock) parts.push(publicBlock);
     parts.push(`[Player action]\n${text}`);

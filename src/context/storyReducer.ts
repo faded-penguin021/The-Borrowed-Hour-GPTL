@@ -17,6 +17,10 @@ export type RecoveryGMParsed = {
   ending?: string | null;
   narration?: string;
   narrator_brief?: string;
+  // Carried so a resumed narration appends the same rows the interrupted turn
+  // proposed. Re-appending them is safe -- appendLedgerRows drops a duplicate
+  // of a row already held -- and dropping them would lose the turn's facts.
+  story_ledger_append?: LedgerRowInput[];
 };
 
 export type FormattedError = { message: string; detail: string | null; raw: unknown };
