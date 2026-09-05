@@ -128,6 +128,7 @@ export function checkContinuity(
     findings.push({
       code: "hidden-state-in-narration",
       detail: "A run of words from the GM's private notes appears in the narration — either it leaked, or it has been revealed and should move out of hidden_state.",
+      note: "This turn's telling repeats something the story had been holding back.",
     });
   }
 
@@ -138,6 +139,7 @@ export function checkContinuity(
     findings.push({
       code: "hidden-state-in-state",
       detail: "A run of words from the GM's private notes appears in the player-visible state.",
+      note: "A line written into this ledger repeats something the story had been holding back.",
     });
   }
 
@@ -151,6 +153,7 @@ export function checkContinuity(
       findings.push({
         code: "npc-dropped",
         detail: `"${npc.name}" was in the cast last turn and is not in it now. Someone leaving the scene is a note on them, not a deletion.`,
+        note: `${npc.name} was listed here last turn and is not listed now.`,
       });
     }
   }
@@ -171,7 +174,10 @@ export function checkContinuity(
     if (added.some((entry) => sharesPhrase(row.text, entry))) {
       findings.push({
         code: "ruled-out-resurfaced",
+        // The row id stays out of `note`: it addresses a tier the player cannot
+        // see, so citing it would name a memory the story keeps to itself.
         detail: `Ledger row ${row.id} ruled this out, and this turn added it back.`,
+        note: "Something added this turn was ruled out earlier in the story.",
       });
     }
   }

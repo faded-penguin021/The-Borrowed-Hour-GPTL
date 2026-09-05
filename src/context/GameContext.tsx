@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- provider co-located with its context hook(s); splitting churns every import site for a dev-only Fast Refresh gain */
 import React, { createContext, useContext, useReducer, useState, useRef, useEffect, useMemo } from "react";
-import type { ChatMessage, Entry, GameState, MetaMessage, Premise, SaveRecord } from "../types";
+import type { ChatMessage, ContinuityFinding, Entry, GameState, MetaMessage, Premise, SaveRecord } from "../types";
 import type { SetStateAction, Dispatch } from "react";
 import { createLLMClient } from "../llm/client";
 import { defaultAmbienceForRealm, deriveAmbienceFromSeed, deriveTonalCenter } from "../ambience/tables";
@@ -79,6 +79,8 @@ interface GameLiveValue {
   metaMessages: MetaMessage[];
   skipNonce: number;
   recovery: Recovery | null;
+  // Advisory continuity findings for the LAST turn only. Read by LedgerModal.
+  continuity: ContinuityFinding[];
   streamingStore: StreamingStore;
   saveBanner: SavesHook["saveBanner"];
   showSaves: SavesHook["showSaves"];
@@ -151,7 +153,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   // ── Core story state (reducer) ────────────────────────────────────
   const [s, dispatch] = useReducer(storyReducer, INITIAL_STATE);
   const { phase, premise, entries, history, ended, gameState, ledger, language,
-          metaMode, metaMessages, skipNonce, recovery } = s;
+          metaMode, metaMessages, skipNonce, recovery, continuity } = s;
   const error = s.error;
 
   const [loading, setLoading] = useState(false);
@@ -402,7 +404,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }), [phase, premise, language, ended, metaMode, canUndo, entriesCount, hasMeta, saves.hasAutosave, keepsakeFilename]);
 
   const live: GameLiveValue = useMemo(() => ({
-    entries, gameState, history, metaMessages, skipNonce, recovery, streamingStore,
+    entries, gameState, history, metaMessages, skipNonce, recovery, continuity, streamingStore,
     saveBanner: saves.saveBanner,
     showSaves: saves.showSaves,
     saveList: saves.saveList,
@@ -416,7 +418,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     keepsakeLoading: keepsake.keepsakeLoading,
     keepsakeError: keepsake.keepsakeError,
   }), [
-    entries, gameState, history, metaMessages, skipNonce, recovery, streamingStore,
+    entries, gameState, history, metaMessages, skipNonce, recovery, continuity, streamingStore,
     saves.saveBanner, saves.showSaves, saves.saveList, saves.saveListLoading,
     saves.savesTotalBytes, saves.exportFallbackText,
     reveal.revealText, reveal.revealLoading, reveal.revealError,

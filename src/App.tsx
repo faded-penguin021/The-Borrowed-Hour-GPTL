@@ -43,7 +43,7 @@ function AppContent({
 
   const { settings } = useSettingsContext();
   const {
-    phase, premise, entries, metaMessages, metaMode, gameState,
+    phase, premise, entries, metaMessages, metaMode, gameState, continuity,
     beginAdventure, loadSave,
     showSaves, setShowSaves, saveList, savesTotalBytes, saveListLoading,
     deleteSave,
@@ -95,6 +95,7 @@ function AppContent({
             <LedgerModal
               premise={premise}
               ledger={toPlayerLedger(gameState)}
+              findings={continuity}
               onClose={() => setShowLedger(false)}
             />
           )}

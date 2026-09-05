@@ -171,3 +171,41 @@ describe("runs that span two fields", () => {
     expect(codes(f)).not.toContain("hidden-state-in-state");
   });
 });
+
+describe("the two voices a finding carries", () => {
+  // `detail` is for `dlog`; `note` is the only half a player may read (G5).
+  // Neither may quote the private text, and `note` may not name a tier the
+  // player is never shown.
+  const ruledOut = "the ferryman was nowhere near the abbey that night";
+  const ledger: StoryLedger = appendLedgerRows(EMPTY_LEDGER, 1, [{ kind: "ruled_out", text: ruledOut }]);
+
+  const everyCode = () => checkContinuity(
+    state({ npcs: [{ name: "Bram", note: "the ferryman" }] }),
+    state({ npcs: [], hidden_state: SECRET, summary: SECRET, clues: [ruledOut] }),
+    ledger,
+    SECRET,
+  );
+
+  it("gives every finding a non-empty player note", () => {
+    const f = everyCode();
+    expect(new Set(codes(f))).toEqual(new Set([
+      "hidden-state-in-narration", "hidden-state-in-state", "npc-dropped", "ruled-out-resurfaced",
+    ]));
+    for (const finding of f) expect(finding.note.trim().length).toBeGreaterThan(0);
+  });
+
+  it("never quotes the private text in either voice", () => {
+    for (const finding of everyCode()) {
+      expect(finding.note.toLowerCase()).not.toContain("abbot poisoned");
+      expect(finding.detail.toLowerCase()).not.toContain("abbot poisoned");
+    }
+  });
+
+  it("keeps the story-ledger row id out of the player note", () => {
+    const f = everyCode().find((x) => x.code === "ruled-out-resurfaced");
+    // The id addresses a memory tier the player cannot see; `detail` may cite
+    // it because only `dlog` reads that.
+    expect(f?.detail).toContain("L-001");
+    expect(f?.note).not.toContain("L-001");
+  });
+});

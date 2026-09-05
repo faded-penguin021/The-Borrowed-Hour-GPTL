@@ -135,11 +135,17 @@ export interface StoryLedger {
 }
 
 // A continuity rule's report on one turn. Advisory: nothing rejects a turn on
-// the strength of one. `detail` never QUOTES the private text whose leak it is
-// reporting -- but it is not therefore spoiler-free: "this turn re-added a fact
-// the story ruled out" tells the player their new clue is a dead end. Findings
-// belong on an authoring / debug surface (today: `dlog`, read by DebugOverlay),
-// not in the story text.
+// the strength of one.
+//
+// TWO VOICES, deliberately, because the finding has two readers. `detail` is
+// the authoring one -- it names `hidden_state`, the ledger row id, the GM --
+// and goes to `dlog` / DebugOverlay only. `note` is what a PLAYER may read: it
+// names no GM-only tier and quotes no private text.
+//
+// Neither is spoiler-FREE, and no wording could be: "something added this turn
+// was ruled out earlier" tells the player their new clue is a dead end, and
+// that is the finding, not a leak in how it is phrased. That is why the surface
+// gates on a deliberate click rather than announcing itself (`LedgerModal`).
 export interface ContinuityFinding {
   code:
     | "hidden-state-in-narration"
@@ -147,6 +153,7 @@ export interface ContinuityFinding {
     | "npc-dropped"
     | "ruled-out-resurfaced";
   detail: string;
+  note: string;
 }
 
 export type EndingType = "good" | "bittersweet" | "pyrrhic" | "ambiguous" | "bad";

@@ -29,9 +29,9 @@ improvement phase (H / T / E / P) are all `done` — `docs/BACKLOG.md` is the re
 
 Active multi-unit work: **`docs/plans/amh-principles-in-game.md`** (owner-approved, branch
 `claude/text-adventure-amh-crkvd4`) — ports AMH's memory tiering into the *game*, which
-had working memory only. **G1–G4 done**; G5 open, its fork now answered (Decided
-non-items). The plan holds the detail, including a secondary AMH 4.2.0 → 14.0.0
-track not yet in scope.
+had working memory only. **G1–G5 done**; only G6 remains, and it is explicitly
+owner's-call / deferred. The plan holds the detail, including a secondary AMH 4.2.0 →
+14.0.0 track not yet in scope.
 
 Standing harness: **AMH v4.2.0** at the **light** profile. `amh.conf` holds every
 setting; shipped scripts are never edited locally and `scripts/MANIFEST.sha256` is
@@ -122,6 +122,16 @@ job, locally needs `PW_CHROMIUM`. Real-provider / on-device behavior is owner-ve
 One line per shipped change or completed unit (newest first). Detail lives in git; the
 durable lessons live in `docs/LEDGER.md`.
 
+- 2026-09-05 — G5: the findings surface, option (a). `ContinuityFinding` now carries two
+  voices — `detail` (names `hidden_state` and row ids; `dlog` only) and `note` (the only
+  half a player may read). The Ledger modal grows an `IN THE MARGIN` block that renders
+  `note`, and it is **folded until clicked**: a finding can point straight at a spoiler,
+  so nothing announces it — no badge, no count outside the modal — and the player reaches
+  for it twice. Story-ledger rows stay GM-only throughout; the row id never leaves
+  `detail`. Findings are per-turn and unsaved, so no save-schema change. Ledger close
+  button gained an accessible name. Covered by unit vectors (both voices, the row id
+  staying out of `note`), a jsdom component test for the fold, and an e2e spec that
+  provokes a real `npc-dropped` through the whole turn pipeline.
 - 2026-09-05 — G3 glue review: 7 findings, all triaged. Fixed: a resumed
   narration finalized twice diffed the turn against itself and overwrote the real
   findings (the pre-turn state + ledger are now passed in, and carried on
