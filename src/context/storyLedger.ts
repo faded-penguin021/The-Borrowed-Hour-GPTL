@@ -1,7 +1,7 @@
 import type { LedgerRow, LedgerRowInput, StoryLedger } from "../types";
 import {
   LEDGER_CHRONICLE_CHAR_CAP, LEDGER_MAX_ROWS, LEDGER_MAX_ROWS_PER_TURN,
-  LEDGER_ROLLOVER_BATCH, LEDGER_ROW_CHAR_CAP,
+  LEDGER_PROMPT_CHRONICLE_CHAR_CAP, LEDGER_ROLLOVER_BATCH, LEDGER_ROW_CHAR_CAP,
 } from "../data/constants";
 
 // The story's permanent memory. Every function here returns a new ledger and
@@ -9,7 +9,21 @@ import {
 // chronicle verbatim, and nothing else touches one after it is written.
 
 function normalize(text: string): string {
-  return text.trim().replace(/\s+/g, " ").toLowerCase();
+  return flattenRowText(text).toLowerCase();
+}
+
+/**
+ * Collapse a row's text to a single line.
+ *
+ * Not cosmetic. `formatLedgerForPrompt` renders one row per line and the
+ * chronicle is SPLIT on newlines, so a row carrying a newline forges a second
+ * row in the block the model reads back -- with an id it invents -- and folds
+ * into two chronicle entries that its own key can never match again, killing
+ * dedupe for that fact permanently. The text is model-authored, so the block's
+ * own syntax has to be unreachable from inside a row rather than discouraged.
+ */
+export function flattenRowText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }
 
 // Folded rows are joined by newline, not by a space, so the chronicle stays a
@@ -20,9 +34,48 @@ function normalize(text: string): string {
 // between two folded rows -- a "fact" nobody ever wrote.
 const FOLD_SEP = "\n";
 
+// A folded row keeps its polarity. Without this the fold wrote `r.text` bare,
+// so "Mara is the informant" recorded as RULED OUT came back after rollover as
+// an established fact -- the tier inverting the exact rows it exists to hold,
+// irreversibly, at around the turn count the prompt promises it will help.
+const FOLD_RULED_OUT = "RULED OUT: ";
+
+function foldRow(row: LedgerRow): string {
+  return row.kind === "ruled_out" ? `${FOLD_RULED_OUT}${row.text}` : row.text;
+}
+
+// Dedupe compares FACTS, so the marker comes back off before the key is taken:
+// a re-proposed row must match its folded self whichever kind it was folded as.
 function chronicleKeys(chronicle: string): Set<string> {
   if (!chronicle) return new Set();
-  return new Set(chronicle.split(FOLD_SEP).map(normalize).filter(Boolean));
+  const marker = normalize(FOLD_RULED_OUT);
+  return new Set(
+    chronicle
+      .split(FOLD_SEP)
+      .map((line) => {
+        const key = normalize(line);
+        return key.startsWith(marker) ? key.slice(marker.length).trim() : key;
+      })
+      .filter(Boolean)
+  );
+}
+
+/**
+ * Keep the newest whole lines of a chronicle within `cap`. Whole lines, because
+ * half a folded fact is a fact nobody wrote. Used at two different caps: the
+ * fold enforces the storage cap, the prompt block a much tighter one.
+ */
+function trimChronicle(chronicle: string, cap: number): string {
+  if (chronicle.length <= cap) return chronicle;
+  const kept: string[] = [];
+  let size = 0;
+  for (const line of chronicle.split(FOLD_SEP).reverse()) {
+    const cost = size ? line.length + FOLD_SEP.length : line.length;
+    if (size + cost > cap) break;
+    kept.push(line);
+    size += cost;
+  }
+  return kept.reverse().join(FOLD_SEP);
 }
 
 function pad(n: number): string {
@@ -39,7 +92,7 @@ function rollover(ledger: StoryLedger): StoryLedger {
   while (rows.length > LEDGER_MAX_ROWS) {
     const batch = rows.slice(0, LEDGER_ROLLOVER_BATCH);
     if (!batch.length) break;
-    const folded = batch.map((r) => r.text).join(FOLD_SEP);
+    const folded = batch.map(foldRow).join(FOLD_SEP);
     chronicle = chronicle ? `${chronicle}${FOLD_SEP}${folded}` : folded;
     rows = rows.slice(batch.length);
     rolled += batch.length;
@@ -49,17 +102,7 @@ function rollover(ledger: StoryLedger): StoryLedger {
   // value; a cap that only fired on load would trim a little more each round
   // trip. Overflow drops from the FRONT -- the oldest folded text goes first,
   // and dropping whole rows keeps every survivor a complete fact.
-  if (chronicle.length > LEDGER_CHRONICLE_CHAR_CAP) {
-    const kept: string[] = [];
-    let size = 0;
-    for (const line of chronicle.split(FOLD_SEP).reverse()) {
-      const cost = size ? line.length + FOLD_SEP.length : line.length;
-      if (size + cost > LEDGER_CHRONICLE_CHAR_CAP) break;
-      kept.push(line);
-      size += cost;
-    }
-    chronicle = kept.reverse().join(FOLD_SEP);
-  }
+  chronicle = trimChronicle(chronicle, LEDGER_CHRONICLE_CHAR_CAP);
   return { rows, chronicle, rolled };
 }
 
@@ -107,7 +150,7 @@ export function appendLedgerRows(
   }
 
   for (const input of inputs.slice(0, LEDGER_MAX_ROWS_PER_TURN)) {
-    const text = input.text.trim();
+    const text = flattenRowText(input.text);
     if (!text) continue;
     const key = normalize(text);
     if (seen.has(key)) continue;
@@ -168,9 +211,17 @@ export function formatLedgerForPrompt(ledger: StoryLedger): string {
   if (!ledger.rows.length && !ledger.chronicle) return "";
   const lines = [
     "[STORY LEDGER — permanent. These facts are established and outrank anything",
-    "in your own recollection. Never contradict a row; add to them instead.]",
+    "in your own recollection. Never contradict a row; add to them instead.",
+    "GM-ONLY, like hidden_state: a row may name something the player has not yet",
+    "learned, so never echo, narrate, or paraphrase one. Rows are your continuity,",
+    "not the player's diary. A row marked RULED OUT is CLOSED — treat re-opening it",
+    "as a contradiction.]",
   ];
-  if (ledger.chronicle) lines.push(`Earlier: ${ledger.chronicle}`);
+  // Trimmed to the PROMPT's budget, not the storage cap: at the storage cap the
+  // chronicle alone would take a third of the tightest provider's request, in
+  // the one message the history pruner can never drop.
+  if (ledger.chronicle)
+    lines.push(`Earlier: ${trimChronicle(ledger.chronicle, LEDGER_PROMPT_CHRONICLE_CHAR_CAP)}`);
   for (const row of ledger.rows) {
     lines.push(`  ${row.id} [${row.kind === "ruled_out" ? "RULED OUT" : "established"}] ${row.text}`);
   }

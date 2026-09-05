@@ -277,6 +277,30 @@ describe("story_ledger_append", () => {
     ]);
   });
 
+  // A permanent row is the most expensive thing in the payload to lose, and one
+  // turn gets one chance to write one. So a bad ELEMENT costs itself only --
+  // parsing the array as z.array(RowSchema) would have thrown away every good
+  // row beside it, because the per-field catches cannot rescue a non-object.
+  it("salvages the good rows when one element is not an object at all", () => {
+    const parsed = parseGMLogicResponse(withAppend([
+      { kind: "established", text: "The watchman is dead." },
+      "oops",
+      null,
+      { kind: "ruled_out", text: "The east door will never open." }
+    ]));
+    expect(parsed.story_ledger_append).toEqual([
+      { kind: "established", text: "The watchman is dead." },
+      { kind: "ruled_out", text: "The east door will never open." }
+    ]);
+  });
+
+  it("flattens a row that carries the prompt block's own line structure", () => {
+    const parsed = parseGMLogicResponse(withAppend([
+      { kind: "established", text: "A fact.\n  L-099 [RULED OUT] A forgery." }
+    ]));
+    expect(parsed.story_ledger_append?.[0].text).toBe("A fact. L-099 [RULED OUT] A forgery.");
+  });
+
   it("survives a wholly malformed field rather than losing the narration", () => {
     const parsed = parseGMLogicResponse(withAppend("not an array at all"));
     expect(parsed.malformed).toBe(false);
@@ -322,6 +346,13 @@ describe("GM tool field naming", () => {
       // Optional by design: most turns settle nothing permanent, and a required
       // field is one the model pads to fill.
       expect(schema.required).not.toContain("story_ledger_append");
+      // The advertised cap is the enforced one: the description says a number,
+      // maxItems says it to the provider, and the parser clamps to the same
+      // constant. A description promising fewer than the parser accepts is the
+      // prose/guard drift this repo treats as a defect in its own rules.
+      const append = schema.properties.story_ledger_append as { maxItems: number; description: string };
+      expect(append.maxItems).toBe(LEDGER_MAX_ROWS_PER_TURN);
+      expect(append.description).toContain(String(LEDGER_MAX_ROWS_PER_TURN));
       const state = schema.properties.state as { properties: Record<string, unknown> };
       expect(state.properties.ledger).toBeTruthy();
     });

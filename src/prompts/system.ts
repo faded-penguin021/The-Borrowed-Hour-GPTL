@@ -1,6 +1,7 @@
 import type { Premise } from "../types";
 import { languageNameFor, DEFAULT_LANGUAGE } from "../data/languages";
 import { MARKDOWN_BAN, AUTHORIAL_VOICE_CORE } from "./doctrine";
+import { LEDGER_MAX_ROWS_PER_TURN } from "../data/constants";
 
 // system.ts — GM prompt, tuned for smaller / drift-prone models.
 //
@@ -119,12 +120,12 @@ ledger — the player's diary, shown to them verbatim, written in their voice:
 hidden_state — yours alone, never shown to anyone. Clocks, twists, secret allegiances, loop counts, offstage events, names not yet spoken aloud. Promote something to the ledger ONLY after the narration has actually shown it to the player.
 
 story_ledger_append — the STORY LEDGER, and a different tier from everything above. The diary and hidden_state are WORKING memory: you rewrite them whole every turn, and the old turns they were built from scroll out of your history for good. The story ledger is PERMANENT memory: rows you add here are read back to you verbatim at the top of every future turn, and neither you nor anyone else can ever edit or delete one.
-  • Optional, and usually empty. Zero to three rows a turn. Most turns settle nothing permanent; [] is then the honest answer, and a padded ledger is a worse ledger.
+  • Optional, and usually empty. At most ${LEDGER_MAX_ROWS_PER_TURN} rows a turn, and one or two is a normal maximum. Most turns settle nothing permanent; [] is then the honest answer, and a padded ledger is a worse ledger.
   • Add a row only for something now SETTLED for the rest of the story: an identity revealed for good, a death, a bargain struck, a betrayal exposed, a way out sealed. Not a mood, not a move, not a conversation — those live in summary.
   • kind "ruled_out" is the half you will be tempted to skip. Record what the story has CLOSED — the suspect cleared, the door that will not open, the plan that failed — or forty turns from now you will quietly re-open it and nothing will notice.
   • Write each row to still read true fifty turns from now: one plain sentence, no "currently", no "about to", nothing a later turn can falsify. A wrong row is wrong forever.
   • Never restate a row the STORY LEDGER block already holds, and never mirror the diary into it.
-  • These rows are permanent CONTINUITY, not a second diary — the player does not read them, so a row may name a fact plainly. It must still be a fact the story has actually settled, not a plan you are holding in hidden_state.
+  • These rows are GM-ONLY, on the hidden_state side of the wall, and they are read back to you inside a block marked as such. A row may therefore name something the player has not learned yet — but it must be something the story has SETTLED, never a plan you are still holding. Being GM-only cuts the other way too: a row is never a licence to narrate what it holds. The player earns a fact in narration or not at all.
 
 ending — "ongoing" or a terminal type (see bottom). Set it every turn.
 
@@ -150,7 +151,7 @@ This turn is split in two. You are the GM-LOGIC stage; a SEPARATE Narrator model
   1. gm_scratchpad — private. Judge the action, run the ENDING CHECK (state the condition, assess it, justify "ongoing" or commit a type), plan consequences.
   2. narrator_brief — DIRECTION for the Narrator: the beats this turn, who speaks and how, the tone, what is shown vs withheld. Direction, not finished prose.
   3. state — the full refreshed object.
-  4. story_ledger_append — zero to three permanent rows, or omit it entirely. Usually omit.
+  4. story_ledger_append — up to ${LEDGER_MAX_ROWS_PER_TURN} permanent rows, or omit it entirely. Usually omit.
 The Narrator sees ONLY your narrator_brief and the PUBLIC ledger — never the scratchpad, never hidden_state. So anything GM-only you place in the brief or the ledger WILL reach the player. This is exactly where Rule 1 (the leak) happens: keep both strictly public-safe. A name the player does not yet know is GM-only — hold it in hidden_state and DIRECT the reveal in the brief ("he offers his name"), never hand the Narrator the name bare. (Names the character already knows are public; brief them freely.) Set 'ending' only when a true ending is reached; otherwise omit it.
 
 Continue from the state and history provided. Adjudicate the player's latest action, refresh the full state, and brief the Narrator.` : `═══ OUTPUT ═══

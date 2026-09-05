@@ -138,6 +138,11 @@ and abort glue, which is exactly what unit tests cannot see, so both take a **gl
 - **G4 — persistence.** Save schema v1→v2 through the existing `migrateSave`; ledger into
   export/chronicle surfaces. Golden storage fixtures are ground truth here.
 - **G5 — the surface.** Ledger + findings in the existing Ledger UI. Player-facing → Playwright.
+  **Blocked on an owner fork, opened by G2's glue review** (`docs/STATE.md` → Open
+  questions). G2 had to declare story-ledger rows GM-ONLY — the block invited facts the
+  player has not learned while rendering unmarked in the public block — so rendering rows
+  in the *player's* Ledger UI is now a leak, not a feature. This bullet stands as written
+  only under option (b) there; under the recommended (a) G5 surfaces findings alone.
 - **G6 — deferred, your call.** P12's fresh-context reviewer as a second cheap-model pass
   that sees the ledger and the narration but never the GM scratchpad or `hidden_state`.
   Costs an extra call on a bring-your-own-key app, so it would ship default-off. Listed, not

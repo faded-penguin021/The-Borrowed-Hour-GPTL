@@ -121,6 +121,13 @@ export const LEDGER_MAX_ROWS_PER_TURN = 6;
 // little more on every save/load cycle; enforced here, the in-memory value and
 // the stored one are the same value and the round trip is idempotent.
 export const LEDGER_CHRONICLE_CHAR_CAP = 20_000;
+// What the chronicle may spend of a PROMPT, which is a different budget from
+// what it may spend of a save. The block lands in the last user message, which
+// the history pruner can never drop (it is inside MIN_TAIL), so at the storage
+// cap the tier alone could take 20 KB of a 60 KB request on the tightest
+// provider -- eating more of the budget than the pruning it exists to survive.
+// Trimmed at render, never in storage: the folded text stays whole on disk.
+export const LEDGER_PROMPT_CHRONICLE_CHAR_CAP = 4_000;
 
 export const EMPTY_LEDGER: StoryLedger = {
   rows: [],

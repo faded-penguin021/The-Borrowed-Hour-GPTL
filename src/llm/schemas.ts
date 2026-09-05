@@ -3,6 +3,7 @@ import {
   LEDGER_CHRONICLE_CHAR_CAP, LEDGER_MAX_ROWS, LEDGER_MAX_ROWS_PER_TURN,
   LEDGER_ROW_CHAR_CAP,
 } from "../data/constants";
+import { flattenRowText } from "../context/storyLedger";
 import {
   AMBIENCE_SPACE_VALUES,
   AMBIENCE_POPULATION_VALUES,
@@ -96,7 +97,10 @@ const LedgerRowSchema = z.object({
   id: clamped(MAX_LABEL).catch("").default(""),
   turn: z.number().int().nonnegative().catch(0).default(0),
   kind: z.enum(["established", "ruled_out"]).catch("established").default("established"),
-  text: clamped(MAX_ITEM).catch("").default("")
+  // Flattened on the way in as well as on the way out: appendLedgerRows guards
+  // the producer, this guards the loader, and a row carrying a newline forges a
+  // row in the prompt block whichever door it came through.
+  text: clamped(MAX_ITEM).transform(flattenRowText).catch("").default("")
 });
 
 /**
@@ -137,12 +141,22 @@ export const StoryLedgerSchema = z.object({
  */
 const LedgerRowInputSchema = z.object({
   kind: z.enum(["established", "ruled_out"]).catch("established").default("established"),
-  text: clamped(LEDGER_ROW_CHAR_CAP).catch("").default("")
+  text: clamped(LEDGER_ROW_CHAR_CAP).transform(flattenRowText).catch("").default("")
 });
 
 export const StoryLedgerAppendSchema = z
-  .array(LedgerRowInputSchema)
-  .transform((a) => a.filter((r) => r.text.trim() !== ""))
+  // Elements are salvaged one at a time, NOT parsed as z.array(LedgerRowInputSchema).
+  // The per-field catches inside the row only rescue a bad field of an object; a
+  // single non-object element (a bare string, a null) fails the object, fails the
+  // array, and hits the outer catch -- throwing away every good row beside it.
+  // Rows are permanent and one turn's worth is all a turn gets, so a bad element
+  // costs itself and nothing else.
+  .array(z.unknown())
+  .transform((a) => a.flatMap((el) => {
+    const r = LedgerRowInputSchema.safeParse(el);
+    return r.success ? [r.data] : [];
+  }))
+  .transform((a) => a.filter((r) => r.text !== ""))
   .transform((a) => (a.length > LEDGER_MAX_ROWS_PER_TURN ? a.slice(0, LEDGER_MAX_ROWS_PER_TURN) : a))
   .catch([])
   .default([]);

@@ -255,3 +255,23 @@
   about the result. So: when a payload grows a field, grep the consumer for it rather
   than trusting the build, and give the fixture a value DIFFERING from the prior state,
   so "kept the old" and "applied the new" cannot both pass.
+
+- D-019: Model-authored text rendered into a prompt block can forge the BLOCK'S OWN
+  STRUCTURE. A story-ledger row is emitted one per line and the frozen chronicle is
+  split on newlines, so a row whose text carried "\n  L-099 [RULED OUT] ..." wrote
+  itself a second row with an invented id, and folded into two chronicle entries its
+  own key could never match again — killing dedupe for that fact permanently, in a
+  tier that is by design irreversible. Clamping length and trimming ends does not
+  reach it. So: when a model-written string is rendered into a structured block the
+  model reads back, the block's delimiters must be UNREACHABLE from inside the value
+  (flatten at producer and loader), not discouraged in the field description.
+
+- D-020: A lossy fold must keep the fields the reader's SEMANTICS depend on, not just
+  the ones it displays. Rollover folded a ledger row as bare `r.text`, dropping `kind`,
+  so a row recorded as `ruled_out` ("Mara is the informant" — meaning she is NOT) came
+  back after rollover as an established fact. The live block marked polarity and the
+  chronicle did not, so the tier inverted the exact rows it exists to hold, at around
+  the turn count its own prompt promises it will help. Negative memory is the half that
+  degrades silently: an established fact folded to text is still true, a ruled-out one
+  becomes its own opposite. Check a compaction step against every field the CONSUMER
+  interprets, and keep dedupe keyed on the fact rather than the rendered line.
