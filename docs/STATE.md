@@ -26,9 +26,15 @@ Playwright (e2e), ESLint 10, Node 24 in CI. Shipped and deployed to GitHub Pages
 
 **Shipped and in maintenance.** The 2026-07 audit + hardening pass (U0–B7, F1–F2) and
 the improvement phase (H / T / E / P) are all `done` — `docs/BACKLOG.md` is the record,
-git history the detail. No active multi-unit work.
+git history the detail.
 
-Active branch `claude/upgrade-amh-newest-0lw7s8`: upgrades AMH v2.1.0 → v4.2.0.
+Active multi-unit work: **`docs/plans/amh-principles-in-game.md`** (owner-approved,
+branch `claude/text-adventure-amh-crkvd4`) — ports AMH's memory tiering into the *game*.
+Its driving finding: the game has working memory only. History is pruned hard and
+`GameState` is rewritten wholesale by the GM every turn, so no tier carries a durable
+fact across a prune. Units G1–G5 add an append-only `StoryLedger`, inject it into every
+turn's prompt, and machine-check the state diff. A secondary track (AMH 4.2.0 → upstream
+14.0.0) is recorded there and is not yet in scope.
 
 Standing harness: **AMH v4.2.0**, upgraded 2026-08-09; adopted 2026-07-27 at the
 **light** profile (owner-confirmed in session), replacing the hand-rolled v1.8 subset.
@@ -124,6 +130,9 @@ owner-verified via the Owner queue.
 One line per shipped change or completed unit (newest first). Pre-harness history lives
 in `docs/BACKLOG.md` and git.
 
+- 2026-09-05 — Approve and record `docs/plans/amh-principles-in-game.md`: port AMH's
+  memory tiering into the game (append-only `StoryLedger`, prompt injection, continuity
+  guards over the state diff). No code yet — plan + pointer only.
 - 2026-08-30 — Refresh model catalogues (LLM only): OpenRouter dropped the free variant
   of `openai/gpt-oss-20b` (`:free` 404s per `check:models --all`); moved the still-live
   paid id to that provider's `paid` tier rather than dropping it (not a default anywhere).
