@@ -76,6 +76,12 @@ job, locally needs `PW_CHROMIUM`. Real-provider / on-device behavior is owner-ve
    player reads. Wants its own unit.
 2. Same review, lower: model text containing a literal `[Player action]` defeats
    `stripHistoricalUser` (first-match). Pre-existing in kind. Accepted.
+3. **Pre-existing, found by G5's reviewer:** `submit` captures its baseline and then
+   awaits `ensureAmbienceEngine()` BEFORE `abortRef.current` is assigned
+   (`gameLoop.ts` ~348-351, ~487). Loading a save inside that window finds
+   `abortRef.current === null`, so `cancelRequest()` returns without aborting and the
+   in-flight turn resumes on the pre-load state and clobbers the loaded game. Not
+   continuity-specific and older than the G-track; wants its own unit.
 
 ## Decided non-items
 
@@ -122,6 +128,19 @@ job, locally needs `PW_CHROMIUM`. Real-provider / on-device behavior is owner-ve
 One line per shipped change or completed unit (newest first). Detail lives in git; the
 durable lessons live in `docs/LEDGER.md`.
 
+- 2026-09-05 — G5 glue review (also covering `71be0cd`, G3's own outcome commit, which
+  no fresh context had read): 5 findings. Fixed: the margin fold was one-way for the life
+  of the modal, so a player holding the ledger open across a turn met the next verdict
+  already unfolded — it now re-folds on each new findings array, and an intervening clean
+  turn no longer defeats that; the disclosure swapped the button out for the list, so
+  nothing ever carried `aria-expanded=true` and there was no way back — the button now
+  stays mounted and toggles both ways, with the notes rendered only when open rather than
+  merely hidden. Corrected: **Hangul was in the unsegmented-script class on a false
+  premise** — Korean spaces its words, so `ko` was being held to twelve syllables (three
+  or four words) instead of the six-word window every other spaced language gets; Hangul
+  is out, prose and constant corrected in lockstep, both directions vectored. Declined:
+  the unsegmented path's O(secret x surface) scan — native substring search, ja/zh only,
+  no measured cost. Queued: a pre-existing load-save/abort race (Incoming findings 3).
 - 2026-09-05 — G5: the findings surface, option (a). `ContinuityFinding` now carries two
   voices — `detail` (names `hidden_state` and row ids; `dlog` only) and `note` (the only
   half a player may read). The Ledger modal grows an `IN THE MARGIN` block that renders

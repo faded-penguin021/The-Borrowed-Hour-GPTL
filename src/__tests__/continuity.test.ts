@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { checkContinuity } from "../context/continuity";
-import { CONTINUITY_LEAK_NGRAM_WORDS, EMPTY_LEDGER, EMPTY_STATE } from "../data/constants";
+import { CONTINUITY_LEAK_NGRAM_WORDS, CONTINUITY_LEAK_UNSEGMENTED_CHARS, EMPTY_LEDGER, EMPTY_STATE } from "../data/constants";
 import { appendLedgerRows } from "../context/storyLedger";
 import type { GameState, StoryLedger } from "../types";
 
@@ -207,5 +207,28 @@ describe("the two voices a finding carries", () => {
     // it because only `dlog` reads that.
     expect(f?.detail).toContain("L-001");
     expect(f?.note).not.toContain("L-001");
+  });
+});
+
+describe("Korean is a spaced script, not an unsegmented one", () => {
+  // `ko` ships, and it was briefly routed to the character window on the
+  // assumption that every CJK-adjacent script runs its words together. Korean
+  // spaces them, so twelve syllables would be three or four words -- half the
+  // bar every other spaced language is held to.
+  const KO_SECRET = "수도원장이 지난해 추수 감사절에 포도주에 독을 넣었다";
+
+  it("fires on a full verbatim run, like any other spaced language", () => {
+    const f = checkContinuity(EMPTY_STATE, state({ hidden_state: KO_SECRET }), EMPTY_LEDGER,
+      `그녀는 깨달았다. ${KO_SECRET}.`);
+    expect(codes(f)).toContain("hidden-state-in-narration");
+  });
+
+  it("holds Korean to the SIX-WORD window, not the character window", () => {
+    // Five words: over the 12-character bar, under the six-word one. The
+    // character path would report this; the word path must not.
+    const fiveWords = "지난해 추수 감사절에 포도주에 독을";
+    const f = checkContinuity(EMPTY_STATE, state({ hidden_state: fiveWords }), EMPTY_LEDGER, fiveWords);
+    expect(fiveWords.replace(/\s/g, "").length).toBeGreaterThan(CONTINUITY_LEAK_UNSEGMENTED_CHARS);
+    expect(f).toHaveLength(0);
   });
 });

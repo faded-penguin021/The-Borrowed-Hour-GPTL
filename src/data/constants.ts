@@ -137,12 +137,13 @@ export const LEDGER_PROMPT_CHRONICLE_CHAR_CAP = 4_000;
 // rather than of the number.
 export const CONTINUITY_LEAK_NGRAM_WORDS = 6;
 
-// The same threshold for a script with no spaces between words (Han, kana,
-// Hangul), where the word window above is unreachable -- a whole sentence is
-// one or two whitespace tokens, so the rules would sit inert for ja / zh / ko.
-// Characters carry more meaning each there, so the window is counted in them
-// and set shorter: roughly the same "not by chance" weight as six English
-// words. Only text that is MAJORITY unsegmented is measured this way.
+// The same threshold for a script with no spaces between words (Han, kana),
+// where the word window above is unreachable -- a whole sentence is one or two
+// whitespace tokens, so the rules would sit inert for ja / zh. Characters carry
+// more meaning each there, so the window is counted in them and set shorter:
+// roughly the same "not by chance" weight as six English words. Only text that
+// is MAJORITY unsegmented is measured this way -- and Korean is NOT, despite
+// shipping: it spaces its words, so `ko` takes the word window.
 export const CONTINUITY_LEAK_UNSEGMENTED_CHARS = 12;
 
 export const EMPTY_LEDGER: StoryLedger = {

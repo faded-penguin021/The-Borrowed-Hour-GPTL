@@ -61,6 +61,41 @@ describe("the margin notes", () => {
     expect(screen.getByText(/2 notes were left in the margin/)).toBeTruthy();
   });
 
+  it("re-folds when the next turn brings its own verdict", () => {
+    // The ledger stays openable mid-turn, so a player can be holding the modal
+    // open when new findings land. Without a reset the second turn's notes
+    // arrive already unfolded -- one reach, for a surface built on two.
+    const { rerender } = render(
+      <LedgerModal premise={premise} ledger={ledger} findings={[finding()]} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: /note was left in the margin/ }));
+    expect(screen.getByText(/ruled out earlier in the story/)).toBeTruthy();
+
+    const nextTurn = [finding({ code: "npc-dropped", note: "Bram was listed here last turn and is not listed now." })];
+    rerender(<LedgerModal premise={premise} ledger={ledger} findings={nextTurn} onClose={() => {}} />);
+    expect(screen.queryByText(/Bram was listed here last turn/)).toBeNull();
+    expect(screen.getByRole("button", { name: /note was left in the margin/ }).getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("re-folds even when a clean turn came in between", () => {
+    // An empty findings array renders nothing but does NOT unmount the block.
+    const { rerender } = render(
+      <LedgerModal premise={premise} ledger={ledger} findings={[finding()]} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: /note was left in the margin/ }));
+    rerender(<LedgerModal premise={premise} ledger={ledger} findings={[]} onClose={() => {}} />);
+    rerender(<LedgerModal premise={premise} ledger={ledger} findings={[finding()]} onClose={() => {}} />);
+    expect(screen.queryByText(/ruled out earlier in the story/)).toBeNull();
+  });
+
+  it("folds back when the player asks it to", () => {
+    render(<LedgerModal premise={premise} ledger={ledger} findings={[finding()]} onClose={() => {}} />);
+    const toggle = screen.getByRole("button", { name: /note was left in the margin/ });
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText(/ruled out earlier in the story/)).toBeNull();
+  });
+
   it("still offers the notes when the ledger itself is blank", () => {
     const blank: PlayerLedger = { scene: "", time: "", summary: "", inventory: [], npcs: [], clues: [] };
     render(<LedgerModal premise={premise} ledger={blank} findings={[finding()]} onClose={() => {}} />);

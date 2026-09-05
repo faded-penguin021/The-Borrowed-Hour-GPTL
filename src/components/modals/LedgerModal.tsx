@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { ContinuityFinding, PlayerLedger, Premise } from "../../types";
 import { realmText } from "../../data/realmStyles";
 import { Modal } from "../ui/Modal";
@@ -123,26 +123,43 @@ export function LedgerModal({ premise, ledger, findings = [], onClose }: LedgerM
  */
 function MarginNotes({ findings, color }: { findings: ContinuityFinding[]; color?: string }) {
   const [open, setOpen] = useState(false);
+
+  // Re-fold whenever a new turn's verdict arrives. `SET_CONTINUITY` dispatches a
+  // fresh array every turn, so reference identity IS "these are new findings".
+  //
+  // Without this the fold is one-way for the life of the modal: the ledger stays
+  // openable mid-turn, so a player who unfolds turn N's note and leaves the modal
+  // up is shown turn N+1's already unfolded -- reaching once for a surface whose
+  // whole point is that you reach twice. An intervening clean turn does not save
+  // it either: an empty `findings` renders nothing but does not unmount this.
+  useEffect(() => { setOpen(false); }, [findings]);
+
   if (findings.length === 0) return null;
+  const summary = findings.length === 1
+    ? "One note was left in the margin this turn."
+    : `${findings.length} notes were left in the margin this turn.`;
   return (
     <LedgerBlock label="IN THE MARGIN" color={color}>
-      {open ? (
-        <ul className="space-y-2">
+      {/* The button stays mounted in both states: it carries the disclosure's
+          `aria-expanded`, which nothing would announce if it were swapped out
+          for the list, and it is the only way back to folded. */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-controls="margin-notes"
+        className="italic text-left text-cream-faint hover:text-cream-dim"
+      >
+        {summary}
+        {open ? "" : " They may tell you more about the story than it has told you. Read them?"}
+      </button>
+      {/* Rendered only when unfolded, not merely hidden: a folded note that sits
+          in the DOM is a spoiler one devtools pane away. */}
+      {open && (
+        <ul id="margin-notes" className="space-y-2 mt-2">
           {findings.map((f, i) => (
             <li key={i} className="italic text-cream-dim">— {f.note}</li>
           ))}
         </ul>
-      ) : (
-        <button
-          onClick={() => setOpen(true)}
-          aria-expanded={false}
-          className="italic text-left text-cream-faint hover:text-cream-dim"
-        >
-          {findings.length === 1
-            ? "One note was left in the margin this turn."
-            : `${findings.length} notes were left in the margin this turn.`}
-          {" "}They may tell you more about the story than it has told you. Read them?
-        </button>
       )}
     </LedgerBlock>
   );

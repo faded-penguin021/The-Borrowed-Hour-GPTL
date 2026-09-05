@@ -25,16 +25,21 @@ function letters(text: string): string {
   return text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 }
 
-const UNSEGMENTED_SCRIPT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu;
+// Hangul is deliberately ABSENT: Korean orthography spaces its words
+// (띄어쓰기), so `ko` reaches the word window like English does. Routing it here
+// would measure it in syllables -- and twelve Korean syllables is three or four
+// words, a much lower bar than the six the word window asks of every other
+// segmented language.
+const UNSEGMENTED_SCRIPT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/gu;
 
 /**
  * True when the text is mostly written in a script that does not put spaces
- * between words. `ja`, `zh` and `ko` all ship (`src/data/languages.ts`), and in
- * those a whole sentence tokenizes to one or two whitespace "words" — so the
- * word-window check below can never reach its threshold and would sit silently
- * inert for those players. Majority rather than presence: a mostly-English note
- * carrying one kanji still wants the word window, whose window is the coarser
- * and therefore quieter of the two.
+ * between words. `ja` and `zh` ship (`src/data/languages.ts`), and in those a
+ * whole sentence tokenizes to one or two whitespace "words" — so the word-window
+ * check below can never reach its threshold and would sit silently inert for
+ * those players. Majority rather than presence: a mostly-English note carrying
+ * one kanji still wants the word window, which is the coarser and therefore
+ * quieter of the two.
  */
 function isUnsegmented(text: string): boolean {
   const body = letters(text);
