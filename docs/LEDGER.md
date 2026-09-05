@@ -12,8 +12,13 @@
 > in both directions and an append-only guard of your own must permit adding AND dropping it.
 > Otherwise correct a detail with a new row and append `Corrected by D-NNN.` to the old row, or
 > replace its whole conclusion with a new row and append `Superseded by D-NNN.` A row carries
-> at most one pointer, ever, and the first is final. The guard checks pointer FORM; whether the
-> verb chosen is honest is the rule reviewer's.
+> at most one pointer, ever, and the first is final.
+>
+> **All of that is PROSE-ONLY in this repository.** This repo ships no append-only guard: the
+> ladder never reads a committed row for edits, so nothing stops an in-place rewrite, checks
+> pointer form, or tells an honest `Corrected by` from a dishonest one. The upstream harness
+> assumes such a guard and its wording elsewhere may read as though one exists here. It does
+> not — these rules are held by the author and the rule reviewer or not at all.
 >
 > **Authoring.** Search the volume chain before appending — extend or cite an existing row
 > rather than add a near-duplicate. Write the smallest self-contained durable lesson, one or two
@@ -24,7 +29,8 @@
 > more than the absence of obvious oversizing — never concision, scope or information quality.
 > Approaching one is a classification signal that the material holds narrative or two lessons:
 > split it or reduce it to the durable conclusion. **Never merge sentences, repunctuate, or drop
-> useful qualifiers solely to move a counter.**
+> useful qualifiers solely to move a counter.** That last rule is prose-only too: no guard can
+> tell a split lesson, a pre-truncated one or a repunctuated one from a genuinely short row.
 >
 > **What the boundaries actually reach.** They bind every row still *uncommitted* when the
 > ladder runs — the rung returns early unless the ledger has uncommitted changes, and skips any
@@ -293,3 +299,10 @@
   heredoc carrying constitution text about them is blocked exactly as a read would be. Both are
   one-time speed bumps and the rerun proceeds, which is the designed answer; the cost is one
   turn each. Do not reword the rule to dodge the scanner.
+
+- D-026: An out-of-band owner instruction that authorizes a deviation must be written into the
+  tree at the moment it is used, with its date and its wording. The 14.0.0 upgrade decided two
+  owner-grade forks under a spoken "decide forks on your own"; the fresh-context reviewer, which
+  by design cannot see the session, correctly read that as a governance rule invented from
+  nowhere and made restoring the reversed value its top finding. The authority was real and the
+  audit trail was not, and only the second is checkable.

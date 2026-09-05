@@ -36,7 +36,10 @@ write "released", "tagged", "merged", "CI is green" or "deployed" as current sta
 
 `docs/plans/amh-principles-in-game.md` is **complete through G5** — AMH's memory tiering
 ported into the *game*, which had working memory only. G6 is listed, not planned. That plan's
-secondary track (the harness upgrade) is done; what it inventoried is now in the tree.
+secondary track (the harness upgrade) is done; what it inventoried is now in the tree. The
+plan is **retained, not yet archived**, because G6 is still open — plans end archived or
+deleted, and no ledger row cites its path, so dropping G6 is all that stands between it and
+disposal.
 
 Standing harness: **AMH v14.0.0**, `light` profile — `amh.conf` holds every setting and
 `CLAUDE.md` the rules, including the compression rules for this file. `docs/LEDGER.md` is the
@@ -63,15 +66,27 @@ Real-provider / on-device behavior is owner-verified.
    2026-09-05): 800 → 2000, restoring the shipped default. 8.0.0 added
    `LEDGER_ROW_SENTENCE_CAP` (set to 6) as the working limit that 800 was standing in for, and
    asks for the byte cap to be a backstop with real headroom over the longest
-   sentence-compliant row (ours is 1151 bytes). Overturn it by setting the key back; the
-   reasoning is beside the key in `amh.conf`.
+   sentence-compliant row — 1029 bytes here, not the 1150-byte row, which runs to 7 sentences
+   and the new cap would reject. Overturn it by setting the key back; the reasoning is beside
+   the key in `amh.conf`.
+   Check: `grep '^LEDGER_ROW_CHAR_CAP=' amh.conf` — `800` means the reversal was overturned.
 3. **The upgrade kept the `light` profile rather than creating `docs/RUNBOOK.md`** (session,
    2026-09-05). Five releases (9.2.0, 11.0.0, 12.0.0, 13.0.0, 14.0.0) route legislation into
    that file by name; this repo landed it in `CLAUDE.md` instead, which is uncapped and in
    `RULE_FILES`. Splitting the constitution is a separate unit and is the owner's call.
    Check: `test -f docs/RUNBOOK.md` — present means the split happened.
 
-**Open questions:** (none.)
+**Open questions:**
+
+1. **Is the fork mandate of 2026-09-05 standing, or was it for that session only?** The owner
+   opened that session with "decide forks on your own as I'm not there to answer them", and
+   items 2 and 3 above were decided under it rather than parked here as Session discipline 4
+   would otherwise require. That instruction lives only in the session transcript, so it is
+   invisible to this tree and to any later reviewer — which is what the fresh-context review
+   of that upgrade flagged. Two things to settle: whether it applies to future sessions, and
+   if so whether it belongs in `CLAUDE.md` as a rule before it is used as one. Until then,
+   treat it as spent and route forks here.
+   Check: `grep -n 'mandate' CLAUDE.md` — a hit means it was written down as a rule.
 
 **Incoming findings:** (none — the three from the G-track reviews were triaged by the
 owner 2026-09-05; outcomes below.)

@@ -150,14 +150,15 @@ being patched into it.
   one unit per sitting, one tool call at a time, and end every unit
   `scripts/ladder.sh`-green → commit → push. Its blanket "no subagents, ever"
   predates the fresh-context reviewer and is superseded by it (D-004); nothing
-  else about the protocol changes. (Pointer added by the user, 2026-07-10;
-  scope widened from the completed audit to the improvement phases, 2026-07-16.)
+  else about the protocol changes. It covers the improvement phases, not only the
+  completed audit.
 - **Verify with `scripts/ladder.sh`** (or `npm run ladder`, which invokes it) —
   the single entrypoint CI runs too, so local-green and CI-green can't diverge.
   Guards first, all of them, in seconds: `docs/STATE.md` size band + required
   sections, ledger rollover, code↔ledger citation integrity, the secret-shape scan
   (`scripts/redact.sh` **is** the scan — the filter is run over every text file),
-  commit-message poison tokens, git author identity, the shipped rails' self-tests,
+  commit-message poison tokens, git author identity, new-ledger-row lengths (both the
+  sentence and byte boundaries), the shipped rails' self-tests,
   shipped-script integrity against the manifest, then this repo's own guards under
   `scripts/guards/`. Then rung 3, `scripts/verify.sh`: supply-chain guard →
   typecheck + lint → unit tests + coverage → build → the ladder's own guard fixtures.
@@ -296,8 +297,10 @@ Collapse completed stages into concise Changelog pointers, fold changelog cluste
 durable lessons into the append-only ledger *before* deleting their narrative. Never shave
 clauses until the guard goes quiet, and never cut text into another file — that is not
 compression, it is relocation, and relocation is legislation. **Project**, **Current state**,
-**Owner queue** and **Decided non-items** must always survive: compress an Owner-queue item's
-prose, never drop an open one.
+**Owner queue**, **Decided non-items** and **Changelog** must always survive — that is the
+`STATE_REQUIRED_SECTIONS` set and the structure rung hard-fails on a missing or empty one.
+Compress an Owner-queue item's prose, never drop an open one; closing one is the owner's call.
+Moving any further passage out of working memory is likewise the owner's, one grant at a time.
 
 **What may be in `Current state` at all — the content rule beside the size rule.** Three
 categories, and only the first is unqualified truth there:
@@ -325,7 +328,8 @@ the discriminator is meaning.
 
 **What the ladder checks, and what it does not.** `scripts/ladder.sh` machine-checks the band,
 the required sections and their non-empty bodies, that no level-2 heading appears twice, that
-the Owner-queue heading is still there, and that a compression pass lands on the ceilings
+the Owner-queue heading is still there (a warning, not a failure — the section is the owner's),
+and that a compression pass lands on the ceilings
 rather than just clearing the warning; above the trigger it tells a pass from an ordinary edit
 by how much the file shrank. **And that list is the whole of it** — a claim about
 `guard_state_size` and `guard_state_structure` in a script that upgrades independently of this
@@ -379,9 +383,10 @@ after an abort, non-idempotent lifecycle (double-init, double-listener), gate
 polarity, insertion order, observer echo races. Scale the reviewer's model tier
 to the diff. Self-review is the fallback only if no fresh context can be spawned.
 
-**Rule review — for diffs to this harness's legislation.** This file,
-`docs/STATE.md`'s rule-bearing sections (its length-guard preamble, its Decided
-non-items), `scripts/ladder.sh` guard semantics, `.claude/` rails and hooks,
+**Rule review — for diffs to this harness's legislation.** This file, **`amh.conf`** (it
+holds every binding threshold and the scope lists the guards read — config that decides a
+guard's behaviour is legislation), `docs/STATE.md`'s rule-bearing sections (its pointers, its
+Decided non-items), `scripts/ladder.sh` guard semantics, `.claude/` rails and hooks,
 `docs/LEDGER.md`'s preamble. Strongest tier regardless of diff size — a
 three-line rule edit can carry a semantic bomb — and **no self-review fallback**:
 a session that cannot spawn a fresh context still checkpoints, then parks the
@@ -475,9 +480,12 @@ player's API keys.)
   whether or not a scanner can see the shape you chose. The same filter is also this
   repo's entire secret scan: a ladder rung runs it over every tracked and untracked
   text file, so a credential committed here fails the ladder.
-- **An agent with no pre-execution hook has no command rail at all.** Both
-  `PreToolUse` guards are then scripts nobody calls, and this file is the only layer
-  standing. No check can tell you which case you are in — distinguishing a hook
+- **An agent with no pre-execution hook loses both command rails.** Both `PreToolUse`
+  guards are then scripts nobody calls. One rail survives: the git-native pre-push hook at
+  `.git/hooks/pre-push`, which git runs for any agent or none and which judges the push by
+  OUTCOME. Know its limits — it is untracked, it exists only where `session-start.sh` has
+  run, nothing checks that it is installed, and `--no-verify` bypasses it — so for
+  everything that is not a push, this file is the only layer standing. No check can tell you which case you are in — distinguishing a hook
   invocation from a manual one needs vendor-specific environment variables the
   harness will not assume — which is why it is written here rather than warned about
   at boot. Claude Code does support the hook, and `.claude/settings.json` wires both;
