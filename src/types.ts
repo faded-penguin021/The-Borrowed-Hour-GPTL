@@ -96,6 +96,44 @@ export interface GameState extends PlayerLedger {
   hidden_state: string;
 }
 
+// ── Permanent memory ─────────────────────────────────────────────────────────
+// GameState above is WORKING memory: the GM rewrites every field of it each
+// turn, and history is pruned out from under it, so nothing in it is guaranteed
+// to survive a long game. The StoryLedger is the tier that does. Rows are
+// appended and never revised — the reducer offers no action that edits or
+// deletes one, which is what makes "append-only" a property of the type rather
+// than a request to the model.
+
+export type LedgerRowKind =
+  // A fact the story has established.
+  | "established"
+  // A fact the story has closed off. Negative memory: without it, a later turn
+  // re-opens a door an earlier one shut and nothing notices.
+  | "ruled_out";
+
+export interface LedgerRow {
+  id: string;
+  turn: number;
+  kind: LedgerRowKind;
+  text: string;
+}
+
+// What the GM proposes; `id` and `turn` are assigned by appendLedgerRows, never
+// by the model, so a row cannot claim a position it did not earn.
+export interface LedgerRowInput {
+  kind: LedgerRowKind;
+  text: string;
+}
+
+export interface StoryLedger {
+  rows: LedgerRow[];
+  // Rolled-over rows, folded once and then frozen. Never rewritten.
+  chronicle: string;
+  // How many rows have left `rows` for the chronicle. An unbounded odometer, not
+  // a count of what is currently held: row ids stay monotonic across a rollover.
+  rolled: number;
+}
+
 export type EndingType = "good" | "bittersweet" | "pyrrhic" | "ambiguous" | "bad";
 
 // Per-premise discovered-endings map: premiseId -> { endingType: true }.

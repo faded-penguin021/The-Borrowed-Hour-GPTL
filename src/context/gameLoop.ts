@@ -2,12 +2,13 @@ import type { ChatMessage, Entry, MetaMessage, NarrationEntry, Premise, SaveReco
 import type { CallAPI, StreamAPI } from "../llm/client";
 import type { StoryAction, StoryState, RecoveryGMParsed, StreamingStore } from "./storyReducer";
 import type { CodexSnapshot } from "../types";
-import { EMPTY_STATE } from "../data/constants";
+import { EMPTY_LEDGER, EMPTY_STATE } from "../data/constants";
 import { PREMISES, NARRATION_LOADING_PHRASES, META_LOADING_PHRASES, OPENING_LOADING_PHRASES, pickPhrase } from "../data/premises";
 import { buildGMLogicTool, buildGMTool, buildSystem, buildNarratorSystem, buildMetaSystem } from "../llm/tools";
 import { parseGMResponse, parseGMLogicResponse, isStateEmpty } from "../llm/parse";
 import { formatStateForPrompt, stripHistoricalUser, stripHistoricalAssistant, serializeStatePublic } from "../llm/prompt";
 import { formatError, BorrowedError } from "../llm/errors";
+import { turnOf } from "./storyLedger";
 import { defaultAmbienceForRealm, deriveAmbienceFromSeed, deriveTonalCenter } from "../ambience/tables";
 import { getImage } from "../storage/imageStore";
 import { migrateSave } from "../saves/migrate";
@@ -572,7 +573,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       const parsed = parseGMResponse(lastAssistant.content);
       if (parsed.state) newState = parsed.state;
     }
-    dispatch({ type: "UNDO", entries: newEntries, history: newHistory, gameState: newState });
+    dispatch({ type: "UNDO", entries: newEntries, history: newHistory, gameState: newState, turn: turnOf(newHistory) });
     deps.saves.setSaveBanner({ kind: "ok", text: "The last turn is unmade." });
   }
 
@@ -638,6 +639,11 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
         history: save.history || [],
         ended: !!save.ended,
         gameState: save.gameState || EMPTY_STATE,
+        // Saves do not carry a ledger yet -- that is unit G4, which adds the
+        // field to SaveRecord and migrates the schema. Harmless while nothing
+        // writes rows, and a silent memory loss the moment something does, so
+        // G4 lands before or with the unit that starts appending.
+        ledger: EMPTY_LEDGER,
         language: save.language || "en",
         metaMessages: (save.metaMessages || []).map((m) => ({ ...m, fullyRevealed: true })),
         metaMode: !!save.metaMode,

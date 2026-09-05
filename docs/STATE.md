@@ -29,12 +29,13 @@ the improvement phase (H / T / E / P) are all `done` — `docs/BACKLOG.md` is th
 git history the detail.
 
 Active multi-unit work: **`docs/plans/amh-principles-in-game.md`** (owner-approved,
-branch `claude/text-adventure-amh-crkvd4`) — ports AMH's memory tiering into the *game*.
-Its driving finding: the game has working memory only. History is pruned hard and
-`GameState` is rewritten wholesale by the GM every turn, so no tier carries a durable
-fact across a prune. Units G1–G5 add an append-only `StoryLedger`, inject it into every
-turn's prompt, and machine-check the state diff. A secondary track (AMH 4.2.0 → upstream
-14.0.0) is recorded there and is not yet in scope.
+branch `claude/text-adventure-amh-crkvd4`) — ports AMH's memory tiering into the *game*,
+which today has working memory only. **G1 done**; G2–G5 open. The plan holds the detail,
+including a secondary AMH 4.2.0 → 14.0.0 track not yet in scope.
+
+**G4 (save persistence) must land before or with G2 (the append path).** Until it does,
+`LOAD_SAVE` fills the ledger with `EMPTY_LEDGER` — harmless while nothing writes rows, a
+silent loss of permanent memory the moment something does.
 
 Standing harness: **AMH v4.2.0**, upgraded 2026-08-09; adopted 2026-07-27 at the
 **light** profile (owner-confirmed in session), replacing the hand-rolled v1.8 subset.
@@ -130,9 +131,13 @@ owner-verified via the Owner queue.
 One line per shipped change or completed unit (newest first). Pre-harness history lives
 in `docs/BACKLOG.md` and git.
 
+- 2026-09-05 — G1: the `StoryLedger` tier — permanent memory for the story, append-only
+  by construction (`APPEND_LEDGER_ROWS` is the only action; no edit or delete exists).
+  Dedupe, a truncating row cap, and rollover that folds the oldest batch into a frozen
+  chronicle rather than deleting it. Undo truncates by turn — the *player* unmaking a
+  turn, never the GM revising a row. Nothing writes rows yet; that is G2.
 - 2026-09-05 — Approve and record `docs/plans/amh-principles-in-game.md`: port AMH's
-  memory tiering into the game (append-only `StoryLedger`, prompt injection, continuity
-  guards over the state diff). No code yet — plan + pointer only.
+  memory tiering into the game. Plan + pointer only.
 - 2026-08-30 — Refresh model catalogues (LLM only): OpenRouter dropped the free variant
   of `openai/gpt-oss-20b` (`:free` 404s per `check:models --all`); moved the still-live
   paid id to that provider's `paid` tier rather than dropping it (not a default anywhere).

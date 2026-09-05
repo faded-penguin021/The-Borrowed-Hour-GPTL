@@ -1,5 +1,6 @@
-import type { ChatMessage, Entry, GameState, MetaMessage, NarrationEntry, Premise } from "../types";
-import { EMPTY_STATE } from "../data/constants";
+import type { ChatMessage, Entry, GameState, LedgerRowInput, MetaMessage, NarrationEntry, Premise, StoryLedger } from "../types";
+import { EMPTY_LEDGER, EMPTY_STATE } from "../data/constants";
+import { appendLedgerRows, truncateLedgerToTurn } from "./storyLedger";
 import { DEFAULT_LANGUAGE } from "../data/languages";
 
 export interface Recovery {
@@ -28,6 +29,8 @@ export interface StoryState {
   error: FormattedError | null;
   ended: boolean;
   gameState: GameState;
+  // Permanent memory. gameState above is rewritten every turn; this is not.
+  ledger: StoryLedger;
   language: string;
   metaMode: boolean;
   metaMessages: MetaMessage[];
@@ -74,6 +77,7 @@ export const INITIAL_STATE: StoryState = {
   error: null,
   ended: false,
   gameState: EMPTY_STATE,
+  ledger: EMPTY_LEDGER,
   language: DEFAULT_LANGUAGE,
   metaMode: false,
   metaMessages: [],
@@ -91,6 +95,9 @@ export type StoryAction =
   | { type: "UPDATE_ENTRIES"; updater: (prev: Entry[]) => Entry[] }
   | { type: "SET_HISTORY"; history: ChatMessage[] }
   | { type: "SET_GAME_STATE"; gameState: GameState }
+  // The ONLY ledger action. No edit, no delete, no replace -- that absence is
+  // what makes the tier append-only, so do not add one.
+  | { type: "APPEND_LEDGER_ROWS"; turn: number; rows: LedgerRowInput[] }
   | { type: "SET_ERROR"; error: StoryState["error"] }
   | { type: "SET_RECOVERY"; recovery: Recovery | null }
   | { type: "SET_ENDED"; ended: boolean }
@@ -123,6 +130,9 @@ export type StoryAction =
       entries: Entry[];
       history: ChatMessage[];
       gameState: GameState;
+      // The surviving turn count. Ledger rows stamped after it are dropped --
+      // the player unmaking a turn, never the GM revising a row.
+      turn: number;
     }
   | { type: "LOAD_SAVE"; payload: LoadSavePayload }
   | { type: "RESET" };
@@ -133,6 +143,7 @@ export interface LoadSavePayload {
   history: ChatMessage[];
   ended: boolean;
   gameState: GameState;
+  ledger: StoryLedger;
   language: string;
   metaMessages: MetaMessage[];
   metaMode: boolean;
@@ -165,6 +176,9 @@ export function storyReducer(state: StoryState, action: StoryAction): StoryState
 
     case "SET_GAME_STATE":
       return { ...state, gameState: action.gameState };
+
+    case "APPEND_LEDGER_ROWS":
+      return { ...state, ledger: appendLedgerRows(state.ledger, action.turn, action.rows) };
 
     case "SET_ERROR":
       return { ...state, error: action.error };
@@ -239,6 +253,7 @@ export function storyReducer(state: StoryState, action: StoryAction): StoryState
         entries: action.entries,
         history: action.history,
         gameState: action.gameState,
+        ledger: truncateLedgerToTurn(state.ledger, action.turn),
         ended: false,
         error: null,
         recovery: null,

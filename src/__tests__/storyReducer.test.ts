@@ -3,7 +3,8 @@ import {
   storyReducer, INITIAL_STATE,
   type StoryState, type LoadSavePayload,
 } from "../context/storyReducer";
-import { EMPTY_STATE } from "../data/constants";
+import { turnOf } from "../context/storyLedger";
+import { EMPTY_LEDGER, EMPTY_STATE } from "../data/constants";
 import type { ChatMessage, Entry, GameState, Premise } from "../types";
 
 const narration = (text: string): Entry => ({
@@ -56,6 +57,7 @@ describe("UNDO", () => {
       entries: undoneEntries,
       history: undoneHistory,
       gameState: EMPTY_STATE,
+      turn: turnOf(undoneHistory),
     });
     expect(result.entries).toEqual(undoneEntries);
     expect(result.history).toEqual(undoneHistory);
@@ -65,7 +67,7 @@ describe("UNDO", () => {
   it("resets ended to false", () => {
     const before = playing({ ended: true });
     const result = storyReducer(before, {
-      type: "UNDO", entries: [], history: [], gameState: EMPTY_STATE,
+      type: "UNDO", entries: [], history: [], gameState: EMPTY_STATE, turn: 0,
     });
     expect(result.ended).toBe(false);
   });
@@ -76,7 +78,7 @@ describe("UNDO", () => {
       recovery: { narratorSys: "", narratorPrompt: "", gmParsed: {}, baseEntries: [], baseHistory: [], partial: "" },
     });
     const result = storyReducer(before, {
-      type: "UNDO", entries: [], history: [], gameState: EMPTY_STATE,
+      type: "UNDO", entries: [], history: [], gameState: EMPTY_STATE, turn: 0,
     });
     expect(result.error).toBeNull();
     expect(result.recovery).toBeNull();
@@ -89,7 +91,7 @@ describe("UNDO", () => {
     });
     const undoneHistory = [msg("assistant", "a"), msg("user", "b")];
     const result = storyReducer(before, {
-      type: "UNDO", entries: [], history: undoneHistory, gameState: EMPTY_STATE,
+      type: "UNDO", entries: [], history: undoneHistory, gameState: EMPTY_STATE, turn: turnOf(undoneHistory),
     });
     expect(result.frozenPrefixLength).toBe(2);
   });
@@ -98,7 +100,7 @@ describe("UNDO", () => {
     const before = playing({ frozenPrefixLength: 1 });
     const undoneHistory = [msg("assistant", "a"), msg("user", "b"), msg("assistant", "c")];
     const result = storyReducer(before, {
-      type: "UNDO", entries: [], history: undoneHistory, gameState: EMPTY_STATE,
+      type: "UNDO", entries: [], history: undoneHistory, gameState: EMPTY_STATE, turn: turnOf(undoneHistory),
     });
     expect(result.frozenPrefixLength).toBe(1);
   });
@@ -111,7 +113,7 @@ describe("UNDO", () => {
     // After undo, history has 3 messages; with a 2-message head only 1 is droppable.
     const undoneHistory = [msg("assistant", "a"), msg("user", "b"), msg("assistant", "c")];
     const result = storyReducer(before, {
-      type: "UNDO", entries: [], history: undoneHistory, gameState: EMPTY_STATE,
+      type: "UNDO", entries: [], history: undoneHistory, gameState: EMPTY_STATE, turn: turnOf(undoneHistory),
     });
     expect(result.prunedPrefixLength).toBe(1);
   });
@@ -226,6 +228,7 @@ describe("LOAD_SAVE", () => {
     history: [msg("assistant", "saved text")],
     ended: true,
     gameState: STATE_WITH_HISTORY,
+    ledger: EMPTY_LEDGER,
     language: "fr",
     metaMessages: [{ role: "user", text: "hello", fullyRevealed: true }],
     metaMode: true,

@@ -1,5 +1,6 @@
 import type {
-  AppSettings, CodexMode, CodexSettings, EndingType, EngineConfig, GameState, SizeEstimate
+  AppSettings, CodexMode, CodexSettings, EndingType, EngineConfig, GameState, SizeEstimate,
+  StoryLedger
 } from "../types";
 
 export const SAVE_PREFIX = "borrowed:save:";
@@ -94,6 +95,28 @@ export const EMPTY_STATE: GameState = {
   clues: [],
   summary: "",
   hidden_state: ""
+};
+
+// ── Permanent-memory bounds ──────────────────────────────────────────────────
+// The ledger is injected into every turn's prompt, so it is a tier the model
+// must read and therefore a tier that has to be bounded. The three numbers live
+// here together rather than beside their uses: a threshold you cannot find is a
+// threshold nobody tunes.
+//
+// The row cap TRUNCATES rather than rejects, which is a deliberate departure
+// from how the repo's own docs/LEDGER.md cap works. There the author can be told
+// to rewrite; here the author is a model mid-turn that gets no second pass, and
+// dropping an over-long row loses the fact outright. Half a fact beats none.
+export const LEDGER_ROW_CHAR_CAP = 240;
+// Rows held verbatim. Past this, the oldest batch folds into the chronicle.
+export const LEDGER_MAX_ROWS = 60;
+// Folded per rollover. Batching keeps the fold rare instead of once per turn.
+export const LEDGER_ROLLOVER_BATCH = 20;
+
+export const EMPTY_LEDGER: StoryLedger = {
+  rows: [],
+  chronicle: "",
+  rolled: 0
 };
 
 export const VALID_ENDINGS: Set<EndingType> = new Set<EndingType>([

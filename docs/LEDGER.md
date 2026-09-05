@@ -235,3 +235,14 @@
   future row belongs where this repo can read it, not only in a shipped script's
   variable block. Generalises D-015 (an install SUBTRACTS silently) to the other
   direction: an upgrade can ADD a binding rule silently too.
+
+- D-017: A mutation test proves a VECTOR fires, not a rule. G1's ledger tests passed
+  with the id odometer removed: rollover runs after every id in an append is already
+  assigned, so within one call `rolled` is still 0 and an id scheme ignoring it looks
+  identical. The vector filled the ledger in a single call and so could never reach the
+  case. The failure only appears on the NEXT append, where the naive scheme reuses a
+  live id. So when mutating a guard to prove it fires, check that the vector exercises
+  the state the mutation changes — a green mutant means the test missed the case, not
+  that the rule is redundant, and deleting the "unnecessary" code would have shipped
+  colliding ids. Sharpens D-007: prove a guard fires AND that the proof reached the
+  branch under test.
