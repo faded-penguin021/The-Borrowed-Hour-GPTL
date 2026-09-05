@@ -24,24 +24,19 @@ Playwright (e2e), ESLint 10, Node 24 in CI. Shipped and deployed to GitHub Pages
 
 ## Current state
 
-**Shipped and in maintenance.** The 2026-07 audit + hardening pass (U0–B7, F1–F2) and the
-improvement phase (H / T / E / P) are all `done` — `docs/BACKLOG.md` is the record.
+**Shipped and in maintenance.** The 2026-07 audit + hardening pass and the improvement
+phase are `done`; `docs/BACKLOG.md` is the record.
 
-Active multi-unit work: **`docs/plans/amh-principles-in-game.md`** (owner-approved, branch
-`claude/text-adventure-amh-crkvd4`) — ports AMH's memory tiering into the *game*, which
-had working memory only. **G1–G5 done**; only G6 remains, and it is explicitly
-owner's-call / deferred. The plan holds the detail, including a secondary AMH 4.2.0 →
-14.0.0 track not yet in scope.
+**`docs/plans/amh-principles-in-game.md` is complete through G5** (branch
+`claude/text-adventure-amh-crkvd4`, awaiting merge) — AMH's memory tiering ported into the
+*game*, which had working memory only. G6 is listed, not planned. Next is that plan's
+**secondary track, AMH 4.2.0 → 14.0.0** (owner-scheduled).
 
-Standing harness: **AMH v4.2.0** at the **light** profile. `amh.conf` holds every
-setting; shipped scripts are never edited locally and `scripts/MANIFEST.sha256` is
-checked each run. `docs/LEDGER.md` is permanent memory and retrieval storage — grep one
-row, never read a volume whole; `[cited]` markers are hand-written, machine-checked, not
-synced. Plus `scripts/check-supply-chain.mjs` and the `model-catalogue-refresh` skill.
-
-Verification = `scripts/ladder.sh` (rungs in `CLAUDE.md` → Conventions); it reports every
-failure, so read past the first `FAIL`. Playwright e2e is **not** a rung: separate CI
-job, locally needs `PW_CHROMIUM`. Real-provider / on-device behavior is owner-verified.
+Standing harness: **AMH v4.2.0**, `light` profile — `amh.conf` holds every setting and
+`CLAUDE.md` the rules; `docs/LEDGER.md` is permanent memory and retrieval storage (grep
+one row, never read a volume whole). Verification is `scripts/ladder.sh`, which reports
+every failure, so read past the first `FAIL`. Playwright e2e is **not** a rung: separate
+CI job, locally needs `PW_CHROMIUM`. Real-provider / on-device behavior is owner-verified.
 
 ## Owner queue
 
@@ -51,140 +46,88 @@ job, locally needs `PW_CHROMIUM`. Real-provider / on-device behavior is owner-ve
 
 **Pending owner actions:**
 
-1. **PR #221 (AMH v4.2.0) — reviewed, merge decision yours.** Both reviewable spans got a
-   rule review: through `08a6cda` (3 findings, fixed in `1154190`) and `bcd016d`
-   (4 findings, fixed). Unverifiable by any agent here: the shipped scripts' **upstream
-   provenance** (clone deleted, manifest replaced in the same commit — re-clone the tag
-   and diff to close it) and D-016's claims about upstream's `amh.conf.example`.
-   `Check:` **`amh.conf`'s version on `origin/main`** — as of 2026-09-05 it already read
-   4.2.0, i.e. merged. The old check grepped commit subjects and said "still open"
-   regardless: 14.0.0's *working memory is tree-relative* defect, live.
-2. **#213 (`typescript` 6.0.3→7.0.2) is upstream-blocked** — `typescript-eslint` 8.65.0
+1. **#213 (`typescript` 6.0.3→7.0.2) is upstream-blocked** — `typescript-eslint` 8.65.0
    declares `peer typescript >=4.8.4 <6.1.0`, so `npm ci` can't resolve and no rung runs.
    `overrides` / `--legacy-peer-deps` is not the move. Re-check on a TS7-capable major.
-3. **Server-side rails** (owner, 2026-07-25) — branch protection on `main` (PRs required;
-   force-push and deletion blocked) and secret-scanning push protection. Agent rails bind
-   only agents that load them; the server binds every actor.
+   Confirmed still blocked 2026-09-05.
+2. **AMH 4.2.0 → 14.0.0 upgrade — in scope, owner will run it** (owner, 2026-09-05).
+   Twenty-one releases; the missing rails, the two missing config keys and the upgrade
+   path are inventoried in `docs/plans/amh-principles-in-game.md` → *Secondary track*.
+   Sharpest absence: the `.gitattributes` seed (10.4.0) — without it a CRLF checkout makes
+   the ladder unrunnable.
 
-**Open questions:** (none — the G5 fork was answered in session on 2026-09-05.)
+**Open questions:** (none.)
 
-**Incoming findings:** (none — all three triaged by the owner 2026-09-05; the outcomes
-are Decided non-items below.)
+**Incoming findings:** (none — the three from the G-track reviews were triaged by the
+owner 2026-09-05; outcomes below.)
+
+**Owner-verified only** (no rung reaches these, both need a real key over a long session):
+whether the continuity rules fire at a useful rate against a live GM, and whether the
+story ledger holds continuity past a history prune at turn 40+.
 
 ## Decided non-items
 
 > Don't re-litigate without new evidence. **Protected section** — the structure guard
 > hard-fails if this heading goes, so compression cannot re-open a closed decision.
 
-- **Story-ledger rows stay GM-only; G5 surfaces continuity findings, not rows**
-  (owner, 2026-09-05, option (a) of the G5 fork). G2's review moved rows behind the
-  `hidden_state` wall because the GM was putting unrevealed twists in them while they
-  rendered player-visible. Keeping them there is what lets the tier hold a fact the
-  player has not learned yet — the main reason permanence is worth having. The rejected
-  options: making rows player-safe would push unrevealed facts back into `hidden_state`,
-  the exact weakness this plan exists to fix; a two-kind projection was judged the honest
-  but disproportionate answer. Revisit only if findings alone prove too thin a surface.
-- **Meta mode is allowed to spill the story's secrets** (owner, 2026-09-05). G2's reviewer
-  reported the chronicle regex (`gameLoop.ts` ~350, `([\s\S]*)$`) capturing past
-  `[Player action]` into `[GM-PRIVATE]`, so `hidden_state` reaches the meta model whose
-  output the player reads. That is the feature: meta mode is where the player steps out of
-  the hour and asks about it. Not a leak, and not a unit.
-- **A literal `[Player action]` in model text defeating `stripHistoricalUser` is accepted**
-  (owner, 2026-09-05). First-match, pre-existing in kind, no fix planned.
-- **The load-save/abort race in `submit` is accepted, not fixed** (owner, 2026-09-05).
-  `submit` awaits `ensureAmbienceEngine()` before `abortRef.current` is assigned, so a save
-  loaded inside that window finds nothing to cancel and the in-flight turn clobbers it.
-  Owner's judgement: no human is that fast. The one refinement on record, since it narrows
-  rather than reopens the call — the first call per session `await import`s the ambience
-  chunk (~33 kB) and `setLoading(true)` lands only after it, so on turn one with a cold
-  cache the window is a network round-trip with SAVES and LEDGER still live. Every later
-  turn is a microtask. Fix if ever wanted is one line: wire the controller before the await.
-- **AMH runs at the `light` profile** (owner, 2026-07-27) — light-plus: `docs/LEDGER.md`
-  predates the install and was kept, presence outranking profile. Light withholds only a
-  separate `docs/RUNBOOK.md`; playbooks stay in `CLAUDE.md` until they multiply.
-  Escalating is a re-run with `--profile standard`, which only adds files.
-- **Shipped AMH scripts are never edited locally** — a local edit turns every future
-  upgrade from a copy into a silent merge. Changes go to one of the three extension
-  points: `amh.conf`, `scripts/guards/*.sh`, `scripts/verify.sh`.
-- **The install rail keeps its `BORROWED_DEP_CHANGE=1` opt-out** (owner, 2026-07-25),
-  "in its narrow and well-defined scope". Narrow is load-bearing — the prefix exempts
-  only the segment it prefixes, pinned by `scripts/install-guard.sh --self-test`.
-- **`scripts/redact.sh` is the secret scan, not an output filter** (2026-07-27). No
-  output-rewriting hook exists, so piping stays manual — but the ladder runs the filter
-  over every text file.
-- **No backend of this project's own.** All state in the browser; keys go straight from
-  browser to provider (a user's own BYOB proxy is theirs, not ours). See `THREAT_MODEL.md`.
-- **Saves & chronicles are local plaintext, not encrypted** (2026-07-16, `48712bd`).
-  Deliberate: they hold story state, not secrets. Only API keys are encrypted at rest.
-- **`docs/BACKLOG.md` stays the forward backlog** (owner, 2026-07-18), not archived.
-- **`docs/LEDGER.md` is permanent memory** (owner, 2026-07-25). Append-only; durable facts
-  go there, never into STATE, which is compressed away.
-- **Fresh-context review is the one subagent exception** (owner, 2026-07-25) — D-004.
-- **A pending review never holds the checkpoint** (owner, 2026-07-25) — D-012.
-- **Merge mode is branch-per-change** (owner, 2026-07-25), branches cut from `main`. PR
-  #215's blob was a one-time owner exception, not precedent — D-014.
-- **eslint-plugin-react-hooks v7's new rules stay off** (owner, 2026-07-18) — ~34
-  findings, several effect-timing sensitive; they need a unit, not a dep-bump side effect.
+- **Meta mode is allowed to spill the story's secrets** (owner, 2026-09-05). The chronicle
+  regex (`gameLoop.ts` ~350, `([\s\S]*)$`) captures past `[Player action]` into
+  `[GM-PRIVATE]`, so `hidden_state` reaches the meta model whose output the player reads.
+  That is the feature: meta mode is where the player steps out of the hour and asks about
+  it. Not a leak, not a unit. Same day: a literal `[Player action]` in model text
+  defeating `stripHistoricalUser` (first-match) is **accepted**, no fix planned.
+- **Story-ledger rows stay GM-only; G5 surfaces continuity findings, not rows** (owner,
+  2026-09-05, option (a) of the G5 fork). Keeping rows behind the `hidden_state` wall is
+  what lets the tier hold a fact the player has not learned yet — the main reason
+  permanence is worth having. Rejected: player-safe rows (pushes unrevealed facts back
+  into `hidden_state`, the exact weakness the plan fixes) and a two-kind projection
+  (honest but disproportionate). Revisit only if findings alone prove too thin a surface.
+- **Harness shape, settled 2026-07** (owner): AMH runs at the **`light` profile**
+  (light-plus — `docs/LEDGER.md` predates the install and was kept; light withholds only a
+  separate `docs/RUNBOOK.md`, so playbooks stay in `CLAUDE.md` until they multiply).
+  **Shipped AMH scripts are never edited locally** — a local edit turns every future
+  upgrade from a copy into a silent merge, so changes go to `amh.conf`,
+  `scripts/guards/*.sh` or `scripts/verify.sh`. The install rail keeps its
+  **`BORROWED_DEP_CHANGE=1` opt-out** "in its narrow and well-defined scope" — narrow is
+  load-bearing, the prefix exempts only the segment it prefixes, pinned by
+  `install-guard.sh --self-test`. **`scripts/redact.sh` is the secret scan, not an output
+  filter**: no output-rewriting hook exists, so piping stays manual.
+- **Process, settled 2026-07** (owner): `docs/BACKLOG.md` stays the forward backlog, not
+  archived; `docs/LEDGER.md` is append-only permanent memory and durable facts go there,
+  never into STATE; fresh-context review is the one subagent exception (D-004) and never
+  holds the checkpoint (D-012); merge mode is branch-per-change with branches cut from
+  `main` (PR #215's blob was a one-time exception, not precedent — D-014);
+  eslint-plugin-react-hooks v7's new rules stay off (~34 findings, several effect-timing
+  sensitive — a unit, not a dep-bump side effect).
+- **Product invariants**: **no backend of this project's own** — all state in the browser,
+  keys straight from browser to provider, a user's own BYOB proxy is theirs
+  (`THREAT_MODEL.md`); **saves & chronicles are local plaintext** (2026-07-16, `48712bd`)
+  — story state, not secrets; only API keys are encrypted at rest.
 
 ## Changelog
 
 One line per shipped change or completed unit (newest first). Detail lives in git; the
 durable lessons live in `docs/LEDGER.md`.
 
-- 2026-09-05 — Owner triaged all three Incoming findings; the queue's findings list is
-  empty for the first time this plan. Meta-mode spilling secrets is by design, the
-  `[Player action]` first-match is accepted, and the load-save/abort race is accepted
-  unfixed. All three moved to Decided non-items so they are not re-raised.
-- 2026-09-05 — G5 glue review (also covering `71be0cd`, G3's own outcome commit, which
-  no fresh context had read): 5 findings. Fixed: the margin fold was one-way for the life
-  of the modal, so a player holding the ledger open across a turn met the next verdict
-  already unfolded — it now re-folds on each new findings array, and an intervening clean
-  turn no longer defeats that; the disclosure swapped the button out for the list, so
-  nothing ever carried `aria-expanded=true` and there was no way back — the button now
-  stays mounted and toggles both ways, with the notes rendered only when open rather than
-  merely hidden. Corrected: **Hangul was in the unsegmented-script class on a false
-  premise** — Korean spaces its words, so `ko` was being held to twelve syllables (three
-  or four words) instead of the six-word window every other spaced language gets; Hangul
-  is out, prose and constant corrected in lockstep, both directions vectored. Declined:
-  the unsegmented path's O(secret x surface) scan — native substring search, ja/zh only,
-  no measured cost. Queued: a pre-existing load-save/abort race (Incoming findings 3).
-- 2026-09-05 — G5: the findings surface, option (a). `ContinuityFinding` now carries two
-  voices — `detail` (names `hidden_state` and row ids; `dlog` only) and `note` (the only
-  half a player may read). The Ledger modal grows an `IN THE MARGIN` block that renders
-  `note`, and it is **folded until clicked**: a finding can point straight at a spoiler,
-  so nothing announces it — no badge, no count outside the modal — and the player reaches
-  for it twice. Story-ledger rows stay GM-only throughout; the row id never leaves
-  `detail`. Findings are per-turn and unsaved, so no save-schema change. Ledger close
-  button gained an accessible name. Covered by unit vectors (both voices, the row id
-  staying out of `note`), a jsdom component test for the fold, and an e2e spec that
-  provokes a real `npc-dropped` through the whole turn pipeline.
-- 2026-09-05 — G3 glue review: 7 findings, all triaged. Fixed: a resumed
-  narration finalized twice diffed the turn against itself and overwrote the real
-  findings (the pre-turn state + ledger are now passed in, and carried on
-  `Recovery`); the leak rules were inert in ja/zh/ko, which ship — an unsegmented
-  script is now measured in characters (`CONTINUITY_LEAK_UNSEGMENTED_CHARS`); a
-  turn with no state to judge now clears the previous turn's findings instead of
-  leaving them over a newer transition; runs are matched per field and per added
-  entry, so a match spanning two fields can no longer be fabricated. Prose
-  corrected where it overclaimed: rule 4 catches verbatim re-statement, never
-  contradiction, and a finding is quote-free but not spoiler-free.
-- 2026-09-05 — G3: `checkContinuity`, the machine-enforceable half. Four rules over the
-  state diff — GM notes reaching the narration, GM notes copied into player-visible
-  fields, an NPC silently dropped, a `ruled_out` row re-added — plus a `continuity` slice
-  replaced each turn and logged through `dlog`. Advisory only: nothing rejects or retries
-  a turn. Findings never quote the private text whose leak they report, so they are safe
-  on a player-facing surface. The plan's fifth rule (ending integrity) was dropped, not
-  built: `ended` is `!!ending` and `EndingSchema` already nulls anything invalid, so it
-  would guard an unreachable state. Detects structural drift, never semantic
-  contradiction — that needs meaning, which this repo does not gate on. Owner answered
-  the G5 fork the same day: option (a).
-- 2026-09-05 — **`docs/plans/amh-principles-in-game.md`, units G1 + G4 + G2.**
-  `StoryLedger` is the story's permanent tier: append-only for the GM, deduped, capped,
-  rolling the oldest batch into a frozen chronicle rather than deleting it; carried by
-  save schema v2. G2 gave it a producer and a reader — `story_ledger_append` on both GM
-  tools, Zod-salvaged per element, the block rendered above the mutable state each turn.
-  Glue-reviewed at both steps (9 findings, then 8), all fixed or queued; the durable ones
-  are D-018, D-019, D-020.
+- 2026-09-05 — **Load-save/abort race closed.** `submit` and `beginAdventure` awaited the
+  ambience warm-up *before* assigning `abortRef.current`, so a save loaded in that window
+  found nothing to cancel and was clobbered by the turn resuming over it. The warm-up now
+  runs after the abort ref, with an aborted check behind it. Not theoretical: the first
+  call per session fetches a ~33 kB lazy chunk and `setLoading(true)` landed only after
+  it, so turn one on a cold cache showed nothing busy. Vectored.
+- 2026-09-05 — **Owner queue cleared to two items.** All three Incoming findings triaged
+  and moved to Decided non-items — the list is empty for the first time this plan. PR #221
+  was already merged (its own `Check:` grepped commit subjects and said "still open"
+  regardless: 14.0.0's *working-memory-is-tree-relative* defect, live), and the
+  server-side rails are **done** — branch protection + secret-scanning push protection.
+- 2026-09-05 — **G1–G5, the whole G-track** of the in-game plan: `StoryLedger` as the
+  story's permanent tier (append-only, capped, rolling into a frozen chronicle, carried by
+  save schema v2), its producer and per-turn prompt block, `checkContinuity`'s four
+  advisory rules over the state diff — structural drift only, never semantic
+  contradiction — and a player surface that folds a finding until asked for, since one can
+  point at a spoiler. Glue reviewed at every step (9, 8, 7, then 5 findings); lessons
+  D-018, D-019, D-020. The plan's fifth rule (ending integrity) was dropped, not built:
+  `EndingSchema` already nulls anything invalid.
 - 2026-08-30 → 07-18 — **Everything before the in-game plan, folded.** Four
   model-catalogue refreshes (#227, #224, #219, one more; image/TTS unchanged, wiki
   synced). The harness: v1.8 hand-rolled (07-18, hardened 07-25) → AMH v2.1.0 at `light`

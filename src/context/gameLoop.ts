@@ -184,13 +184,15 @@ export function createGameLoop(deps: GameLoopDeps) {
     deps.codex.resetCodex();
     setLoadingPhrase(pickPhrase(OPENING_LOADING_PHRASES));
     setLoading(true);
-    await deps.ambience.ensureAmbienceEngine();
     const controller = new AbortController;
     const rollback = () => {
       dispatch({ type: "SET_PHASE", phase: "title" });
       dispatch({ type: "SET_PREMISE", premise: null });
     };
     abortRef.current = { controller, rollback, startedAt: Date.now() };
+    // After the abort ref, for the reason given in `submit`.
+    await deps.ambience.ensureAmbienceEngine();
+    if (controller.signal.aborted) return;
     try {
       const ambienceOn = deps.ambience.ambienceEnabled;
       const sys = buildSystem(chosen, s.language, { ambience: ambienceOn });
@@ -348,7 +350,6 @@ The narration above was interrupted and cut off before it finished. Continue it 
     const baseline = { state: s.gameState, ledger: s.ledger };
     dispatch({ type: "SKIP_REVEAL" });
     dispatch({ type: "SET_RECOVERY", recovery: null });
-    if (!s.metaMode) await deps.ambience.ensureAmbienceEngine();
 
     if (s.metaMode) {
       const previousMeta = s.metaMessages;
@@ -494,6 +495,13 @@ The narration above was interrupted and cut off before it finished. Continue it 
       dispatch({ type: "SET_HISTORY", history: previousHistory });
     };
     abortRef.current = { controller, rollback, startedAt: Date.now() };
+    // Warmed AFTER the abort ref is live, never before. The first call per
+    // session `await`s the ambience chunk over the network, and anything the
+    // player does in a window where `abortRef.current` is still null -- loading
+    // a save, above all -- finds nothing to cancel, so this turn would resume
+    // over the loaded game and clobber it.
+    await deps.ambience.ensureAmbienceEngine();
+    if (controller.signal.aborted) return true;
     try {
       const ambienceOn = deps.ambience.ambienceEnabled;
       const gmSys = buildSystem(s.premise, s.language, { split: true, ambience: ambienceOn });
