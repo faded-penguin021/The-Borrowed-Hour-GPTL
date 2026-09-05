@@ -29,9 +29,9 @@ improvement phase (H / T / E / P) are all `done` — `docs/BACKLOG.md` is the re
 
 Active multi-unit work: **`docs/plans/amh-principles-in-game.md`** (owner-approved, branch
 `claude/text-adventure-amh-crkvd4`) — ports AMH's memory tiering into the *game*, which
-had working memory only. **G1, G2, G4 done and glue-reviewed**; G3 open, G5 open with an
-owner fork against it (Open questions). The plan holds the detail, including a secondary
-AMH 4.2.0 → 14.0.0 track not yet in scope.
+had working memory only. **G1–G4 done**; G5 open, its fork now answered (Decided
+non-items). The plan holds the detail, including a secondary AMH 4.2.0 → 14.0.0
+track not yet in scope.
 
 Standing harness: **AMH v4.2.0** at the **light** profile. `amh.conf` holds every
 setting; shipped scripts are never edited locally and `scripts/MANIFEST.sha256` is
@@ -66,18 +66,7 @@ job, locally needs `PW_CHROMIUM`. Real-provider / on-device behavior is owner-ve
    force-push and deletion blocked) and secret-scanning push protection. Agent rails bind
    only agents that load them; the server binds every actor.
 
-**Open questions:**
-
-1. **G5 conflicts with what G2 shipped — story-ledger rows are now GM-only.** G2's review
-   found the block invited GM-private facts (a settled twist the player has not learned)
-   while rendering unmarked in the public block; the fix put rows on the `hidden_state`
-   side of the wall. The plan's G5 says "Ledger + findings in the existing Ledger UI" — a
-   **player-facing** surface. Both cannot hold. Options: (a) G5 surfaces findings only,
-   rows stay GM-only — **recommended**, it keeps the tier able to hold unrevealed facts,
-   which is the whole reason permanence is worth having; (b) rows become player-safe and
-   unrevealed facts stay in `hidden_state`, i.e. the twist tier keeps the defect this plan
-   exists to fix; (c) two row kinds with a `toPlayerLedger`-style projection — the honest
-   option, the most work. Blocks G5, not G3.
+**Open questions:** (none — the G5 fork was answered in session on 2026-09-05.)
 
 **Incoming findings:**
 
@@ -93,6 +82,14 @@ job, locally needs `PW_CHROMIUM`. Real-provider / on-device behavior is owner-ve
 > Don't re-litigate without new evidence. **Protected section** — the structure guard
 > hard-fails if this heading goes, so compression cannot re-open a closed decision.
 
+- **Story-ledger rows stay GM-only; G5 surfaces continuity findings, not rows**
+  (owner, 2026-09-05, option (a) of the G5 fork). G2's review moved rows behind the
+  `hidden_state` wall because the GM was putting unrevealed twists in them while they
+  rendered player-visible. Keeping them there is what lets the tier hold a fact the
+  player has not learned yet — the main reason permanence is worth having. The rejected
+  options: making rows player-safe would push unrevealed facts back into `hidden_state`,
+  the exact weakness this plan exists to fix; a two-kind projection was judged the honest
+  but disproportionate answer. Revisit only if findings alone prove too thin a surface.
 - **AMH runs at the `light` profile** (owner, 2026-07-27) — light-plus: `docs/LEDGER.md`
   predates the install and was kept, presence outranking profile. Light withholds only a
   separate `docs/RUNBOOK.md`; playbooks stay in `CLAUDE.md` until they multiply.
@@ -125,6 +122,16 @@ job, locally needs `PW_CHROMIUM`. Real-provider / on-device behavior is owner-ve
 One line per shipped change or completed unit (newest first). Detail lives in git; the
 durable lessons live in `docs/LEDGER.md`.
 
+- 2026-09-05 — G3: `checkContinuity`, the machine-enforceable half. Four rules over the
+  state diff — GM notes reaching the narration, GM notes copied into player-visible
+  fields, an NPC silently dropped, a `ruled_out` row re-added — plus a `continuity` slice
+  replaced each turn and logged through `dlog`. Advisory only: nothing rejects or retries
+  a turn. Findings never quote the private text whose leak they report, so they are safe
+  on a player-facing surface. The plan's fifth rule (ending integrity) was dropped, not
+  built: `ended` is `!!ending` and `EndingSchema` already nulls anything invalid, so it
+  would guard an unreachable state. Detects structural drift, never semantic
+  contradiction — that needs meaning, which this repo does not gate on. Owner answered
+  the G5 fork the same day: option (a).
 - 2026-09-05 — **`docs/plans/amh-principles-in-game.md`, units G1 + G4 + G2.**
   `StoryLedger` is the story's permanent tier: append-only for the GM, deduped, capped,
   rolling the oldest batch into a frozen chronicle rather than deleting it; carried by

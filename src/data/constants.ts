@@ -129,6 +129,14 @@ export const LEDGER_CHRONICLE_CHAR_CAP = 20_000;
 // Trimmed at render, never in storage: the folded text stays whole on disk.
 export const LEDGER_PROMPT_CHRONICLE_CHAR_CAP = 4_000;
 
+// Consecutive words that must coincide before the continuity rules call a
+// private note "present" in the prose or the public state. Long enough that a
+// match is not coincidence in ordinary writing; short enough to catch a
+// sentence copied across. Lowering it buys false positives, not sensitivity --
+// a paraphrase evades any value of this, which is a limit of the approach
+// rather than of the number.
+export const CONTINUITY_LEAK_NGRAM_WORDS = 6;
+
 export const EMPTY_LEDGER: StoryLedger = {
   rows: [],
   chronicle: "",

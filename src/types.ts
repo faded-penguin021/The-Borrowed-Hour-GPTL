@@ -134,6 +134,18 @@ export interface StoryLedger {
   rolled: number;
 }
 
+// A continuity rule's report on one turn. Advisory: nothing rejects a turn on
+// the strength of one. `detail` is written to be safe on a player-facing
+// surface -- it never quotes the private text whose leak it is reporting.
+export interface ContinuityFinding {
+  code:
+    | "hidden-state-in-narration"
+    | "hidden-state-in-state"
+    | "npc-dropped"
+    | "ruled-out-resurfaced";
+  detail: string;
+}
+
 export type EndingType = "good" | "bittersweet" | "pyrrhic" | "ambiguous" | "bad";
 
 // Per-premise discovered-endings map: premiseId -> { endingType: true }.

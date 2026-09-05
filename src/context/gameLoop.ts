@@ -9,6 +9,7 @@ import { parseGMResponse, parseGMLogicResponse, isStateEmpty } from "../llm/pars
 import { formatStateForPrompt, stripHistoricalUser, stripHistoricalAssistant, serializeStatePublic } from "../llm/prompt";
 import { formatError, BorrowedError } from "../llm/errors";
 import { turnOf } from "./storyLedger";
+import { checkContinuity } from "./continuity";
 import { defaultAmbienceForRealm, deriveAmbienceFromSeed, deriveTonalCenter } from "../ambience/tables";
 import { getImage } from "../storage/imageStore";
 import { migrateSave } from "../saves/migrate";
@@ -149,6 +150,17 @@ export function createGameLoop(deps: GameLoopDeps) {
     if (rows && rows.length) {
       dispatch({ type: "APPEND_LEDGER_ROWS", turn: turnOf(newHistory), rows });
     }
+    // Advisory, and computed only when the turn actually produced a state to
+    // compare against. `s.ledger` is read BEFORE this turn's rows land: the
+    // ruled-out rule asks whether a door the story had ALREADY shut was
+    // re-opened, not whether a row written this turn disagrees with the same
+    // turn's own clues. Replaces the previous turn's findings rather than
+    // adding to them, so an aborted or retried turn cannot leave a stale one.
+    if (shouldUpdateState && gmParsed.state) {
+      const findings = checkContinuity(s.gameState, gmParsed.state, s.ledger, narration);
+      dispatch({ type: "SET_CONTINUITY", findings });
+      for (const f of findings) dlog(`[continuity] ${f.code}: ${f.detail}`);
+    }
     if (gmParsed.ending) {
       deps.progress.recordEnding(s.premise?.id, gmParsed.ending);
     }
@@ -225,6 +237,15 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
       }
       if (parsed.ending) {
         deps.progress.recordEnding(chosen.id, parsed.ending);
+      }
+      // The opening has no previous turn, so the diff rules (a dropped NPC, a
+      // ruled-out fact returning) have nothing to compare and stay silent by
+      // construction. The two leak rules do not need a predecessor, and an
+      // opening that narrates its own twist is worth catching on turn one.
+      if (parsed.state) {
+        const openingFindings = checkContinuity(EMPTY_STATE, parsed.state, EMPTY_LEDGER, parsed.narration);
+        dispatch({ type: "SET_CONTINUITY", findings: openingFindings });
+        for (const f of openingFindings) dlog(`[continuity] ${f.code}: ${f.detail}`);
       }
       if (deps.ambience.ambienceRef.current) {
         const eng = deps.ambience.ambienceRef.current;

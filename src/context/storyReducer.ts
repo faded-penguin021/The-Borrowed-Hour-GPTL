@@ -1,4 +1,4 @@
-import type { ChatMessage, Entry, GameState, LedgerRowInput, MetaMessage, NarrationEntry, Premise, StoryLedger } from "../types";
+import type { ChatMessage, ContinuityFinding, Entry, GameState, LedgerRowInput, MetaMessage, NarrationEntry, Premise, StoryLedger } from "../types";
 import { EMPTY_LEDGER, EMPTY_STATE } from "../data/constants";
 import { appendLedgerRows, truncateLedgerToTurn } from "./storyLedger";
 import { DEFAULT_LANGUAGE } from "../data/languages";
@@ -35,6 +35,11 @@ export interface StoryState {
   gameState: GameState;
   // Permanent memory. gameState above is rewritten every turn; this is not.
   ledger: StoryLedger;
+  // What the continuity rules said about the LAST turn. Replaced each turn,
+  // never accumulated: a finding describes one transition, so carrying it
+  // forward would keep reporting a drift the next turn may already have fixed.
+  // Deliberately not persisted -- see SaveRecord, which does not carry it.
+  continuity: ContinuityFinding[];
   language: string;
   metaMode: boolean;
   metaMessages: MetaMessage[];
@@ -82,6 +87,7 @@ export const INITIAL_STATE: StoryState = {
   ended: false,
   gameState: EMPTY_STATE,
   ledger: EMPTY_LEDGER,
+  continuity: [],
   language: DEFAULT_LANGUAGE,
   metaMode: false,
   metaMessages: [],
@@ -104,6 +110,8 @@ export type StoryAction =
   // below is the one path that removes a row, and it is the PLAYER unmaking a
   // turn rather than the GM revising a fact; see truncateLedgerToTurn.
   | { type: "APPEND_LEDGER_ROWS"; turn: number; rows: LedgerRowInput[] }
+  // Advisory only. Replaces the previous turn's findings; never appends.
+  | { type: "SET_CONTINUITY"; findings: ContinuityFinding[] }
   | { type: "SET_ERROR"; error: StoryState["error"] }
   | { type: "SET_RECOVERY"; recovery: Recovery | null }
   | { type: "SET_ENDED"; ended: boolean }
@@ -183,6 +191,9 @@ export function storyReducer(state: StoryState, action: StoryAction): StoryState
     case "SET_GAME_STATE":
       return { ...state, gameState: action.gameState };
 
+    case "SET_CONTINUITY":
+      return { ...state, continuity: action.findings };
+
     case "APPEND_LEDGER_ROWS":
       return { ...state, ledger: appendLedgerRows(state.ledger, action.turn, action.rows) };
 
@@ -260,6 +271,8 @@ export function storyReducer(state: StoryState, action: StoryAction): StoryState
         history: action.history,
         gameState: action.gameState,
         ledger: truncateLedgerToTurn(state.ledger, action.turn),
+        // The turn they described has been unmade.
+        continuity: [],
         ended: false,
         error: null,
         recovery: null,
@@ -279,6 +292,8 @@ export function storyReducer(state: StoryState, action: StoryAction): StoryState
         ended: action.payload.ended,
         gameState: action.payload.gameState,
         ledger: action.payload.ledger,
+        // Not persisted, and stale for the loaded story anyway.
+        continuity: [],
         language: action.payload.language,
         metaMessages: action.payload.metaMessages,
         metaMode: action.payload.metaMode,
