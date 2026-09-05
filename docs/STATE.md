@@ -68,20 +68,8 @@ job, locally needs `PW_CHROMIUM`. Real-provider / on-device behavior is owner-ve
 
 **Open questions:** (none — the G5 fork was answered in session on 2026-09-05.)
 
-**Incoming findings:**
-
-1. **Pre-existing, found by G2's reviewer:** the meta-mode chronicle regex
-   (`gameLoop.ts` ~350, `([\s\S]*)$`) captures greedily past `[Player action]` into the
-   `[GM-PRIVATE]` block, so `hidden_state` reaches the meta model — whose output the
-   player reads. Wants its own unit.
-2. Same review, lower: model text containing a literal `[Player action]` defeats
-   `stripHistoricalUser` (first-match). Pre-existing in kind. Accepted.
-3. **Pre-existing, found by G5's reviewer:** `submit` captures its baseline and then
-   awaits `ensureAmbienceEngine()` BEFORE `abortRef.current` is assigned
-   (`gameLoop.ts` ~348-351, ~487). Loading a save inside that window finds
-   `abortRef.current === null`, so `cancelRequest()` returns without aborting and the
-   in-flight turn resumes on the pre-load state and clobbers the loaded game. Not
-   continuity-specific and older than the G-track; wants its own unit.
+**Incoming findings:** (none — all three triaged by the owner 2026-09-05; the outcomes
+are Decided non-items below.)
 
 ## Decided non-items
 
@@ -96,6 +84,21 @@ job, locally needs `PW_CHROMIUM`. Real-provider / on-device behavior is owner-ve
   options: making rows player-safe would push unrevealed facts back into `hidden_state`,
   the exact weakness this plan exists to fix; a two-kind projection was judged the honest
   but disproportionate answer. Revisit only if findings alone prove too thin a surface.
+- **Meta mode is allowed to spill the story's secrets** (owner, 2026-09-05). G2's reviewer
+  reported the chronicle regex (`gameLoop.ts` ~350, `([\s\S]*)$`) capturing past
+  `[Player action]` into `[GM-PRIVATE]`, so `hidden_state` reaches the meta model whose
+  output the player reads. That is the feature: meta mode is where the player steps out of
+  the hour and asks about it. Not a leak, and not a unit.
+- **A literal `[Player action]` in model text defeating `stripHistoricalUser` is accepted**
+  (owner, 2026-09-05). First-match, pre-existing in kind, no fix planned.
+- **The load-save/abort race in `submit` is accepted, not fixed** (owner, 2026-09-05).
+  `submit` awaits `ensureAmbienceEngine()` before `abortRef.current` is assigned, so a save
+  loaded inside that window finds nothing to cancel and the in-flight turn clobbers it.
+  Owner's judgement: no human is that fast. The one refinement on record, since it narrows
+  rather than reopens the call — the first call per session `await import`s the ambience
+  chunk (~33 kB) and `setLoading(true)` lands only after it, so on turn one with a cold
+  cache the window is a network round-trip with SAVES and LEDGER still live. Every later
+  turn is a microtask. Fix if ever wanted is one line: wire the controller before the await.
 - **AMH runs at the `light` profile** (owner, 2026-07-27) — light-plus: `docs/LEDGER.md`
   predates the install and was kept, presence outranking profile. Light withholds only a
   separate `docs/RUNBOOK.md`; playbooks stay in `CLAUDE.md` until they multiply.
@@ -128,6 +131,10 @@ job, locally needs `PW_CHROMIUM`. Real-provider / on-device behavior is owner-ve
 One line per shipped change or completed unit (newest first). Detail lives in git; the
 durable lessons live in `docs/LEDGER.md`.
 
+- 2026-09-05 — Owner triaged all three Incoming findings; the queue's findings list is
+  empty for the first time this plan. Meta-mode spilling secrets is by design, the
+  `[Player action]` first-match is accepted, and the load-save/abort race is accepted
+  unfixed. All three moved to Decided non-items so they are not re-raised.
 - 2026-09-05 — G5 glue review (also covering `71be0cd`, G3's own outcome commit, which
   no fresh context had read): 5 findings. Fixed: the margin fold was one-way for the life
   of the modal, so a player holding the ledger open across a turn met the next verdict
