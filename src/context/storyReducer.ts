@@ -10,6 +10,11 @@ export interface Recovery {
   baseEntries: Entry[];
   baseHistory: ChatMessage[];
   partial: string;
+  // The state and ledger as they stood before the interrupted turn. Carried so
+  // the resumed finalize diffs against the same baseline the first one did --
+  // by then the store holds the turn's own state, which would diff clean.
+  baseState: GameState;
+  baseLedger: StoryLedger;
 }
 
 export type RecoveryGMParsed = {
@@ -39,6 +44,7 @@ export interface StoryState {
   // never accumulated: a finding describes one transition, so carrying it
   // forward would keep reporting a drift the next turn may already have fixed.
   // Deliberately not persisted -- see SaveRecord, which does not carry it.
+  // Read today only by `dlog`; it is the slice a findings surface will read.
   continuity: ContinuityFinding[];
   language: string;
   metaMode: boolean;

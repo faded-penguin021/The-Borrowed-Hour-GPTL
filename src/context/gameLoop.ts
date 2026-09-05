@@ -1,4 +1,4 @@
-import type { ChatMessage, Entry, MetaMessage, NarrationEntry, Premise, SaveRecord, ThrownError, AppSettings, SaveBanner } from "../types";
+import type { ChatMessage, Entry, GameState, MetaMessage, NarrationEntry, Premise, SaveRecord, StoryLedger, ThrownError, AppSettings, SaveBanner } from "../types";
 import type { CallAPI, StreamAPI } from "../llm/client";
 import type { StoryAction, StoryState, RecoveryGMParsed, StreamingStore } from "./storyReducer";
 import type { CodexSnapshot } from "../types";
@@ -117,12 +117,19 @@ export function createGameLoop(deps: GameLoopDeps) {
     };
   }
 
+  // `baseline` is the state and ledger as they stood BEFORE this turn, passed in
+  // rather than read from the store here. A resumed narration reaches this
+  // function twice for the same turn (partial, then continuation), and by the
+  // second call the store already holds this turn's own state and rows: reading
+  // it there would diff the turn against ITSELF -- every diff rule silently
+  // clean -- and then overwrite the first call's real findings.
   function finalizeNarration(
     narration: string,
     gmParsed: RecoveryGMParsed,
     baseEntries: Entry[],
     baseHistory: ChatMessage[],
     fullyRevealed: boolean,
+    baseline: { state: GameState; ledger: StoryLedger },
   ) {
     const s = deps.getState();
     const assistantPayload = JSON.stringify({ gm_scratchpad: "", narration, state: gmParsed.state, ending: gmParsed.ending });
@@ -151,16 +158,17 @@ export function createGameLoop(deps: GameLoopDeps) {
       dispatch({ type: "APPEND_LEDGER_ROWS", turn: turnOf(newHistory), rows });
     }
     // Advisory, and computed only when the turn actually produced a state to
-    // compare against. `s.ledger` is read BEFORE this turn's rows land: the
+    // compare against. `baseline.ledger` predates this turn's rows: the
     // ruled-out rule asks whether a door the story had ALREADY shut was
     // re-opened, not whether a row written this turn disagrees with the same
-    // turn's own clues. Replaces the previous turn's findings rather than
-    // adding to them, so an aborted or retried turn cannot leave a stale one.
-    if (shouldUpdateState && gmParsed.state) {
-      const findings = checkContinuity(s.gameState, gmParsed.state, s.ledger, narration);
-      dispatch({ type: "SET_CONTINUITY", findings });
-      for (const f of findings) dlog(`[continuity] ${f.code}: ${f.detail}`);
-    }
+    // turn's own clues. The dispatch is UNCONDITIONAL -- findings describe one
+    // transition, so a turn that produced no state to judge must clear the
+    // previous turn's, not leave them standing over a newer transition.
+    const findings = (shouldUpdateState && gmParsed.state)
+      ? checkContinuity(baseline.state, gmParsed.state, baseline.ledger, narration)
+      : [];
+    dispatch({ type: "SET_CONTINUITY", findings });
+    for (const f of findings) dlog(`[continuity] ${f.code}: ${f.detail}`);
     if (gmParsed.ending) {
       deps.progress.recordEnding(s.premise?.id, gmParsed.ending);
     }
@@ -293,7 +301,7 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
     let acc = rec.partial;
     const controller = new AbortController;
     const rollback = () => {
-      finalizeNarration(rec.partial, rec.gmParsed, rec.baseEntries, rec.baseHistory, true);
+      finalizeNarration(rec.partial, rec.gmParsed, rec.baseEntries, rec.baseHistory, true, { state: rec.baseState, ledger: rec.baseLedger });
       dispatch({ type: "SET_RECOVERY", recovery: rec });
     };
     abortRef.current = { controller, rollback, startedAt: Date.now() };
@@ -313,12 +321,12 @@ The narration above was interrupted and cut off before it finished. Continue it 
     try {
       await streamAPI(rec.narratorSys, [{ role: "user", content: continuePrompt }], settings.engineNarrator, 700, 0.8, controller.signal, onDelta);
       if (controller.signal.aborted) return;
-      finalizeNarration(acc, rec.gmParsed, rec.baseEntries, rec.baseHistory, true);
+      finalizeNarration(acc, rec.gmParsed, rec.baseEntries, rec.baseHistory, true, { state: rec.baseState, ledger: rec.baseLedger });
     } catch (e) {
       if (controller.signal.aborted) return;
       if (e instanceof BorrowedError && e.detail === "Request cancelled by the player.") return;
       dispatch({ type: "SET_ERROR", error: formatError(e) });
-      finalizeNarration(acc, rec.gmParsed, rec.baseEntries, rec.baseHistory, true);
+      finalizeNarration(acc, rec.gmParsed, rec.baseEntries, rec.baseHistory, true, { state: rec.baseState, ledger: rec.baseLedger });
       dispatch({ type: "SET_RECOVERY", recovery: { ...rec, partial: acc } });
     } finally {
       if (abortRef.current?.controller === controller) {
@@ -336,6 +344,8 @@ The narration above was interrupted and cut off before it finished. Continue it 
     if (!text || loading) return true;
     if (!s.metaMode && s.ended) return true;
     if (!s.premise) return true;
+    // Captured once, here, before anything this turn dispatches.
+    const baseline = { state: s.gameState, ledger: s.ledger };
     dispatch({ type: "SKIP_REVEAL" });
     dispatch({ type: "SET_RECOVERY", recovery: null });
     if (!s.metaMode) await deps.ambience.ensureAmbienceEngine();
@@ -550,23 +560,24 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
           if (e instanceof BorrowedError && e.detail === "Request cancelled by the player.") return false;
           const caught = e as ThrownError;
           if (caught && typeof caught.partial === "string" && caught.partial) {
-            finalizeNarration(caught.partial, gmParsed, newEntries, newHistory, true);
+            finalizeNarration(caught.partial, gmParsed, newEntries, newHistory, true, baseline);
             dispatch({ type: "SET_ERROR", error: formatError(e) });
             dispatch({ type: "SET_RECOVERY", recovery: {
               narratorSys, narratorPrompt, gmParsed,
               baseEntries: newEntries, baseHistory: newHistory,
-              partial: caught.partial
+              partial: caught.partial,
+              baseState: baseline.state, baseLedger: baseline.ledger
             } });
             return true;
           }
           throw e;
         }
         if (controller.signal.aborted) return false;
-        finalizeNarration(narration, gmParsed, newEntries, newHistory, true);
+        finalizeNarration(narration, gmParsed, newEntries, newHistory, true, baseline);
       } else {
         const narration = await callAPI(narratorSys, [{ role: "user", content: narratorPrompt }], false, settings.engineNarrator, 1200, 0.8, controller.signal);
         if (controller.signal.aborted) return false;
-        finalizeNarration(narration, gmParsed, newEntries, newHistory, false);
+        finalizeNarration(narration, gmParsed, newEntries, newHistory, false, baseline);
       }
       return true;
     } catch (e) {

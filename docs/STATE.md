@@ -122,6 +122,16 @@ job, locally needs `PW_CHROMIUM`. Real-provider / on-device behavior is owner-ve
 One line per shipped change or completed unit (newest first). Detail lives in git; the
 durable lessons live in `docs/LEDGER.md`.
 
+- 2026-09-05 — G3 glue review: 7 findings, all triaged. Fixed: a resumed
+  narration finalized twice diffed the turn against itself and overwrote the real
+  findings (the pre-turn state + ledger are now passed in, and carried on
+  `Recovery`); the leak rules were inert in ja/zh/ko, which ship — an unsegmented
+  script is now measured in characters (`CONTINUITY_LEAK_UNSEGMENTED_CHARS`); a
+  turn with no state to judge now clears the previous turn's findings instead of
+  leaving them over a newer transition; runs are matched per field and per added
+  entry, so a match spanning two fields can no longer be fabricated. Prose
+  corrected where it overclaimed: rule 4 catches verbatim re-statement, never
+  contradiction, and a finding is quote-free but not spoiler-free.
 - 2026-09-05 — G3: `checkContinuity`, the machine-enforceable half. Four rules over the
   state diff — GM notes reaching the narration, GM notes copied into player-visible
   fields, an NPC silently dropped, a `ruled_out` row re-added — plus a `continuity` slice

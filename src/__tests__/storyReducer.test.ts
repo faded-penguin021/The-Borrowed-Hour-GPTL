@@ -75,7 +75,7 @@ describe("UNDO", () => {
   it("clears error and recovery", () => {
     const before = playing({
       error: { message: "boom", detail: null, raw: null },
-      recovery: { narratorSys: "", narratorPrompt: "", gmParsed: {}, baseEntries: [], baseHistory: [], partial: "" },
+      recovery: { narratorSys: "", narratorPrompt: "", gmParsed: {}, baseEntries: [], baseHistory: [], partial: "", baseState: EMPTY_STATE, baseLedger: EMPTY_LEDGER },
     });
     const result = storyReducer(before, {
       type: "UNDO", entries: [], history: [], gameState: EMPTY_STATE, turn: 0,
@@ -275,7 +275,7 @@ describe("LOAD_SAVE", () => {
   it("clears error, recovery, and resets frozenPrefixLength", () => {
     const dirty = playing({
       error: { message: "err", detail: null, raw: null },
-      recovery: { narratorSys: "", narratorPrompt: "", gmParsed: {}, baseEntries: [], baseHistory: [], partial: "" },
+      recovery: { narratorSys: "", narratorPrompt: "", gmParsed: {}, baseEntries: [], baseHistory: [], partial: "", baseState: EMPTY_STATE, baseLedger: EMPTY_LEDGER },
       frozenPrefixLength: 10,
     });
     const result = storyReducer(dirty, { type: "LOAD_SAVE", payload });

@@ -135,8 +135,11 @@ export interface StoryLedger {
 }
 
 // A continuity rule's report on one turn. Advisory: nothing rejects a turn on
-// the strength of one. `detail` is written to be safe on a player-facing
-// surface -- it never quotes the private text whose leak it is reporting.
+// the strength of one. `detail` never QUOTES the private text whose leak it is
+// reporting -- but it is not therefore spoiler-free: "this turn re-added a fact
+// the story ruled out" tells the player their new clue is a dead end. Findings
+// belong on an authoring / debug surface (today: `dlog`, read by DebugOverlay),
+// not in the story text.
 export interface ContinuityFinding {
   code:
     | "hidden-state-in-narration"

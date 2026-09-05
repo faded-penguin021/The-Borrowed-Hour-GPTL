@@ -1,5 +1,5 @@
 import type { ContinuityFinding, GameState, StoryLedger } from "../types";
-import { CONTINUITY_LEAK_NGRAM_WORDS } from "../data/constants";
+import { CONTINUITY_LEAK_NGRAM_WORDS, CONTINUITY_LEAK_UNSEGMENTED_CHARS } from "../data/constants";
 
 // Machine-checkable continuity rules, run over the state DIFF a turn produces
 // anyway. Nothing here reads a claim the model makes about itself: there is no
@@ -20,9 +20,33 @@ function words(text: string): string[] {
     .filter(Boolean);
 }
 
+/** Letters and digits only, no spaces: the unit for a script that has no word gaps. */
+function letters(text: string): string {
+  return text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+const UNSEGMENTED_SCRIPT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu;
+
 /**
- * True when `secret` and `surface` share a run of CONTINUITY_LEAK_NGRAM_WORDS
- * consecutive words.
+ * True when the text is mostly written in a script that does not put spaces
+ * between words. `ja`, `zh` and `ko` all ship (`src/data/languages.ts`), and in
+ * those a whole sentence tokenizes to one or two whitespace "words" — so the
+ * word-window check below can never reach its threshold and would sit silently
+ * inert for those players. Majority rather than presence: a mostly-English note
+ * carrying one kanji still wants the word window, whose window is the coarser
+ * and therefore quieter of the two.
+ */
+function isUnsegmented(text: string): boolean {
+  const body = letters(text);
+  if (!body) return false;
+  const cjk = body.match(UNSEGMENTED_SCRIPT);
+  return !!cjk && cjk.length * 2 >= body.length;
+}
+
+/**
+ * True when `secret` and `surface` share a run long enough not to be chance —
+ * CONTINUITY_LEAK_NGRAM_WORDS consecutive words, or, for an unsegmented script,
+ * CONTINUITY_LEAK_UNSEGMENTED_CHARS consecutive characters.
  *
  * A run that long is not coincidence in prose, which is what makes the check
  * cheap and quiet. Two limits are structural, not bugs to fix later: a secret
@@ -35,6 +59,15 @@ function words(text: string): string[] {
  * that a credential is present without printing any part of its value.
  */
 function sharesPhrase(secret: string, surface: string): boolean {
+  if (isUnsegmented(secret)) {
+    const body = letters(secret);
+    if (body.length < CONTINUITY_LEAK_UNSEGMENTED_CHARS) return false;
+    const haystack = letters(surface);
+    for (let i = 0; i + CONTINUITY_LEAK_UNSEGMENTED_CHARS <= body.length; i++) {
+      if (haystack.includes(body.slice(i, i + CONTINUITY_LEAK_UNSEGMENTED_CHARS))) return true;
+    }
+    return false;
+  }
   const secretWords = words(secret);
   if (secretWords.length < CONTINUITY_LEAK_NGRAM_WORDS) return false;
   const haystack = ` ${words(surface).join(" ")} `;
@@ -45,8 +78,13 @@ function sharesPhrase(secret: string, surface: string): boolean {
   return false;
 }
 
-/** Everything in a state the player is allowed to see, as one blob. */
-function publicText(state: GameState): string {
+/**
+ * Everything in a state the player is allowed to see, field by field. Kept
+ * SEPARATE rather than joined: a run spanning the end of one field and the
+ * start of the next exists in no field the player can read, and reporting it
+ * would be a leak nobody committed.
+ */
+function publicFields(state: GameState): string[] {
   return [
     state.scene,
     state.time,
@@ -54,7 +92,7 @@ function publicText(state: GameState): string {
     ...state.inventory,
     ...state.clues,
     ...state.npcs.map((n) => `${n.name} ${n.note}`),
-  ].join(" ");
+  ];
 }
 
 function normalizeName(name: string): string {
@@ -96,7 +134,7 @@ export function checkContinuity(
   // 2. The same text copied into a player-visible FIELD. A distinct path from
   //    the one above and equally invisible to the type barrier, which polices
   //    the shape of the state object, not what the GM copies into it.
-  if (next.hidden_state && sharesPhrase(next.hidden_state, publicText(next))) {
+  if (next.hidden_state && publicFields(next).some((field) => sharesPhrase(next.hidden_state, field))) {
     findings.push({
       code: "hidden-state-in-state",
       detail: "A run of words from the GM's private notes appears in the player-visible state.",
@@ -117,22 +155,24 @@ export function checkContinuity(
     }
   }
 
-  // 4. Negative memory, enforced. A `ruled_out` row is the story saying a door
-  //    is shut; this catches it being quietly re-opened as a fresh clue or
-  //    item. Compared against what the turn ADDED, so a standing contradiction
-  //    is reported on the turn that introduces it and not on every turn after.
+  // 4. Negative memory, enforced -- as far as a word run can enforce it. A
+  //    `ruled_out` row is the story saying a door is shut; this catches the
+  //    door being re-opened in the shut door's OWN WORDS, a new clue or item
+  //    restating the ruled-out sentence. It does not catch a contradiction:
+  //    "the ferryman was at the abbey" shares no run with "the ferryman was
+  //    nowhere near the abbey", and telling those apart needs meaning. Compared
+  //    against what the turn ADDED, so a standing repetition is reported on the
+  //    turn that introduces it and not on every turn after.
   const before = new Set([...prev.clues, ...prev.inventory].map(normalizeName));
   const added = [...next.clues, ...next.inventory].filter((e) => !before.has(normalizeName(e)));
-  if (added.length) {
-    const addedText = added.join(" ");
-    for (const row of ledger.rows) {
-      if (row.kind !== "ruled_out") continue;
-      if (sharesPhrase(row.text, addedText)) {
-        findings.push({
-          code: "ruled-out-resurfaced",
-          detail: `Ledger row ${row.id} ruled this out, and this turn added it back.`,
-        });
-      }
+  for (const row of ledger.rows) {
+    if (row.kind !== "ruled_out") continue;
+    // Per entry, not over the entries joined: same reason as publicFields.
+    if (added.some((entry) => sharesPhrase(row.text, entry))) {
+      findings.push({
+        code: "ruled-out-resurfaced",
+        detail: `Ledger row ${row.id} ruled this out, and this turn added it back.`,
+      });
     }
   }
 

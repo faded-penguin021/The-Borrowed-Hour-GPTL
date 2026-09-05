@@ -136,3 +136,38 @@ describe("the rule set as a whole", () => {
     );
   });
 });
+
+describe("a script written without spaces between words", () => {
+  // ja / zh / ko all ship. A whitespace window can never fire there, so the
+  // leak rules would be silently inert for those players.
+  const JA_SECRET = "修道院長が去年の収穫祭でワインに毒を入れた";
+
+  it("fires when the private notes appear in the prose", () => {
+    const f = checkContinuity(EMPTY_STATE, state({ hidden_state: JA_SECRET }), EMPTY_LEDGER,
+      `彼女は気づいた。${JA_SECRET}。`);
+    expect(codes(f)).toContain("hidden-state-in-narration");
+  });
+
+  it("stays quiet on unrelated prose in the same script", () => {
+    const f = checkContinuity(EMPTY_STATE, state({ hidden_state: JA_SECRET }), EMPTY_LEDGER,
+      "雨が石畳を叩いていた。");
+    expect(f).toHaveLength(0);
+  });
+
+  it("does not judge a secret shorter than the character window", () => {
+    const f = checkContinuity(EMPTY_STATE, state({ hidden_state: "毒を入れた" }), EMPTY_LEDGER,
+      "毒を入れた");
+    expect(f).toHaveLength(0);
+  });
+});
+
+describe("runs that span two fields", () => {
+  it("does not fabricate a match across a field boundary", () => {
+    // The run exists only in the concatenation, so no field the player reads
+    // contains it -- reporting it would name a leak nobody committed.
+    const f = checkContinuity(EMPTY_STATE,
+      state({ hidden_state: "the abbot poisoned the wine at the harvest", inventory: ["the abbot poisoned"], clues: ["the wine at the harvest"] }),
+      EMPTY_LEDGER, "");
+    expect(codes(f)).not.toContain("hidden-state-in-state");
+  });
+});
