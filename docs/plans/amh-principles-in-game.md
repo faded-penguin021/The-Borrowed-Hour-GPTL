@@ -113,6 +113,19 @@ and abort glue, which is exactly what unit tests cannot see, so both take a **gl
 - **G1 — the tier.** `StoryLedger` types in `src/types.ts`, `APPEND_LEDGER_ROWS` in
   `storyReducer.ts`, caps in `src/data/constants.ts`, rollover-to-`chronicle`. Vitest vectors
   for append-only-ness and rollover. No prompt change, no LLM contact — pure state plumbing.
+**Two constraints G2 inherits from G1's glue review — read before starting:**
+
+1. **Name the tool field `story_ledger_append`, never `ledger`.** The GM tool already
+   emits a `ledger` sub-object meaning the player-facing *diary* (`PlayerLedger`).
+   Reusing the word in one payload would collide two different memory tiers.
+2. **Stamp rows with `turnOf(history)` measured AFTER the assistant message lands**
+   (i.e. at `STREAM_FINALIZE`/`APPEND_TURN`, not while the turn is in flight). `UNDO`
+   truncates against `turnOf(newHistory)` computed post-slice; if a producer dispatches
+   mid-turn, history is odd-length, `floor(n/2)` still reads as the *previous* turn, and
+   every row of an undone turn survives the undo. Nothing in the reducer or the types
+   enforces this — it is the one finding from G1's review left open, deliberately, because
+   the tier has no producer until G2 makes it one.
+
 - **G2 — the salient reminder.** `ledger_append` on the GM tool across
   `src/llm/schemas.ts`, `responseSchemas.ts`, `definitions.ts`; ledger block emitted by
   `formatStateForPrompt` (`src/llm/prompt.ts:19`) above the mutable state; prompt wording in
