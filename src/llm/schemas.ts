@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LEDGER_CHRONICLE_CHAR_CAP, LEDGER_MAX_ROWS } from "../data/constants";
 import {
   AMBIENCE_SPACE_VALUES,
   AMBIENCE_POPULATION_VALUES,
@@ -86,10 +87,13 @@ export const GameStateSchema = z.preprocess((val) => {
  * wherever a model can see it.
  */
 const LedgerRowSchema = z.object({
-  id: clamped(MAX_LABEL).default(""),
+  // Every field catches. Without it one malformed row fails the array, which
+  // fails the ledger, which drops the whole tier -- including a perfectly good
+  // chronicle -- back to empty. A row is repaired or emptied, never fatal.
+  id: clamped(MAX_LABEL).catch("").default(""),
   turn: z.number().int().nonnegative().catch(0).default(0),
   kind: z.enum(["established", "ruled_out"]).catch("established").default("established"),
-  text: clamped(MAX_ITEM).default("")
+  text: clamped(MAX_ITEM).catch("").default("")
 });
 
 /**
@@ -98,8 +102,20 @@ const LedgerRowSchema = z.object({
  * failing the whole record.
  */
 export const StoryLedgerSchema = z.object({
-  rows: clampedList(LedgerRowSchema).default([]),
-  chronicle: clamped(MAX_PROSE).default(""),
+  // NOT clampedList: its MAX_LIST is 50 and the engine holds LEDGER_MAX_ROWS
+  // (60), so the shared clamp silently deleted the ten NEWEST rows on every
+  // load -- deleted, not folded, with `rolled` left untouched so the next
+  // append reissued their ids for different facts. This clamp is tied to the
+  // engine's own bound and keeps the TAIL, because if it ever fires the recent
+  // rows are the ones worth saving.
+  rows: z.array(LedgerRowSchema)
+    .transform((a) => (a.length > LEDGER_MAX_ROWS ? a.slice(-LEDGER_MAX_ROWS) : a))
+    .transform((a) => a.filter((r) => r.text !== ""))
+    .default([]),
+  // Matches LEDGER_CHRONICLE_CHAR_CAP, which appendLedgerRows enforces as it
+  // folds. Equal by construction: a load-time cap tighter than the in-memory
+  // one is a ratchet, trimming a little more on every save/load round trip.
+  chronicle: clamped(LEDGER_CHRONICLE_CHAR_CAP).catch("").default(""),
   rolled: z.number().int().nonnegative().catch(0).default(0)
 });
 

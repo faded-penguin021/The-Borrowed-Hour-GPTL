@@ -40,7 +40,9 @@ function scrubIllustration(e: Entry): Entry {
  * us. Normalizing the fields the load path dereferences means a damaged record
  * degrades to a clean banner instead of crashing mid-dispatch. `gameState` and
  * `ledger` go back through their schemas, so stored state gets the same clamps
- * and shape guarantees as live GM output.
+ * and shape guarantees as live GM output. The ledger's clamps are deliberately
+ * equal to the engine's own bounds rather than tighter: a load-time cap below
+ * what memory holds is a ratchet that trims a little more on every round trip.
  */
 export function migrateSave(raw: unknown): SaveRecord {
   if (raw == null || typeof raw !== "object") return raw as SaveRecord;

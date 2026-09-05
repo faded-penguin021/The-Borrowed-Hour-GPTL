@@ -112,6 +112,15 @@ export const LEDGER_ROW_CHAR_CAP = 240;
 export const LEDGER_MAX_ROWS = 60;
 // Folded per rollover. Batching keeps the fold rare instead of once per turn.
 export const LEDGER_ROLLOVER_BATCH = 20;
+// Rows one turn may add. Without a bound, a single GM reply can fold rows from
+// the very turn it is playing -- and an undo of that turn cannot retract them,
+// because the chronicle is frozen. Also what stops one turn flooding the tier.
+export const LEDGER_MAX_ROWS_PER_TURN = 6;
+// The frozen chronicle's ceiling, enforced as it is folded rather than at the
+// storage boundary. A cap applied only on load trims the newest folded text a
+// little more on every save/load cycle; enforced here, the in-memory value and
+// the stored one are the same value and the round trip is idempotent.
+export const LEDGER_CHRONICLE_CHAR_CAP = 20_000;
 
 export const EMPTY_LEDGER: StoryLedger = {
   rows: [],

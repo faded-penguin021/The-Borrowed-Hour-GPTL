@@ -95,8 +95,10 @@ export type StoryAction =
   | { type: "UPDATE_ENTRIES"; updater: (prev: Entry[]) => Entry[] }
   | { type: "SET_HISTORY"; history: ChatMessage[] }
   | { type: "SET_GAME_STATE"; gameState: GameState }
-  // The ONLY ledger action. No edit, no delete, no replace -- that absence is
-  // what makes the tier append-only, so do not add one.
+  // The only ledger action the GM can reach. No edit, no delete, no replace --
+  // that absence is what makes the tier append-only, so do not add one. UNDO
+  // below is the one path that removes a row, and it is the PLAYER unmaking a
+  // turn rather than the GM revising a fact; see truncateLedgerToTurn.
   | { type: "APPEND_LEDGER_ROWS"; turn: number; rows: LedgerRowInput[] }
   | { type: "SET_ERROR"; error: StoryState["error"] }
   | { type: "SET_RECOVERY"; recovery: Recovery | null }
@@ -272,6 +274,7 @@ export function storyReducer(state: StoryState, action: StoryAction): StoryState
         recovery: null,
         ended: action.payload.ended,
         gameState: action.payload.gameState,
+        ledger: action.payload.ledger,
         language: action.payload.language,
         metaMessages: action.payload.metaMessages,
         metaMode: action.payload.metaMode,

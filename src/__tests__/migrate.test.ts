@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { migrateSave, CURRENT_SAVE_VERSION } from "../saves/migrate";
+import { LEDGER_MAX_ROWS } from "../data/constants";
 
 describe("migrateSave", () => {
   it("stamps schemaVersion on a pre-versioning save", () => {
@@ -57,6 +58,45 @@ describe("migrateSave: the story ledger (schemaVersion 2)", () => {
   it("degrades a non-object ledger to empty", () => {
     expect(migrateSave({ id: "a", ledger: "corrupt" }).ledger).toEqual({ rows: [], chronicle: "", rolled: 0 });
     expect(migrateSave({ id: "a", ledger: null }).ledger).toEqual({ rows: [], chronicle: "", rolled: 0 });
+  });
+
+  it("keeps every row up to the engine's own bound, not the shared 50-item clamp", () => {
+    // The shared clampedList caps at 50 while the engine holds 60, so a save
+    // above 50 rows lost its ten NEWEST rows on load -- deleted, not folded,
+    // with `rolled` untouched so the next append reissued their ids.
+    const rows = Array.from({ length: LEDGER_MAX_ROWS }, (_, i) => ({
+      id: `L-${String(i + 1).padStart(3, "0")}`, turn: i, kind: "established", text: `fact ${i}`,
+    }));
+    const result = migrateSave({ id: "a", schemaVersion: 2, ledger: { rows, chronicle: "", rolled: 0 } });
+    expect(result.ledger?.rows).toHaveLength(LEDGER_MAX_ROWS);
+    expect(result.ledger?.rows.at(-1)?.text).toBe(`fact ${LEDGER_MAX_ROWS - 1}`);
+  });
+
+  it("keeps the newest rows if it ever has to clamp", () => {
+    const rows = Array.from({ length: LEDGER_MAX_ROWS + 5 }, (_, i) => ({
+      id: `L-${i}`, turn: i, kind: "established", text: `fact ${i}`,
+    }));
+    const kept = migrateSave({ id: "a", ledger: { rows, chronicle: "", rolled: 0 } }).ledger?.rows;
+    expect(kept).toHaveLength(LEDGER_MAX_ROWS);
+    expect(kept?.at(-1)?.text).toBe(`fact ${LEDGER_MAX_ROWS + 4}`);
+  });
+
+  it("survives one malformed row without discarding the good rows or the chronicle", () => {
+    const rec = {
+      id: "abc", schemaVersion: 2,
+      ledger: {
+        rows: [
+          { id: "L-001", turn: 1, kind: "established", text: "a real fact" },
+          { id: "L-002", turn: 1, kind: "established", text: 42 },
+        ],
+        chronicle: "worth keeping",
+        rolled: 20,
+      },
+    };
+    const led = migrateSave(rec).ledger;
+    expect(led?.chronicle).toBe("worth keeping");
+    expect(led?.rolled).toBe(20);
+    expect(led?.rows.map((r) => r.text)).toEqual(["a real fact"]);
   });
 
   it("repairs a row with a bad kind or turn instead of dropping the ledger", () => {

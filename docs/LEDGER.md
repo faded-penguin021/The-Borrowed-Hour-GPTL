@@ -246,3 +246,12 @@
   that the rule is redundant, and deleting the "unnecessary" code would have shipped
   colliding ids. Sharpens D-007: prove a guard fires AND that the proof reached the
   branch under test.
+
+- D-018: Adding a field to a payload TYPE does not wire it, and TypeScript cannot say
+  so — an unread field is legal. `LoadSavePayload` gained `ledger`, `gameLoop` passed
+  it, the `LOAD_SAVE` case never read it: loading save B kept save A's permanent memory
+  and the next write persisted A's rows into B's record. Typecheck was green, and so was
+  the new test, whose fixture put an EMPTY ledger in the payload and asserted nothing
+  about the result. So: when a payload grows a field, grep the consumer for it rather
+  than trusting the build, and give the fixture a value DIFFERING from the prior state,
+  so "kept the old" and "applied the new" cannot both pass.

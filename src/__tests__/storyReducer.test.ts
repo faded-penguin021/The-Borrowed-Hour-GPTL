@@ -234,6 +234,31 @@ describe("LOAD_SAVE", () => {
     metaMode: true,
   };
 
+  // The bug this pins: LoadSavePayload carried `ledger` and the reducer never
+  // read it, so loading save B kept save A's permanent memory and the next
+  // write persisted A's rows into B's record. TypeScript cannot see an unread
+  // payload field, and a payload carrying EMPTY_LEDGER cannot either -- so the
+  // fixture below deliberately differs from what the previous state holds.
+  it("applies the ledger from the payload instead of keeping the live one", () => {
+    const live: StoryState = {
+      ...INITIAL_STATE,
+      ledger: {
+        rows: [{ id: "L-001", turn: 1, kind: "established", text: "from the game being left" }],
+        chronicle: "an earlier game",
+        rolled: 20,
+      },
+    };
+    const incoming = {
+      rows: [{ id: "L-007", turn: 4, kind: "ruled_out" as const, text: "from the game being loaded" }],
+      chronicle: "",
+      rolled: 0,
+    };
+    const result = storyReducer(live, { type: "LOAD_SAVE", payload: { ...payload, ledger: incoming } });
+    expect(result.ledger).toEqual(incoming);
+    expect(result.ledger.rows.some((r) => r.text === "from the game being left")).toBe(false);
+    expect(result.ledger.chronicle).toBe("");
+  });
+
   it("replaces state from save payload", () => {
     const result = storyReducer(INITIAL_STATE, { type: "LOAD_SAVE", payload });
     expect(result.phase).toBe("playing");

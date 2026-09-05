@@ -30,7 +30,7 @@ git history the detail.
 
 Active multi-unit work: **`docs/plans/amh-principles-in-game.md`** (owner-approved,
 branch `claude/text-adventure-amh-crkvd4`) — ports AMH's memory tiering into the *game*,
-which today has working memory only. **G1 and G4 done**; G2, G3, G5 open. The plan holds
+which today has working memory only. **G1 and G4 done and glue-reviewed**; G2, G3, G5 open. The plan holds
 the detail, including a secondary AMH 4.2.0 → 14.0.0 track not yet in scope.
 
 Standing harness: **AMH v4.2.0**, upgraded 2026-08-09; adopted 2026-07-27 at the
@@ -127,19 +127,17 @@ owner-verified via the Owner queue.
 One line per shipped change or completed unit (newest first). Pre-harness history lives
 in `docs/BACKLOG.md` and git.
 
-- 2026-09-05 — G4 (taken early, out of plan order, because G1 left `LOAD_SAVE` filling
-  `EMPTY_LEDGER` — a landmine the moment G2 starts writing rows): save schema v1→v2
-  carries the ledger. A v1 save gets an empty one rather than reconstructed rows; a
-  damaged one degrades to empty via `StoryLedgerSchema`. Autosave deps and both save
-  call sites wired; version assertions now read `CURRENT_SAVE_VERSION` instead of a
-  literal, so the constant and its tests cannot drift.
-- 2026-09-05 — G1: the `StoryLedger` tier — permanent memory for the story, append-only
-  by construction (`APPEND_LEDGER_ROWS` is the only action; no edit or delete exists).
-  Dedupe, a truncating row cap, and rollover that folds the oldest batch into a frozen
-  chronicle rather than deleting it. Undo truncates by turn — the *player* unmaking a
-  turn, never the GM revising a row. Nothing writes rows yet; that is G2.
-- 2026-09-05 — Approve and record `docs/plans/amh-principles-in-game.md`: port AMH's
-  memory tiering into the game. Plan + pointer only.
+- 2026-09-05 — Ledger tier, units G1 + G4 of `docs/plans/amh-principles-in-game.md`
+  (plan recorded the same day). `StoryLedger` is the story's permanent memory:
+  append-only for the GM (`APPEND_LEDGER_ROWS` is his only action; UNDO's truncation is
+  the *player* unmaking a turn), deduped, row- and per-turn-capped, rolling the oldest
+  batch into a frozen chronicle instead of deleting it. Save schema v1→v2 carries it; a
+  v1 save gets an empty ledger rather than reconstructed rows. Glue review (fresh
+  context): no blockers but 9 findings, all fixed — the two that mattered were
+  `LOAD_SAVE` never reading the payload's ledger (D-018) and the shared 50-item clamp
+  silently deleting the 10 newest rows of any ledger over 50 on load. Nothing writes
+  rows yet: that is G2, which must name the field `story_ledger`, since the GM tool's
+  existing `ledger` is the player-facing diary.
 - 2026-08-30 — Refresh model catalogues (LLM only): OpenRouter dropped the free variant
   of `openai/gpt-oss-20b` (`:free` 404s per `check:models --all`); moved the still-live
   paid id to that provider's `paid` tier rather than dropping it (not a default anywhere).
