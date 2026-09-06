@@ -307,7 +307,7 @@
   nowhere and made restoring the reversed value its top finding. The authority was real and the
   audit trail was not, and only the second is checkable.
 
-- D-027: A scripted edit that asserts one string is present and then rewrites a DIFFERENT one
+- D-027 [cited]: A scripted edit that asserts one string is present and then rewrites a DIFFERENT one
   reports success while changing nothing. A review finding was recorded as fixed on the strength
   of a passing assert whose guarded string was never the replacement's target — the indentation
   differed by two spaces — and the claim reached a commit body. Assert on the post-condition, not
@@ -334,3 +334,9 @@
   "below", or "see <section>": the rule requiring process docs to be fixed in the same change
   silently narrowed from the constitution to the runbook. When relocating, grep the moved text
   for self-reference and rewrite each one to name its target explicitly.
+
+- D-031: A rail adopted from another repository carries that repository's ledger IDs, and here
+  those are dangling citations rather than prose: `scripts/` is inside CITATION_SCAN_PATHS, so a
+  foreign `DB-NNN` fails the citation rung naming a row that was never ours. Port the reasoning
+  and re-cite it against a local row, or state it without an ID. The same scan is why a row named
+  in a config comment as a mere example silently becomes an implementation dependency.

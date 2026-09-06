@@ -176,6 +176,16 @@ being patched into it.
   predates the fresh-context reviewer and is superseded by it (D-004); nothing
   else about the protocol changes. It covers the improvement phases, not only the
   completed audit.
+- **Prefer `Write` or `Edit` to an inline `python3 -c` or heredoc when changing a file.**
+  Those render a reviewable diff and fail loudly when a match is missed; an interpreter
+  edit is opaque while it runs, so a mistake in it surfaces only when someone reads the
+  file back. This repo has shipped exactly that bug — an assert guarded one string while
+  `replace` rewrote another, so the edit no-opped, reported success, and the false claim
+  reached a commit body (D-027). It is a **preference, not a ban**: a scripted bulk edit
+  is sometimes the right tool. `scripts/guards/python-edit.sh` makes the preference
+  noticeable by blocking the first matching command once per marker and then standing
+  down; re-running it proceeds. The prose is the binding part, the hook only a reminder —
+  and an agent with no `PreToolUse` hook gets the reminder from this bullet alone.
 - Match nearby style. This codebase prefers small, named functions over deep
   class hierarchies and avoids speculative abstraction.
 - Don't add comments that restate the code. The existing files are sparse on
@@ -335,9 +345,12 @@ any *later* unexplained change to `.claude/` — a new hook command, an added
 permission, an edited skill nobody asked for — is a stop-and-report event.
 
 The `PreToolUse` command rails are user-sanctioned: the shipped
-`scripts/command-guard.sh`, this repo's `scripts/install-guard.sh`, and all three
-`PreToolUse` entries in `.claude/settings.json` — the two `Bash` guards and the `Task`
-spawn advisory — which make the hard rails deterministic rather than advisory. So is the
+`scripts/command-guard.sh`, this repo's own `scripts/install-guard.sh` and
+`scripts/guards/python-edit.sh` (both repo-local, neither part of AMH, neither in
+`scripts/MANIFEST.sha256`), and all four `PreToolUse` entries in `.claude/settings.json` —
+the three `Bash` guards and the `Task` spawn advisory — which make the hard rails
+deterministic rather than advisory. Only the first is a hard rail: the install guard denies,
+while the inline-Python advisory blocks once and then stands down. So is the
 git-native pre-push rail `scripts/session-start.sh` installs at `.git/hooks/pre-push`,
 which rejects a push to the default branch, a branch deletion or a non-fast-forward by
 OUTCOME rather than by reading the command. Which rails superseded which, and when, is in
