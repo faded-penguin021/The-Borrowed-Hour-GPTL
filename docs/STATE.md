@@ -64,7 +64,16 @@ Real-provider / on-device behavior is owner-verified.
    Check: `npm view typescript-eslint peerDependencies.typescript` — a range admitting 7.x
    means it is unblocked; re-run the ladder and close this.
 
-**Open questions:** (none.)
+**Open questions:**
+
+1. **Do the two CodeQL alerts actually clear?** The flagged patterns
+   (`src/__tests__/tts-adapters.test.tsx` incomplete escaping, `e2e/proxy.spec.ts` URL
+   substring sanitization) were rewritten 2026-09-06, but no rung and no local run reaches
+   CodeQL — only a scan on `main` settles it, and the query could still object to the
+   dynamic `new RegExp` on other grounds. Check:
+   `gh api repos/faded-penguin021/The-Borrowed-Hour-GPTL/code-scanning/alerts --jq
+   '[.[]|select(.state=="open")|.rule.id]'` — neither `js/incomplete-sanitization` nor
+   `js/incomplete-url-substring-sanitization` present means closed; delete this item.
 
 **Incoming findings:** (none — the three from the G-track reviews were triaged by the
 owner 2026-09-05; outcomes below.)
@@ -120,7 +129,8 @@ story ledger holds continuity past a history prune at turn 40+.
 One line per shipped change or completed unit (newest first). Detail lives in git; the
 durable lessons live in `docs/LEDGER.md`.
 
-- 2026-09-06 — **Two CodeQL warnings on `main` closed, both in test code.** The
+- 2026-09-06 — **Two CodeQL-flagged patterns in test code rewritten** (clearance unconfirmed
+  until a scan runs on `main` — Owner queue). The
   connect-src wildcard matcher in `tts-adapters.test.tsx` escaped only `.` before building
   its regex, so any other metacharacter in a declared origin would have reached the pattern
   — literal segments are now escaped whole and only the `*` separators become pattern. The

@@ -13,15 +13,16 @@ import { test, expect, fulfillLLM } from "./fixtures";
 
 const PROXY_URL = "http://localhost:9999/llm";
 
-/** The host of a proxied request's `?target=` param, parsed rather than
+/** The origin of a proxied request's `?target=` param, parsed rather than
  * substring-matched — a provider name can appear anywhere in a URL (in the
  * path, in another param, as a subdomain of somewhere else), so only the
- * decoded target's hostname says which origin the proxy was pointed at. */
-function targetHost(proxiedUrl: string): string | null {
+ * decoded target's origin says where the proxy was pointed. Scheme and port
+ * are part of that answer, hence origin and not hostname. */
+function targetOrigin(proxiedUrl: string): string | null {
   const target = new URL(proxiedUrl).searchParams.get("target");
   if (!target) return null;
   try {
-    return new URL(target).hostname;
+    return new URL(target).origin;
   } catch {
     return null;
   }
@@ -61,7 +62,7 @@ test.describe("The Borrowed Hour — BYOB proxy", () => {
     // Health check succeeds via the proxy, and the ping was rewritten to carry
     // the real provider URL as the ?target= param.
     await expect(page.getByText(/responded\.?$/)).toBeVisible();
-    expect(proxied.some((u) => targetHost(u) === "api.openai.com")).toBe(true);
+    expect(proxied.some((u) => targetOrigin(u) === "https://api.openai.com")).toBe(true);
     const afterTest = proxied.length;
 
     // Close settings and play a turn.
