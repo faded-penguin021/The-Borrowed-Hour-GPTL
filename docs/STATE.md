@@ -66,17 +66,6 @@ Real-provider / on-device behavior is owner-verified.
 
 **Open questions:** (none.)
 
-**Spent one-time grants** (never durable — a standing version would defeat the point; the
-owner has ruled that each is single-use and expires with the session that received it):
-
-- **2026-09-05, fork-deciding, SPENT.** "Decide forks on your own as I'm not there to answer
-  them." Used for the two forks in the 14.0.0 upgrade (the ledger byte cap and the profile
-  shape), both of which the owner then reviewed on 2026-09-06. It authorised that session and
-  nothing after it. Do NOT read this entry as precedent, and do not write such a grant into
-  `CLAUDE.md` as a rule: forks route to Open questions above (Session discipline 4) unless the
-  owner says otherwise in the session itself. Kept here only because a deviation that leaves no
-  audit trail is indistinguishable from an invented one (D-026).
-
 **Incoming findings:** (none — the three from the G-track reviews were triaged by the
 owner 2026-09-05; outcomes below.)
 
@@ -101,12 +90,12 @@ story ledger holds continuity past a history prune at turn 40+.
   permanence is worth having. Rejected: player-safe rows (pushes unrevealed facts back
   into `hidden_state`, the exact weakness the plan fixes) and a two-kind projection
   (honest but disproportionate). Revisit only if findings alone prove too thin a surface.
-- **Harness shape, settled 2026-07** (owner): AMH runs at the **`light` profile**
+- **Harness shape** (owner, 2026-07, revised 2026-09-06): AMH runs at the **`light` profile**
   plus both tiers light withholds: `docs/LEDGER.md`, which predates the install and was kept,
   and `docs/RUNBOOK.md`, split out of a 616-line `CLAUDE.md` on 2026-09-06 at the owner's call.
   The constitution states the rules; the runbook holds the playbooks; neither repeats the
   other, and `scripts/guards/doc-navigation.sh` checks the headings AND the pointers between
-  them, since guarding only the heading is how a relocation becomes a silent repeal).
+  them, since guarding only the heading is how a relocation becomes a silent repeal.
   **Shipped AMH scripts are never edited locally** — a local edit turns every future
   upgrade from a copy into a silent merge, so changes go to `amh.conf`,
   `scripts/guards/*.sh` or `scripts/verify.sh`. The install rail keeps its
@@ -130,6 +119,14 @@ story ledger holds continuity past a history prune at turn 40+.
 
 One line per shipped change or completed unit (newest first). Detail lives in git; the
 durable lessons live in `docs/LEDGER.md`.
+
+- 2026-09-06 — **Rule review of the split: 13 findings, all triaged.** The worst were mine to
+  own: the relocated rule-review scope list said "this file" and so had quietly stopped covering
+  `CLAUDE.md`; the leaked-credential protocol had no pointer from the constitution at all; and
+  the new guard passed on a pointer that had been destroyed, three times over, until it matched
+  the pointer's *form* rather than its words. Verbatim relocation is not referent-safe — D-030.
+  Numbers corrected (1030/1151/~160 B per sentence). Owner-overturned rows now carry correction
+  pointers to D-028; the spent grant moved to D-029.
 
 - 2026-09-06 — **`docs/RUNBOOK.md` split out of the constitution** (owner's call). `CLAUDE.md`
   had reached 616 lines; it is now 365 and states rules only, with the playbooks moved verbatim

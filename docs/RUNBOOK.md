@@ -1,13 +1,20 @@
 # RUNBOOK — maintenance playbook
 
 Operational detail for this repository. `CLAUDE.md` is the constitution: it states the rules
-that bind and points here for how to carry them out. Neither file repeats the other, and a
-rule lives in exactly one of them — so **moving text between them is legislation, not tidying**,
-and takes the rule-review protocol. Both are in `amh.conf`'s `RULE_FILES`.
+that bind and points here for how to carry them out. **This file is the authoritative source
+for every procedure it describes**; where the constitution names one of these rules in passing,
+that is a signpost for a session that must know it before acting, and this file wins on the
+detail. **Moving text between them is legislation, not tidying**, and takes the rule-review
+protocol — including a check that no moved sentence still says "this file" of its old home
+(D-030). Both files are in `amh.conf`'s `RULE_FILES`.
 
-This file is read on demand rather than on every turn, which is what makes it the right home
-for a playbook and the wrong home for anything a session must know before it acts. Nothing
-here is history: superseded rules and per-version narratives go to `docs/LEDGER.md`.
+This file is read on demand rather than on every turn. That makes it the right home for
+procedure — the steps, the checklists, the reasoning behind a threshold. It does NOT mean the
+rules here bind less: **Session discipline** below is binding on every session, and the
+constitution's Session protocol sends you here before you start work for exactly that reason.
+What must never live here is anything a session needs *without* being told to look, which is
+why the constitution keeps the rule and leaves the procedure to this file. Nothing here is
+history: superseded rules and per-version narratives go to `docs/LEDGER.md`.
 
 ## Reference-doc index
 
@@ -110,8 +117,9 @@ that you are the last reviewer — there is no stronger pass behind you.
    re-running a script. The stop is for a genuinely stuck blocker, not cover for
    abandoning a failure you could diagnose. Pushed checkpoints are immutable —
    never rewrite pushed history. The sole exception is a leaked credential, and
-   even then the rewrite is owner-executed (see Secret hygiene).
-7. **These process docs are code.** If this file or `docs/STATE.md` is wrong,
+   even then the rewrite is owner-executed (`CLAUDE.md` → Secret hygiene, and **Incident: leaked
+   credential** below).
+7. **These process docs are code.** If `CLAUDE.md`, this runbook or `docs/STATE.md` is wrong,
    stale, or missing the case you just handled, fix it in the same change. That
    covers *operational* content; binding rules go through the rule review below.
 8. **Verification disclosure.** Every commit body states what you actually
@@ -251,11 +259,12 @@ after an abort, non-idempotent lifecycle (double-init, double-listener), gate
 polarity, insertion order, observer echo races. Scale the reviewer's model tier
 to the diff. Self-review is the fallback only if no fresh context can be spawned.
 
-**Rule review — for diffs to this harness's legislation.** This file, **`amh.conf`** (it
-holds every binding threshold and the scope lists the guards read — config that decides a
-guard's behaviour is legislation), `docs/STATE.md`'s rule-bearing sections (its pointers, its
-Decided non-items), `scripts/ladder.sh` guard semantics, `.claude/` rails and hooks,
-`docs/LEDGER.md`'s preamble. Strongest tier regardless of diff size — a
+**Rule review — for diffs to this harness's legislation.** This is the canonical scope list;
+the constitution points here rather than keeping a second copy. It covers **`CLAUDE.md`**, this
+file, **`amh.conf`** (it holds every binding threshold and the scope lists the guards read —
+config that decides a guard's behaviour is legislation), `docs/STATE.md`'s rule-bearing sections
+(its pointers, its Decided non-items), `scripts/ladder.sh` and `scripts/guards/` semantics,
+`.claude/` rails and hooks, and `docs/LEDGER.md`'s preamble. Strongest tier regardless of diff size — a
 three-line rule edit can carry a semantic bomb — and **no self-review fallback**:
 a session that cannot spawn a fresh context still checkpoints, then parks the
 change **unmerged** and records "review owed" under Pending owner actions.
@@ -273,7 +282,7 @@ legislation.
 
 The npm ecosystem has active self-propagating worms (Shai-Hulud, Miasma,
 CanisterWorm and successors) that backdoor packages and, in Miasma's case,
-**inject persistent instructions into AI-assistant config files like this one**.
+**inject persistent instructions into AI-assistant config files like `CLAUDE.md`**.
 Treat the following as hard rules:
 
 1. **Use `npm ci`, never `npm install`**, unless the task is explicitly a

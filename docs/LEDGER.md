@@ -286,13 +286,13 @@
   owner-sanctioned in advance. Two forks were decided by the session rather than queued, both
   flagged back to the owner: `LEDGER_ROW_CHAR_CAP` went 800 back to the shipped 2000 because
   8.0.0's new `LEDGER_ROW_SENTENCE_CAP` now does the job 800 was standing in for, and the
-  `light` profile was kept rather than splitting a `docs/RUNBOOK.md`.
+  `light` profile was kept rather than splitting a `docs/RUNBOOK.md`. Corrected by D-028.
 
 - D-024: An upgrade note that names a seed file this profile does not carry needs a written
   destination, not a judgement call each time. Five AMH releases route legislation into
   `docs/RUNBOOK.md`, which the `light` profile withholds; the content must still land somewhere
   live, uncapped and inside `RULE_FILES`, which here is `CLAUDE.md`. Record the mapping in the
-  constitution so the next upgrade does not re-derive it — or re-decide the split deliberately.
+  constitution so the next upgrade does not re-derive it — or re-decide the split deliberately. Corrected by D-028.
 
 - D-025: Writing rule prose ABOUT the credential rails trips them. The command guard's dotenv
   and certificate-container advisories match the filename shapes anywhere in a command, so a
@@ -313,3 +313,24 @@
   differed by two spaces — and the claim reached a commit body. Assert on the post-condition, not
   the pre-condition: compare the buffer before and after and fail when they match. This is the
   concrete cost of the constitution's preference for a visible diff over an opaque interpreter edit.
+
+- D-028: The owner reviewed the 14.0.0 upgrade on 2026-09-06 and overturned both forks the
+  upgrading session had decided. `LEDGER_ROW_CHAR_CAP` is 1400, on the test that a cap becomes
+  the target over time: the shipped 2000 could not be promised to stay a ceiling, and the old
+  800 rejects a sentence-compliant 1030-byte row on bytes and so restores the shaving reflex.
+  `docs/RUNBOOK.md` was split out of a 616-line constitution, so runbook-routed content now has
+  its own home rather than landing in `CLAUDE.md`. Corrects D-023 and D-024.
+
+- D-029: A one-time owner grant is recorded, never generalised. On 2026-09-05 the owner
+  authorised a single session to decide forks alone; it was used for the two forks D-028
+  reverses, and the owner ruled on 2026-09-06 that such a grant is never durable and must not
+  become a rule in `CLAUDE.md`. It is kept here rather than in working memory because a
+  deviation whose authority leaves no audit trail cannot be told from an invented one (D-026),
+  and `docs/STATE.md` is compressed and would lose it.
+
+- D-030: Moving prose between documents changes what its deictic words mean. Relocating whole
+  sections from the constitution to `docs/RUNBOOK.md` was done verbatim on the reasoning that
+  only the address changed, and that reasoning is wrong for any sentence saying "this file",
+  "below", or "see <section>": the rule requiring process docs to be fixed in the same change
+  silently narrowed from the constitution to the runbook. When relocating, grep the moved text
+  for self-reference and rewrite each one to name its target explicitly.
