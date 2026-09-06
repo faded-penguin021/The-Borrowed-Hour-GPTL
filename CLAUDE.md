@@ -168,7 +168,8 @@ being patched into it.
   Playwright e2e is a separate CI job (locally needs `PW_CHROMIUM`, which the
   SessionStart hook exports); run it when a change touches the game flow.
 - **A green rung deliberately does not print its thresholds**, and that is not
-  information lost. A healthy size line reads `8 KB, within the band`; a completed
+  information lost. A healthy size line states the size and that it is within the band,
+  naming no threshold; a completed
   compression landing reports how far *clear of* the ceilings it landed rather than
   naming them; the ledger rung reports each new row's own sentence count. Every WARN and
   FAIL still quotes the threshold it turned on, because a rejection has to say what it

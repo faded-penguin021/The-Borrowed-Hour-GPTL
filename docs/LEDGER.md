@@ -306,3 +306,10 @@
   by design cannot see the session, correctly read that as a governance rule invented from
   nowhere and made restoring the reversed value its top finding. The authority was real and the
   audit trail was not, and only the second is checkable.
+
+- D-027: A scripted edit that asserts one string is present and then rewrites a DIFFERENT one
+  reports success while changing nothing. A review finding was recorded as fixed on the strength
+  of a passing assert whose guarded string was never the replacement's target — the indentation
+  differed by two spaces — and the claim reached a commit body. Assert on the post-condition, not
+  the pre-condition: compare the buffer before and after and fail when they match. This is the
+  concrete cost of the constitution's preference for a visible diff over an opaque interpreter edit.

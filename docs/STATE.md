@@ -62,31 +62,23 @@ Real-provider / on-device behavior is owner-verified.
    `overrides` / `--legacy-peer-deps` is not the move. Observed still blocked 2026-09-05.
    Check: `npm view typescript-eslint peerDependencies.typescript` — a range admitting 7.x
    means it is unblocked; re-run the ladder and close this.
-2. **The 14.0.0 upgrade reversed an owner call on `LEDGER_ROW_CHAR_CAP`** (session,
-   2026-09-05): 800 → 2000, restoring the shipped default. 8.0.0 added
-   `LEDGER_ROW_SENTENCE_CAP` (set to 6) as the working limit that 800 was standing in for, and
-   asks for the byte cap to be a backstop with real headroom over the longest
-   sentence-compliant row — 1029 bytes here, not the 1150-byte row, which runs to 7 sentences
-   and the new cap would reject. Overturn it by setting the key back; the reasoning is beside
-   the key in `amh.conf`.
-   Check: `grep '^LEDGER_ROW_CHAR_CAP=' amh.conf` — `800` means the reversal was overturned.
-3. **The upgrade kept the `light` profile rather than creating `docs/RUNBOOK.md`** (session,
-   2026-09-05). Five releases (9.2.0, 11.0.0, 12.0.0, 13.0.0, 14.0.0) route legislation into
+2. **The `light` profile vs. a `docs/RUNBOOK.md` split** (session, 2026-09-05). Five releases (9.2.0, 11.0.0, 12.0.0, 13.0.0, 14.0.0) route legislation into
    that file by name; this repo landed it in `CLAUDE.md` instead, which is uncapped and in
    `RULE_FILES`. Splitting the constitution is a separate unit and is the owner's call.
    Check: `test -f docs/RUNBOOK.md` — present means the split happened.
 
-**Open questions:**
+**Open questions:** (none.)
 
-1. **Is the fork mandate of 2026-09-05 standing, or was it for that session only?** The owner
-   opened that session with "decide forks on your own as I'm not there to answer them", and
-   items 2 and 3 above were decided under it rather than parked here as Session discipline 4
-   would otherwise require. That instruction lives only in the session transcript, so it is
-   invisible to this tree and to any later reviewer — which is what the fresh-context review
-   of that upgrade flagged. Two things to settle: whether it applies to future sessions, and
-   if so whether it belongs in `CLAUDE.md` as a rule before it is used as one. Until then,
-   treat it as spent and route forks here.
-   Check: `grep -n 'mandate' CLAUDE.md` — a hit means it was written down as a rule.
+**Spent one-time grants** (never durable — a standing version would defeat the point; the
+owner has ruled that each is single-use and expires with the session that received it):
+
+- **2026-09-05, fork-deciding, SPENT.** "Decide forks on your own as I'm not there to answer
+  them." Used for the two forks in the 14.0.0 upgrade (the ledger byte cap and the profile
+  shape), both of which the owner then reviewed on 2026-09-06. It authorised that session and
+  nothing after it. Do NOT read this entry as precedent, and do not write such a grant into
+  `CLAUDE.md` as a rule: forks route to Open questions above (Session discipline 4) unless the
+  owner says otherwise in the session itself. Kept here only because a deviation that leaves no
+  audit trail is indistinguishable from an invented one (D-026).
 
 **Incoming findings:** (none — the three from the G-track reviews were triaged by the
 owner 2026-09-05; outcomes below.)
@@ -139,6 +131,13 @@ story ledger holds continuity past a history prune at turn 40+.
 
 One line per shipped change or completed unit (newest first). Detail lives in git; the
 durable lessons live in `docs/LEDGER.md`.
+
+- 2026-09-06 — **Owner review of the 14.0.0 upgrade.** `LEDGER_ROW_CHAR_CAP` settled at
+  **1400** — not the old 800 (which rejects a sentence-compliant 1029-byte row on bytes and
+  restores the shave reflex) and not the shipped 2000 (which could not honestly be promised to
+  stay a ceiling). The 2026-09-05 fork-deciding grant is recorded as spent and ruled never
+  durable. One review finding reported fixed the day before was not: the edit silently no-opped
+  — D-027, now fixed for real.
 
 - 2026-09-05 — **AMH 4.2.0 → 14.0.0**, twenty-one releases in one pass. Five shipped scripts
   + manifest replaced; `amh.conf` gained `STATE_COMPRESS_TO_SENTENCES=50` and
