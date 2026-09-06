@@ -1,7 +1,7 @@
 # STATE — project state & session memory
 
 > **Length guard.** Thresholds are in `amh.conf`; the rules for compressing this file are
-> `CLAUDE.md` → **Working-memory compression**, and they bind whether or not you follow this
+> `docs/RUNBOOK.md` → **Working-memory compression**, and they bind whether or not you follow this
 > pointer. Compress by lifecycle, not by file size: fold a stage's narrative once the stage is
 > complete, even below the compression trigger, and keep only current state, unresolved owner
 > items, immediate operational gotchas and concise Changelog pointers.
@@ -41,8 +41,9 @@ plan is **retained, not yet archived**, because G6 is still open — plans end a
 deleted, and no ledger row cites its path, so dropping G6 is all that stands between it and
 disposal.
 
-Standing harness: **AMH v14.0.0**, `light` profile — `amh.conf` holds every setting and
-`CLAUDE.md` the rules, including the compression rules for this file. `docs/LEDGER.md` is the
+Standing harness: **AMH v14.0.0** — `amh.conf` holds every setting, `CLAUDE.md` the rules and
+`docs/RUNBOOK.md` the playbooks (session discipline, the ladder, working-memory compression,
+the review protocols, supply chain, the leaked-credential incident). `docs/LEDGER.md` is the
 live ledger volume: permanent memory and retrieval storage (grep one row, never read a volume
 whole). Verification is `scripts/ladder.sh`, which reports every failure, so read past the
 first `FAIL`. Playwright e2e is **not** a rung: separate CI job, locally needs `PW_CHROMIUM`.
@@ -53,7 +54,7 @@ Real-provider / on-device behavior is owner-verified.
 > **Protected section.** Never delete it or silently drop items during compression; items
 > leave only when done / answered / triaged, with the outcome recorded as a Changelog line or
 > a ledger row. Every item carries a `Check:` that settles it from the tree or the world. A
-> session's final chat message restates this queue (`CLAUDE.md` → Session discipline 5).
+> session's final chat message restates this queue (`docs/RUNBOOK.md` → Session discipline 5).
 
 **Pending owner actions:**
 
@@ -62,10 +63,6 @@ Real-provider / on-device behavior is owner-verified.
    `overrides` / `--legacy-peer-deps` is not the move. Observed still blocked 2026-09-05.
    Check: `npm view typescript-eslint peerDependencies.typescript` — a range admitting 7.x
    means it is unblocked; re-run the ladder and close this.
-2. **The `light` profile vs. a `docs/RUNBOOK.md` split** (session, 2026-09-05). Five releases (9.2.0, 11.0.0, 12.0.0, 13.0.0, 14.0.0) route legislation into
-   that file by name; this repo landed it in `CLAUDE.md` instead, which is uncapped and in
-   `RULE_FILES`. Splitting the constitution is a separate unit and is the owner's call.
-   Check: `test -f docs/RUNBOOK.md` — present means the split happened.
 
 **Open questions:** (none.)
 
@@ -105,9 +102,11 @@ story ledger holds continuity past a history prune at turn 40+.
   into `hidden_state`, the exact weakness the plan fixes) and a two-kind projection
   (honest but disproportionate). Revisit only if findings alone prove too thin a surface.
 - **Harness shape, settled 2026-07** (owner): AMH runs at the **`light` profile**
-  (light-plus — `docs/LEDGER.md` predates the install and was kept; light withholds only a
-  separate `docs/RUNBOOK.md`, so every playbook the harness routes there lives in
-  `CLAUDE.md` — including **Working-memory compression**, which governs this file).
+  plus both tiers light withholds: `docs/LEDGER.md`, which predates the install and was kept,
+  and `docs/RUNBOOK.md`, split out of a 616-line `CLAUDE.md` on 2026-09-06 at the owner's call.
+  The constitution states the rules; the runbook holds the playbooks; neither repeats the
+  other, and `scripts/guards/doc-navigation.sh` checks the headings AND the pointers between
+  them, since guarding only the heading is how a relocation becomes a silent repeal).
   **Shipped AMH scripts are never edited locally** — a local edit turns every future
   upgrade from a copy into a silent merge, so changes go to `amh.conf`,
   `scripts/guards/*.sh` or `scripts/verify.sh`. The install rail keeps its
@@ -131,6 +130,12 @@ story ledger holds continuity past a history prune at turn 40+.
 
 One line per shipped change or completed unit (newest first). Detail lives in git; the
 durable lessons live in `docs/LEDGER.md`.
+
+- 2026-09-06 — **`docs/RUNBOOK.md` split out of the constitution** (owner's call). `CLAUDE.md`
+  had reached 616 lines; it is now 365 and states rules only, with the playbooks moved verbatim
+  to a 323-line runbook and a pointer left at every seam. New repo-local guard
+  `scripts/guards/doc-navigation.sh` fails on a missing destination heading OR a deleted
+  pointer, in both directions, and was proven to fail before being trusted.
 
 - 2026-09-06 — **Owner review of the 14.0.0 upgrade.** `LEDGER_ROW_CHAR_CAP` settled at
   **1400** — not the old 800 (which rejects a sentence-compliant 1029-byte row on bytes and

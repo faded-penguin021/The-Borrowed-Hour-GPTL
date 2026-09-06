@@ -65,7 +65,7 @@
 > checks it both ways — cited-but-unmarked and marked-but-uncited each fail — but it never edits
 > this file: **nothing syncs the marker for you.** What it checks is token sync and row
 > existence, never that the row actually *supports* the claim at the citation site; that is the
-> rule reviewer's job (`CLAUDE.md` → Fresh-context review). Documentation mentions are
+> rule reviewer's job (`docs/RUNBOOK.md` → Fresh-context review). Documentation mentions are
 > existence-checked by this repo's own `scripts/guards/docs-citations.sh` and never carry the
 > marker.
 
