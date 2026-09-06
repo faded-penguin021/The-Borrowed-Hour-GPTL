@@ -1,4 +1,5 @@
-import type { GameState, PlayerLedger, StatePromptBlocks } from "../types";
+import type { GameState, PlayerLedger, StatePromptBlocks, StoryLedger } from "../types";
+import { formatLedgerForPrompt } from "../context/storyLedger";
 
 // Project a GameState down to the player-facing ledger, dropping hidden_state.
 // This is the structural barrier the Ledger UI relies on: the return type has
@@ -16,9 +17,18 @@ export function toPlayerLedger(state: GameState | null | undefined): PlayerLedge
   };
 }
 
-export function formatStateForPrompt(state: GameState | null | undefined): StatePromptBlocks {
+// The ledger block goes ABOVE the mutable state, and that order is the point:
+// the permanent tier is the salient reminder the turn opens on, and the state
+// block below it is the working memory that gets rewritten under it. Ledger and
+// state are independent, so a caller may pass a ledger with no state -- the
+// early return only fires when there is nothing to say at all.
+export function formatStateForPrompt(
+  state: GameState | null | undefined,
+  ledger?: StoryLedger | null
+): StatePromptBlocks {
+  const ledgerBlock = ledger ? formatLedgerForPrompt(ledger) : "";
   if (!state)
-    return { publicBlock: "", privateBlock: "" };
+    return { publicBlock: ledgerBlock, privateBlock: "" };
   const lines = ["[CURRENT GAME STATE — authoritative, updated through last turn]"];
   if (state.scene)
     lines.push(`Scene: ${state.scene}`);
@@ -48,9 +58,12 @@ export function formatStateForPrompt(state: GameState | null | undefined): State
     privateLines.push("[GM-PRIVATE — invisible to the player. Do not echo, narrate, paraphrase, or hint at any item below. These notes exist only to keep continuity in your own bookkeeping. Anything the player has not yet been shown or told stays here, and stays here this turn.]");
     privateLines.push(state.hidden_state);
   }
+  const stateBlock = lines.join(`
+`);
   return {
-    publicBlock: lines.join(`
-`),
+    publicBlock: ledgerBlock ? `${ledgerBlock}
+
+${stateBlock}` : stateBlock,
     privateBlock: privateLines.join(`
 `)
   };

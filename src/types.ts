@@ -96,6 +96,66 @@ export interface GameState extends PlayerLedger {
   hidden_state: string;
 }
 
+// ── Permanent memory ─────────────────────────────────────────────────────────
+// GameState above is WORKING memory: the GM rewrites every field of it each
+// turn, and history is pruned out from under it, so nothing in it is guaranteed
+// to survive a long game. The StoryLedger is the tier that does. Rows are
+// appended and never revised — the reducer offers no action that edits or
+// deletes one, which is what makes "append-only" a property of the type rather
+// than a request to the model.
+
+export type LedgerRowKind =
+  // A fact the story has established.
+  | "established"
+  // A fact the story has closed off. Negative memory: without it, a later turn
+  // re-opens a door an earlier one shut and nothing notices.
+  | "ruled_out";
+
+export interface LedgerRow {
+  id: string;
+  turn: number;
+  kind: LedgerRowKind;
+  text: string;
+}
+
+// What the GM proposes; `id` and `turn` are assigned by appendLedgerRows, never
+// by the model, so a row cannot claim a position it did not earn.
+export interface LedgerRowInput {
+  kind: LedgerRowKind;
+  text: string;
+}
+
+export interface StoryLedger {
+  rows: LedgerRow[];
+  // Rolled-over rows, folded once and then frozen. Never rewritten.
+  chronicle: string;
+  // How many rows have left `rows` for the chronicle. An unbounded odometer, not
+  // a count of what is currently held: row ids stay monotonic across a rollover.
+  rolled: number;
+}
+
+// A continuity rule's report on one turn. Advisory: nothing rejects a turn on
+// the strength of one.
+//
+// TWO VOICES, deliberately, because the finding has two readers. `detail` is
+// the authoring one -- it names `hidden_state`, the ledger row id, the GM --
+// and goes to `dlog` / DebugOverlay only. `note` is what a PLAYER may read: it
+// names no GM-only tier and quotes no private text.
+//
+// Neither is spoiler-FREE, and no wording could be: "something added this turn
+// was ruled out earlier" tells the player their new clue is a dead end, and
+// that is the finding, not a leak in how it is phrased. That is why the surface
+// gates on a deliberate click rather than announcing itself (`LedgerModal`).
+export interface ContinuityFinding {
+  code:
+    | "hidden-state-in-narration"
+    | "hidden-state-in-state"
+    | "npc-dropped"
+    | "ruled-out-resurfaced";
+  detail: string;
+  note: string;
+}
+
 export type EndingType = "good" | "bittersweet" | "pyrrhic" | "ambiguous" | "bad";
 
 // Per-premise discovered-endings map: premiseId -> { endingType: true }.
@@ -428,6 +488,10 @@ export interface SaveRecord {
   turns: number;
   ended: boolean;
   gameState: GameState | null;
+  // Permanent memory. Optional because saves written before schemaVersion 2 have
+  // none -- migrateSave defaults those to an empty ledger, which is honest: an
+  // old save genuinely has no permanent memory to recover.
+  ledger?: StoryLedger;
   entries: Entry[];
   history: ChatMessage[];
   metaMessages: MetaMessage[];
@@ -473,6 +537,9 @@ export interface GMParseResult {
   state: GameState | null;
   ending: string | null;
   ambience?: AmbienceInput | null;
+  // Rows the GM proposes for the permanent tier this turn. Proposals only:
+  // `id` and `turn` are assigned by appendLedgerRows, never by the model.
+  story_ledger_append?: LedgerRowInput[];
   raw: string;
   malformed: boolean;
   diagnostic?: string;
@@ -483,6 +550,7 @@ export interface GMLogicParseResult {
   state: GameState | null;
   ending: string | null;
   ambience?: AmbienceInput | null;
+  story_ledger_append?: LedgerRowInput[];
   raw: string;
   malformed: boolean;
   diagnostic?: string;

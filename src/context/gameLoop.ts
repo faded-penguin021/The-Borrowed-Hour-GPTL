@@ -1,13 +1,15 @@
-import type { ChatMessage, Entry, MetaMessage, NarrationEntry, Premise, SaveRecord, ThrownError, AppSettings, SaveBanner } from "../types";
+import type { ChatMessage, Entry, GameState, MetaMessage, NarrationEntry, Premise, SaveRecord, StoryLedger, ThrownError, AppSettings, SaveBanner } from "../types";
 import type { CallAPI, StreamAPI } from "../llm/client";
 import type { StoryAction, StoryState, RecoveryGMParsed, StreamingStore } from "./storyReducer";
 import type { CodexSnapshot } from "../types";
-import { EMPTY_STATE } from "../data/constants";
+import { EMPTY_LEDGER, EMPTY_STATE } from "../data/constants";
 import { PREMISES, NARRATION_LOADING_PHRASES, META_LOADING_PHRASES, OPENING_LOADING_PHRASES, pickPhrase } from "../data/premises";
 import { buildGMLogicTool, buildGMTool, buildSystem, buildNarratorSystem, buildMetaSystem } from "../llm/tools";
 import { parseGMResponse, parseGMLogicResponse, isStateEmpty } from "../llm/parse";
 import { formatStateForPrompt, stripHistoricalUser, stripHistoricalAssistant, serializeStatePublic } from "../llm/prompt";
 import { formatError, BorrowedError } from "../llm/errors";
+import { turnOf } from "./storyLedger";
+import { checkContinuity } from "./continuity";
 import { defaultAmbienceForRealm, deriveAmbienceFromSeed, deriveTonalCenter } from "../ambience/tables";
 import { getImage } from "../storage/imageStore";
 import { migrateSave } from "../saves/migrate";
@@ -115,12 +117,19 @@ export function createGameLoop(deps: GameLoopDeps) {
     };
   }
 
+  // `baseline` is the state and ledger as they stood BEFORE this turn, passed in
+  // rather than read from the store here. A resumed narration reaches this
+  // function twice for the same turn (partial, then continuation), and by the
+  // second call the store already holds this turn's own state and rows: reading
+  // it there would diff the turn against ITSELF -- every diff rule silently
+  // clean -- and then overwrite the first call's real findings.
   function finalizeNarration(
     narration: string,
     gmParsed: RecoveryGMParsed,
     baseEntries: Entry[],
     baseHistory: ChatMessage[],
     fullyRevealed: boolean,
+    baseline: { state: GameState; ledger: StoryLedger },
   ) {
     const s = deps.getState();
     const assistantPayload = JSON.stringify({ gm_scratchpad: "", narration, state: gmParsed.state, ending: gmParsed.ending });
@@ -135,6 +144,31 @@ export function createGameLoop(deps: GameLoopDeps) {
       gameState: shouldUpdateState ? gmParsed.state : undefined,
       ended: !!gmParsed.ending,
     });
+    // AFTER the dispatch above, never before: rows are stamped with the turn the
+    // assistant message completes, and turnOf reads that off `newHistory`, which
+    // includes it. Stamping mid-turn would date every row to the PREVIOUS turn,
+    // and an undo -- which truncates against the same function -- would then
+    // leave the undone turn's rows behind.
+    //
+    // A resumed narration reaches here twice for one turn with the same rows
+    // (once for the partial, once for the continuation). That is harmless by
+    // construction: appendLedgerRows drops a row whose text it already holds.
+    const rows = gmParsed.story_ledger_append;
+    if (rows && rows.length) {
+      dispatch({ type: "APPEND_LEDGER_ROWS", turn: turnOf(newHistory), rows });
+    }
+    // Advisory, and computed only when the turn actually produced a state to
+    // compare against. `baseline.ledger` predates this turn's rows: the
+    // ruled-out rule asks whether a door the story had ALREADY shut was
+    // re-opened, not whether a row written this turn disagrees with the same
+    // turn's own clues. The dispatch is UNCONDITIONAL -- findings describe one
+    // transition, so a turn that produced no state to judge must clear the
+    // previous turn's, not leave them standing over a newer transition.
+    const findings = (shouldUpdateState && gmParsed.state)
+      ? checkContinuity(baseline.state, gmParsed.state, baseline.ledger, narration)
+      : [];
+    dispatch({ type: "SET_CONTINUITY", findings });
+    for (const f of findings) dlog(`[continuity] ${f.code}: ${f.detail}`);
     if (gmParsed.ending) {
       deps.progress.recordEnding(s.premise?.id, gmParsed.ending);
     }
@@ -150,13 +184,15 @@ export function createGameLoop(deps: GameLoopDeps) {
     deps.codex.resetCodex();
     setLoadingPhrase(pickPhrase(OPENING_LOADING_PHRASES));
     setLoading(true);
-    await deps.ambience.ensureAmbienceEngine();
     const controller = new AbortController;
     const rollback = () => {
       dispatch({ type: "SET_PHASE", phase: "title" });
       dispatch({ type: "SET_PREMISE", premise: null });
     };
     abortRef.current = { controller, rollback, startedAt: Date.now() };
+    // After the abort ref, for the reason given in `submit`.
+    await deps.ambience.ensureAmbienceEngine();
+    if (controller.signal.aborted) return;
     try {
       const ambienceOn = deps.ambience.ambienceEnabled;
       const sys = buildSystem(chosen, s.language, { ambience: ambienceOn });
@@ -196,15 +232,30 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
         if (parsed.raw) err.raw = parsed.raw;
         throw err;
       }
+      const openingHistory: ChatMessage[] = [...msgs, { role: "assistant", content: openingRaw }];
       dispatch({
         type: "APPEND_TURN",
         entries: [{ type: "narration", text: parsed.narration, fullyRevealed: false }],
-        history: [...msgs, { role: "assistant", content: openingRaw }],
+        history: openingHistory,
         gameState: parsed.state,
         ended: !!parsed.ending,
       });
+      // Stamped off the same history the dispatch above committed, for the same
+      // reason as in finalizeNarration -- one function decides what turn it is.
+      if (parsed.story_ledger_append && parsed.story_ledger_append.length) {
+        dispatch({ type: "APPEND_LEDGER_ROWS", turn: turnOf(openingHistory), rows: parsed.story_ledger_append });
+      }
       if (parsed.ending) {
         deps.progress.recordEnding(chosen.id, parsed.ending);
+      }
+      // The opening has no previous turn, so the diff rules (a dropped NPC, a
+      // ruled-out fact returning) have nothing to compare and stay silent by
+      // construction. The two leak rules do not need a predecessor, and an
+      // opening that narrates its own twist is worth catching on turn one.
+      if (parsed.state) {
+        const openingFindings = checkContinuity(EMPTY_STATE, parsed.state, EMPTY_LEDGER, parsed.narration);
+        dispatch({ type: "SET_CONTINUITY", findings: openingFindings });
+        for (const f of openingFindings) dlog(`[continuity] ${f.code}: ${f.detail}`);
       }
       if (deps.ambience.ambienceRef.current) {
         const eng = deps.ambience.ambienceRef.current;
@@ -252,7 +303,7 @@ Call the tool \`narrate_and_update_state\` again. Required top-level fields: gm_
     let acc = rec.partial;
     const controller = new AbortController;
     const rollback = () => {
-      finalizeNarration(rec.partial, rec.gmParsed, rec.baseEntries, rec.baseHistory, true);
+      finalizeNarration(rec.partial, rec.gmParsed, rec.baseEntries, rec.baseHistory, true, { state: rec.baseState, ledger: rec.baseLedger });
       dispatch({ type: "SET_RECOVERY", recovery: rec });
     };
     abortRef.current = { controller, rollback, startedAt: Date.now() };
@@ -272,12 +323,12 @@ The narration above was interrupted and cut off before it finished. Continue it 
     try {
       await streamAPI(rec.narratorSys, [{ role: "user", content: continuePrompt }], settings.engineNarrator, 700, 0.8, controller.signal, onDelta);
       if (controller.signal.aborted) return;
-      finalizeNarration(acc, rec.gmParsed, rec.baseEntries, rec.baseHistory, true);
+      finalizeNarration(acc, rec.gmParsed, rec.baseEntries, rec.baseHistory, true, { state: rec.baseState, ledger: rec.baseLedger });
     } catch (e) {
       if (controller.signal.aborted) return;
       if (e instanceof BorrowedError && e.detail === "Request cancelled by the player.") return;
       dispatch({ type: "SET_ERROR", error: formatError(e) });
-      finalizeNarration(acc, rec.gmParsed, rec.baseEntries, rec.baseHistory, true);
+      finalizeNarration(acc, rec.gmParsed, rec.baseEntries, rec.baseHistory, true, { state: rec.baseState, ledger: rec.baseLedger });
       dispatch({ type: "SET_RECOVERY", recovery: { ...rec, partial: acc } });
     } finally {
       if (abortRef.current?.controller === controller) {
@@ -295,9 +346,10 @@ The narration above was interrupted and cut off before it finished. Continue it 
     if (!text || loading) return true;
     if (!s.metaMode && s.ended) return true;
     if (!s.premise) return true;
+    // Captured once, here, before anything this turn dispatches.
+    const baseline = { state: s.gameState, ledger: s.ledger };
     dispatch({ type: "SKIP_REVEAL" });
     dispatch({ type: "SET_RECOVERY", recovery: null });
-    if (!s.metaMode) await deps.ambience.ensureAmbienceEngine();
 
     if (s.metaMode) {
       const previousMeta = s.metaMessages;
@@ -385,7 +437,7 @@ The narration above was interrupted and cut off before it finished. Continue it 
     const newEntries: Entry[] = [...s.entries, { type: "action", text, fullyRevealed: true }];
     dispatch({ type: "SET_ENTRIES", entries: newEntries });
     if (deps.tts.ttsRef.current) deps.tts.ttsRef.current.stop();
-    const { publicBlock, privateBlock } = formatStateForPrompt(s.gameState);
+    const { publicBlock, privateBlock } = formatStateForPrompt(s.gameState, s.ledger);
     const parts: string[] = [];
     if (publicBlock) parts.push(publicBlock);
     parts.push(`[Player action]\n${text}`);
@@ -443,6 +495,13 @@ The narration above was interrupted and cut off before it finished. Continue it 
       dispatch({ type: "SET_HISTORY", history: previousHistory });
     };
     abortRef.current = { controller, rollback, startedAt: Date.now() };
+    // Warmed AFTER the abort ref is live, never before. The first call per
+    // session `await`s the ambience chunk over the network, and anything the
+    // player does in a window where `abortRef.current` is still null -- loading
+    // a save, above all -- finds nothing to cancel, so this turn would resume
+    // over the loaded game and clobber it.
+    await deps.ambience.ensureAmbienceEngine();
+    if (controller.signal.aborted) return true;
     try {
       const ambienceOn = deps.ambience.ambienceEnabled;
       const gmSys = buildSystem(s.premise, s.language, { split: true, ambience: ambienceOn });
@@ -509,23 +568,24 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
           if (e instanceof BorrowedError && e.detail === "Request cancelled by the player.") return false;
           const caught = e as ThrownError;
           if (caught && typeof caught.partial === "string" && caught.partial) {
-            finalizeNarration(caught.partial, gmParsed, newEntries, newHistory, true);
+            finalizeNarration(caught.partial, gmParsed, newEntries, newHistory, true, baseline);
             dispatch({ type: "SET_ERROR", error: formatError(e) });
             dispatch({ type: "SET_RECOVERY", recovery: {
               narratorSys, narratorPrompt, gmParsed,
               baseEntries: newEntries, baseHistory: newHistory,
-              partial: caught.partial
+              partial: caught.partial,
+              baseState: baseline.state, baseLedger: baseline.ledger
             } });
             return true;
           }
           throw e;
         }
         if (controller.signal.aborted) return false;
-        finalizeNarration(narration, gmParsed, newEntries, newHistory, true);
+        finalizeNarration(narration, gmParsed, newEntries, newHistory, true, baseline);
       } else {
         const narration = await callAPI(narratorSys, [{ role: "user", content: narratorPrompt }], false, settings.engineNarrator, 1200, 0.8, controller.signal);
         if (controller.signal.aborted) return false;
-        finalizeNarration(narration, gmParsed, newEntries, newHistory, false);
+        finalizeNarration(narration, gmParsed, newEntries, newHistory, false, baseline);
       }
       return true;
     } catch (e) {
@@ -572,7 +632,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
       const parsed = parseGMResponse(lastAssistant.content);
       if (parsed.state) newState = parsed.state;
     }
-    dispatch({ type: "UNDO", entries: newEntries, history: newHistory, gameState: newState });
+    dispatch({ type: "UNDO", entries: newEntries, history: newHistory, gameState: newState, turn: turnOf(newHistory) });
     deps.saves.setSaveBanner({ kind: "ok", text: "The last turn is unmade." });
   }
 
@@ -638,6 +698,7 @@ Call the tool \`gm_decide\` again. Required top-level fields: gm_scratchpad (str
         history: save.history || [],
         ended: !!save.ended,
         gameState: save.gameState || EMPTY_STATE,
+        ledger: save.ledger || EMPTY_LEDGER,
         language: save.language || "en",
         metaMessages: (save.metaMessages || []).map((m) => ({ ...m, fullyRevealed: true })),
         metaMode: !!save.metaMode,

@@ -4,6 +4,8 @@ import {
   parseGMResponse, parseGMLogicResponse, isStateEmpty
 } from "../llm/parse";
 import { GameStateSchema, GMLogicResponseSchema } from "../llm/schemas";
+import { LEDGER_MAX_ROWS_PER_TURN, LEDGER_ROW_CHAR_CAP } from "../data/constants";
+import { buildGMLogicTool, buildGMTool } from "../llm/definitions";
 import { toPlayerLedger } from "../llm/prompt";
 
 describe("tryParseJSON", () => {
@@ -229,6 +231,132 @@ describe("ledger / hidden_state structural split", () => {
     expect(Object.keys(ledger)).not.toContain("hidden_state");
     expect(JSON.stringify(ledger)).not.toContain("assassin");
   });
+});
+
+// The GM tool's `ledger` sub-object is the player-facing diary; `story_ledger_append`
+// is the permanent tier. Two memory tiers in one payload, so the boundary these
+// tests hold is that a malformed proposal costs its rows and never the turn --
+// the turn carries the narration the player is waiting on.
+describe("story_ledger_append", () => {
+  const withAppend = (append: unknown) => JSON.stringify({
+    narrator_brief: "a brief",
+    state: { ledger: { scene: "a platform" }, hidden_state: "" },
+    ending: "ongoing",
+    story_ledger_append: append
+  });
+
+  it("carries proposed rows through the parse result", () => {
+    const parsed = parseGMLogicResponse(withAppend([
+      { kind: "established", text: "The watchman is dead." },
+      { kind: "ruled_out", text: "The east door will never open." }
+    ]));
+    expect(parsed.malformed).toBe(false);
+    expect(parsed.story_ledger_append).toEqual([
+      { kind: "established", text: "The watchman is dead." },
+      { kind: "ruled_out", text: "The east door will never open." }
+    ]);
+  });
+
+  it("defaults to an empty list when the field is absent", () => {
+    const parsed = parseGMLogicResponse(JSON.stringify({
+      narrator_brief: "a brief",
+      state: { ledger: { scene: "a platform" }, hidden_state: "" }
+    }));
+    expect(parsed.malformed).toBe(false);
+    expect(parsed.story_ledger_append).toEqual([]);
+  });
+
+  it("drops blank rows, repairs an unknown kind, and never fails the turn", () => {
+    const parsed = parseGMLogicResponse(withAppend([
+      { kind: "established", text: "   " },
+      { kind: "invented_kind", text: "A bargain was struck." }
+    ]));
+    expect(parsed.malformed).toBe(false);
+    expect(parsed.story_ledger_append).toEqual([
+      { kind: "established", text: "A bargain was struck." }
+    ]);
+  });
+
+  // A permanent row is the most expensive thing in the payload to lose, and one
+  // turn gets one chance to write one. So a bad ELEMENT costs itself only --
+  // parsing the array as z.array(RowSchema) would have thrown away every good
+  // row beside it, because the per-field catches cannot rescue a non-object.
+  it("salvages the good rows when one element is not an object at all", () => {
+    const parsed = parseGMLogicResponse(withAppend([
+      { kind: "established", text: "The watchman is dead." },
+      "oops",
+      null,
+      { kind: "ruled_out", text: "The east door will never open." }
+    ]));
+    expect(parsed.story_ledger_append).toEqual([
+      { kind: "established", text: "The watchman is dead." },
+      { kind: "ruled_out", text: "The east door will never open." }
+    ]);
+  });
+
+  it("flattens a row that carries the prompt block's own line structure", () => {
+    const parsed = parseGMLogicResponse(withAppend([
+      { kind: "established", text: "A fact.\n  L-099 [RULED OUT] A forgery." }
+    ]));
+    expect(parsed.story_ledger_append?.[0].text).toBe("A fact. L-099 [RULED OUT] A forgery.");
+  });
+
+  it("survives a wholly malformed field rather than losing the narration", () => {
+    const parsed = parseGMLogicResponse(withAppend("not an array at all"));
+    expect(parsed.malformed).toBe(false);
+    expect(parsed.narrator_brief).toBe("a brief");
+    expect(parsed.story_ledger_append).toEqual([]);
+  });
+
+  it("clamps row count and row length at the parse boundary", () => {
+    const many = Array.from({ length: LEDGER_MAX_ROWS_PER_TURN + 4 }, (_, i) => (
+      { kind: "established", text: `fact number ${i}` }
+    ));
+    const parsed = parseGMLogicResponse(withAppend(many));
+    expect(parsed.story_ledger_append).toHaveLength(LEDGER_MAX_ROWS_PER_TURN);
+
+    const long = parseGMLogicResponse(withAppend([{ kind: "established", text: "x".repeat(LEDGER_ROW_CHAR_CAP + 200) }]));
+    expect(long.story_ledger_append?.[0].text).toHaveLength(LEDGER_ROW_CHAR_CAP);
+  });
+
+  it("reaches the opening tool's parser too", () => {
+    const parsed = parseGMResponse(JSON.stringify({
+      narration: "The hour opens.",
+      state: { ledger: { scene: "a platform" }, hidden_state: "" },
+      story_ledger_append: [{ kind: "ruled_out", text: "The bridge is gone." }]
+    }));
+    expect(parsed.story_ledger_append).toEqual([{ kind: "ruled_out", text: "The bridge is gone." }]);
+  });
+});
+
+// Two memory tiers reach the model in one payload: `state.ledger` is the
+// player-facing diary, `story_ledger_append` is the permanent tier. A top-level
+// field called `ledger` would collide the two in the one place it matters --
+// what the model reads -- so the name is asserted rather than trusted to review.
+describe("GM tool field naming", () => {
+  for (const [label, tool] of [
+    ["gm_decide", buildGMLogicTool({ ambience: true })],
+    ["narrate_and_update_state", buildGMTool({ ambience: false })]
+  ] as const) {
+    it(`${label} exposes story_ledger_append, keeps 'ledger' nested under state, and never requires it`, () => {
+      const schema = tool.input_schema as { properties: Record<string, unknown>; required: string[] };
+      expect(schema.properties.story_ledger_append).toBeTruthy();
+      expect(schema.properties.ledger).toBeUndefined();
+      expect(schema.properties.ledger_append).toBeUndefined();
+      // Optional by design: most turns settle nothing permanent, and a required
+      // field is one the model pads to fill.
+      expect(schema.required).not.toContain("story_ledger_append");
+      // The advertised cap is the enforced one: the description says a number,
+      // maxItems says it to the provider, and the parser clamps to the same
+      // constant. A description promising fewer than the parser accepts is the
+      // prose/guard drift this repo treats as a defect in its own rules.
+      const append = schema.properties.story_ledger_append as { maxItems: number; description: string };
+      expect(append.maxItems).toBe(LEDGER_MAX_ROWS_PER_TURN);
+      expect(append.description).toContain(String(LEDGER_MAX_ROWS_PER_TURN));
+      const state = schema.properties.state as { properties: Record<string, unknown> };
+      expect(state.properties.ledger).toBeTruthy();
+    });
+  }
 });
 
 describe("array-wrapped payload recovery", () => {

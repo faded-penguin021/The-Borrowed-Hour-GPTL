@@ -1,5 +1,5 @@
 {
-  "$comment": "AMH adapter for Claude Code — wiring only, no logic. Behaviour lives in CLAUDE.md (this repo's constitution; AGENTS.md only points at it) and in scripts/. Layers this adapter provides: two instructive pre-execution command guards (the shipped AMH rails, plus this repo's registry-install rail), static deny rails, and pre-allowed verification commands. It does NOT provide output redaction: Claude Code has no output-filter hook, so scripts/redact.sh stays available for manual piping and is what the ladder's secret scan uses. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them.",
+  "$comment": "AMH adapter for Claude Code — wiring only, no logic. Behaviour lives in CLAUDE.md (this repo's constitution; AGENTS.md only points at it) and in scripts/. Layers this adapter provides: two instructive pre-execution command guards (the shipped AMH rails, plus this repo's registry-install rail), a per-spawn speed bump on the Task tool, static deny rails, and pre-allowed verification commands. It does NOT provide output redaction: Claude Code has no output-filter hook, so scripts/redact.sh stays available for manual piping and is what the ladder's secret scan uses. The owner mirrors the hardest rails server-side (branch protection, secret-scanning push protection) — these rules bind only agents that load them.",
   "hooks": {
     "PreToolUse": [
       {
@@ -12,6 +12,19 @@
           {
             "type": "command",
             "command": "bash $CLAUDE_PROJECT_DIR/scripts/install-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/scripts/guards/python-edit.sh --hook"
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/scripts/command-guard.sh --pre-task"
           }
         ]
       }
@@ -94,7 +107,19 @@
       "Read(.env)",
       "Read(.env.*)",
       "Read(**/.env)",
-      "Read(**/.env.*)"
+      "Read(**/.env.*)",
+      "Read(id_rsa)",
+      "Read(**/id_rsa)",
+      "Read(id_dsa)",
+      "Read(**/id_dsa)",
+      "Read(id_ecdsa)",
+      "Read(**/id_ecdsa)",
+      "Read(id_ecdsa_sk)",
+      "Read(**/id_ecdsa_sk)",
+      "Read(id_ed25519)",
+      "Read(**/id_ed25519)",
+      "Read(id_ed25519_sk)",
+      "Read(**/id_ed25519_sk)"
     ]
   }
 }

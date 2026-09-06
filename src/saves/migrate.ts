@@ -1,7 +1,12 @@
 import type { ChatMessage, Entry, MetaMessage, Premise, SaveRecord } from "../types";
-import { GameStateSchema } from "../llm/schemas";
+import { GameStateSchema, StoryLedgerSchema } from "../llm/schemas";
+import { EMPTY_LEDGER } from "../data/constants";
 
-export const CURRENT_SAVE_VERSION = 1;
+// 2 adds `ledger`, the permanent-memory tier. A version-1 save has none, and the
+// migration defaults it to an empty ledger rather than trying to reconstruct one
+// from the transcript: an old save genuinely holds no permanent memory, and
+// inventing rows for it would put unearned facts in the tier the story trusts most.
+export const CURRENT_SAVE_VERSION = 2;
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
@@ -33,9 +38,11 @@ function scrubIllustration(e: Entry): Entry {
  * they outlive the code that wrote them and survive quota-truncated writes,
  * interrupted compression, and anything else that edits storage out from under
  * us. Normalizing the fields the load path dereferences means a damaged record
- * degrades to a clean banner instead of crashing mid-dispatch. `gameState`
- * goes back through `GameStateSchema`, so stored state gets the same clamps
- * and shape guarantees as live GM output.
+ * degrades to a clean banner instead of crashing mid-dispatch. `gameState` and
+ * `ledger` go back through their schemas, so stored state gets the same clamps
+ * and shape guarantees as live GM output. The ledger's clamps are deliberately
+ * equal to the engine's own bounds rather than tighter: a load-time cap below
+ * what memory holds is a ratchet that trims a little more on every round trip.
  */
 export function migrateSave(raw: unknown): SaveRecord {
   if (raw == null || typeof raw !== "object") return raw as SaveRecord;
@@ -60,7 +67,10 @@ export function migrateSave(raw: unknown): SaveRecord {
     history: keepAll(rec.history, isChatMessage),
     metaMessages: keepAll(rec.metaMessages, isMetaMessage),
     gameState,
+    ledger: isObj(rec.ledger)
+      ? StoryLedgerSchema.safeParse(rec.ledger).data ?? EMPTY_LEDGER
+      : EMPTY_LEDGER,
     codex: isObj(rec.codex) ? rec.codex : undefined,
-    schemaVersion: version < 1 ? 1 : version,
+    schemaVersion: version < CURRENT_SAVE_VERSION ? CURRENT_SAVE_VERSION : version,
   } as unknown as SaveRecord;
 }

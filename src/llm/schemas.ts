@@ -1,5 +1,10 @@
 import { z } from "zod";
 import {
+  LEDGER_CHRONICLE_CHAR_CAP, LEDGER_MAX_ROWS, LEDGER_MAX_ROWS_PER_TURN,
+  LEDGER_ROW_CHAR_CAP,
+} from "../data/constants";
+import { flattenRowText } from "../context/storyLedger";
+import {
   AMBIENCE_SPACE_VALUES,
   AMBIENCE_POPULATION_VALUES,
   AMBIENCE_MOOD_VALUES,
@@ -77,6 +82,85 @@ export const GameStateSchema = z.preprocess((val) => {
   return val;
 }, FlatGameStateSchema);
 
+/**
+ * A story-ledger row as it comes back off disk or in from the GM.
+ *
+ * Note the name: the GM tool's `ledger` sub-object is the player-facing DIARY
+ * (PlayerLedger). This is the separate permanent-memory tier (StoryLedger), and
+ * the two must never share a field name in a payload -- hence `story_ledger`
+ * wherever a model can see it.
+ */
+const LedgerRowSchema = z.object({
+  // Every field catches. Without it one malformed row fails the array, which
+  // fails the ledger, which drops the whole tier -- including a perfectly good
+  // chronicle -- back to empty. A row is repaired or emptied, never fatal.
+  id: clamped(MAX_LABEL).catch("").default(""),
+  turn: z.number().int().nonnegative().catch(0).default(0),
+  kind: z.enum(["established", "ruled_out"]).catch("established").default("established"),
+  // Flattened on the way in as well as on the way out: appendLedgerRows guards
+  // the producer, this guards the loader, and a row carrying a newline forges a
+  // row in the prompt block whichever door it came through.
+  text: clamped(MAX_ITEM).transform(flattenRowText).catch("").default("")
+});
+
+/**
+ * The permanent-memory tier. Every field defaults, so a save written before the
+ * tier existed -- or a truncated one -- degrades to an empty ledger rather than
+ * failing the whole record.
+ */
+export const StoryLedgerSchema = z.object({
+  // NOT clampedList: its MAX_LIST is 50 and the engine holds LEDGER_MAX_ROWS
+  // (60), so the shared clamp silently deleted the ten NEWEST rows on every
+  // load -- deleted, not folded, with `rolled` left untouched so the next
+  // append reissued their ids for different facts. This clamp is tied to the
+  // engine's own bound and keeps the TAIL, because if it ever fires the recent
+  // rows are the ones worth saving.
+  rows: z.array(LedgerRowSchema)
+    .transform((a) => (a.length > LEDGER_MAX_ROWS ? a.slice(-LEDGER_MAX_ROWS) : a))
+    .transform((a) => a.filter((r) => r.text !== ""))
+    .default([]),
+  // Matches LEDGER_CHRONICLE_CHAR_CAP, which appendLedgerRows enforces as it
+  // folds. Equal by construction: a load-time cap tighter than the in-memory
+  // one is a ratchet, trimming a little more on every save/load round trip.
+  chronicle: clamped(LEDGER_CHRONICLE_CHAR_CAP).catch("").default(""),
+  rolled: z.number().int().nonnegative().catch(0).default(0)
+});
+
+/**
+ * What the GM may propose for the permanent tier this turn. Deliberately NOT
+ * the row shape above: the model supplies `kind` and `text` only, because `id`
+ * and `turn` are assigned by appendLedgerRows. A model that could name its own
+ * id could overwrite a row, which is the one thing the tier does not allow.
+ *
+ * Both caps are applied here as well as in appendLedgerRows, and that is not
+ * redundant: this is the boundary an untrusted payload crosses, and it keeps an
+ * oversized proposal out of the parse result the debug console prints.
+ *
+ * Every level catches. A malformed proposal must cost at most the rows it
+ * carries -- never the turn, which holds the narration the player is waiting on.
+ */
+const LedgerRowInputSchema = z.object({
+  kind: z.enum(["established", "ruled_out"]).catch("established").default("established"),
+  text: clamped(LEDGER_ROW_CHAR_CAP).transform(flattenRowText).catch("").default("")
+});
+
+export const StoryLedgerAppendSchema = z
+  // Elements are salvaged one at a time, NOT parsed as z.array(LedgerRowInputSchema).
+  // The per-field catches inside the row only rescue a bad field of an object; a
+  // single non-object element (a bare string, a null) fails the object, fails the
+  // array, and hits the outer catch -- throwing away every good row beside it.
+  // Rows are permanent and one turn's worth is all a turn gets, so a bad element
+  // costs itself and nothing else.
+  .array(z.unknown())
+  .transform((a) => a.flatMap((el) => {
+    const r = LedgerRowInputSchema.safeParse(el);
+    return r.success ? [r.data] : [];
+  }))
+  .transform((a) => a.filter((r) => r.text !== ""))
+  .transform((a) => (a.length > LEDGER_MAX_ROWS_PER_TURN ? a.slice(0, LEDGER_MAX_ROWS_PER_TURN) : a))
+  .catch([])
+  .default([]);
+
 /** The canonical set of terminal ending tags, lower-cased. */
 export const ENDING_VALUES = ["good", "bittersweet", "pyrrhic", "ambiguous", "bad"] as const;
 
@@ -148,6 +232,7 @@ export const GMLogicResponseSchema = z.object({
   state: GameStateSchema,
   ending: EndingSchema,
   ambience: AmbienceInputSchema,
+  story_ledger_append: StoryLedgerAppendSchema,
 });
 
 /**
@@ -160,6 +245,7 @@ export const GMResponseSchema = z.object({
   state: GameStateSchema.optional().default(() => GameStateSchema.parse({})),
   ending: EndingSchema,
   ambience: AmbienceInputSchema,
+  story_ledger_append: StoryLedgerAppendSchema,
 });
 
 // Type exports — keep parity with the `src/types.ts` names so consumers retain

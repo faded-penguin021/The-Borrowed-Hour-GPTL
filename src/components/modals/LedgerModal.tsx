@@ -1,5 +1,5 @@
-import React from "react";
-import type { PlayerLedger, Premise } from "../../types";
+import React, { useEffect, useState } from "react";
+import type { ContinuityFinding, PlayerLedger, Premise } from "../../types";
 import { realmText } from "../../data/realmStyles";
 import { Modal } from "../ui/Modal";
 import { X } from "lucide-react";
@@ -9,10 +9,13 @@ interface LedgerModalProps {
   // PlayerLedger, not GameState: the modal structurally cannot receive
   // hidden_state. Callers project via `toPlayerLedger` at the render boundary.
   ledger: PlayerLedger;
+  // Advisory findings from the last turn, already projected to their player
+  // voice (`note`). Empty on an ordinary turn, which is most turns.
+  findings?: ContinuityFinding[];
   onClose: () => void;
 }
 
-export function LedgerModal({ premise, ledger, onClose }: LedgerModalProps) {
+export function LedgerModal({ premise, ledger, findings = [], onClose }: LedgerModalProps) {
   const realmColor = realmText[premise.realm];
   const has = (a: unknown) => Array.isArray(a) && a.length > 0;
   const empty = !ledger || !ledger.scene && !ledger.time && !has(ledger.inventory) && !has(ledger.npcs) && !has(ledger.clues) && !ledger.summary;
@@ -29,6 +32,7 @@ export function LedgerModal({ premise, ledger, onClose }: LedgerModalProps) {
           </div>
           <button
             onClick={onClose}
+            aria-label="Close the ledger"
             className="font-display font-medium text-sm text-cream-dim tracking-[0.2em]"
           >
             <X size={16} strokeWidth={1.5} />
@@ -94,8 +98,70 @@ export function LedgerModal({ premise, ledger, onClose }: LedgerModalProps) {
               )}
             </>
           )}
+          <MarginNotes findings={findings} color={realmColor} />
         </div>
     </Modal>
+  );
+}
+
+/**
+ * The continuity findings, and the only place a player meets them.
+ *
+ * Two properties are the whole design, and both are deliberate:
+ *
+ * 1. **It is silent until opened.** No badge on the ledger button, no count in
+ *    the header, nothing outside this modal. A finding can point straight at a
+ *    spoiler -- "something added this turn was ruled out earlier" tells you the
+ *    clue you just found is a dead end -- so the player has to reach for it
+ *    twice, once to open the ledger and once to unfold this. A notice that
+ *    announces itself would spend the spoiler on a player who never asked.
+ * 2. **It renders `note`, never `detail`.** `detail` names `hidden_state` and
+ *    story-ledger row ids: a memory tier the player is not shown at all.
+ *
+ * Advisory throughout -- nothing here changes the story. The rules report; the
+ * player decides whether the hour still hangs together.
+ */
+function MarginNotes({ findings, color }: { findings: ContinuityFinding[]; color?: string }) {
+  const [open, setOpen] = useState(false);
+
+  // Re-fold whenever a new turn's verdict arrives. `SET_CONTINUITY` dispatches a
+  // fresh array every turn, so reference identity IS "these are new findings".
+  //
+  // Without this the fold is one-way for the life of the modal: the ledger stays
+  // openable mid-turn, so a player who unfolds turn N's note and leaves the modal
+  // up is shown turn N+1's already unfolded -- reaching once for a surface whose
+  // whole point is that you reach twice. An intervening clean turn does not save
+  // it either: an empty `findings` renders nothing but does not unmount this.
+  useEffect(() => { setOpen(false); }, [findings]);
+
+  if (findings.length === 0) return null;
+  const summary = findings.length === 1
+    ? "One note was left in the margin this turn."
+    : `${findings.length} notes were left in the margin this turn.`;
+  return (
+    <LedgerBlock label="IN THE MARGIN" color={color}>
+      {/* The button stays mounted in both states: it carries the disclosure's
+          `aria-expanded`, which nothing would announce if it were swapped out
+          for the list, and it is the only way back to folded. */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-controls="margin-notes"
+        className="italic text-left text-cream-faint hover:text-cream-dim"
+      >
+        {summary}
+        {open ? "" : " They may tell you more about the story than it has told you. Read them?"}
+      </button>
+      {/* Rendered only when unfolded, not merely hidden: a folded note that sits
+          in the DOM is a spoiler one devtools pane away. */}
+      {open && (
+        <ul id="margin-notes" className="space-y-2 mt-2">
+          {findings.map((f, i) => (
+            <li key={i} className="italic text-cream-dim">— {f.note}</li>
+          ))}
+        </ul>
+      )}
+    </LedgerBlock>
   );
 }
 

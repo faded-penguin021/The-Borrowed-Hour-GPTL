@@ -178,6 +178,34 @@ describe("createGameLoop", () => {
       expect(starts).toHaveLength(1);
     });
 
+    it("is cancellable while the ambience engine is still warming", async () => {
+      // The ambience warm-up is the one `await` between "the player committed to
+      // this turn" and "there is something to cancel". Its first call per session
+      // fetches a lazy chunk over the network, so a save loaded inside that window
+      // used to find `abortRef.current === null`, cancel nothing, and be clobbered
+      // by the turn resuming over it.
+      const warming = deferred<null>();
+      const deps = makeDeps({
+        getState: () => MID_GAME,
+        ambience: {
+          ensureAmbienceEngine: vi.fn(() => warming.promise),
+          ambienceRef: { current: null },
+          ambienceEnabled: false,
+        },
+      });
+      const loop = createGameLoop(deps);
+      const p = loop.submit("go east");
+
+      // There is a live abort ref BEFORE the warm-up settles.
+      await vi.waitFor(() => expect(deps.abortRef.current).not.toBeNull());
+      loop.cancelRequest();
+
+      warming.resolve(null);
+      await p;
+      // The turn never reached the provider.
+      expect(deps.callAPI).not.toHaveBeenCalled();
+    });
+
     it("a second submit while a turn is in flight is a blocked no-op", async () => {
       const gate = deferred<string>();
       const deps = makeDeps({ callAPI: vi.fn(() => gate.promise), getState: () => MID_GAME });

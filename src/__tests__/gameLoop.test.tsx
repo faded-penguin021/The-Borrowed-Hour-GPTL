@@ -366,6 +366,56 @@ describe("submit — split GM→Narrator flow", () => {
   });
 });
 
+describe("submit — the story ledger round-trips into the next turn's prompt", () => {
+  // The tier's whole claim is that a fact survives a turn boundary the mutable
+  // state cannot carry. The only way to see that from outside is end-to-end:
+  // turn 1 proposes a row, turn 2's GM prompt must open with it. Nothing here
+  // reads the reducer directly, so a producer that dispatched into the void
+  // (or a prompt that dropped the block) fails this.
+  const GM_WITH_ROWS = JSON.stringify({
+    ...JSON.parse(GM_LOGIC),
+    story_ledger_append: [
+      { kind: "established", text: "Mara unlocked the door herself." },
+      { kind: "ruled_out", text: "The brass key will never open the east wing." }
+    ]
+  });
+
+  it("appends the GM's rows and reads them back at the top of the next turn", async () => {
+    H.ctrl.gm = [GM_WITH_ROWS, GM_LOGIC];
+    mount();
+    await startGame();
+    await act(async () => { await current.actions.submit("open the door"); });
+    await act(async () => { await current.actions.submit("go east"); });
+
+    const gmCalls = H.callAPI.mock.calls.filter((c) => c[2] === true && c[7] === GM_LOGIC_TOOL);
+    expect(gmCalls).toHaveLength(2);
+
+    const firstMsgs = gmCalls[0][1] as ChatMessage[];
+    expect(String(firstMsgs[firstMsgs.length - 1].content)).not.toContain("STORY LEDGER");
+
+    const secondMsgs = gmCalls[1][1] as ChatMessage[];
+    const latest = String(secondMsgs[secondMsgs.length - 1].content);
+    expect(latest).toContain("STORY LEDGER");
+    expect(latest).toContain("L-001");
+    expect(latest).toContain("Mara unlocked the door herself.");
+    expect(latest).toContain("RULED OUT");
+    // Above the mutable state, and above the player's action.
+    expect(latest.indexOf("STORY LEDGER")).toBeLessThan(latest.indexOf("CURRENT GAME STATE"));
+    expect(latest.indexOf("STORY LEDGER")).toBeLessThan(latest.indexOf("[Player action]"));
+  });
+
+  it("emits no ledger block when the GM has proposed nothing", async () => {
+    mount();
+    await startGame();
+    await act(async () => { await current.actions.submit("open the door"); });
+    await act(async () => { await current.actions.submit("go east"); });
+
+    const gmCalls = H.callAPI.mock.calls.filter((c) => c[2] === true && c[7] === GM_LOGIC_TOOL);
+    const secondMsgs = gmCalls[1][1] as ChatMessage[];
+    expect(String(secondMsgs[secondMsgs.length - 1].content)).not.toContain("STORY LEDGER");
+  });
+});
+
 describe("submit — malformed GM response triggers one corrective retry", () => {
   it("retries the GM stage once, then succeeds", async () => {
     H.ctrl.gm = ["this is not valid json at all", GM_LOGIC];

@@ -3,7 +3,8 @@ import {
   storyReducer, INITIAL_STATE,
   type StoryState, type LoadSavePayload,
 } from "../context/storyReducer";
-import { EMPTY_STATE } from "../data/constants";
+import { turnOf } from "../context/storyLedger";
+import { EMPTY_LEDGER, EMPTY_STATE } from "../data/constants";
 import type { ChatMessage, Entry, GameState, Premise } from "../types";
 
 const narration = (text: string): Entry => ({
@@ -56,6 +57,7 @@ describe("UNDO", () => {
       entries: undoneEntries,
       history: undoneHistory,
       gameState: EMPTY_STATE,
+      turn: turnOf(undoneHistory),
     });
     expect(result.entries).toEqual(undoneEntries);
     expect(result.history).toEqual(undoneHistory);
@@ -65,7 +67,7 @@ describe("UNDO", () => {
   it("resets ended to false", () => {
     const before = playing({ ended: true });
     const result = storyReducer(before, {
-      type: "UNDO", entries: [], history: [], gameState: EMPTY_STATE,
+      type: "UNDO", entries: [], history: [], gameState: EMPTY_STATE, turn: 0,
     });
     expect(result.ended).toBe(false);
   });
@@ -73,10 +75,10 @@ describe("UNDO", () => {
   it("clears error and recovery", () => {
     const before = playing({
       error: { message: "boom", detail: null, raw: null },
-      recovery: { narratorSys: "", narratorPrompt: "", gmParsed: {}, baseEntries: [], baseHistory: [], partial: "" },
+      recovery: { narratorSys: "", narratorPrompt: "", gmParsed: {}, baseEntries: [], baseHistory: [], partial: "", baseState: EMPTY_STATE, baseLedger: EMPTY_LEDGER },
     });
     const result = storyReducer(before, {
-      type: "UNDO", entries: [], history: [], gameState: EMPTY_STATE,
+      type: "UNDO", entries: [], history: [], gameState: EMPTY_STATE, turn: 0,
     });
     expect(result.error).toBeNull();
     expect(result.recovery).toBeNull();
@@ -89,7 +91,7 @@ describe("UNDO", () => {
     });
     const undoneHistory = [msg("assistant", "a"), msg("user", "b")];
     const result = storyReducer(before, {
-      type: "UNDO", entries: [], history: undoneHistory, gameState: EMPTY_STATE,
+      type: "UNDO", entries: [], history: undoneHistory, gameState: EMPTY_STATE, turn: turnOf(undoneHistory),
     });
     expect(result.frozenPrefixLength).toBe(2);
   });
@@ -98,7 +100,7 @@ describe("UNDO", () => {
     const before = playing({ frozenPrefixLength: 1 });
     const undoneHistory = [msg("assistant", "a"), msg("user", "b"), msg("assistant", "c")];
     const result = storyReducer(before, {
-      type: "UNDO", entries: [], history: undoneHistory, gameState: EMPTY_STATE,
+      type: "UNDO", entries: [], history: undoneHistory, gameState: EMPTY_STATE, turn: turnOf(undoneHistory),
     });
     expect(result.frozenPrefixLength).toBe(1);
   });
@@ -111,7 +113,7 @@ describe("UNDO", () => {
     // After undo, history has 3 messages; with a 2-message head only 1 is droppable.
     const undoneHistory = [msg("assistant", "a"), msg("user", "b"), msg("assistant", "c")];
     const result = storyReducer(before, {
-      type: "UNDO", entries: [], history: undoneHistory, gameState: EMPTY_STATE,
+      type: "UNDO", entries: [], history: undoneHistory, gameState: EMPTY_STATE, turn: turnOf(undoneHistory),
     });
     expect(result.prunedPrefixLength).toBe(1);
   });
@@ -226,10 +228,36 @@ describe("LOAD_SAVE", () => {
     history: [msg("assistant", "saved text")],
     ended: true,
     gameState: STATE_WITH_HISTORY,
+    ledger: EMPTY_LEDGER,
     language: "fr",
     metaMessages: [{ role: "user", text: "hello", fullyRevealed: true }],
     metaMode: true,
   };
+
+  // The bug this pins: LoadSavePayload carried `ledger` and the reducer never
+  // read it, so loading save B kept save A's permanent memory and the next
+  // write persisted A's rows into B's record. TypeScript cannot see an unread
+  // payload field, and a payload carrying EMPTY_LEDGER cannot either -- so the
+  // fixture below deliberately differs from what the previous state holds.
+  it("applies the ledger from the payload instead of keeping the live one", () => {
+    const live: StoryState = {
+      ...INITIAL_STATE,
+      ledger: {
+        rows: [{ id: "L-001", turn: 1, kind: "established", text: "from the game being left" }],
+        chronicle: "an earlier game",
+        rolled: 20,
+      },
+    };
+    const incoming = {
+      rows: [{ id: "L-007", turn: 4, kind: "ruled_out" as const, text: "from the game being loaded" }],
+      chronicle: "",
+      rolled: 0,
+    };
+    const result = storyReducer(live, { type: "LOAD_SAVE", payload: { ...payload, ledger: incoming } });
+    expect(result.ledger).toEqual(incoming);
+    expect(result.ledger.rows.some((r) => r.text === "from the game being left")).toBe(false);
+    expect(result.ledger.chronicle).toBe("");
+  });
 
   it("replaces state from save payload", () => {
     const result = storyReducer(INITIAL_STATE, { type: "LOAD_SAVE", payload });
@@ -247,7 +275,7 @@ describe("LOAD_SAVE", () => {
   it("clears error, recovery, and resets frozenPrefixLength", () => {
     const dirty = playing({
       error: { message: "err", detail: null, raw: null },
-      recovery: { narratorSys: "", narratorPrompt: "", gmParsed: {}, baseEntries: [], baseHistory: [], partial: "" },
+      recovery: { narratorSys: "", narratorPrompt: "", gmParsed: {}, baseEntries: [], baseHistory: [], partial: "", baseState: EMPTY_STATE, baseLedger: EMPTY_LEDGER },
       frozenPrefixLength: 10,
     });
     const result = storyReducer(dirty, { type: "LOAD_SAVE", payload });

@@ -1,5 +1,6 @@
 import type {
-  AppSettings, CodexMode, CodexSettings, EndingType, EngineConfig, GameState, SizeEstimate
+  AppSettings, CodexMode, CodexSettings, EndingType, EngineConfig, GameState, SizeEstimate,
+  StoryLedger
 } from "../types";
 
 export const SAVE_PREFIX = "borrowed:save:";
@@ -94,6 +95,61 @@ export const EMPTY_STATE: GameState = {
   clues: [],
   summary: "",
   hidden_state: ""
+};
+
+// ── Permanent-memory bounds ──────────────────────────────────────────────────
+// The ledger is injected into every turn's prompt, so it is a tier the model
+// must read and therefore a tier that has to be bounded. The three numbers live
+// here together rather than beside their uses: a threshold you cannot find is a
+// threshold nobody tunes.
+//
+// The row cap TRUNCATES rather than rejects, which is a deliberate departure
+// from how the repo's own docs/LEDGER.md cap works. There the author can be told
+// to rewrite; here the author is a model mid-turn that gets no second pass, and
+// dropping an over-long row loses the fact outright. Half a fact beats none.
+export const LEDGER_ROW_CHAR_CAP = 240;
+// Rows held verbatim. Past this, the oldest batch folds into the chronicle.
+export const LEDGER_MAX_ROWS = 60;
+// Folded per rollover. Batching keeps the fold rare instead of once per turn.
+export const LEDGER_ROLLOVER_BATCH = 20;
+// Rows one turn may add. Without a bound, a single GM reply can fold rows from
+// the very turn it is playing -- and an undo of that turn cannot retract them,
+// because the chronicle is frozen. Also what stops one turn flooding the tier.
+export const LEDGER_MAX_ROWS_PER_TURN = 6;
+// The frozen chronicle's ceiling, enforced as it is folded rather than at the
+// storage boundary. A cap applied only on load trims the newest folded text a
+// little more on every save/load cycle; enforced here, the in-memory value and
+// the stored one are the same value and the round trip is idempotent.
+export const LEDGER_CHRONICLE_CHAR_CAP = 20_000;
+// What the chronicle may spend of a PROMPT, which is a different budget from
+// what it may spend of a save. The block lands in the last user message, which
+// the history pruner can never drop (it is inside MIN_TAIL), so at the storage
+// cap the tier alone could take 20 KB of a 60 KB request on the tightest
+// provider -- eating more of the budget than the pruning it exists to survive.
+// Trimmed at render, never in storage: the folded text stays whole on disk.
+export const LEDGER_PROMPT_CHRONICLE_CHAR_CAP = 4_000;
+
+// Consecutive words that must coincide before the continuity rules call a
+// private note "present" in the prose or the public state. Long enough that a
+// match is not coincidence in ordinary writing; short enough to catch a
+// sentence copied across. Lowering it buys false positives, not sensitivity --
+// a paraphrase evades any value of this, which is a limit of the approach
+// rather than of the number.
+export const CONTINUITY_LEAK_NGRAM_WORDS = 6;
+
+// The same threshold for a script with no spaces between words (Han, kana),
+// where the word window above is unreachable -- a whole sentence is one or two
+// whitespace tokens, so the rules would sit inert for ja / zh. Characters carry
+// more meaning each there, so the window is counted in them and set shorter:
+// roughly the same "not by chance" weight as six English words. Only text that
+// is MAJORITY unsegmented is measured this way -- and Korean is NOT, despite
+// shipping: it spaces its words, so `ko` takes the word window.
+export const CONTINUITY_LEAK_UNSEGMENTED_CHARS = 12;
+
+export const EMPTY_LEDGER: StoryLedger = {
+  rows: [],
+  chronicle: "",
+  rolled: 0
 };
 
 export const VALID_ENDINGS: Set<EndingType> = new Set<EndingType>([

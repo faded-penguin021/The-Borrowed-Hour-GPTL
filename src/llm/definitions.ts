@@ -1,4 +1,5 @@
 import type { ToolDefinition } from "../types";
+import { LEDGER_MAX_ROWS_PER_TURN } from "../data/constants";
 import {
   AMBIENCE_SPACE_VALUES,
   AMBIENCE_POPULATION_VALUES,
@@ -91,6 +92,35 @@ export const STATE_SCHEMA: Record<string, unknown> = {
   required: ["ledger", "hidden_state"]
 };
 
+// The permanent-memory tier's inbox. Note the field name: the `ledger` sub-object
+// inside STATE_SCHEMA is the player-facing DIARY, rewritten wholesale every turn.
+// This is the other tier -- appended to, never rewritten -- and the two must not
+// share a word in one payload, so everything a model can see says `story_ledger`.
+export const STORY_LEDGER_APPEND_SCHEMA: Record<string, unknown> = {
+  type: "array",
+  // The advertised number IS the enforced one. Said twice in prose here and once
+  // more in the system prompt, so it is interpolated rather than typed out: a
+  // description promising three while the parser accepts six is the prose/guard
+  // drift this repo treats as a defect in its own rules.
+  maxItems: LEDGER_MAX_ROWS_PER_TURN,
+  items: {
+    type: "object",
+    properties: {
+      kind: {
+        type: "string",
+        enum: ["established", "ruled_out"],
+        description: "established = the story has settled this as true. ruled_out = the story has CLOSED this off (a door that is sealed, a suspect who is cleared, a route that failed). Ruled-out rows are why the tier exists: without them a later turn quietly re-opens what an earlier one shut."
+      },
+      text: {
+        type: "string",
+        description: "One settled fact, one sentence, stated plainly and permanently. Write it so it still reads true fifty turns from now: no 'currently', no 'about to', nothing that a later turn will falsify. This row can never be edited or deleted, so do not record anything in motion."
+      }
+    },
+    required: ["kind", "text"]
+  },
+  description: `OPTIONAL, and usually empty. Zero to ${LEDGER_MAX_ROWS_PER_TURN} rows this turn (one or two is a normal maximum in practice), only for facts that are now PERMANENT: an identity revealed for good, a death, a bargain struck, a door closed for the rest of the story. This is the one memory that survives — the diary above is rewritten every turn and old turns scroll out of your history entirely, but rows here are read back to you verbatim on every future turn and can never be revised. That permanence cuts both ways: a wrong row is wrong forever, so emit nothing you are not sure of. Do NOT restate a row already in the STORY LEDGER block, do NOT log ordinary turn events (a conversation, a move, a mood), and do NOT mirror the diary. Most turns settle nothing permanent — an empty list is the correct answer then.`
+};
+
 export const AMBIENCE_SCHEMA: Record<string, unknown> = {
   type: "object",
   description: "Optional scene audio. Omit any field to hold its previous value. Pass null for space, population, or mood to fade that lane to silence.",
@@ -119,6 +149,7 @@ function makeGMLogicTool(ambience: boolean): ToolDefinition {
       description: "A compressed brief for the SEPARATE Narrator who writes the player-facing prose this turn — NOT the prose itself. Give the Narrator the beats to render, who speaks and how, the sensory anchors to reach for, the tone, and explicitly what is SHOWN versus WITHHELD this turn. The Narrator never sees your gm_scratchpad or hidden_state, so the brief must be public-safe: it may direct HOW something is revealed, but it must not hand over GM-only knowledge (hidden identities, offstage moves, twist mechanics, clocks, faction names not yet spoken) the player has not earned — anything you put here can reach the prose. Keep it tight: a short paragraph or two of direction."
     },
     state: STATE_SCHEMA,
+    story_ledger_append: STORY_LEDGER_APPEND_SCHEMA,
     ending: {
       type: "string",
       enum: ["ongoing", "good", "bittersweet", "pyrrhic", "ambiguous", "bad"],
@@ -145,6 +176,7 @@ function makeGMTool(ambience: boolean): ToolDefinition {
       description: "The prose the player will read this turn. Second person, present tense, full literary atmosphere. Length per the system prompt's per-turn rules. Plain prose — no markdown."
     },
     state: STATE_SCHEMA,
+    story_ledger_append: STORY_LEDGER_APPEND_SCHEMA,
     ending: {
       type: "string",
       enum: ["ongoing", "good", "bittersweet", "pyrrhic", "ambiguous", "bad"],

@@ -12,6 +12,13 @@ set -euo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# Re-arm this repo's own one-time advisories for the new session. Their markers live under
+# /tmp keyed by repo and uid with no session component, so in a container that outlives one
+# session the first session to trip one would spend it for every session after. The shipped
+# bootstrap clears the harness's own markers and cannot be expected to know about ours.
+# Enumerated, never globbed on the repo slug: `<slug>*` would also match a sibling checkout.
+rm -f "/tmp/borrowed-python-edit-advisory-${UID:-unknown}-$(printf '%s' "${ROOT//\//_}" | tr ' ' '_')"
+
 # Supply-chain tripwires BEFORE the install, so a poisoned lockfile (a new install script,
 # a banned family, a planted config file) is caught before `npm ci` can execute any
 # lifecycle script. The guard is zero-dependency by design.

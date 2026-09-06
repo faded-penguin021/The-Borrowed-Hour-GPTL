@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import type { SyntheticEvent as ReactSyntheticEvent } from "react";
 import type {
   ChatMessage, CodexSnapshot, Entry, GameState, MetaMessage, Premise,
-  SaveBanner, SaveListEntry, SaveRecord, ThrownError
+  SaveBanner, SaveListEntry, SaveRecord, StoryLedger, ThrownError
 } from "../types";
 import { SAVE_PREFIX, AUTOSAVE_KEY, SAVE_CAP, estimateSize, formatKB, formatTokens } from "../data/constants";
 import { putImage, deleteImagesForSave, putDoc, getDoc } from "../storage/imageStore";
@@ -20,6 +20,7 @@ export interface SaveCurrentArgs {
   metaMode: boolean;
   language: string;
   codex: CodexSnapshot | null;
+  ledger: StoryLedger;
 }
 
 interface ExportChronicleArgs {
@@ -58,6 +59,7 @@ function buildSavePayload(
     turns: args.entries.filter((e) => e.type === "action").length,
     ended: args.ended,
     gameState: args.gameState,
+    ledger: args.ledger,
     entries,
     history: args.history,
     metaMessages: args.metaMessages.map((m) => ({ ...m, fullyRevealed: true })),
