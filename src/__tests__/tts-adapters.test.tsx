@@ -15,14 +15,18 @@ import { AzureTTSAdapter } from "../tts/adapters/azure";
 import { BrowserTTSAdapter } from "../tts/adapters/browser";
 import { CONNECT_SRC_ORIGINS } from "../security/origins";
 
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /** True when a URL's origin is covered by a declared connect-src entry
- * (honoring single-label `*` wildcards, e.g. `https://*.tts.speech...`). */
+ * (honoring single-label `*` wildcards, e.g. `https://*.tts.speech...`).
+ * Every literal segment is escaped whole, so only the `*` separators become
+ * pattern; a metacharacter in a declared origin can never leak into the regex. */
 function originAllowed(url: string): boolean {
   const origin = new URL(url).origin;
   return CONNECT_SRC_ORIGINS.some((pat) => {
     if (pat === origin) return true;
     if (!pat.includes("*")) return false;
-    const re = new RegExp("^" + pat.replace(/[.]/g, "\\.").replace(/\*/g, "[^.]+") + "$");
+    const re = new RegExp("^" + pat.split("*").map(escapeRegExp).join("[^.]+") + "$");
     return re.test(origin);
   });
 }

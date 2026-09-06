@@ -120,6 +120,15 @@ story ledger holds continuity past a history prune at turn 40+.
 One line per shipped change or completed unit (newest first). Detail lives in git; the
 durable lessons live in `docs/LEDGER.md`.
 
+- 2026-09-06 — **Two CodeQL warnings on `main` closed, both in test code.** The
+  connect-src wildcard matcher in `tts-adapters.test.tsx` escaped only `.` before building
+  its regex, so any other metacharacter in a declared origin would have reached the pattern
+  — literal segments are now escaped whole and only the `*` separators become pattern. The
+  BYOB proxy e2e asserted `decodeURIComponent(url).includes("api.openai.com")`, which a path
+  or neighbouring param could satisfy; it now parses `?target=` and compares the hostname,
+  which is also the stronger assertion. No runtime code changed. Ladder green; the proxy spec
+  run locally with `PW_CHROMIUM`.
+
 - 2026-09-06 — **Rule review of the split: 13 findings, all triaged.** The worst were mine to
   own: the relocated rule-review scope list said "this file" and so had quietly stopped covering
   `CLAUDE.md`; the leaked-credential protocol had no pointer from the constitution at all; and
