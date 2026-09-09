@@ -15,7 +15,7 @@ import { ReplicatePredictionSchema } from "./responseSchemas";
 
 export const POLLINATIONS_DEFAULT_MODEL = "sana";
 export const REPLICATE_DEFAULT_MODEL = "black-forest-labs/flux-schnell";
-export const OPENAI_IMAGE_DEFAULT_MODEL = "gpt-image-2";
+export const OPENAI_IMAGE_DEFAULT_MODEL = "gpt-image-2.5-flare";
 export const LOCAL_IMAGE_DEFAULT_URL = "http://localhost:7860/sdapi/v1/txt2img";
 
 // gpt-image models OpenAI has retired or folded into gpt-image-2. Any of these
@@ -41,12 +41,15 @@ export const OPENAI_IMAGE_DEFAULT_SIZE = "1024x1024";
 export const OPENAI_IMAGE_DEFAULT_QUALITY = "low";
 export const OPENAI_IMAGE_DEFAULT_FORMAT = "png";
 
-// checked: 2026-08-05. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
-// gpt-image-* models remain for the OpenAI images endpoint. Pollinations'
-// free/keyless router has collapsed to a single live model — requesting
-// anything else no longer errors, it silently serves `sana` instead
-// (confirmed via `x-model-used` response header), so the old multi-model
-// list here was actively misleading.
+// checked: 2026-09-09. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
+// gpt-image-* models remain for the OpenAI images endpoint. OpenAI shipped
+// gpt-image-2.5 (flare/sunburst) on 2026-09-08, superseding gpt-image-2 as
+// the default; gpt-image-2 itself is not deprecated, just no longer current,
+// so it is not in DEPRECATED_OPENAI_IMAGE_MODELS. Pollinations' free/keyless
+// router has collapsed to a single live model — requesting anything else no
+// longer errors, it silently serves `sana` instead (confirmed via
+// `x-model-used` response header), so the old multi-model list here was
+// actively misleading.
 export const IMAGE_PROVIDER_META: Record<ImageProviderId, ImageProviderMeta & { keyless?: boolean, reusesLLMProvider?: string, windowKey?: string, description?: string }> = {
   pollinations: {
     name: "Pollinations",
@@ -78,7 +81,8 @@ export const IMAGE_PROVIDER_META: Record<ImageProviderId, ImageProviderMeta & { 
     description: "Reuses your OpenAI API key (gpt-image family).",
     defaultModel: OPENAI_IMAGE_DEFAULT_MODEL,
     models: [
-      { id: "gpt-image-2", tier: "flagship" }
+      { id: "gpt-image-2.5-flare", tier: "fast" },
+      { id: "gpt-image-2.5-sunburst", tier: "flagship" }
     ]
   },
   local: {
