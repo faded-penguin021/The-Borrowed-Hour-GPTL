@@ -120,6 +120,11 @@ story ledger holds continuity past a history prune at turn 40+.
 One line per shipped change or completed unit (newest first). Detail lives in git; the
 durable lessons live in `docs/LEDGER.md`.
 
+- 2026-09-12 — **Vitest 5 coupled upgrade.** `vitest` and `@vitest/coverage-v8` moved to
+  5.0.0 together because the coverage provider's Vitest 5 peer requirement made Dependabot
+  PR #235's isolated bump unresolvable. TypeScript 7 remains upstream-blocked by
+  `typescript-eslint`'s peer range and was not forced.
+
 - 2026-09-06 — **Two CodeQL warnings on `main` closed, both in test code.** The
   connect-src wildcard matcher in `tts-adapters.test.tsx` escaped only `.` before building
   its regex, so any other metacharacter in a declared origin would have reached the pattern
