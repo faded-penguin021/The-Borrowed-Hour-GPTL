@@ -57,7 +57,7 @@ const normalizeClaudeMessages = (msgs: ChatMessage[]): Array<{ role: string; con
   content: normalizeContent(m.content)
 }));
 
-// checked: 2026-09-02
+// checked: 2026-09-16
 export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
   gemini: {
     name: "Gemini",
@@ -65,7 +65,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     windowKey: "GEMINI_API_KEY",
     metaName: "gemini-api-key",
     models: [
-      { id: "gemini-3.7-flash", tier: "free" },
+      { id: "gemini-3.8-flash", tier: "free" },
       { id: "gemini-3.5-flash-lite", tier: "free" }
     ]
   },
@@ -98,7 +98,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     windowKey: "DEEPSEEK_API_KEY",
     metaName: "deepseek-api-key",
     models: [
-      { id: "deepseek-v4-flash", tier: "paid" },
+      { id: "deepseek-flash", tier: "paid" },
       { id: "deepseek-v4-pro", tier: "paid" }
     ]
   },
@@ -109,7 +109,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     metaName: "qwen-api-key",
     models: [
       { id: "qwen3.7-plus", tier: "paid" },
-      { id: "qwen3.7-flash", tier: "paid" },
+      { id: "qwen3.8-flash", tier: "paid" },
       { id: "qwen-plus", tier: "paid" },
       { id: "qwen-flash", tier: "paid" }
     ]
@@ -181,7 +181,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     metaName: "cerebras-api-key",
     models: [
       { id: "gpt-oss-120b", tier: "paid" },
-      { id: "gemma-4-31b", tier: "paid" }
+      { id: "qwen-3.8-27b", tier: "paid" }
     ]
   },
   local: {
@@ -203,11 +203,11 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
 export const PROVIDER_ORDER: ProviderId[] = ["gemini", "openai", "anthropic", "deepseek", "qwen", "kimi", "ernie", "mistral", "groq", "openrouter", "cerebras", "local"];
 export const FREE_MODELS_BY_PROVIDER = {
   free:       { provider: "mistral",    opener: "mistral-large-latest",                gm: "mistral-medium-latest",             narrator: "mistral-medium-latest" },
-  gemini:     { opener: "gemini-3.7-flash",         gm: "gemini-3.7-flash",            narrator: "gemini-3.7-flash" },
+  gemini:     { opener: "gemini-3.8-flash",         gm: "gemini-3.8-flash",            narrator: "gemini-3.8-flash" },
   openai:     { opener: "gpt-5.6-terra",            gm: "gpt-5.6-terra",              narrator: "gpt-5.6-luna" },
   anthropic:  { opener: "claude-sonnet-5",          gm: "claude-haiku-4-5-20251001",  narrator: "claude-haiku-4-5-20251001" },
-  deepseek:   { opener: "deepseek-v4-flash",        gm: "deepseek-v4-flash",          narrator: "deepseek-v4-flash" },
-  qwen:       { opener: "qwen3.7-plus",             gm: "qwen3.7-flash",              narrator: "qwen3.7-flash" },
+  deepseek:   { opener: "deepseek-flash",           gm: "deepseek-flash",             narrator: "deepseek-flash" },
+  qwen:       { opener: "qwen3.7-plus",             gm: "qwen3.8-flash",              narrator: "qwen3.8-flash" },
   kimi:       { opener: "kimi-k3",                   gm: "kimi-k2.6",                  narrator: "kimi-k2.6" },
   ernie:      { opener: "ernie-5.1",                gm: "ernie-4.5-turbo-32k",        narrator: "ernie-4.5-turbo-32k" },
   mistral:    { opener: "mistral-large-latest",     gm: "mistral-medium-latest",      narrator: "mistral-medium-latest" },

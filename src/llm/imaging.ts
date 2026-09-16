@@ -41,7 +41,7 @@ export const OPENAI_IMAGE_DEFAULT_SIZE = "1024x1024";
 export const OPENAI_IMAGE_DEFAULT_QUALITY = "low";
 export const OPENAI_IMAGE_DEFAULT_FORMAT = "png";
 
-// checked: 2026-09-09. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
+// checked: 2026-09-16. DALL-E 2/3 retired by OpenAI on 2026-05-12 — only
 // gpt-image-* models remain for the OpenAI images endpoint. OpenAI shipped
 // gpt-image-2.5 (flare/sunburst) on 2026-09-08, superseding gpt-image-2 as
 // the default; gpt-image-2 itself is not deprecated, just no longer current,
