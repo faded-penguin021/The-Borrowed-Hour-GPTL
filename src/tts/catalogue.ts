@@ -1,6 +1,6 @@
 import type { TTSProviderMeta } from "../types";
 // ── Provider catalogue ───────────────────────────────────────────────────
-// checked: 2026-09-16
+// checked: 2026-09-30
 export const TTS_PROVIDER_META: Record<string, TTSProviderMeta> = {
   browser: {
     id: "browser", name: "Browser", requiresKey: false, reusesLLMKey: null,
@@ -82,7 +82,7 @@ export const TTS_PROVIDER_META: Record<string, TTSProviderMeta> = {
     models: [
       { id: "eleven_flash_v2_5", tier: "fast" },
       { id: "eleven_multilingual_v2", tier: "quality" },
-      { id: "eleven_v3", tier: "flagship" }
+      { id: "eleven_v4", tier: "flagship" }
     ],
     adapterLoader: () => import("./adapters/elevenlabs").then(m => m.ElevenLabsTTSAdapter)
   },
