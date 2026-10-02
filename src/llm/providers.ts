@@ -57,7 +57,7 @@ const normalizeClaudeMessages = (msgs: ChatMessage[]): Array<{ role: string; con
   content: normalizeContent(m.content)
 }));
 
-// checked: 2026-09-23
+// checked: 2026-09-30
 export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
   gemini: {
     name: "Gemini",
@@ -108,7 +108,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     windowKey: "QWEN_API_KEY",
     metaName: "qwen-api-key",
     models: [
-      { id: "qwen3.7-plus", tier: "paid" },
+      { id: "qwen3.8-max", tier: "paid" },
       { id: "qwen3.8-flash", tier: "paid" },
       { id: "qwen-plus", tier: "paid" },
       { id: "qwen-flash", tier: "paid" }
@@ -206,7 +206,7 @@ export const FREE_MODELS_BY_PROVIDER = {
   openai:     { opener: "gpt-5.6-terra",            gm: "gpt-5.6-terra",              narrator: "gpt-5.6-luna" },
   anthropic:  { opener: "claude-sonnet-5",          gm: "claude-haiku-4-5-20251001",  narrator: "claude-haiku-4-5-20251001" },
   deepseek:   { opener: "deepseek-flash",           gm: "deepseek-flash",             narrator: "deepseek-flash" },
-  qwen:       { opener: "qwen3.7-plus",             gm: "qwen3.8-flash",              narrator: "qwen3.8-flash" },
+  qwen:       { opener: "qwen3.8-max",              gm: "qwen3.8-flash",              narrator: "qwen3.8-flash" },
   kimi:       { opener: "kimi-k3",                   gm: "kimi-k2.6",                  narrator: "kimi-k2.6" },
   ernie:      { opener: "ernie-5.1",                gm: "ernie-4.5-turbo-32k",        narrator: "ernie-4.5-turbo-32k" },
   mistral:    { opener: "mistral-large-latest",     gm: "mistral-medium-latest",      narrator: "mistral-medium-latest" },
