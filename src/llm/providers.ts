@@ -90,6 +90,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
       { id: "claude-opus-5-5", tier: "paid" },
       { id: "claude-sonnet-5-5", tier: "paid" },
       { id: "claude-sonnet-5", tier: "paid" },
+      { id: "claude-haiku-5-5", tier: "paid" },
       { id: "claude-haiku-4-5-20251001", tier: "paid" }
     ]
   },
