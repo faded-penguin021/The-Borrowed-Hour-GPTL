@@ -63,7 +63,7 @@ Mistral's free tier on the experimental API is generous enough for repeated per-
 |---|---|
 | **Gemini** | `gemini-3.8-flash`, `gemini-3.5-flash-lite` |
 | **OpenAI** | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
-| **Claude** | `claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5`, `claude-haiku-4-5-20251001` |
+| **Claude** | `claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-haiku-5-5`, `claude-haiku-4-5-20251001` |
 | **DeepSeek** | `deepseek-flash`, `deepseek-v4-pro` |
 | **Qwen** | `qwen3.8-max`, `qwen3.8-flash`, `qwen-plus`, `qwen-flash` |
 | **Kimi** | `kimi-k3`, `kimi-k2.7-code`, `kimi-k2.6` |
