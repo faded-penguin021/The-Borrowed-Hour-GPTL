@@ -57,7 +57,7 @@ const normalizeClaudeMessages = (msgs: ChatMessage[]): Array<{ role: string; con
   content: normalizeContent(m.content)
 }));
 
-// checked: 2026-09-30
+// checked: 2026-10-07
 export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
   gemini: {
     name: "Gemini",
@@ -88,7 +88,9 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     models: [
       { id: "claude-fable-5-1", tier: "paid" },
       { id: "claude-opus-5-5", tier: "paid" },
+      { id: "claude-sonnet-5-5", tier: "paid" },
       { id: "claude-sonnet-5", tier: "paid" },
+      { id: "claude-haiku-5-5", tier: "paid" },
       { id: "claude-haiku-4-5-20251001", tier: "paid" }
     ]
   },
