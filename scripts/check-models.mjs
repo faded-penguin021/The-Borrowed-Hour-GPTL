@@ -19,7 +19,9 @@
 // hand or let the scheduled catalogue-refresh session drive it:
 //   npm run check:models            (free candidates only)
 //   npm run check:models -- --all   (include paid candidates)
-//   npm run check:models -- --json  (machine-readable, for the agent)
+//   npm run check:models -- --json  (machine-readable, for the agent; never capped)
+//   npm run check:models -- --limit N  (older candidates shown per vendor; default
+//                                       8, 0 = all — newer-than-tracked are never capped)
 // Exit codes: 0 clean · 1 dead ids found (LLM or image endpoint) · 2 couldn't
 // reach OpenRouter.
 // Procedure for curating + opening the PR: docs/model-catalogue-maintenance.md
@@ -44,9 +46,19 @@ const IMAGE_MODEL_ENDPOINTS = {
   pollinations: "https://image.pollinations.ai/models",
 };
 
-const args = new Set(process.argv.slice(2));
+const argv = process.argv.slice(2);
+const args = new Set(argv);
 const AS_JSON = args.has("--json");
 const INCLUDE_PAID = args.has("--all");
+// Cap on the OLDER candidates printed per vendor (text output only). Candidates
+// newer than anything you track are never capped, and the JSON is never capped.
+// `--limit 0` prints everything.
+const limitAt = argv.indexOf("--limit");
+const OLDER_LIMIT = limitAt >= 0 ? Number(argv[limitAt + 1]) : 8;
+if (!Number.isInteger(OLDER_LIMIT) || OLDER_LIMIT < 0) {
+  console.error("--limit takes a non-negative integer (0 = no cap)");
+  process.exit(2);
+}
 
 // Native provider -> OpenRouter vendor prefix that serves the same models.
 //   "*"  — ids ARE OpenRouter slugs (the `openrouter` entry): exact liveness check.
@@ -284,20 +296,44 @@ function analyse(catalogue, orModels) {
       continue;
     }
     const prefix = `${vendor}/`;
-    const found = [];
-    for (const m of orModels) {
+    const vendorModels = orModels.filter((m) => String(m.id).startsWith(prefix));
+    // The newest model you already track for this vendor is the baseline: a
+    // candidate released after it is a new generation, not old backlog.
+    let newestTracked = null;
+    for (const m of vendorModels)
+      if (referencedNorm.has(normalizeId(m.id)) && Number.isFinite(m.created))
+        newestTracked = Math.max(newestTracked ?? 0, m.created);
+    const byNorm = new Map();
+    for (const m of vendorModels) {
       const orId = String(m.id);
-      if (!orId.startsWith(prefix)) continue;
-      const bare = orId.slice(prefix.length).replace(/:[a-z0-9]+$/, "");
+      const norm = normalizeId(orId);
       // Compare on the normalized form so e.g. anthropic/claude-sonnet-4.5
       // dedupes against a native claude-sonnet-4-5 you already list.
-      if (referencedNorm.has(normalizeId(orId))) continue;
+      if (referencedNorm.has(norm)) continue;
       const free = !!orFree.get(m.id);
       if (!free && !INCLUDE_PAID) continue;
-      found.push({ id: orId, bare, free });
+      const created = Number.isFinite(m.created) ? m.created : null;
+      const entry = {
+        id: orId,
+        bare: orId.slice(prefix.length).replace(/:[a-z0-9]+$/, ""),
+        free,
+        created,
+        newer: newestTracked != null && created != null && created > newestTracked
+      };
+      // Collapse routing variants (:batch, :free …) of one model into a single
+      // entry, preferring the free one, then the untagged slug.
+      const prev = byNorm.get(norm);
+      if (!prev || (entry.free && !prev.free) || (entry.free === prev.free && entry.id.length < prev.id.length))
+        byNorm.set(norm, entry);
     }
-    found.sort((a, b) => Number(b.free) - Number(a.free) || a.id.localeCompare(b.id));
-    if (found.length) candidates[provider] = found.slice(0, 8);
+    const found = [...byNorm.values()].sort(
+      (a, b) =>
+        Number(b.newer) - Number(a.newer) ||
+        (b.created ?? 0) - (a.created ?? 0) ||
+        Number(b.free) - Number(a.free) ||
+        a.id.localeCompare(b.id)
+    );
+    if (found.length) candidates[provider] = found;
   }
 
   return { dead, candidates, unverifiable };
@@ -343,9 +379,20 @@ function report(catalogues, orModels, fetchError, result) {
       : `NEW ${scope}candidates: none`
   );
   out.push("  (hints, not drop-ins — a provider's native id may differ from the OpenRouter slug)");
+  out.push("  (newest first; NEWER = released after the newest model you track for that vendor)");
   for (const v of vendors) {
-    out.push(`  ${v}:`);
-    for (const c of result.candidates[v]) out.push(`    + ${c.id}${c.free ? "  (free)" : ""}`);
+    const all = result.candidates[v];
+    const newer = all.filter((c) => c.newer);
+    const older = all.filter((c) => !c.newer);
+    const shownOlder = OLDER_LIMIT === 0 ? older : older.slice(0, OLDER_LIMIT);
+    out.push(`  ${v}: ${all.length} candidate${all.length === 1 ? "" : "s"}, ${newer.length} newer than tracked`);
+    for (const c of [...newer, ...shownOlder]) {
+      const day = c.created ? new Date(c.created * 1000).toISOString().slice(0, 10) : "????-??-??";
+      out.push(`    + ${c.newer ? "NEWER " : "      "}${day}  ${c.id}${c.free ? "  (free)" : ""}`);
+    }
+    const hidden = older.length - shownOlder.length;
+    if (hidden > 0)
+      out.push(`    … ${hidden} older candidate${hidden === 1 ? "" : "s"} not shown (--limit 0 to list all)`);
   }
   if (!INCLUDE_PAID) out.push("  ...rerun with --all to include paid candidates");
 

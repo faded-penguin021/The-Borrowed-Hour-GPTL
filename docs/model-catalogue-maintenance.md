@@ -24,7 +24,12 @@ browser bundle; it's maintenance tooling.
   list (no key): **dead ids** in your `openrouter` entry (exact; these 404 — exit
   code 1) and **new free candidates** OpenRouter lists that you don't reference
   (`--all` adds paid; hints only — a provider's native id may differ from the
-  OpenRouter slug, so confirm before pasting).
+  OpenRouter slug, so confirm before pasting). Candidates are sorted newest
+  first by OpenRouter's release date; any released after the newest model you
+  already track for that vendor is marked **NEWER** and always printed — those
+  are the new generations a refresh must act on. Older candidates are capped per
+  vendor (`--limit N`, default 8, `0` = all) with a count of what was hidden;
+  `--json` is never capped.
 - for the **image and TTS catalogues**, cross-checked against the **keyless**
   provider endpoints the app itself uses (today: Pollinations' model list):
   **dead ids** the endpoint no longer serves (exit code 1). This closes the
