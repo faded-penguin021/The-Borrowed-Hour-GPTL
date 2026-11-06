@@ -62,15 +62,15 @@ Mistral's free tier on the experimental API is generous enough for repeated per-
 | Provider | Models |
 |---|---|
 | **Gemini** | `gemini-3.8-flash`, `gemini-3.5-flash-lite` |
-| **OpenAI** | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
+| **OpenAI** | `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` |
 | **Claude** | `claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-sonnet-5`, `claude-haiku-5-5`, `claude-haiku-4-5-20251001` |
 | **DeepSeek** | `deepseek-flash`, `deepseek-v4-pro` |
 | **Qwen** | `qwen3.8-max`, `qwen3.8-flash`, `qwen-plus`, `qwen-flash` |
-| **Kimi** | `kimi-k3`, `kimi-k2.7-code`, `kimi-k2.6` |
+| **Kimi** | `kimi-k3.1-pro`, `kimi-k3`, `kimi-k2.7-code`, `kimi-k2.6` |
 | **ERNIE** | `ernie-5.1`, `ernie-4.5-turbo-128k`, `ernie-4.5-turbo-32k` |
 | **Mistral** | `mistral-small-latest`, `mistral-medium-latest` (both free), `mistral-large-latest` (free) |
 | **Groq** | `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.8-27b` |
-| **OpenRouter** | `nvidia/nemotron-3-ultra-550b-a55b:free`, `google/gemma-4-31b-it:free`, `anthropic/claude-fable-5.1`, `openai/gpt-5.6-luna`, `openai/gpt-oss-20b`, `moonshotai/kimi-k2.7-code` |
+| **OpenRouter** | `nvidia/nemotron-3-ultra-550b-a55b:free`, `google/gemma-4-31b-it:free`, `anthropic/claude-fable-5.1`, `openai/gpt-6.1-terra`, `openai/gpt-5.6-luna`, `openai/gpt-oss-20b`, `moonshotai/kimi-k2.7-code` |
 | **Cerebras** | `gpt-oss-120b`, `qwen-3.8-27b` |
 | **Local LLM** | `llama3.2`, `llama3.1`, `mistral`, `phi3`, `qwen2.5` (or any custom ID) |
 

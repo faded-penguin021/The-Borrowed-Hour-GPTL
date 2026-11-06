@@ -120,6 +120,12 @@ story ledger holds continuity past a history prune at turn 40+.
 One line per shipped change or completed unit (newest first). Detail lives in git; the
 durable lessons live in `docs/LEDGER.md`.
 
+- 2026-11-05 — **Model catalogue refresh + `check-models` candidate truncation fixed.** The
+  detector capped candidates at 8 per vendor in alphabetical order with no notice, which hid
+  the gpt-6/6.1 family and led a scheduled refresh to report "nothing new". Candidates are
+  now sorted newest first; any released after the newest tracked model is marked NEWER and
+  never capped; older ones show a hidden count (`--limit N`, `0` = all); `--json` is uncapped.
+
 - 2026-09-12 — **Vitest 5 coupled upgrade.** `vitest` and `@vitest/coverage-v8` moved to
   5.0.0 together because the coverage provider's Vitest 5 peer requirement made Dependabot
   PR #235's isolated bump unresolvable. TypeScript 7 remains upstream-blocked by

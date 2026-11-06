@@ -28,6 +28,10 @@ invariant is enforced by `providers.test.ts`, `imaging-catalogue.test.ts`, and
    catalogues and, for the LLM catalogue only, dead ids (exit 1) and new free
    candidates cross-checked against OpenRouter (`--all` adds paid; hints only —
    a native id may differ from the OpenRouter slug, so confirm before pasting).
+   Candidates come newest first; every **NEWER** line (released after the newest
+   model you track for that vendor) is a new generation you must evaluate — never
+   conclude "nothing new" while any are listed. Older ones are capped (`--limit 0`
+   shows all; the hidden count is printed).
    Exit codes: `0` clean · `1` dead ids · `2` couldn't reach OpenRouter.
 
 2. **LLM catalogue** (`src/llm/providers.ts`). Act on the detector's dead ids /

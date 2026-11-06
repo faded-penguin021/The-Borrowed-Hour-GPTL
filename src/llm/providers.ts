@@ -57,7 +57,7 @@ const normalizeClaudeMessages = (msgs: ChatMessage[]): Array<{ role: string; con
   content: normalizeContent(m.content)
 }));
 
-// checked: 2026-10-07
+// checked: 2026-11-05
 export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
   gemini: {
     name: "Gemini",
@@ -75,6 +75,8 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     windowKey: "OPENAI_API_KEY",
     metaName: "openai-api-key",
     models: [
+      { id: "gpt-6.1-sol", tier: "paid" },
+      { id: "gpt-6.1-terra", tier: "paid" },
       { id: "gpt-5.6-sol", tier: "paid" },
       { id: "gpt-5.6-terra", tier: "paid" },
       { id: "gpt-5.6-luna", tier: "paid" }
@@ -122,6 +124,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
     windowKey: "KIMI_API_KEY",
     metaName: "kimi-api-key",
     models: [
+      { id: "kimi-k3.1-pro", tier: "paid" },
       { id: "kimi-k3", tier: "paid" },
       { id: "kimi-k2.7-code", tier: "paid" },
       { id: "kimi-k2.6", tier: "paid" }
@@ -169,6 +172,7 @@ export const PROVIDER_META: Record<ProviderId, ProviderMeta> = {
       { id: "nvidia/nemotron-3-ultra-550b-a55b:free", tier: "free" },
       { id: "google/gemma-4-31b-it:free", tier: "free" },
       { id: "anthropic/claude-fable-5.1", tier: "paid" },
+      { id: "openai/gpt-6.1-terra", tier: "paid" },
       { id: "openai/gpt-5.6-luna", tier: "paid" },
       { id: "openai/gpt-oss-20b", tier: "paid" },
       { id: "moonshotai/kimi-k2.7-code", tier: "paid" }
